@@ -6,28 +6,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 
 type NoteInfo = {
   name: string;
+  octave: number;
   frequency: number;
+  fullName: string;
 };
 
-const notes: NoteInfo[] = [
-  { name: "C", frequency: 261.63 },
-  { name: "C#", frequency: 277.18 },
-  { name: "D", frequency: 293.66 },
-  { name: "D#", frequency: 311.13 },
-  { name: "E", frequency: 329.63 },
-  { name: "F", frequency: 349.23 },
-  { name: "F#", frequency: 369.99 },
-  { name: "G", frequency: 392.00 },
-  { name: "G#", frequency: 415.30 },
-  { name: "A", frequency: 440.00 },
-  { name: "A#", frequency: 466.16 },
-  { name: "B", frequency: 493.88 },
-];
+const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+const generateFullNotePool = (): NoteInfo[] => {
+    const notes: NoteInfo[] = [];
+    // G2 (MIDI 43) to C6 (MIDI 84)
+    for (let midi = 43; midi <= 84; midi++) {
+        const octave = Math.floor(midi / 12) - 1;
+        const name = noteStrings[midi % 12];
+        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+        notes.push({ name, octave, frequency, fullName: `${name}${octave}` });
+    }
+    return notes;
+};
+
+const notePool = generateFullNotePool();
+
+const generateChallenge = (count: number): NoteInfo[] => {
+    const shuffled = [...notePool].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+};
 
 let audioContext: AudioContext | null = null;
 
@@ -126,38 +134,41 @@ const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡
 type Difficulty = "Fácil" | "Medio" | "Difícil";
 
 const difficultySettings = {
-  "Fácil": { tolerance: 25 },
-  "Medio": { tolerance: 15 },
-  "Difícil": { tolerance: 8 },
+  "Fácil": { tolerance: 10, exerciseCount: 15 },
+  "Medio": { tolerance: 10, exerciseCount: 20 },
+  "Difícil": { tolerance: 10, exerciseCount: 40 },
 };
 
 export function Tuner() {
   const { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   
-  const [challengeNote, setChallengeNote] = useState<NoteInfo | null>(null);
+  const [challenge, setChallenge] = useState<NoteInfo[]>([]);
+  const [currentNoteIndex, setCurrentNoteIndex] = useState(0);
+  const [isChallengeActive, setIsChallengeActive] = useState(false);
+
   const [inTuneTime, setInTuneTime] = useState(0);
-  const [completedNotes, setCompletedNotes] = useState<Record<string, boolean>>({});
-  const [allNotesCompleted, setAllNotesCompleted] = useState(false);
   const inTuneSinceRef = useRef<number | null>(null);
+
   const [lastCompletedNote, setLastCompletedNote] = useState<string | null>(null);
   const [completionPhrase, setCompletionPhrase] = useState("");
   
   const [difficulty, setDifficulty] = useState<Difficulty>("Medio");
   const [showDifficultyDialog, setShowDifficultyDialog] = useState(false);
+  const [sessionCompleted, setSessionCompleted] = useState(false);
 
-  const { tolerance: challengeTolerance } = difficultySettings[difficulty];
+  const { tolerance: challengeTolerance, exerciseCount } = difficultySettings[difficulty];
   const challengeDuration = 2000;
 
-  useEffect(() => {
-    if (lastCompletedNote || allNotesCompleted) return;
+  const challengeNote = isChallengeActive ? challenge[currentNoteIndex] : null;
 
-    if (!isDetecting || !challengeNote) {
+  useEffect(() => {
+    if (!isDetecting || !challengeNote || lastCompletedNote || sessionCompleted) {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
       return;
     }
 
-    const isCorrectNote = note.name === challengeNote.name;
+    const isCorrectNote = note.name === challengeNote.name && note.octave === challengeNote.octave;
     const isTolerablyInTune = Math.abs(smoothedCentsOff) < challengeTolerance;
 
     if (isCorrectNote && isTolerablyInTune) {
@@ -169,187 +180,143 @@ export function Tuner() {
       setInTuneTime(sustainedTime);
 
       if (sustainedTime >= challengeDuration) {
-        const newCompletedNotes = { ...completedNotes, [challengeNote.name]: true };
-        setCompletedNotes(newCompletedNotes);
-
-        if (Object.keys(newCompletedNotes).length === notes.length) {
-          setAllNotesCompleted(true);
-          playAllCompletedSound();
-          setShowDifficultyDialog(true);
-        } else {
-          playCompletionSound();
-        }
-        
+        playCompletionSound();
         const randomPhrase = completionPhrases[Math.floor(Math.random() * completionPhrases.length)];
         setCompletionPhrase(randomPhrase);
-        setLastCompletedNote(challengeNote.name);
+        setLastCompletedNote(challengeNote.fullName);
 
-        setChallengeNote(null);
         setInTuneTime(0);
         inTuneSinceRef.current = null;
 
-        setTimeout(() => {
-            setLastCompletedNote(null);
-        }, 2000);
+        if (currentNoteIndex + 1 >= challenge.length) {
+            setSessionCompleted(true);
+            playAllCompletedSound();
+            setShowDifficultyDialog(true);
+            setIsChallengeActive(false);
+        } else {
+            setTimeout(() => {
+                setLastCompletedNote(null);
+                setCurrentNoteIndex(prevIndex => prevIndex + 1);
+            }, 2000);
+        }
       }
     } else {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, challengeNote, lastCompletedNote, allNotesCompleted, completedNotes, challengeTolerance]);
+  }, [note, smoothedCentsOff, isDetecting, challengeNote, lastCompletedNote, sessionCompleted, challenge, currentNoteIndex, challengeTolerance]);
 
-  const handleToggle = () => {
-    if (isDetecting) {
-      stop();
-      setChallengeNote(null);
-      setInTuneTime(0);
-      setLastCompletedNote(null);
-    } else {
-      start();
-    }
-  };
-  
-  const handleNoteClick = (n: NoteInfo) => {
-    if (!isDetecting || completedNotes[n.name] || (challengeNote && challengeNote.name === n.name) || lastCompletedNote || allNotesCompleted) return;
-    playNote(n.frequency);
-    setChallengeNote(n);
-    setInTuneTime(0);
-    inTuneSinceRef.current = null;
-  }
-
-  const handleSelectDifficulty = (newDifficulty: Difficulty) => {
-    setDifficulty(newDifficulty);
-    setCompletedNotes({});
-    setAllNotesCompleted(false);
+  const startNewChallenge = useCallback((diff: Difficulty) => {
+    setDifficulty(diff);
+    const settings = difficultySettings[diff];
+    const newChallenge = generateChallenge(settings.exerciseCount);
+    setChallenge(newChallenge);
+    setCurrentNoteIndex(0);
+    setIsChallengeActive(true);
+    setSessionCompleted(false);
     setShowDifficultyDialog(false);
-    setChallengeNote(null);
+    setLastCompletedNote(null);
     setInTuneTime(0);
     inTuneSinceRef.current = null;
-    setLastCompletedNote(null);
     if (!isDetecting) {
       start();
     }
+  }, [isDetecting, start]);
+
+  const handleToggle = useCallback(() => {
+    if (isDetecting) {
+      stop();
+    } else {
+      if (isChallengeActive && !sessionCompleted) {
+          start();
+      } else {
+          startNewChallenge("Medio");
+      }
+    }
+  }, [isDetecting, stop, start, isChallengeActive, sessionCompleted, startNewChallenge]);
+  
+  const handleSelectDifficulty = (newDifficulty: Difficulty) => {
+    startNewChallenge(newDifficulty);
   };
 
   const isInTune = Math.abs(smoothedCentsOff) < challengeTolerance;
   const challengeProgress = challengeNote ? (inTuneTime / challengeDuration) * 100 : 0;
 
-  const radius = 120;
-  const buttonSize = 48;
-  const containerSize = radius * 2 + buttonSize;
+  useEffect(() => {
+    if (challengeNote && !lastCompletedNote) {
+        playNote(challengeNote.frequency);
+    }
+  }, [challengeNote, lastCompletedNote]);
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-lg">
-       <div className="text-center text-primary font-semibold">
-        <p>Dificultad: <span className="font-bold">{difficulty}</span></p>
-        <p className="text-sm text-muted-foreground">Tolerancia: ±{challengeTolerance} cents</p>
-      </div>
+      {isChallengeActive && (
+        <div className="text-center text-primary font-semibold">
+          <p>Dificultad: <span className="font-bold">{difficulty}</span> ({exerciseCount} notas)</p>
+          <p className="text-sm text-muted-foreground">Tolerancia: ±{challengeTolerance} cents</p>
+        </div>
+      )}
 
-       <div
-        className="relative flex items-center justify-center mt-4"
-        style={{ width: `${containerSize}px`, height: `${containerSize}px` }}
-      >
-        {notes.map((n, i) => {
-          const angle = (i / notes.length) * 2 * Math.PI - Math.PI / 2;
-          const x = Math.cos(angle) * radius;
-          const y = Math.sin(angle) * radius;
-          
-          const isActive = note.name === n.name && isDetecting && !challengeNote && !allNotesCompleted;
-          const isChallenge = challengeNote?.name === n.name;
-          const isCompleted = completedNotes[n.name];
-
-          return (
-            <Button
-              key={n.name}
-              variant={"outline"}
-              className={cn(
-                "absolute aspect-square rounded-full font-bold flex items-center justify-center transition-all duration-200 z-10",
-                "hover:scale-105",
-                isActive ? "bg-accent text-accent-foreground scale-110" : "bg-card",
-                isChallenge && !isCompleted && "animate-pulse border-primary border-2 shadow-lg",
-                isCompleted && "bg-primary text-primary-foreground border-primary",
-              )}
-              style={{
-                width: `${buttonSize}px`,
-                height: `${buttonSize}px`,
-                fontSize: '1.25rem',
-                top: `calc(50% - ${buttonSize / 2}px)`,
-                left: `calc(50% - ${buttonSize / 2}px)`,
-                transform: `translate(${x.toFixed(3)}px, ${y.toFixed(3)}px)`,
-              }}
-              onClick={() => handleNoteClick(n)}
-              disabled={!isDetecting || allNotesCompleted}
-            >
-              {n.name}
-            </Button>
-          );
-        })}
-
-        <Card className="w-48 h-48 rounded-full shadow-lg border-2 border-primary/20 flex items-center justify-center absolute">
-          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-             {allNotesCompleted ? (
-                <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
-                    <Trophy className="w-16 h-16 text-accent" />
-                    <p className="text-3xl font-bold text-primary mt-2">¡Felicidades!</p>
-                    <p className="text-muted-foreground">Escoge una dificultad.</p>
-                </div>
-             ) : isDetecting ? (
-                lastCompletedNote ? (
-                    <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
-                        <CheckCircle2 className="w-12 h-12 text-primary" />
-                        <p className="text-2xl font-bold text-primary mt-2">{completionPhrase}</p>
-                    </div>
-                ) : challengeNote ? (
-                    <div className="flex flex-col items-center justify-center gap-1 w-full">
-                        <p className="text-xs text-muted-foreground">Sostén la nota</p>
-                        <p className="text-4xl font-bold text-primary">{challengeNote.name}</p>
-                        <div className="w-3/4 pt-1">
-                            <Progress value={challengeProgress} className="h-2" />
-                        </div>
-                        <p className="font-mono text-xs text-muted-foreground mt-1">
-                            {`${(inTuneTime / 1000).toFixed(1)}s / ${(challengeDuration / 1000).toFixed(1)}s`}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center">
-                        <p className="text-xs text-muted-foreground">Nota detectada</p>
+      <Card className="w-72 h-72 sm:w-80 sm:h-80 rounded-full shadow-lg border-2 border-primary/20 flex items-center justify-center">
+        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+           { sessionCompleted ? (
+              <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
+                  <Trophy className="w-16 h-16 text-accent" />
+                  <p className="text-3xl font-bold text-primary mt-2">¡Felicidades!</p>
+                  <p className="text-muted-foreground">Escoge una dificultad.</p>
+              </div>
+           ) : isDetecting && isChallengeActive && challengeNote ? (
+              lastCompletedNote ? (
+                  <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
+                      <CheckCircle2 className="w-12 h-12 text-primary" />
+                      <p className="text-2xl font-bold text-primary mt-2">{completionPhrase}</p>
+                  </div>
+              ) : (
+                  <div className="flex flex-col items-center justify-center gap-1 w-full">
+                      <p className="text-lg text-muted-foreground">
+                        Nota {currentNoteIndex + 1} de {challenge.length}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Sostén la nota</p>
+                      <p className="text-6xl font-bold text-primary">{challengeNote.fullName}</p>
+                      <div className="w-3/4 pt-1">
+                          <Progress value={challengeProgress} className="h-2" />
+                      </div>
+                      <div className="h-16 mt-2">
                         <div
-                        className={cn(
-                            "text-6xl font-bold transition-colors duration-300",
-                            isInTune ? "text-accent" : "text-primary"
-                        )}
+                            className={cn(
+                                "text-3xl font-bold transition-colors duration-300",
+                                isInTune && note.name === challengeNote.name && note.octave === challengeNote.octave ? "text-accent" : "text-primary"
+                            )}
                         >
-                        {note.name || "--"}
+                            {note.name ? `${note.name}${note.octave}` : "--"}
                         </div>
-                        <p className={cn("font-mono text-sm", isInTune ? "text-accent" : "text-muted-foreground")}>
-                        {centsOff !== 0 ? `${centsOff.toFixed(1)} cents` : "En tono"}
+                        <p className={cn("font-mono text-sm", isInTune && note.name === challengeNote.name && note.octave === challengeNote.octave ? "text-accent" : "text-muted-foreground")}>
+                            {centsOff !== 0 ? `${smoothedCentsOff.toFixed(1)} cents` : "En tono"}
                         </p>
-                        <div className="font-mono mt-1">
-                            <p className="text-muted-foreground text-xs">Frecuencia</p>
-                            <p className="text-base">{frequency > 0 ? `${frequency.toFixed(2)} Hz` : "0.00 Hz"}</p>
-                        </div>
-                    </div>
-                )
-            ) : (
-                <div className="flex flex-col items-center justify-center gap-2">
-                  <MicOff className="w-12 h-12 text-muted-foreground/50" />
-                  <p className="text-muted-foreground text-sm">Afinador apagado</p>
-                </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                      </div>
+                  </div>
+              )
+          ) : (
+              <div className="flex flex-col items-center justify-center gap-2 text-center p-4">
+                <MicOff className="w-12 h-12 text-muted-foreground/50" />
+                <p className="text-muted-foreground text-sm">
+                  {isChallengeActive ? "Afinador en pausa" : "Pulsa Empezar para jugar"}
+                </p>
+              </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Button onClick={handleToggle} size="lg" className="rounded-full w-48 h-14 shadow-lg mt-2">
         {isDetecting ? ( 
             <>
                 <MicOff className="mr-2" />
-                Detener
+                Pausar
             </>
         ) : (
             <>
                 <Mic className="mr-2" />
-                Empezar
+                {isChallengeActive ? "Continuar" : "Empezar"}
             </>
         )}
       </Button>
@@ -362,10 +329,10 @@ export function Tuner() {
                       ¡Excelente trabajo! Has completado todas las notas. Ahora escoge un nuevo nivel de dificultad para seguir practicando.
                   </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex-row justify-center gap-2 pt-4">
-                  <Button onClick={() => handleSelectDifficulty("Fácil")} variant="outline" className="flex-1">Fácil</Button>
-                  <Button onClick={() => handleSelectDifficulty("Medio")} className="flex-1">Medio</Button>
-                  <Button onClick={() => handleSelectDifficulty("Difícil")} variant="destructive" className="flex-1">Difícil</Button>
+              <AlertDialogFooter className="flex-col sm:flex-row justify-center gap-2 pt-4">
+                  <Button onClick={() => handleSelectDifficulty("Fácil")} variant="accent" className="flex-1">Fácil ({difficultySettings["Fácil"].exerciseCount} notas)</Button>
+                  <Button onClick={() => handleSelectDifficulty("Medio")} className="flex-1">Medio ({difficultySettings["Medio"].exerciseCount} notas)</Button>
+                  <Button onClick={() => handleSelectDifficulty("Difícil")} variant="destructive" className="flex-1">Difícil ({difficultySettings["Difícil"].exerciseCount} notas)</Button>
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
