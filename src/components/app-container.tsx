@@ -28,6 +28,15 @@ export function AppContainer() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    const root = document.documentElement;
+    if (gender === 'femenino') {
+      root.classList.add('theme-rosegold');
+    } else {
+      root.classList.remove('theme-rosegold');
+    }
+  }, [gender]);
+
+  useEffect(() => {
     if (pitchPreference && gender) {
       let startMidi: number, endMidi: number;
 
