@@ -43,18 +43,18 @@ export function AppContainer() {
       if (gender === 'masculino') {
         if (pitchPreference === 'grave') { // Barítono/Bajo
           startMidi = 41; // F2
-          endMidi = 65;   // F4
+          endMidi = 64;   // E4
         } else { // Tenor
-          startMidi = 48; // C3
-          endMidi = 72;   // C5
+          startMidi = 47; // B2
+          endMidi = 69;   // A4
         }
       } else { // Femenino
         if (pitchPreference === 'grave') { // Alto/Contralto
-          startMidi = 53; // F3
+          startMidi = 55; // G3
           endMidi = 77;   // F5
         } else { // Soprano
-          startMidi = 60; // C4
-          endMidi = 83;   // B5
+          startMidi = 59; // B3
+          endMidi = 81;   // A5
         }
       }
       
