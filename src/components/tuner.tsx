@@ -56,6 +56,39 @@ const playNote = (frequency: number) => {
   }
 };
 
+const playCompletionSound = () => {
+    if (typeof window !== 'undefined') {
+        if (!audioContext || audioContext.state === 'closed') {
+            audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        const t = audioContext.currentTime;
+
+        const osc1 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
+        osc1.frequency.value = 1046.50; // C6
+        osc1.type = 'sine';
+        gain1.gain.setValueAtTime(0.2, t);
+        gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc1.connect(gain1).connect(audioContext.destination);
+        osc1.start(t);
+        osc1.stop(t + 0.5);
+        
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.frequency.value = 1318.51; // E6
+        osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0.2, t);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc2.connect(gain2).connect(audioContext.destination);
+        osc2.start(t);
+        osc2.stop(t + 0.5);
+    }
+};
+
 
 export function Tuner() {
   const { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
@@ -86,6 +119,7 @@ export function Tuner() {
       setInTuneTime(sustainedTime);
 
       if (sustainedTime >= challengeDuration) {
+        playCompletionSound();
         setCompletedNotes(prev => ({ ...prev, [challengeNote.name]: true }));
         setChallengeNote(null);
         setInTuneTime(0);
@@ -95,7 +129,7 @@ export function Tuner() {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, challengeNote, challengeDuration]);
+  }, [note, smoothedCentsOff, isDetecting, challengeNote]);
 
   const handleToggle = () => {
     if (isDetecting) {
