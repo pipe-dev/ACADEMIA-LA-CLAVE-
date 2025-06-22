@@ -42,8 +42,8 @@ export function AppContainer() {
 
       if (gender === 'masculino') {
         if (pitchPreference === 'grave') { // Barítono/Bajo
-          startMidi = 41; // F2
-          endMidi = 64;   // E4
+          startMidi = 43; // G2
+          endMidi = 60;   // C4
         } else { // Tenor
           startMidi = 47; // B2
           endMidi = 69;   // A4
