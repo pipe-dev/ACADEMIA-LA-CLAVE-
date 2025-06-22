@@ -279,7 +279,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     if (!isDetecting) {
       start();
     }
-  }, [isDetecting, start, notePool]);
+  }, [isDetecting, start]);
 
   const handleNoteClick = (noteToActivate: NoteInfo) => {
     if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting) return;
@@ -293,6 +293,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       setActiveNote(null);
     } else {
       toast({
+          variant: "accent",
           title: "Consejo de Afinación",
           description: "Para obtener mejores resultados, busca un lugar silencioso.",
           duration: 4000,
