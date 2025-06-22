@@ -50,8 +50,8 @@ export function AppContainer() {
         }
       } else { // Femenino
         if (pitchPreference === 'grave') { // Alto/Contralto
-          startMidi = 55; // G3
-          endMidi = 77;   // F5
+          startMidi = 57; // A3
+          endMidi = 74;   // D5
         } else { // Soprano
           startMidi = 62; // D4
           endMidi = 83;   // B5
