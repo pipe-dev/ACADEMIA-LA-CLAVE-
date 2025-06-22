@@ -1,3 +1,4 @@
+import { NotePads } from '@/components/note-pads';
 import { Tuner } from '@/components/tuner';
 
 export default function Home() {
@@ -8,6 +9,7 @@ export default function Home() {
         <p className="text-muted-foreground mt-2">Sing or play a note, and we'll tell you if you're in tune.</p>
       </div>
       <Tuner />
+      <NotePads />
     </main>
   );
 }
