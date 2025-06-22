@@ -1,13 +1,13 @@
-
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, RefreshCw } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 
 type NoteInfo = {
   name: string;
@@ -101,12 +101,10 @@ const playAllCompletedSound = () => {
 
         const t = audioContext.currentTime;
         const melody = [
-            // Upward arpeggio
-            { freq: 523.25, delay: 0, duration: 0.1 },    // C5
-            { freq: 659.25, delay: 0.1, duration: 0.1 },  // E5
-            { freq: 783.99, delay: 0.2, duration: 0.1 },  // G5
-            // Held final note
-            { freq: 1046.50, delay: 0.3, duration: 0.5 }, // C6
+            { freq: 523.25, delay: 0, duration: 0.1 },
+            { freq: 659.25, delay: 0.1, duration: 0.1 },
+            { freq: 783.99, delay: 0.2, duration: 0.1 },
+            { freq: 1046.50, delay: 0.3, duration: 0.5 },
         ];
         
         melody.forEach((note) => {
@@ -125,6 +123,14 @@ const playAllCompletedSound = () => {
 
 const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡Sigue así!"];
 
+type Difficulty = "Fácil" | "Medio" | "Difícil";
+
+const difficultySettings = {
+  "Fácil": { tolerance: 25 },
+  "Medio": { tolerance: 15 },
+  "Difícil": { tolerance: 8 },
+};
+
 export function Tuner() {
   const { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   
@@ -135,7 +141,11 @@ export function Tuner() {
   const inTuneSinceRef = useRef<number | null>(null);
   const [lastCompletedNote, setLastCompletedNote] = useState<string | null>(null);
   const [completionPhrase, setCompletionPhrase] = useState("");
+  
+  const [difficulty, setDifficulty] = useState<Difficulty>("Medio");
+  const [showDifficultyDialog, setShowDifficultyDialog] = useState(false);
 
+  const { tolerance: challengeTolerance } = difficultySettings[difficulty];
   const challengeDuration = 2000;
 
   useEffect(() => {
@@ -148,7 +158,7 @@ export function Tuner() {
     }
 
     const isCorrectNote = note.name === challengeNote.name;
-    const isTolerablyInTune = Math.abs(smoothedCentsOff) < 15;
+    const isTolerablyInTune = Math.abs(smoothedCentsOff) < challengeTolerance;
 
     if (isCorrectNote && isTolerablyInTune) {
       if (inTuneSinceRef.current === null) {
@@ -165,6 +175,7 @@ export function Tuner() {
         if (Object.keys(newCompletedNotes).length === notes.length) {
           setAllNotesCompleted(true);
           playAllCompletedSound();
+          setShowDifficultyDialog(true);
         } else {
           playCompletionSound();
         }
@@ -185,20 +196,9 @@ export function Tuner() {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, challengeNote, lastCompletedNote, allNotesCompleted, completedNotes]);
+  }, [note, smoothedCentsOff, isDetecting, challengeNote, lastCompletedNote, allNotesCompleted, completedNotes, challengeTolerance]);
 
   const handleToggle = () => {
-    if (allNotesCompleted) {
-        setCompletedNotes({});
-        setAllNotesCompleted(false);
-        setChallengeNote(null);
-        setInTuneTime(0);
-        inTuneSinceRef.current = null;
-        setLastCompletedNote(null);
-        start();
-        return;
-    }
-
     if (isDetecting) {
       stop();
       setChallengeNote(null);
@@ -217,7 +217,21 @@ export function Tuner() {
     inTuneSinceRef.current = null;
   }
 
-  const isInTune = Math.abs(smoothedCentsOff) < 15;
+  const handleSelectDifficulty = (newDifficulty: Difficulty) => {
+    setDifficulty(newDifficulty);
+    setCompletedNotes({});
+    setAllNotesCompleted(false);
+    setShowDifficultyDialog(false);
+    setChallengeNote(null);
+    setInTuneTime(0);
+    inTuneSinceRef.current = null;
+    setLastCompletedNote(null);
+    if (!isDetecting) {
+      start();
+    }
+  };
+
+  const isInTune = Math.abs(smoothedCentsOff) < challengeTolerance;
   const challengeProgress = challengeNote ? (inTuneTime / challengeDuration) * 100 : 0;
 
   const radius = 120;
@@ -226,6 +240,11 @@ export function Tuner() {
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-lg">
+       <div className="text-center text-primary font-semibold">
+        <p>Dificultad: <span className="font-bold">{difficulty}</span></p>
+        <p className="text-sm text-muted-foreground">Tolerancia: ±{challengeTolerance} cents</p>
+      </div>
+
        <div
         className="relative flex items-center justify-center mt-4"
         style={{ width: `${containerSize}px`, height: `${containerSize}px` }}
@@ -272,7 +291,7 @@ export function Tuner() {
                 <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
                     <Trophy className="w-16 h-16 text-accent" />
                     <p className="text-3xl font-bold text-primary mt-2">¡Felicidades!</p>
-                    <p className="text-muted-foreground">Completaste el desafío.</p>
+                    <p className="text-muted-foreground">Escoge una dificultad.</p>
                 </div>
              ) : isDetecting ? (
                 lastCompletedNote ? (
@@ -322,12 +341,7 @@ export function Tuner() {
       </div>
 
       <Button onClick={handleToggle} size="lg" className="rounded-full w-48 h-14 shadow-lg mt-2">
-        {allNotesCompleted ? (
-            <>
-                <RefreshCw className="mr-2" />
-                <span>Jugar de nuevo</span>
-            </>
-        ) : isDetecting ? ( 
+        {isDetecting ? ( 
             <>
                 <MicOff className="mr-2" />
                 Detener
@@ -339,6 +353,22 @@ export function Tuner() {
             </>
         )}
       </Button>
+
+      <AlertDialog open={showDifficultyDialog}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>¡Nivel Completado!</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      ¡Excelente trabajo! Has completado todas las notas. Ahora escoge un nuevo nivel de dificultad para seguir practicando.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex-row justify-center gap-2 pt-4">
+                  <Button onClick={() => handleSelectDifficulty("Fácil")} variant="outline" className="flex-1">Fácil</Button>
+                  <Button onClick={() => handleSelectDifficulty("Medio")} className="flex-1">Medio</Button>
+                  <Button onClick={() => handleSelectDifficulty("Difícil")} variant="destructive" className="flex-1">Difícil</Button>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
