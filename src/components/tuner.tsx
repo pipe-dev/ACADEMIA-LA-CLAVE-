@@ -10,44 +10,16 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 
-type NoteInfo = {
+export type NoteInfo = {
   name: string;
   octave: number;
   frequency: number;
   fullName: string;
 };
 
-const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-const generateFullNotePool = (): NoteInfo[] => {
-    const notes: NoteInfo[] = [];
-    // G2 (MIDI 43) to C6 (MIDI 84)
-    for (let midi = 43; midi <= 84; midi++) {
-        const octave = Math.floor(midi / 12) - 1;
-        const name = noteStrings[midi % 12];
-        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
-        notes.push({ name, octave, frequency, fullName: `${name}${octave}` });
-    }
-    return notes;
-};
-
-const notePool = generateFullNotePool();
-
-const generateChallenge = (count: number): NoteInfo[] => {
-    const shuffled = [...notePool].sort(() => 0.5 - Math.random());
+const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
-};
-
-const generateGeneralChallenge = (): NoteInfo[] => {
-    const generalNotes: NoteInfo[] = [];
-    const octave = 4; // Using octave 4 for C4 to B4
-    for (let i = 0; i < 12; i++) {
-        const name = noteStrings[i];
-        const midi = 60 + i; // C4 is MIDI 60
-        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
-        generalNotes.push({ name, octave, frequency, fullName: `${name}${octave}` });
-    }
-    return generalNotes;
 };
 
 let audioContext: AudioContext | null = null;
@@ -152,7 +124,7 @@ const difficultySettings = {
   "Difícil": { tolerance: 5, exerciseCount: 12 },
 };
 
-export function Tuner() {
+export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   
   const [difficulty, setDifficulty] = useState<Difficulty | "General">("General");
@@ -173,12 +145,12 @@ export function Tuner() {
   const challengeDuration = 2000;
 
   useEffect(() => {
-    // For the initial "General" challenge, use a fixed set of notes.
-    // For other difficulties, a random challenge is generated in startNewChallenge.
-    if (difficulty === "General") {
-      setChallengeNotes(generateGeneralChallenge());
+    // When the component gets the notePool, set up the "General" challenge.
+    if (notePool.length > 0 && challengeNotes.length === 0) {
+      // The general challenge will be the first 12 notes of the user's vocal range.
+      setChallengeNotes(notePool.slice(0, 12));
     }
-  }, [difficulty]);
+  }, [notePool, challengeNotes.length]);
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
@@ -228,7 +200,7 @@ export function Tuner() {
   const startNewChallenge = useCallback((diff: Difficulty) => {
     const settings = difficultySettings[diff];
     setDifficulty(diff);
-    setChallengeNotes(generateChallenge(settings.exerciseCount));
+    setChallengeNotes(generateChallenge(settings.exerciseCount, notePool));
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -239,7 +211,7 @@ export function Tuner() {
     if (!isDetecting) {
       start();
     }
-  }, [isDetecting, start]);
+  }, [isDetecting, start, notePool]);
 
   const handleNoteClick = (noteToActivate: NoteInfo) => {
     if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting) return;
@@ -252,7 +224,7 @@ export function Tuner() {
       stop();
       setActiveNote(null);
     } else {
-      if (!challengeNotes.length || showDifficultyDialog) {
+      if (challengeNotes.length === 0 || showDifficultyDialog) {
           setShowDifficultyDialog(true);
       } else {
           start();
