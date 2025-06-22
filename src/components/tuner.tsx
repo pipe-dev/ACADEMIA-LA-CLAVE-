@@ -17,6 +17,21 @@ export type NoteInfo = {
   fullName: string;
 };
 
+const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+const generateGeneralChallenge = (): NoteInfo[] => {
+    const notes: NoteInfo[] = [];
+    // Generates 12 notes from C4 to B4
+    for (let midi = 60; midi <= 71; midi++) {
+        const octave = Math.floor(midi / 12) - 1;
+        const name = noteStrings[midi % 12];
+        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+        notes.push({ name, octave, frequency, fullName: `${name}${octave}` });
+    }
+    return notes;
+};
+
+
 const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
@@ -40,13 +55,13 @@ const playNote = (frequency: number) => {
     oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
     
     gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
 
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
     oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 1);
+    oscillator.stop(audioContext.currentTime + 1.5);
   }
 };
 
@@ -75,11 +90,11 @@ const playCompletionSound = () => {
         const gain2 = audioContext.createGain();
         osc2.frequency.value = 1318.51; // E6
         osc2.type = 'sine';
-        gain2.gain.setValueAtTime(0.2, t);
-        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        gain2.gain.setValueAtTime(0.2, t + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
         osc2.connect(gain2).connect(audioContext.destination);
-        osc2.start(t);
-        osc2.stop(t + 0.5);
+        osc2.start(t + 0.1);
+        osc2.stop(t + 0.6);
     }
 };
 
@@ -94,10 +109,10 @@ const playAllCompletedSound = () => {
 
         const t = audioContext.currentTime;
         const melody = [
-            { freq: 523.25, delay: 0, duration: 0.1 },
-            { freq: 659.25, delay: 0.1, duration: 0.1 },
-            { freq: 783.99, delay: 0.2, duration: 0.1 },
-            { freq: 1046.50, delay: 0.3, duration: 0.5 },
+            { freq: 523.25, delay: 0, duration: 0.15 },
+            { freq: 659.25, delay: 0.15, duration: 0.15 },
+            { freq: 783.99, delay: 0.3, duration: 0.15 },
+            { freq: 1046.50, delay: 0.45, duration: 0.6 },
         ];
         
         melody.forEach((note) => {
@@ -105,7 +120,7 @@ const playAllCompletedSound = () => {
             const gain = audioContext.createGain();
             osc.frequency.value = note.freq;
             osc.type = 'sine';
-            gain.gain.setValueAtTime(0.2, t + note.delay);
+            gain.gain.setValueAtTime(0.25, t + note.delay);
             gain.gain.exponentialRampToValueAtTime(0.001, t + note.delay + note.duration);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t + note.delay);
@@ -114,7 +129,7 @@ const playAllCompletedSound = () => {
     }
 };
 
-const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡Sigue así!"];
+const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡Sigue así!", "¡Increíble!"];
 
 type Difficulty = "Fácil" | "Medio" | "Difícil";
 
@@ -142,15 +157,15 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const [sessionCompleted, setSessionCompleted] = useState(false);
 
   const tolerance = difficulty === "General" ? 15 : difficultySettings[difficulty].tolerance;
-  const challengeDuration = 2000;
+  const challengeDuration = 1500; // Reduced duration for faster feedback
 
   useEffect(() => {
-    // When the component gets the notePool, set up the "General" challenge.
-    if (notePool.length > 0 && challengeNotes.length === 0) {
-      // The general challenge will be the first 12 notes of the user's vocal range.
-      setChallengeNotes(notePool.slice(0, 12));
+    if (notePool.length > 0 && difficulty === 'General') {
+        const generalChallenge = notePool.slice(0, 12);
+        setChallengeNotes(generalChallenge);
     }
-  }, [notePool, challengeNotes.length]);
+  }, [notePool, difficulty]);
+
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
@@ -183,7 +198,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         if (completedNotes.size + 1 >= challengeNotes.length) {
           setSessionCompleted(true);
           playAllCompletedSound();
-          setTimeout(() => setShowDifficultyDialog(true), 1000);
+          setTimeout(() => setShowDifficultyDialog(true), 1500);
         } else {
           setTimeout(() => {
             setLastCompletedNoteFullName(null);
@@ -235,18 +250,18 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const renderCentralContent = () => {
     if (sessionCompleted) {
         return (
-            <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
-                <Trophy className="w-16 h-16 text-accent" />
-                <p className="text-3xl font-bold text-primary mt-2">¡Felicidades!</p>
+            <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
+                <Trophy className="w-20 h-20 text-accent" />
+                <p className="text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
                 <p className="text-muted-foreground">¡Nivel completado!</p>
             </div>
         );
     }
     if (lastCompletedNoteFullName) {
         return (
-            <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
-                <CheckCircle2 className="w-16 h-16 text-primary" />
-                <p className="text-3xl font-bold text-primary mt-2">{completionPhrase}</p>
+            <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
+                <CheckCircle2 className="w-20 h-20 text-primary" />
+                <p className="text-3xl font-bold text-foreground mt-2">{completionPhrase}</p>
             </div>
         );
     }
@@ -254,47 +269,47 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         const isInTune = Math.abs(smoothedCentsOff) < tolerance && note.name === activeNote.name && note.octave === activeNote.octave;
         const challengeProgress = (inTuneTime / challengeDuration) * 100;
         return (
-            <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
-                <p className="text-6xl sm:text-7xl font-bold text-primary">{activeNote.fullName}</p>
-                <p className="text-lg text-muted-foreground">Sostén la nota</p>
-                <div className="w-4/5 pt-2">
-                    <Progress value={challengeProgress} className="h-3" />
+            <div className="flex flex-col items-center justify-center gap-2 w-full text-center">
+                <p className="text-7xl sm:text-8xl font-bold text-primary">{activeNote.fullName}</p>
+                <p className="text-lg text-muted-foreground -mt-2">Sostén la nota</p>
+                <div className="w-4/5 pt-4">
+                    <Progress value={challengeProgress} className="h-4" />
                 </div>
-                <div className="h-20 mt-2">
-                   <div className={cn("text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-primary/70")}>
+                <div className="h-20 mt-4 flex flex-col items-center justify-center">
+                   <div className={cn("text-5xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
                         {note.name ? `${note.name}${note.octave}` : "--"}
                     </div>
-                    <p className={cn("font-mono text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
-                        {centsOff !== 0 ? `${smoothedCentsOff.toFixed(1)} cents` : "En tono"}
+                    <p className={cn("font-mono text-xl", isInTune ? "text-accent" : "text-muted-foreground")}>
+                        {centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono"}
                     </p>
                 </div>
             </div>
         );
     }
     if (!isDetecting) {
-         return <MicOff className="w-20 h-20 text-muted-foreground/30" />;
+         return <MicOff className="w-24 h-24 text-muted-foreground/30" />;
     }
     return (
         <div className="text-center p-4">
-            <p className="text-2xl font-bold text-primary">Selecciona una nota</p>
-            <p className="text-muted-foreground mt-1 text-sm sm:text-base">Haz clic en un círculo para empezar</p>
+            <p className="text-3xl font-bold text-foreground">Selecciona una nota</p>
+            <p className="text-muted-foreground mt-2 text-lg">Haz clic en un círculo para empezar</p>
         </div>
     );
   };
 
   const radius = challengeNotes.length > 25 ? 210 : 170;
-  const buttonSize = challengeNotes.length > 25 ? "w-12 h-12 text-xs" : "w-16 h-16 text-sm";
-  const noteNameSize = challengeNotes.length > 25 ? "text-lg" : "text-xl";
-  const octaveSize = challengeNotes.length > 25 ? "text-2xs" : "text-xs";
+  const buttonSize = challengeNotes.length > 25 ? "w-14 h-14 text-sm" : "w-[72px] h-[72px] text-base";
+  const noteNameSize = challengeNotes.length > 25 ? "text-xl" : "text-2xl";
+  const octaveSize = challengeNotes.length > 25 ? "text-xs" : "text-sm";
   
   return (
-    <div className="flex flex-col items-center gap-6 w-full">
-      <div className="text-center text-primary font-semibold">
-        <p>Dificultad: <span className="font-bold">{difficulty}</span> ({challengeNotes.length} notas)</p>
-        <p className="text-sm text-muted-foreground">Progreso: {completedNotes.size} / {challengeNotes.length}</p>
+    <div className="flex flex-col items-center gap-8 w-full">
+      <div className="text-center text-foreground font-semibold text-lg">
+        <p>Dificultad: <span className="font-bold text-primary">{difficulty}</span> ({challengeNotes.length} notas)</p>
+        <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {challengeNotes.length}</p>
       </div>
 
-      <div className="relative w-[360px] h-[360px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
+      <div className="relative w-[380px] h-[380px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
         {challengeNotes.map((n, index) => {
           const angle = (index / challengeNotes.length) * 2 * Math.PI - (Math.PI / 2);
           const x = radius * Math.cos(angle);
@@ -307,12 +322,12 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
               disabled={!isDetecting || !!lastCompletedNoteFullName}
               style={{ transform: `translate(${x}px, ${y}px)` }}
               className={cn(
-                "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-md",
+                "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
                 buttonSize,
                 completedNotes.has(n.fullName) 
                   ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default" 
                   : "bg-card hover:bg-card/80 border-2 border-primary/30",
-                activeNote?.fullName === n.fullName && "ring-4 ring-offset-2 ring-accent"
+                activeNote?.fullName === n.fullName && "ring-4 ring-offset-background ring-offset-2 ring-accent"
               )}
             >
               <span className={noteNameSize}>{n.name}</span>
@@ -321,32 +336,32 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           );
         })}
         
-        <Card className="w-[200px] h-[200px] sm:w-[260px] sm:h-[260px] rounded-full shadow-lg border-2 border-primary/20 flex items-center justify-center">
+        <Card className="w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
             <CardContent className="p-2 flex items-center justify-center">
               {renderCentralContent()}
             </CardContent>
         </Card>
       </div>
       
-      <Button onClick={handleToggleListening} size="lg" className="rounded-full w-48 h-14 shadow-lg">
-        {isDetecting ? <MicOff className="mr-2" /> : <Mic className="mr-2" />}
+      <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
+        {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
         {isDetecting ? "Pausar" : "Empezar"}
       </Button>
 
       <AlertDialog open={showDifficultyDialog}>
           <AlertDialogContent>
               <AlertDialogHeader>
-                  <AlertDialogTitle>Elige una dificultad</AlertDialogTitle>
-                  <AlertDialogDescription>
+                  <AlertDialogTitle className="text-2xl">Elige una dificultad</AlertDialogTitle>
+                  <AlertDialogDescription className="text-base">
                       {sessionCompleted 
                         ? "¡Excelente trabajo! Has completado todas las notas. Ahora escoge un nuevo nivel para seguir practicando."
                         : "Prepárate para poner a prueba tu afinación. Cada nivel tiene un número diferente de notas y una tolerancia de afinación distinta."}
                   </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex-col sm:flex-row justify-center gap-2 pt-4">
-                  <Button onClick={() => startNewChallenge("Fácil")} variant="accent">Fácil</Button>
-                  <Button onClick={() => startNewChallenge("Medio")}>Medio</Button>
-                  <Button onClick={() => startNewChallenge("Difícil")} variant="destructive">Difícil</Button>
+              <AlertDialogFooter className="flex-col sm:flex-row justify-center gap-4 pt-4">
+                  <Button onClick={() => startNewChallenge("Fácil")} variant="accent" size="lg">Fácil</Button>
+                  <Button onClick={() => startNewChallenge("Medio")} size="lg">Medio</Button>
+                  <Button onClick={() => startNewChallenge("Difícil")} variant="destructive" size="lg">Difícil</Button>
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
