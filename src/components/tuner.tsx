@@ -3,6 +3,7 @@
 
 import { Mic, MicOff, CheckCircle2, Trophy, VolumeX } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -160,6 +161,7 @@ function TunerSkeleton() {
 
 export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
+  const { toast } = useToast();
   
   const [difficulty, setDifficulty] = useState<Difficulty | "General">("General");
   const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>([]);
@@ -180,7 +182,11 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
 
   useEffect(() => {
     setIsMounted(true);
-    // Generate initial challenge notes only on the client-side
+  }, []);
+  
+  useEffect(() => {
+    if (!isMounted) return;
+
     if (notePool.length > 0) {
       if (difficulty === 'General') {
         const generalChallenge = generateGeneralChallenge();
@@ -191,7 +197,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         setChallengeNotes(newChallenge);
       }
     }
-  }, [notePool]);
+  }, [isMounted, notePool, difficulty]);
 
 
   const tolerance = difficulty === "General" ? 10 : difficultySettings[difficulty].tolerance;
@@ -263,7 +269,6 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const startNewChallenge = useCallback((diff: Difficulty) => {
     const settings = difficultySettings[diff];
     setDifficulty(diff);
-    setChallengeNotes(generateChallenge(settings.exerciseCount, notePool));
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -287,6 +292,11 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       stop();
       setActiveNote(null);
     } else {
+      toast({
+          title: "Consejo de Afinación",
+          description: "Para obtener mejores resultados, busca un lugar silencioso.",
+          duration: 4000,
+      });
       if (challengeNotes.length === 0 || (difficulty === 'General' && sessionCompleted)) {
           setShowDifficultyDialog(true);
       } else {
@@ -351,7 +361,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const noteNameSize = `text-xl ${isLargeChallenge ? 'sm:text-xl' : 'sm:text-2xl'}`;
   const octaveSize = `text-xs ${isLargeChallenge ? 'sm:text-xs' : 'sm:text-sm'}`;
   
-  if (!isMounted || challengeNotes.length === 0) {
+  if (!isMounted) {
     return <TunerSkeleton />;
   }
 

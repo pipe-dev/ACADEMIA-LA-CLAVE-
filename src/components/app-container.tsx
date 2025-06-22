@@ -24,6 +24,7 @@ export function AppContainer() {
   const [pitchPreference, setPitchPreference] = useState<'grave' | 'agudo' | null>(null);
   const [gender, setGender] = useState<'masculino' | 'femenino' | null>(null);
   const [notePool, setNotePool] = useState<NoteInfo[] | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     if (pitchPreference && gender) {
@@ -49,56 +50,58 @@ export function AppContainer() {
       
       const pool = generateNotePool(startMidi, endMidi);
       setNotePool(pool);
+      
+      setTimeout(() => setIsReady(true), 1200);
     }
   }, [pitchPreference, gender]);
 
-  if (!notePool) {
+  if (isReady && notePool) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-foreground">Bienvenido a Vocal Studio</h1>
-          <p className="text-muted-foreground mt-3 max-w-xl text-lg">Para comenzar, ayúdanos a entender tu voz para personalizar tu entrenamiento.</p>
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold font-headline text-foreground">Desafío de Afinación</h1>
+          <p className="text-muted-foreground mt-2 text-lg">Escucha, canta y mantén la nota para ganar.</p>
         </div>
-
-        <div className="flex flex-col gap-8 w-full max-w-md animate-in fade-in-50 duration-500">
-          <Card className="bg-card/50 border-2 border-transparent">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-center">¿Cómo describes tu rango vocal natural?</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              <Button onClick={() => setPitchPreference('grave')} variant={pitchPreference === 'grave' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Cómodo en graves</Button>
-              <Button onClick={() => setPitchPreference('agudo')} variant={pitchPreference === 'agudo' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Cómodo en agudos</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card/50 border-2 border-transparent">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-center">¿Cuál es tu tipo de voz?</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              <Button onClick={() => setGender('masculino')} variant={gender === 'masculino' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Masculina</Button>
-              <Button onClick={() => setGender('femenino')} variant={gender === 'femenino' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Femenina</Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {(pitchPreference && gender) && (
-            <div className="mt-12 flex items-center gap-3 text-accent animate-in fade-in-50">
-                <Check />
-                <p className="font-medium">¡Perfecto! Hemos configurado tu rango vocal.</p>
-            </div>
-        )}
+        <Tuner notePool={notePool} />
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-      <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold font-headline text-foreground">Desafío de Afinación</h1>
-        <p className="text-muted-foreground mt-2 text-lg">Escucha, canta y mantén la nota para ganar.</p>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl sm:text-5xl font-bold text-foreground">Bienvenido a Vocal Studio</h1>
+        <p className="text-muted-foreground mt-3 max-w-xl text-lg">Para comenzar, ayúdanos a entender tu voz para personalizar tu entrenamiento.</p>
       </div>
-      <Tuner notePool={notePool} />
+
+      <div className="flex flex-col gap-8 w-full max-w-md animate-in fade-in-50 duration-500">
+        <Card className="bg-card/50 border-2 border-transparent">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold text-center">¿Cómo describes tu rango vocal natural?</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <Button onClick={() => setPitchPreference('grave')} variant={pitchPreference === 'grave' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Cómodo en graves</Button>
+            <Button onClick={() => setPitchPreference('agudo')} variant={pitchPreference === 'agudo' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Cómodo en agudos</Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/50 border-2 border-transparent">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold text-center">¿Cuál es tu tipo de voz?</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <Button onClick={() => setGender('masculino')} variant={gender === 'masculino' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Masculina</Button>
+            <Button onClick={() => setGender('femenino')} variant={gender === 'femenino' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Femenina</Button>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {(pitchPreference && gender) && (
+          <div className="mt-12 flex items-center gap-3 text-accent animate-in fade-in-50">
+              <Check />
+              <p className="font-medium">¡Perfecto! Hemos configurado tu rango vocal.</p>
+          </div>
+      )}
     </main>
   );
 }
