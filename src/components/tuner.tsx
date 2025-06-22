@@ -38,6 +38,18 @@ const generateChallenge = (count: number): NoteInfo[] => {
     return shuffled.slice(0, count);
 };
 
+const generateGeneralChallenge = (): NoteInfo[] => {
+    const generalNotes: NoteInfo[] = [];
+    const octave = 4; // Using octave 4 for C4 to B4
+    for (let i = 0; i < 12; i++) {
+        const name = noteStrings[i];
+        const midi = 60 + i; // C4 is MIDI 60
+        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+        generalNotes.push({ name, octave, frequency, fullName: `${name}${octave}` });
+    }
+    return generalNotes;
+};
+
 let audioContext: AudioContext | null = null;
 
 const playNote = (frequency: number) => {
@@ -161,10 +173,12 @@ export function Tuner() {
   const challengeDuration = 2000;
 
   useEffect(() => {
-    // Generate the initial "General" challenge notes on the client side
-    // to prevent a hydration mismatch caused by Math.random().
-    setChallengeNotes(generateChallenge(12));
-  }, []);
+    // For the initial "General" challenge, use a fixed set of notes.
+    // For other difficulties, a random challenge is generated in startNewChallenge.
+    if (difficulty === "General") {
+      setChallengeNotes(generateGeneralChallenge());
+    }
+  }, [difficulty]);
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
