@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useToast } from "./use-toast";
 
 type Note = {
@@ -116,47 +116,11 @@ export const usePitchDetection = () => {
   const animationFrameId = useRef<number | null>(null);
   const dataArrayRef = useRef<Float32Array | null>(null);
 
-  const detectPitch = useCallback(() => {
-    if (analyserRef.current && dataArrayRef.current) {
-      analyserRef.current.getFloatTimeDomainData(dataArrayRef.current);
-      const pitch = autoCorrelate(dataArrayRef.current, audioContextRef.current!.sampleRate);
-      
-      if (pitch !== -1 && pitch < 2000) { // Add upper frequency limit for human voice
-        setFrequency(pitch);
-        const detectedNote = noteFromPitch(pitch);
-        setNote(detectedNote);
-
-        const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
-        setCentsOff(currentCents);
-
-        const SMOOTHING_FACTOR = 0.25;
-        const newSmoothedCents = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
-        smoothedCentsRef.current = newSmoothedCents;
-        setSmoothedCentsOff(newSmoothedCents);
-
-      } else {
-        setFrequency(0);
-        setNote({});
-        setCentsOff(0);
-        
-        const DECAY_FACTOR = 0.95;
-        const newSmoothedCents = smoothedCentsRef.current * DECAY_FACTOR;
-        if (Math.abs(newSmoothedCents) < 0.1) {
-            smoothedCentsRef.current = 0;
-            setSmoothedCentsOff(0);
-        } else {
-            smoothedCentsRef.current = newSmoothedCents;
-            setSmoothedCentsOff(newSmoothedCents);
-        }
-      }
-    }
-    animationFrameId.current = requestAnimationFrame(detectPitch);
-  }, []);
-
   const start = useCallback(async () => {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
         
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         analyserRef.current = audioContextRef.current.createAnalyser();
@@ -164,13 +128,12 @@ export const usePitchDetection = () => {
 
         dataArrayRef.current = new Float32Array(analyserRef.current.fftSize);
 
-        const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
+        const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
         
-        setIsDetecting(true);
         smoothedCentsRef.current = 0;
         setSmoothedCentsOff(0);
-        detectPitch();
+        setIsDetecting(true);
       } else {
         throw new Error("getUserMedia not supported on your browser!");
       }
@@ -184,25 +147,80 @@ export const usePitchDetection = () => {
       });
       setIsDetecting(false);
     }
-  }, [detectPitch, toast]);
+  }, [toast]);
 
   const stop = useCallback(() => {
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-      audioContextRef.current.close();
-    }
     setIsDetecting(false);
-    setFrequency(0);
-    setNote({});
-    setCentsOff(0);
-    setSmoothedCentsOff(0);
-    smoothedCentsRef.current = 0;
   }, []);
+
+  useEffect(() => {
+    if (!isDetecting) {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      setFrequency(0);
+      setNote({});
+      setCentsOff(0);
+      setSmoothedCentsOff(0);
+      smoothedCentsRef.current = 0;
+      return;
+    }
+
+    const updatePitch = () => {
+      if (analyserRef.current && dataArrayRef.current && audioContextRef.current) {
+        analyserRef.current.getFloatTimeDomainData(dataArrayRef.current);
+        const pitch = autoCorrelate(dataArrayRef.current, audioContextRef.current.sampleRate);
+        
+        if (pitch !== -1 && pitch < 2000) { // Add upper frequency limit for human voice
+          setFrequency(pitch);
+          const detectedNote = noteFromPitch(pitch);
+          setNote(detectedNote);
+  
+          const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
+          setCentsOff(currentCents);
+  
+          const SMOOTHING_FACTOR = 0.25;
+          const newSmoothedCents = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
+          smoothedCentsRef.current = newSmoothedCents;
+          setSmoothedCentsOff(newSmoothedCents);
+  
+        } else {
+          setFrequency(0);
+          setNote({});
+          setCentsOff(0);
+          
+          const DECAY_FACTOR = 0.95;
+          const newSmoothedCents = smoothedCentsRef.current * DECAY_FACTOR;
+          if (Math.abs(newSmoothedCents) < 0.1) {
+              smoothedCentsRef.current = 0;
+              setSmoothedCentsOff(0);
+          } else {
+              smoothedCentsRef.current = newSmoothedCents;
+              setSmoothedCentsOff(newSmoothedCents);
+          }
+        }
+      }
+      animationFrameId.current = requestAnimationFrame(updatePitch);
+    };
+
+    updatePitch();
+
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+    };
+  }, [isDetecting]);
 
   return { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop };
 };
