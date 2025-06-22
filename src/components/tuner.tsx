@@ -144,7 +144,7 @@ export function Tuner() {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   
   const [difficulty, setDifficulty] = useState<Difficulty | "General">("General");
-  const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>(() => generateChallenge(12));
+  const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>([]);
   const [activeNote, setActiveNote] = useState<NoteInfo | null>(null);
   const [completedNotes, setCompletedNotes] = useState<Set<string>>(new Set());
 
@@ -159,6 +159,12 @@ export function Tuner() {
 
   const tolerance = difficulty === "General" ? 15 : difficultySettings[difficulty].tolerance;
   const challengeDuration = 2000;
+
+  useEffect(() => {
+    // Generate the initial "General" challenge notes on the client side
+    // to prevent a hydration mismatch caused by Math.random().
+    setChallengeNotes(generateChallenge(12));
+  }, []);
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
