@@ -53,8 +53,8 @@ export function AppContainer() {
           startMidi = 55; // G3
           endMidi = 77;   // F5
         } else { // Soprano
-          startMidi = 59; // B3
-          endMidi = 81;   // A5
+          startMidi = 62; // D4
+          endMidi = 83;   // B5
         }
       }
       
