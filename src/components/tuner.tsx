@@ -90,7 +90,7 @@ export function Tuner() {
               style={{
                 top: `calc(50% - ${buttonSize / 2}px)`,
                 left: `calc(50% - ${buttonSize / 2}px)`,
-                transform: `translate(${x}px, ${y}px)`,
+                transform: `translate(${x.toFixed(3)}px, ${y.toFixed(3)}px)`,
               }}
               onClick={() => playNote(n.frequency)}
             >
