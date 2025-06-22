@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Mic, MicOff, CheckCircle2, Trophy } from "lucide-react";
@@ -134,16 +135,16 @@ const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡
 type Difficulty = "Fácil" | "Medio" | "Difícil";
 
 const difficultySettings = {
-  "Fácil": { tolerance: 10, exerciseCount: 15 },
-  "Medio": { tolerance: 10, exerciseCount: 20 },
-  "Difícil": { tolerance: 10, exerciseCount: 40 },
+  "Fácil": { tolerance: 15, exerciseCount: 12 },
+  "Medio": { tolerance: 10, exerciseCount: 12 },
+  "Difícil": { tolerance: 5, exerciseCount: 12 },
 };
 
 export function Tuner() {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   
-  const [difficulty, setDifficulty] = useState<Difficulty>("Medio");
-  const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>([]);
+  const [difficulty, setDifficulty] = useState<Difficulty | "General">("General");
+  const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>(() => generateChallenge(12));
   const [activeNote, setActiveNote] = useState<NoteInfo | null>(null);
   const [completedNotes, setCompletedNotes] = useState<Set<string>>(new Set());
 
@@ -153,10 +154,10 @@ export function Tuner() {
   const [lastCompletedNoteFullName, setLastCompletedNoteFullName] = useState<string | null>(null);
   const [completionPhrase, setCompletionPhrase] = useState("");
   
-  const [showDifficultyDialog, setShowDifficultyDialog] = useState(true);
+  const [showDifficultyDialog, setShowDifficultyDialog] = useState(false);
   const [sessionCompleted, setSessionCompleted] = useState(false);
 
-  const { tolerance } = difficultySettings[difficulty];
+  const tolerance = difficulty === "General" ? 15 : difficultySettings[difficulty].tolerance;
   const challengeDuration = 2000;
 
   useEffect(() => {
@@ -231,7 +232,11 @@ export function Tuner() {
       stop();
       setActiveNote(null);
     } else {
-      start();
+      if (!challengeNotes.length || showDifficultyDialog) {
+          setShowDifficultyDialog(true);
+      } else {
+          start();
+      }
     }
   };
   
@@ -339,17 +344,17 @@ export function Tuner() {
       <AlertDialog open={showDifficultyDialog}>
           <AlertDialogContent>
               <AlertDialogHeader>
-                  <AlertDialogTitle>{sessionCompleted ? "¡Nivel Completado!" : "Elige una dificultad"}</AlertDialogTitle>
+                  <AlertDialogTitle>Elige una dificultad</AlertDialogTitle>
                   <AlertDialogDescription>
                       {sessionCompleted 
                         ? "¡Excelente trabajo! Has completado todas las notas. Ahora escoge un nuevo nivel para seguir practicando."
-                        : "Prepárate para poner a prueba tu afinación. Cada nivel tiene un número diferente de notas."}
+                        : "Prepárate para poner a prueba tu afinación. Cada nivel tiene un número diferente de notas y una tolerancia de afinación distinta."}
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="flex-col sm:flex-row justify-center gap-2 pt-4">
-                  <Button onClick={() => startNewChallenge("Fácil")} variant="accent" className="flex-1">Fácil ({difficultySettings["Fácil"].exerciseCount} notas)</Button>
-                  <Button onClick={() => startNewChallenge("Medio")} className="flex-1">Medio ({difficultySettings["Medio"].exerciseCount} notas)</Button>
-                  <Button onClick={() => startNewChallenge("Difícil")} variant="destructive" className="flex-1">Difícil ({difficultySettings["Difícil"].exerciseCount} notas)</Button>
+                  <Button onClick={() => startNewChallenge("Fácil")} variant="accent">Fácil</Button>
+                  <Button onClick={() => startNewChallenge("Medio")}>Medio</Button>
+                  <Button onClick={() => startNewChallenge("Difícil")} variant="destructive">Difícil</Button>
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
