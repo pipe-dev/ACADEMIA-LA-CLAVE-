@@ -40,62 +40,60 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   }
   rms = Math.sqrt(rms / SIZE);
 
-  if (rms < 0.01) { // Not enough signal
+  if (rms < 0.015) { // Not enough signal
     return -1;
   }
 
-  let r1 = 0;
-  let r2 = SIZE - 1;
-  const thres = 0.2;
+  const c = new Float32Array(SIZE);
 
-  for (let i = 0; i < SIZE / 2; i++) {
-    if (Math.abs(buf[i]) < thres) {
-      r1 = i;
-      break;
-    }
-  }
-
-  for (let i = 1; i < SIZE / 2; i++) {
-    if (Math.abs(buf[SIZE - i]) < thres) {
-      r2 = SIZE - i;
-      break;
-    }
-  }
-
-  const newBuf = buf.slice(r1, r2);
-  const newSize = newBuf.length;
-  const c = new Float32Array(newSize);
-
-  for (let i = 0; i < newSize; i++) {
-    for (let j = 0; j < newSize - i; j++) {
-      c[i] = c[i] + newBuf[j] * newBuf[j + i];
+  for (let i = 0; i < SIZE; i++) {
+    for (let j = 0; j < SIZE - i; j++) {
+      c[i] = c[i] + buf[j] * buf[j + i];
     }
   }
 
   let d = 0;
-  while (c[d] > c[d + 1]) {
+  while (d < SIZE -1 && c[d] > c[d + 1]) {
     d++;
+  }
+  
+  if (d >= SIZE -1) {
+    return -1;
   }
 
   let maxval = -1;
   let maxpos = -1;
-  for (let i = d; i < newSize; i++) {
+  for (let i = d; i < SIZE; i++) {
     if (c[i] > maxval) {
       maxval = c[i];
       maxpos = i;
     }
   }
 
+  if (maxpos === -1) {
+    return -1;
+  }
+
   let T0 = maxpos;
-  const x1 = c[T0 - 1];
-  const x2 = c[T0];
-  const x3 = c[T0 + 1];
+  
+  if (T0 > 0 && T0 < SIZE - 1) {
+      const x1 = c[T0 - 1];
+      const x2 = c[T0];
+      const x3 = c[T0 + 1];
 
-  const a = (x1 + x3 - 2 * x2) / 2;
-  const b = (x3 - x1) / 2;
+      const a = (x1 + x3 - 2 * x2) / 2;
+      const b = (x3 - x1) / 2;
 
-  if (a) {
-    T0 = T0 - b / (2 * a);
+      if (a) {
+        const adjustment = -b / (2 * a);
+        if (Math.abs(adjustment) < 1) { 
+          T0 = T0 + adjustment;
+        }
+      }
+  }
+
+  if (T0 === 0) {
+      return -1;
   }
 
   return sampleRate / T0;
@@ -109,8 +107,7 @@ export const usePitchDetection = () => {
   const [centsOff, setCentsOff] = useState(0);
   const [isDetecting, setIsDetecting] = useState(false);
 
-  // For vibrato, we smooth the pitch over a few frames
-  const centsHistoryRef = useRef<number[]>([]);
+  const smoothedCentsRef = useRef(0);
   const [smoothedCentsOff, setSmoothedCentsOff] = useState(0);
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -124,7 +121,7 @@ export const usePitchDetection = () => {
       analyserRef.current.getFloatTimeDomainData(dataArrayRef.current);
       const pitch = autoCorrelate(dataArrayRef.current, audioContextRef.current!.sampleRate);
       
-      if (pitch !== -1) {
+      if (pitch !== -1 && pitch < 2000) { // Add upper frequency limit for human voice
         setFrequency(pitch);
         const detectedNote = noteFromPitch(pitch);
         setNote(detectedNote);
@@ -132,20 +129,25 @@ export const usePitchDetection = () => {
         const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
         setCentsOff(currentCents);
 
-        // Update history and calculate smoothed value
-        centsHistoryRef.current.push(currentCents);
-        if (centsHistoryRef.current.length > 10) { // Moving average over last 10 frames
-          centsHistoryRef.current.shift();
-        }
-        const avgCents = centsHistoryRef.current.reduce((sum, val) => sum + val, 0) / centsHistoryRef.current.length;
-        setSmoothedCentsOff(avgCents);
+        const SMOOTHING_FACTOR = 0.25;
+        const newSmoothedCents = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
+        smoothedCentsRef.current = newSmoothedCents;
+        setSmoothedCentsOff(newSmoothedCents);
 
       } else {
         setFrequency(0);
         setNote({});
         setCentsOff(0);
-        setSmoothedCentsOff(0);
-        centsHistoryRef.current = [];
+        
+        const DECAY_FACTOR = 0.95;
+        const newSmoothedCents = smoothedCentsRef.current * DECAY_FACTOR;
+        if (Math.abs(newSmoothedCents) < 0.1) {
+            smoothedCentsRef.current = 0;
+            setSmoothedCentsOff(0);
+        } else {
+            smoothedCentsRef.current = newSmoothedCents;
+            setSmoothedCentsOff(newSmoothedCents);
+        }
       }
     }
     animationFrameId.current = requestAnimationFrame(detectPitch);
@@ -166,7 +168,8 @@ export const usePitchDetection = () => {
         source.connect(analyserRef.current);
         
         setIsDetecting(true);
-        centsHistoryRef.current = [];
+        smoothedCentsRef.current = 0;
+        setSmoothedCentsOff(0);
         detectPitch();
       } else {
         throw new Error("getUserMedia not supported on your browser!");
@@ -198,7 +201,7 @@ export const usePitchDetection = () => {
     setNote({});
     setCentsOff(0);
     setSmoothedCentsOff(0);
-    centsHistoryRef.current = [];
+    smoothedCentsRef.current = 0;
   }, []);
 
   return { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop };
