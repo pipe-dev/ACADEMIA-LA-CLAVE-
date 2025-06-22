@@ -75,7 +75,7 @@ export function Tuner() {
     }
 
     const isCorrectNote = note.name === challengeNote.name;
-    const isTolerablyInTune = Math.abs(centsOff) < 20;
+    const isTolerablyInTune = Math.abs(centsOff) < 5;
 
     if (isCorrectNote && isTolerablyInTune) {
       if (inTuneSinceRef.current === null) {
@@ -115,7 +115,7 @@ export function Tuner() {
     inTuneSinceRef.current = null;
   }
 
-  const isInTune = Math.abs(centsOff) < 20;
+  const isInTune = Math.abs(centsOff) < 5;
   const challengeProgress = challengeNote ? (inTuneTime / challengeDuration) * 100 : 0;
 
   const radius = 120;
