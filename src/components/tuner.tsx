@@ -21,7 +21,8 @@ export type NoteInfo = {
 
 const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, Math.min(count, shuffled.length));
+    const selected = shuffled.slice(0, Math.min(count, pool.length));
+    return selected.sort((a, b) => a.frequency - b.frequency);
 };
 
 let audioContext: AudioContext | null = null;
