@@ -100,18 +100,25 @@ const playAllCompletedSound = () => {
         }
 
         const t = audioContext.currentTime;
-        const frequencies = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+        const melody = [
+            // Upward arpeggio
+            { freq: 523.25, delay: 0, duration: 0.1 },    // C5
+            { freq: 659.25, delay: 0.1, duration: 0.1 },  // E5
+            { freq: 783.99, delay: 0.2, duration: 0.1 },  // G5
+            // Held final note
+            { freq: 1046.50, delay: 0.3, duration: 0.5 }, // C6
+        ];
         
-        frequencies.forEach((freq, i) => {
+        melody.forEach((note) => {
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
-            osc.frequency.value = freq;
+            osc.frequency.value = note.freq;
             osc.type = 'sine';
-            gain.gain.setValueAtTime(0.2, t + i * 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.4);
+            gain.gain.setValueAtTime(0.2, t + note.delay);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + note.delay + note.duration);
             osc.connect(gain).connect(audioContext.destination);
-            osc.start(t + i * 0.1);
-            osc.stop(t + i * 0.1 + 0.4);
+            osc.start(t + note.delay);
+            osc.stop(t + note.delay + note.duration);
         });
     }
 };
