@@ -19,24 +19,9 @@ export type NoteInfo = {
   fullName: string;
 };
 
-const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-const generateGeneralChallenge = (): NoteInfo[] => {
-    const notes: NoteInfo[] = [];
-    // Generates 12 notes from C4 to B4
-    for (let midi = 60; midi <= 71; midi++) {
-        const octave = Math.floor(midi / 12) - 1;
-        const name = noteStrings[midi % 12];
-        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
-        notes.push({ name, octave, frequency, fullName: `${name}${octave}` });
-    }
-    return notes;
-};
-
-
 const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
+    return shuffled.slice(0, Math.min(count, shuffled.length));
 };
 
 let audioContext: AudioContext | null = null;
@@ -133,9 +118,11 @@ const playAllCompletedSound = () => {
 
 const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡Sigue así!", "¡Increíble!"];
 
-type Difficulty = "Fácil" | "Medio" | "Difícil";
+type Difficulty = "Calentamiento" | "Fácil" | "Medio" | "Difícil";
+type ChallengeDifficulty = Exclude<Difficulty, "Calentamiento">;
 
 const difficultySettings = {
+  "Calentamiento": { tolerance: 10, exerciseCount: 12 },
   "Fácil": { tolerance: 10, exerciseCount: 15 },
   "Medio": { tolerance: 10, exerciseCount: 20 },
   "Difícil": { tolerance: 10, exerciseCount: 40 },
@@ -163,7 +150,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   const { toast } = useToast();
   
-  const [difficulty, setDifficulty] = useState<Difficulty | "General">("General");
+  const [difficulty, setDifficulty] = useState<Difficulty>("Calentamiento");
   const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>([]);
   const [activeNote, setActiveNote] = useState<NoteInfo | null>(null);
   const [completedNotes, setCompletedNotes] = useState<Set<string>>(new Set());
@@ -188,19 +175,14 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     if (!isMounted) return;
 
     if (notePool.length > 0) {
-      if (difficulty === 'General') {
-        const generalChallenge = generateGeneralChallenge();
-        setChallengeNotes(generalChallenge);
-      } else {
-        const settings = difficultySettings[difficulty];
-        const newChallenge = generateChallenge(settings.exerciseCount, notePool);
-        setChallengeNotes(newChallenge);
-      }
+      const settings = difficultySettings[difficulty];
+      const newChallenge = generateChallenge(settings.exerciseCount, notePool);
+      setChallengeNotes(newChallenge);
     }
   }, [isMounted, notePool, difficulty]);
 
 
-  const tolerance = difficulty === "General" ? 10 : difficultySettings[difficulty].tolerance;
+  const tolerance = difficultySettings[difficulty].tolerance;
   const challengeDuration = 1500;
   
   useEffect(() => {
@@ -250,7 +232,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         if (completedNotes.size + 1 >= challengeNotes.length) {
           setSessionCompleted(true);
           playAllCompletedSound();
-          if (difficulty === 'General') {
+          if (difficulty === 'Calentamiento') {
             setTimeout(() => setShowDifficultyDialog(true), 1500);
           }
         } else {
@@ -266,8 +248,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     }
   }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty]);
 
-  const startNewChallenge = useCallback((diff: Difficulty) => {
-    const settings = difficultySettings[diff];
+  const startNewChallenge = useCallback((diff: ChallengeDifficulty) => {
     setDifficulty(diff);
     setCompletedNotes(new Set());
     setActiveNote(null);
@@ -298,7 +279,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           description: "Para obtener mejores resultados, busca un lugar silencioso.",
           duration: 4000,
       });
-      if (challengeNotes.length === 0 || (difficulty === 'General' && sessionCompleted)) {
+      if (challengeNotes.length === 0 || (difficulty === 'Calentamiento' && sessionCompleted)) {
           setShowDifficultyDialog(true);
       } else {
           start();
@@ -307,7 +288,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   };
   
   const renderCentralContent = () => {
-    if (sessionCompleted && difficulty !== 'General') {
+    if (sessionCompleted && difficulty !== 'Calentamiento') {
         return (
             <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
                 <Trophy className="w-16 h-16 sm:w-20 sm:h-20 text-accent" />
@@ -424,7 +405,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
                   <AlertDialogTitle className="text-2xl">Elige una dificultad</AlertDialogTitle>
                   <AlertDialogDescription className="text-base">
                       {sessionCompleted 
-                        ? "¡Excelente trabajo! Has completado el nivel general. Ahora escoge un nuevo nivel para seguir practicando."
+                        ? "¡Excelente trabajo! Has completado el calentamiento. Ahora escoge un nuevo nivel para seguir practicando."
                         : "Prepárate para poner a prueba tu afinación. Cada nivel tiene un número diferente de notas y una tolerancia de afinación distinta."}
                   </AlertDialogDescription>
               </AlertDialogHeader>
