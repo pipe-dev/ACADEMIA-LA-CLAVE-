@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type NoteInfo = {
   name: string;
@@ -134,10 +135,28 @@ const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡
 type Difficulty = "Fácil" | "Medio" | "Difícil";
 
 const difficultySettings = {
-  "Fácil": { tolerance: 15, exerciseCount: 12 },
-  "Medio": { tolerance: 10, exerciseCount: 12 },
-  "Difícil": { tolerance: 5, exerciseCount: 12 },
+  "Fácil": { tolerance: 10, exerciseCount: 15 },
+  "Medio": { tolerance: 10, exerciseCount: 20 },
+  "Difícil": { tolerance: 10, exerciseCount: 40 },
 };
+
+function TunerSkeleton() {
+    return (
+      <div className="flex flex-col items-center gap-8 w-full animate-pulse">
+        <div className="flex flex-col items-center gap-2">
+            <Skeleton className="h-7 w-48 rounded-md" />
+            <Skeleton className="h-6 w-32 rounded-md" />
+        </div>
+
+        <div className="relative w-[340px] h-[340px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
+            <Skeleton className="absolute w-full h-full rounded-full" />
+            <Skeleton className="w-[180px] h-[180px] sm:w-[260px] sm:h-[260px] rounded-full" />
+        </div>
+        
+        <Skeleton className="h-16 w-56 rounded-full" />
+      </div>
+    );
+  }
 
 export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
@@ -155,9 +174,16 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   
   const [showDifficultyDialog, setShowDifficultyDialog] = useState(false);
   const [sessionCompleted, setSessionCompleted] = useState(false);
+  
+  const [isMounted, setIsMounted] = useState(false);
+  const [radius, setRadius] = useState(170);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const tolerance = difficulty === "General" ? 15 : difficultySettings[difficulty].tolerance;
-  const challengeDuration = 1500; // Reduced duration for faster feedback
+  const challengeDuration = 1500;
 
   useEffect(() => {
     if (notePool.length > 0 && difficulty === 'General') {
@@ -165,6 +191,21 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         setChallengeNotes(generalChallenge);
     }
   }, [notePool, difficulty]);
+  
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+  
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768; // Tailwind's sm breakpoint
+      const isLargeChallenge = challengeNotes.length > 25;
+      setRadius(isMobile ? 140 : (isLargeChallenge ? 210 : 170));
+    };
+  
+    handleResize();
+    window.addEventListener('resize', handleResize);
+  
+    return () => window.removeEventListener('resize', handleResize);
+  }, [challengeNotes.length]);
 
 
   useEffect(() => {
@@ -198,7 +239,9 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         if (completedNotes.size + 1 >= challengeNotes.length) {
           setSessionCompleted(true);
           playAllCompletedSound();
-          setTimeout(() => setShowDifficultyDialog(true), 1500);
+          if (difficulty === 'General') {
+            setTimeout(() => setShowDifficultyDialog(true), 1500);
+          }
         } else {
           setTimeout(() => {
             setLastCompletedNoteFullName(null);
@@ -210,7 +253,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration]);
+  }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty]);
 
   const startNewChallenge = useCallback((diff: Difficulty) => {
     const settings = difficultySettings[diff];
@@ -239,7 +282,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       stop();
       setActiveNote(null);
     } else {
-      if (challengeNotes.length === 0 || showDifficultyDialog) {
+      if (challengeNotes.length === 0 || (difficulty === 'General' && sessionCompleted)) {
           setShowDifficultyDialog(true);
       } else {
           start();
@@ -248,20 +291,21 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   };
   
   const renderCentralContent = () => {
-    if (sessionCompleted) {
+    if (sessionCompleted && difficulty !== 'General') {
         return (
             <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
-                <Trophy className="w-20 h-20 text-accent" />
-                <p className="text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
-                <p className="text-muted-foreground">¡Nivel completado!</p>
+                <Trophy className="w-16 h-16 sm:w-20 sm:h-20 text-accent" />
+                <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
+                <p className="text-muted-foreground text-sm sm:text-base">¡Nivel completado!</p>
+                 <Button onClick={() => setShowDifficultyDialog(true)} className="mt-4">Elegir Nivel</Button>
             </div>
         );
     }
     if (lastCompletedNoteFullName) {
         return (
             <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
-                <CheckCircle2 className="w-20 h-20 text-primary" />
-                <p className="text-3xl font-bold text-foreground mt-2">{completionPhrase}</p>
+                <CheckCircle2 className="w-16 h-16 sm:w-20 sm:h-20 text-primary" />
+                <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{completionPhrase}</p>
             </div>
         );
     }
@@ -270,16 +314,16 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         const challengeProgress = (inTuneTime / challengeDuration) * 100;
         return (
             <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
-                <p className="text-6xl sm:text-7xl font-bold text-primary">{activeNote.fullName}</p>
-                <p className="text-md text-muted-foreground -mt-1">Sostén la nota</p>
-                <div className="w-4/5 pt-2">
-                    <Progress value={challengeProgress} className="h-3" />
+                <p className="text-5xl sm:text-7xl font-bold text-primary">{activeNote.fullName}</p>
+                <p className="text-sm sm:text-md text-muted-foreground -mt-1">Sostén la nota</p>
+                <div className="w-full sm:w-4/5 pt-2">
+                    <Progress value={challengeProgress} className="h-2 sm:h-3" />
                 </div>
                 <div className="h-16 mt-2 flex flex-col items-center justify-center">
-                   <div className={cn("text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
+                   <div className={cn("text-3xl sm:text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
                         {note.name ? `${note.name}${note.octave}` : "--"}
                     </div>
-                    <p className={cn("font-mono text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
+                    <p className={cn("font-mono text-base sm:text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
                         {centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono"}
                     </p>
                 </div>
@@ -287,21 +331,25 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         );
     }
     if (!isDetecting) {
-         return <MicOff className="w-24 h-24 text-muted-foreground/30" />;
+         return <MicOff className="w-20 h-20 sm:w-24 sm:h-24 text-muted-foreground/30" />;
     }
     return (
         <div className="text-center p-4">
-            <p className="text-3xl font-bold text-foreground">Selecciona una nota</p>
-            <p className="text-muted-foreground mt-2 text-lg">Haz clic en un círculo para empezar</p>
+            <p className="text-2xl sm:text-3xl font-bold text-foreground">Selecciona una nota</p>
+            <p className="text-muted-foreground mt-1 sm:mt-2 text-base sm:text-lg">Haz clic en un círculo para empezar</p>
         </div>
     );
   };
 
-  const radius = challengeNotes.length > 25 ? 210 : 170;
-  const buttonSize = challengeNotes.length > 25 ? "w-14 h-14 text-sm" : "w-[72px] h-[72px] text-base";
-  const noteNameSize = challengeNotes.length > 25 ? "text-xl" : "text-2xl";
-  const octaveSize = challengeNotes.length > 25 ? "text-xs" : "text-sm";
+  const isLargeChallenge = challengeNotes.length > 25;
+  const buttonSize = `w-14 h-14 text-sm sm:w-[72px] sm:h-[72px] sm:text-base ${isLargeChallenge ? 'sm:w-14 sm:h-14 sm:text-sm' : ''}`;
+  const noteNameSize = `text-xl ${isLargeChallenge ? 'sm:text-xl' : 'sm:text-2xl'}`;
+  const octaveSize = `text-xs ${isLargeChallenge ? 'sm:text-xs' : 'sm:text-sm'}`;
   
+  if (!isMounted) {
+    return <TunerSkeleton />;
+  }
+
   return (
     <div className="flex flex-col items-center gap-8 w-full">
       <div className="text-center text-foreground font-semibold text-lg">
@@ -309,7 +357,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {challengeNotes.length}</p>
       </div>
 
-      <div className="relative w-[380px] h-[380px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
+      <div className="relative w-[340px] h-[340px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
         {challengeNotes.map((n, index) => {
           const angle = (index / challengeNotes.length) * 2 * Math.PI - (Math.PI / 2);
           const x = radius * Math.cos(angle);
@@ -336,7 +384,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           );
         })}
         
-        <Card className="w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+        <Card className="w-[180px] h-[180px] sm:w-[260px] sm:h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
             <CardContent className="p-2 flex items-center justify-center">
               {renderCentralContent()}
             </CardContent>
@@ -354,12 +402,12 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
                   <AlertDialogTitle className="text-2xl">Elige una dificultad</AlertDialogTitle>
                   <AlertDialogDescription className="text-base">
                       {sessionCompleted 
-                        ? "¡Excelente trabajo! Has completado todas las notas. Ahora escoge un nuevo nivel para seguir practicando."
+                        ? "¡Excelente trabajo! Has completado el nivel general. Ahora escoge un nuevo nivel para seguir practicando."
                         : "Prepárate para poner a prueba tu afinación. Cada nivel tiene un número diferente de notas y una tolerancia de afinación distinta."}
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="flex-col sm:flex-row justify-center gap-4 pt-4">
-                  <Button onClick={() => startNewChallenge("Fácil")} variant="accent" size="lg">Fácil</Button>
+                  <Button onClick={() => startNewChallenge("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black">Fácil</Button>
                   <Button onClick={() => startNewChallenge("Medio")} size="lg">Medio</Button>
                   <Button onClick={() => startNewChallenge("Difícil")} variant="destructive" size="lg">Difícil</Button>
               </AlertDialogFooter>
@@ -368,3 +416,5 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     </div>
   );
 }
+
+    
