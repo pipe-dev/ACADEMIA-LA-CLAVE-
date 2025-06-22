@@ -109,6 +109,10 @@ export const usePitchDetection = () => {
   const [centsOff, setCentsOff] = useState(0);
   const [isDetecting, setIsDetecting] = useState(false);
 
+  // For vibrato, we smooth the pitch over a few frames
+  const centsHistoryRef = useRef<number[]>([]);
+  const [smoothedCentsOff, setSmoothedCentsOff] = useState(0);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -124,12 +128,24 @@ export const usePitchDetection = () => {
         setFrequency(pitch);
         const detectedNote = noteFromPitch(pitch);
         setNote(detectedNote);
-        const cents = centsOffFromPitch(pitch, detectedNote.frequency);
-        setCentsOff(cents);
+
+        const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
+        setCentsOff(currentCents);
+
+        // Update history and calculate smoothed value
+        centsHistoryRef.current.push(currentCents);
+        if (centsHistoryRef.current.length > 10) { // Moving average over last 10 frames
+          centsHistoryRef.current.shift();
+        }
+        const avgCents = centsHistoryRef.current.reduce((sum, val) => sum + val, 0) / centsHistoryRef.current.length;
+        setSmoothedCentsOff(avgCents);
+
       } else {
         setFrequency(0);
         setNote({});
         setCentsOff(0);
+        setSmoothedCentsOff(0);
+        centsHistoryRef.current = [];
       }
     }
     animationFrameId.current = requestAnimationFrame(detectPitch);
@@ -150,6 +166,7 @@ export const usePitchDetection = () => {
         source.connect(analyserRef.current);
         
         setIsDetecting(true);
+        centsHistoryRef.current = [];
         detectPitch();
       } else {
         throw new Error("getUserMedia not supported on your browser!");
@@ -180,7 +197,9 @@ export const usePitchDetection = () => {
     setFrequency(0);
     setNote({});
     setCentsOff(0);
+    setSmoothedCentsOff(0);
+    centsHistoryRef.current = [];
   }, []);
 
-  return { note, frequency, centsOff, isDetecting, start, stop };
+  return { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop };
 };

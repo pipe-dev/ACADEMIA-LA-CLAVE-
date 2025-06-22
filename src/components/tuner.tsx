@@ -58,7 +58,7 @@ const playNote = (frequency: number) => {
 
 
 export function Tuner() {
-  const { note, frequency, centsOff, isDetecting, start, stop } = usePitchDetection();
+  const { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   
   const [challengeNote, setChallengeNote] = useState<NoteInfo | null>(null);
   const [inTuneTime, setInTuneTime] = useState(0);
@@ -75,7 +75,7 @@ export function Tuner() {
     }
 
     const isCorrectNote = note.name === challengeNote.name;
-    const isTolerablyInTune = Math.abs(centsOff) < 15;
+    const isTolerablyInTune = Math.abs(smoothedCentsOff) < 15;
 
     if (isCorrectNote && isTolerablyInTune) {
       if (inTuneSinceRef.current === null) {
@@ -95,7 +95,7 @@ export function Tuner() {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, centsOff, isDetecting, challengeNote, challengeDuration]);
+  }, [note, smoothedCentsOff, isDetecting, challengeNote, challengeDuration]);
 
   const handleToggle = () => {
     if (isDetecting) {
@@ -115,7 +115,7 @@ export function Tuner() {
     inTuneSinceRef.current = null;
   }
 
-  const isInTune = Math.abs(centsOff) < 15;
+  const isInTune = Math.abs(smoothedCentsOff) < 15;
   const challengeProgress = challengeNote ? (inTuneTime / challengeDuration) * 100 : 0;
 
   const radius = 120;
