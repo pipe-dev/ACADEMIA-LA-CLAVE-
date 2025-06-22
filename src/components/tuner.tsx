@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, CheckCircle2 } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -89,6 +89,7 @@ const playCompletionSound = () => {
     }
 };
 
+const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡Sigue así!"];
 
 export function Tuner() {
   const { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
@@ -97,10 +98,14 @@ export function Tuner() {
   const [inTuneTime, setInTuneTime] = useState(0);
   const [completedNotes, setCompletedNotes] = useState<Record<string, boolean>>({});
   const inTuneSinceRef = useRef<number | null>(null);
+  const [lastCompletedNote, setLastCompletedNote] = useState<string | null>(null);
+  const [completionPhrase, setCompletionPhrase] = useState("");
 
   const challengeDuration = 2000;
 
   useEffect(() => {
+    if (lastCompletedNote) return;
+
     if (!isDetecting || !challengeNote) {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
@@ -121,28 +126,38 @@ export function Tuner() {
       if (sustainedTime >= challengeDuration) {
         playCompletionSound();
         setCompletedNotes(prev => ({ ...prev, [challengeNote.name]: true }));
+        
+        const randomPhrase = completionPhrases[Math.floor(Math.random() * completionPhrases.length)];
+        setCompletionPhrase(randomPhrase);
+        setLastCompletedNote(challengeNote.name);
+
         setChallengeNote(null);
         setInTuneTime(0);
         inTuneSinceRef.current = null;
+
+        setTimeout(() => {
+            setLastCompletedNote(null);
+        }, 2000);
       }
     } else {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, challengeNote]);
+  }, [note, smoothedCentsOff, isDetecting, challengeNote, lastCompletedNote]);
 
   const handleToggle = () => {
     if (isDetecting) {
       stop();
       setChallengeNote(null);
       setInTuneTime(0);
+      setLastCompletedNote(null);
     } else {
       start();
     }
   };
   
   const handleNoteClick = (n: NoteInfo) => {
-    if (!isDetecting || completedNotes[n.name] || (challengeNote && challengeNote.name === n.name) ) return;
+    if (!isDetecting || completedNotes[n.name] || (challengeNote && challengeNote.name === n.name) || lastCompletedNote) return;
     playNote(n.frequency);
     setChallengeNote(n);
     setInTuneTime(0);
@@ -201,9 +216,14 @@ export function Tuner() {
         <Card className="w-48 h-48 rounded-full shadow-lg border-2 border-primary/20 flex items-center justify-center absolute">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
              {isDetecting ? (
-                challengeNote ? (
+                lastCompletedNote ? (
+                    <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
+                        <CheckCircle2 className="w-12 h-12 text-primary" />
+                        <p className="text-2xl font-bold text-primary mt-2">{completionPhrase}</p>
+                    </div>
+                ) : challengeNote ? (
                     <div className="flex flex-col items-center justify-center gap-1 w-full">
-                        <p className="text-xs text-muted-foreground">Hold the note</p>
+                        <p className="text-xs text-muted-foreground">Sostén la nota</p>
                         <p className="text-4xl font-bold text-primary">{challengeNote.name}</p>
                         <div className="w-3/4 pt-1">
                             <Progress value={challengeProgress} className="h-2" />
@@ -214,7 +234,7 @@ export function Tuner() {
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center">
-                        <p className="text-xs text-muted-foreground">Detected Note</p>
+                        <p className="text-xs text-muted-foreground">Nota detectada</p>
                         <div
                         className={cn(
                             "text-6xl font-bold transition-colors duration-300",
@@ -224,10 +244,10 @@ export function Tuner() {
                         {note.name || "--"}
                         </div>
                         <p className={cn("font-mono text-sm", isInTune ? "text-accent" : "text-muted-foreground")}>
-                        {centsOff !== 0 ? `${centsOff.toFixed(1)} cents` : "In Tune"}
+                        {centsOff !== 0 ? `${centsOff.toFixed(1)} cents` : "En tono"}
                         </p>
                         <div className="font-mono mt-1">
-                            <p className="text-muted-foreground text-xs">Frequency</p>
+                            <p className="text-muted-foreground text-xs">Frecuencia</p>
                             <p className="text-base">{frequency > 0 ? `${frequency.toFixed(2)} Hz` : "0.00 Hz"}</p>
                         </div>
                     </div>
@@ -235,7 +255,7 @@ export function Tuner() {
             ) : (
                 <div className="flex flex-col items-center justify-center gap-2">
                   <MicOff className="w-12 h-12 text-muted-foreground/50" />
-                  <p className="text-muted-foreground text-sm">Tuner is off</p>
+                  <p className="text-muted-foreground text-sm">Afinador apagado</p>
                 </div>
             )}
           </CardContent>
@@ -244,7 +264,7 @@ export function Tuner() {
 
       <Button onClick={handleToggle} size="lg" className="rounded-full w-40 h-14 shadow-lg mt-2">
         {isDetecting ? <MicOff className="mr-2" /> : <Mic className="mr-2" />}
-        {isDetecting ? "Stop" : "Start"}
+        {isDetecting ? "Detener" : "Empezar"}
       </Button>
     </div>
   );
