@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, VolumeX } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -180,23 +180,28 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
-
-  const tolerance = difficulty === "General" ? 15 : difficultySettings[difficulty].tolerance;
-  const challengeDuration = 1500;
-
-  useEffect(() => {
-    if (notePool.length > 0 && difficulty === 'General') {
+    // Generate initial challenge notes only on the client-side
+    if (notePool.length > 0) {
+      if (difficulty === 'General') {
         const generalChallenge = generateGeneralChallenge();
         setChallengeNotes(generalChallenge);
+      } else {
+        const settings = difficultySettings[difficulty];
+        const newChallenge = generateChallenge(settings.exerciseCount, notePool);
+        setChallengeNotes(newChallenge);
+      }
     }
-  }, [notePool, difficulty]);
+  }, [notePool]);
+
+
+  const tolerance = difficulty === "General" ? 10 : difficultySettings[difficulty].tolerance;
+  const challengeDuration = 1500;
   
   useEffect(() => {
     if (typeof window === 'undefined') return;
   
     const handleResize = () => {
-      const isMobile = window.innerWidth < 768; // Tailwind's sm breakpoint
+      const isMobile = window.innerWidth < 640;
       const isLargeChallenge = challengeNotes.length > 25;
       setRadius(isMobile ? 140 : (isLargeChallenge ? 210 : 170));
     };
@@ -316,7 +321,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
             <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
                 <p className="text-5xl sm:text-7xl font-bold text-primary">{activeNote.fullName}</p>
                 <p className="text-sm sm:text-md text-muted-foreground -mt-1">Sostén la nota</p>
-                <div className="w-full sm:w-4/5 pt-2">
+                <div className="w-4/5 pt-2">
                     <Progress value={challengeProgress} className="h-2 sm:h-3" />
                 </div>
                 <div className="h-16 mt-2 flex flex-col items-center justify-center">
@@ -346,7 +351,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const noteNameSize = `text-xl ${isLargeChallenge ? 'sm:text-xl' : 'sm:text-2xl'}`;
   const octaveSize = `text-xs ${isLargeChallenge ? 'sm:text-xs' : 'sm:text-sm'}`;
   
-  if (!isMounted) {
+  if (!isMounted || challengeNotes.length === 0) {
     return <TunerSkeleton />;
   }
 
@@ -391,10 +396,16 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         </Card>
       </div>
       
-      <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
-        {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
-        {isDetecting ? "Pausar" : "Empezar"}
-      </Button>
+      <div className="flex flex-col items-center gap-3">
+        <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
+          {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
+          {isDetecting ? "Pausar" : "Empezar"}
+        </Button>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground text-center max-w-xs px-4">
+            <VolumeX className="w-4 h-4 flex-shrink-0" />
+            <span>Para obtener mejores resultados, busca un lugar silencioso.</span>
+        </div>
+      </div>
 
       <AlertDialog open={showDifficultyDialog}>
           <AlertDialogContent>
@@ -416,5 +427,3 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     </div>
   );
 }
-
-    
