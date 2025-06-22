@@ -45,8 +45,8 @@ export function AppContainer() {
           startMidi = 43; // G2
           endMidi = 60;   // C4
         } else { // Tenor
-          startMidi = 47; // B2
-          endMidi = 69;   // A4
+          startMidi = 48; // C3
+          endMidi = 71;   // B4
         }
       } else { // Femenino
         if (pitchPreference === 'grave') { // Alto/Contralto
