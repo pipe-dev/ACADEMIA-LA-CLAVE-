@@ -1,6 +1,7 @@
+
 "use client";
 
-import { Mic, MicOff, CheckCircle2 } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, RefreshCw } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -89,6 +90,32 @@ const playCompletionSound = () => {
     }
 };
 
+const playAllCompletedSound = () => {
+    if (typeof window !== 'undefined') {
+        if (!audioContext || audioContext.state === 'closed') {
+            audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        const t = audioContext.currentTime;
+        const frequencies = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+        
+        frequencies.forEach((freq, i) => {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.frequency.value = freq;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.2, t + i * 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.4);
+            osc.connect(gain).connect(audioContext.destination);
+            osc.start(t + i * 0.1);
+            osc.stop(t + i * 0.1 + 0.4);
+        });
+    }
+};
+
 const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡Sigue así!"];
 
 export function Tuner() {
@@ -97,6 +124,7 @@ export function Tuner() {
   const [challengeNote, setChallengeNote] = useState<NoteInfo | null>(null);
   const [inTuneTime, setInTuneTime] = useState(0);
   const [completedNotes, setCompletedNotes] = useState<Record<string, boolean>>({});
+  const [allNotesCompleted, setAllNotesCompleted] = useState(false);
   const inTuneSinceRef = useRef<number | null>(null);
   const [lastCompletedNote, setLastCompletedNote] = useState<string | null>(null);
   const [completionPhrase, setCompletionPhrase] = useState("");
@@ -104,7 +132,7 @@ export function Tuner() {
   const challengeDuration = 2000;
 
   useEffect(() => {
-    if (lastCompletedNote) return;
+    if (lastCompletedNote || allNotesCompleted) return;
 
     if (!isDetecting || !challengeNote) {
       setInTuneTime(0);
@@ -124,8 +152,15 @@ export function Tuner() {
       setInTuneTime(sustainedTime);
 
       if (sustainedTime >= challengeDuration) {
-        playCompletionSound();
-        setCompletedNotes(prev => ({ ...prev, [challengeNote.name]: true }));
+        const newCompletedNotes = { ...completedNotes, [challengeNote.name]: true };
+        setCompletedNotes(newCompletedNotes);
+
+        if (Object.keys(newCompletedNotes).length === notes.length) {
+          setAllNotesCompleted(true);
+          playAllCompletedSound();
+        } else {
+          playCompletionSound();
+        }
         
         const randomPhrase = completionPhrases[Math.floor(Math.random() * completionPhrases.length)];
         setCompletionPhrase(randomPhrase);
@@ -143,9 +178,20 @@ export function Tuner() {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, challengeNote, lastCompletedNote]);
+  }, [note, smoothedCentsOff, isDetecting, challengeNote, lastCompletedNote, allNotesCompleted, completedNotes]);
 
   const handleToggle = () => {
+    if (allNotesCompleted) {
+        setCompletedNotes({});
+        setAllNotesCompleted(false);
+        setChallengeNote(null);
+        setInTuneTime(0);
+        inTuneSinceRef.current = null;
+        setLastCompletedNote(null);
+        start();
+        return;
+    }
+
     if (isDetecting) {
       stop();
       setChallengeNote(null);
@@ -157,7 +203,7 @@ export function Tuner() {
   };
   
   const handleNoteClick = (n: NoteInfo) => {
-    if (!isDetecting || completedNotes[n.name] || (challengeNote && challengeNote.name === n.name) || lastCompletedNote) return;
+    if (!isDetecting || completedNotes[n.name] || (challengeNote && challengeNote.name === n.name) || lastCompletedNote || allNotesCompleted) return;
     playNote(n.frequency);
     setChallengeNote(n);
     setInTuneTime(0);
@@ -182,7 +228,7 @@ export function Tuner() {
           const x = Math.cos(angle) * radius;
           const y = Math.sin(angle) * radius;
           
-          const isActive = note.name === n.name && isDetecting && !challengeNote;
+          const isActive = note.name === n.name && isDetecting && !challengeNote && !allNotesCompleted;
           const isChallenge = challengeNote?.name === n.name;
           const isCompleted = completedNotes[n.name];
 
@@ -206,7 +252,7 @@ export function Tuner() {
                 transform: `translate(${x.toFixed(3)}px, ${y.toFixed(3)}px)`,
               }}
               onClick={() => handleNoteClick(n)}
-              disabled={!isDetecting}
+              disabled={!isDetecting || allNotesCompleted}
             >
               {n.name}
             </Button>
@@ -215,7 +261,13 @@ export function Tuner() {
 
         <Card className="w-48 h-48 rounded-full shadow-lg border-2 border-primary/20 flex items-center justify-center absolute">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-             {isDetecting ? (
+             {allNotesCompleted ? (
+                <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
+                    <Trophy className="w-16 h-16 text-accent" />
+                    <p className="text-3xl font-bold text-primary mt-2">¡Felicidades!</p>
+                    <p className="text-muted-foreground">Completaste el desafío.</p>
+                </div>
+             ) : isDetecting ? (
                 lastCompletedNote ? (
                     <div className="flex flex-col items-center justify-center gap-1 text-center animate-in fade-in zoom-in-95">
                         <CheckCircle2 className="w-12 h-12 text-primary" />
@@ -262,9 +314,23 @@ export function Tuner() {
         </Card>
       </div>
 
-      <Button onClick={handleToggle} size="lg" className="rounded-full w-40 h-14 shadow-lg mt-2">
-        {isDetecting ? <MicOff className="mr-2" /> : <Mic className="mr-2" />}
-        {isDetecting ? "Detener" : "Empezar"}
+      <Button onClick={handleToggle} size="lg" className="rounded-full w-48 h-14 shadow-lg mt-2">
+        {allNotesCompleted ? (
+            <>
+                <RefreshCw className="mr-2" />
+                <span>Jugar de nuevo</span>
+            </>
+        ) : isDetecting ? ( 
+            <>
+                <MicOff className="mr-2" />
+                Detener
+            </>
+        ) : (
+            <>
+                <Mic className="mr-2" />
+                Empezar
+            </>
+        )}
       </Button>
     </div>
   );
