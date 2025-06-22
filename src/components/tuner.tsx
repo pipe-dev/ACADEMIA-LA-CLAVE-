@@ -296,7 +296,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           variant: "accent",
           title: "Consejo de Afinación",
           description: "Para obtener mejores resultados, busca un lugar silencioso.",
-          duration: 4000,
+          duration: 6000,
       });
       if (challengeNotes.length === 0 || (difficulty === 'General' && sessionCompleted)) {
           setShowDifficultyDialog(true);

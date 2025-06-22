@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Tuner, type NoteInfo } from '@/components/tuner';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Check } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 
 const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -21,6 +21,7 @@ const generateNotePool = (startMidi: number, endMidi: number): NoteInfo[] => {
 };
 
 export function AppContainer() {
+  const { toast } = useToast();
   const [pitchPreference, setPitchPreference] = useState<'grave' | 'agudo' | null>(null);
   const [gender, setGender] = useState<'masculino' | 'femenino' | null>(null);
   const [notePool, setNotePool] = useState<NoteInfo[] | null>(null);
@@ -51,9 +52,16 @@ export function AppContainer() {
       const pool = generateNotePool(startMidi, endMidi);
       setNotePool(pool);
       
-      setTimeout(() => setIsReady(true), 1200);
+      toast({
+        variant: "accent",
+        title: "¡Perfecto!",
+        description: "Hemos configurado tu rango vocal.",
+        duration: 4000,
+      });
+
+      setTimeout(() => setIsReady(true), 1500);
     }
-  }, [pitchPreference, gender]);
+  }, [pitchPreference, gender, toast]);
 
   if (isReady && notePool) {
     return (
@@ -95,13 +103,6 @@ export function AppContainer() {
           </CardContent>
         </Card>
       </div>
-      
-      {(pitchPreference && gender) && (
-          <div className="mt-12 flex items-center gap-3 text-accent animate-in fade-in-50">
-              <Check />
-              <p className="font-medium">¡Perfecto! Hemos configurado tu rango vocal.</p>
-          </div>
-      )}
     </main>
   );
 }
