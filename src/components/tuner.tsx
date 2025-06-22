@@ -161,7 +161,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
 
   useEffect(() => {
     if (notePool.length > 0 && difficulty === 'General') {
-        const generalChallenge = notePool.slice(0, 12);
+        const generalChallenge = generateGeneralChallenge();
         setChallengeNotes(generalChallenge);
     }
   }, [notePool, difficulty]);
@@ -269,17 +269,17 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         const isInTune = Math.abs(smoothedCentsOff) < tolerance && note.name === activeNote.name && note.octave === activeNote.octave;
         const challengeProgress = (inTuneTime / challengeDuration) * 100;
         return (
-            <div className="flex flex-col items-center justify-center gap-2 w-full text-center">
-                <p className="text-7xl sm:text-8xl font-bold text-primary">{activeNote.fullName}</p>
-                <p className="text-lg text-muted-foreground -mt-2">Sostén la nota</p>
-                <div className="w-4/5 pt-4">
-                    <Progress value={challengeProgress} className="h-4" />
+            <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
+                <p className="text-6xl sm:text-7xl font-bold text-primary">{activeNote.fullName}</p>
+                <p className="text-md text-muted-foreground -mt-1">Sostén la nota</p>
+                <div className="w-4/5 pt-2">
+                    <Progress value={challengeProgress} className="h-3" />
                 </div>
-                <div className="h-20 mt-4 flex flex-col items-center justify-center">
-                   <div className={cn("text-5xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
+                <div className="h-16 mt-2 flex flex-col items-center justify-center">
+                   <div className={cn("text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
                         {note.name ? `${note.name}${note.octave}` : "--"}
                     </div>
-                    <p className={cn("font-mono text-xl", isInTune ? "text-accent" : "text-muted-foreground")}>
+                    <p className={cn("font-mono text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
                         {centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono"}
                     </p>
                 </div>
