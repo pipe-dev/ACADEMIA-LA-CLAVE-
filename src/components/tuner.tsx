@@ -65,6 +65,8 @@ export function Tuner() {
   const [completedNotes, setCompletedNotes] = useState<Record<string, boolean>>({});
   const inTuneSinceRef = useRef<number | null>(null);
 
+  const challengeDuration = 3000;
+
   useEffect(() => {
     if (!isDetecting || !challengeNote) {
       setInTuneTime(0);
@@ -83,7 +85,7 @@ export function Tuner() {
       const sustainedTime = Date.now() - inTuneSinceRef.current;
       setInTuneTime(sustainedTime);
 
-      if (sustainedTime >= 5000) {
+      if (sustainedTime >= challengeDuration) {
         setCompletedNotes(prev => ({ ...prev, [challengeNote.name]: true }));
         setChallengeNote(null);
         setInTuneTime(0);
@@ -93,7 +95,7 @@ export function Tuner() {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, centsOff, isDetecting, challengeNote]);
+  }, [note, centsOff, isDetecting, challengeNote, challengeDuration]);
 
   const handleToggle = () => {
     if (isDetecting) {
@@ -114,7 +116,7 @@ export function Tuner() {
   }
 
   const isInTune = Math.abs(centsOff) < 15;
-  const challengeProgress = challengeNote ? (inTuneTime / 5000) * 100 : 0;
+  const challengeProgress = challengeNote ? (inTuneTime / challengeDuration) * 100 : 0;
 
   const radius = 120;
   const buttonSize = 48;
@@ -173,7 +175,7 @@ export function Tuner() {
                             <Progress value={challengeProgress} className="h-2" />
                         </div>
                         <p className="font-mono text-xs text-muted-foreground mt-1">
-                            {`${(inTuneTime / 1000).toFixed(1)}s / 5.0s`}
+                            {`${(inTuneTime / 1000).toFixed(1)}s / ${(challengeDuration / 1000).toFixed(1)}s`}
                         </p>
                     </div>
                 ) : (
