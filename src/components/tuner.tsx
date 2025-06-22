@@ -65,7 +65,7 @@ export function Tuner() {
   const [completedNotes, setCompletedNotes] = useState<Record<string, boolean>>({});
   const inTuneSinceRef = useRef<number | null>(null);
 
-  const challengeDuration = 3000;
+  const challengeDuration = 2000;
 
   useEffect(() => {
     if (!isDetecting || !challengeNote) {
