@@ -19,7 +19,7 @@ export function Tuner() {
     }
   };
 
-  const isInTune = Math.abs(centsOff) < 20;
+  const isInTune = Math.abs(centsOff) < 15;
   // The needle moves up to 90 degrees left or right. 50 cents = 90deg, so 1 cent = 1.8deg.
   const needleRotation = centsOff * 1.8;
 
