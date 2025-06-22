@@ -41,9 +41,9 @@ export function AppContainer() {
       let startMidi: number, endMidi: number;
 
       if (gender === 'masculino') {
-        if (pitchPreference === 'grave') { // Baritone/Bass
-          startMidi = 43; // G2
-          endMidi = 67;   // G4
+        if (pitchPreference === 'grave') { // Barítono/Bajo
+          startMidi = 41; // F2
+          endMidi = 65;   // F4
         } else { // Tenor
           startMidi = 48; // C3
           endMidi = 72;   // C5
@@ -53,8 +53,8 @@ export function AppContainer() {
           startMidi = 53; // F3
           endMidi = 77;   // F5
         } else { // Soprano
-          startMidi = 57; // A3
-          endMidi = 81;   // A5
+          startMidi = 60; // C4
+          endMidi = 83;   // B5
         }
       }
       
@@ -68,7 +68,7 @@ export function AppContainer() {
         duration: 4000,
       });
 
-      setTimeout(() => setIsReady(true), 1500);
+      setIsReady(true);
     }
   }, [pitchPreference, gender, toast]);
 
