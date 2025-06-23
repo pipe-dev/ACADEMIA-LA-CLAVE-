@@ -177,7 +177,24 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
 
     if (notePool.length > 0) {
       const settings = difficultySettings[difficulty];
-      const newChallenge = generateChallenge(settings.exerciseCount, notePool);
+      let newChallenge: NoteInfo[];
+
+      if (difficulty === "Calentamiento") {
+        // For warm-up, select 12 successive notes from a comfortable middle part of the range.
+        // The notePool is already sorted by frequency.
+        const middleIndex = Math.floor(notePool.length / 2) - Math.floor(settings.exerciseCount / 2);
+        const startIndex = Math.max(0, middleIndex);
+        
+        // Ensure we don't go out of bounds if the pool is smaller than the exercise count
+        const availableNotes = notePool.length - startIndex;
+        const notesToTake = Math.min(settings.exerciseCount, availableNotes);
+        
+        newChallenge = notePool.slice(startIndex, startIndex + notesToTake);
+      } else {
+        // For other difficulties, use the random selection logic.
+        newChallenge = generateChallenge(settings.exerciseCount, notePool);
+      }
+      
       setChallengeNotes(newChallenge);
     }
   }, [isMounted, notePool, difficulty]);
