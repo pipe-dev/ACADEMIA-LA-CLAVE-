@@ -123,10 +123,10 @@ type Difficulty = "Calentamiento" | "Fácil" | "Medio" | "Difícil";
 type ChallengeDifficulty = Exclude<Difficulty, "Calentamiento">;
 
 const difficultySettings = {
-  "Calentamiento": { tolerance: 10, exerciseCount: 12 },
-  "Fácil": { tolerance: 10, exerciseCount: 15 },
-  "Medio": { tolerance: 10, exerciseCount: 20 },
-  "Difícil": { tolerance: 10, exerciseCount: 40 },
+  "Calentamiento": { tolerance: 13, exerciseCount: 12 },
+  "Fácil": { tolerance: 13, exerciseCount: 15 },
+  "Medio": { tolerance: 13, exerciseCount: 20 },
+  "Difícil": { tolerance: 13, exerciseCount: 40 },
 };
 
 function TunerSkeleton() {
@@ -195,7 +195,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         newChallenge = generateChallenge(settings.exerciseCount, notePool);
       }
       
-      setChallengeNotes(newChallenge);
+      setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
     }
   }, [isMounted, notePool, difficulty]);
 
