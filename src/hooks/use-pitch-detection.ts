@@ -30,68 +30,35 @@ const centsOffFromPitch = (frequency: number, targetFrequency: number): number =
   return 1200 * Math.log2(frequency / targetFrequency);
 };
 
-// A more robust autocorrelation function. It's better at finding the fundamental
-// frequency and less prone to octave errors, especially for lower notes.
 const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   const SIZE = buf.length;
   let rms = 0;
 
-  // Calculate RMS to see if there's enough signal.
   for (let i = 0; i < SIZE; i++) {
     const val = buf[i];
     rms += val * val;
   }
   rms = Math.sqrt(rms / SIZE);
 
-  // A lower RMS threshold is more sensitive to quiet notes.
-  if (rms < 0.01) { 
+  if (rms < 0.01) {
     return -1;
   }
 
-  // Find a good correlation peak. We'll trim the buffer to the most salient part
-  // to make the autocorrelation more accurate and efficient.
-  let r1 = 0;
-  let r2 = SIZE - 1;
-  const thres = 0.2;
-
-  // Find the first point where the signal drops below a threshold.
-  for (let i = 0; i < SIZE / 2; i++) {
-    if (Math.abs(buf[i]) < thres) {
-      r1 = i;
-      break;
+  const c = new Float32Array(SIZE);
+  for (let i = 0; i < SIZE; i++) {
+    for (let j = 0; j < SIZE - i; j++) {
+      c[i] = c[i] + buf[j] * buf[j + i];
     }
   }
 
-  // Find the last point where the signal drops below a threshold.
-  for (let i = 1; i < SIZE / 2; i++) {
-    if (Math.abs(buf[SIZE - i]) < thres) {
-      r2 = SIZE - i;
-      break;
-    }
-  }
-  
-  // Trim the buffer to the salient part.
-  const buf2 = buf.slice(r1, r2);
-  const SIZE2 = buf2.length;
-  const c = new Float32Array(SIZE2);
-
-  // The autocorrelation calculation.
-  for (let i = 0; i < SIZE2; i++) {
-    for (let j = 0; j < SIZE2 - i; j++) {
-      c[i] = c[i] + buf2[j] * buf2[j + i];
-    }
-  }
-
-  // Find the first dip.
   let d = 0;
-  while (d < c.length -1 && c[d] > c[d + 1]) {
+  while (d < c.length - 1 && c[d] > c[d + 1]) {
     d++;
   }
 
-  // Find the max peak after the dip.
   let maxval = -1;
   let maxpos = -1;
-  for (let i = d; i < SIZE2; i++) {
+  for (let i = d; i < SIZE; i++) {
     if (c[i] > maxval) {
       maxval = c[i];
       maxpos = i;
@@ -101,10 +68,9 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   if (maxpos === -1) {
     return -1;
   }
-  
-  // Parabolic interpolation for a more accurate peak frequency.
+
   let T0 = maxpos;
-  if (T0 > 0 && T0 < SIZE2 - 1) {
+  if (T0 > 0 && T0 < SIZE - 1) {
     const x1 = c[T0 - 1];
     const x2 = c[T0];
     const x3 = c[T0 + 1];
@@ -119,7 +85,7 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   }
 
   if (T0 === 0) {
-      return -1;
+    return -1;
   }
 
   return sampleRate / T0;
