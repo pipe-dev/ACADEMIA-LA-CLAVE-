@@ -17,6 +17,7 @@ export type NoteInfo = {
   octave: number;
   frequency: number;
   fullName: string;
+  midi: number;
 };
 
 const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
@@ -200,7 +201,13 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   }, [isMounted, notePool, difficulty]);
 
 
-  const tolerance = difficultySettings[difficulty].tolerance;
+  const baseTolerance = difficultySettings[difficulty].tolerance;
+  let tolerance = baseTolerance;
+  // For notes between G2 (MIDI 43) and C3 (MIDI 48), increase tolerance to 22 cents.
+  if (activeNote && activeNote.midi >= 43 && activeNote.midi <= 48) {
+      tolerance = 22;
+  }
+  
   const challengeDuration = 1500;
   
   useEffect(() => {

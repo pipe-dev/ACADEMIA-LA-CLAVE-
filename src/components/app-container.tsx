@@ -15,7 +15,7 @@ const generateNotePool = (startMidi: number, endMidi: number): NoteInfo[] => {
         const octave = Math.floor(midi / 12) - 1;
         const name = noteStrings[midi % 12];
         const frequency = 440 * Math.pow(2, (midi - 69) / 12);
-        notes.push({ name, octave, frequency, fullName: `${name}${octave}` });
+        notes.push({ name, octave, frequency, fullName: `${name}${octave}`, midi });
     }
     return notes;
 };
