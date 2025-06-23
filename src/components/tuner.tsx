@@ -117,16 +117,16 @@ const playAllCompletedSound = () => {
     }
 };
 
-const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En el clavo!", "¡Sigue así!", "¡Increíble!"];
+const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En la nota!", "¡Sigue así!", "¡Increíble!", "¡Deliciosa!"];
 
 type Difficulty = "Calentamiento" | "Fácil" | "Medio" | "Difícil";
 type ChallengeDifficulty = Exclude<Difficulty, "Calentamiento">;
 
 const difficultySettings = {
-  "Calentamiento": { tolerance: 13, exerciseCount: 12 },
-  "Fácil": { tolerance: 13, exerciseCount: 15 },
-  "Medio": { tolerance: 13, exerciseCount: 20 },
-  "Difícil": { tolerance: 13, exerciseCount: 40 },
+  "Calentamiento": { tolerance: 15, exerciseCount: 12 },
+  "Fácil": { tolerance: 15, exerciseCount: 15 },
+  "Medio": { tolerance: 15, exerciseCount: 20 },
+  "Difícil": { tolerance: 15, exerciseCount: 40 },
 };
 
 function TunerSkeleton() {
