@@ -248,8 +248,6 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
   }, [isMounted, notePool, difficulty, currentLevel, isInitialWarmupCompleted]);
 
-  const tolerance = 30;
-  
   const challengeDuration = 1500;
   
   useEffect(() => {
@@ -267,6 +265,8 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     return () => window.removeEventListener('resize', handleResize);
   }, [challengeNotes.length]);
 
+
+  const tolerance = (activeNote && activeNote.midi >= 43 && activeNote.midi <= 48) ? 30 : 15;
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
@@ -321,7 +321,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel]);
+  }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance]);
 
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     setDifficulty(diff);
