@@ -26,98 +26,6 @@ const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     return selected.sort((a, b) => a.frequency - b.frequency);
 };
 
-let audioContext: AudioContext | null = null;
-
-const playNote = (frequency: number) => {
-  if (typeof window !== 'undefined') {
-    if (!audioContext || audioContext.state === 'closed') {
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-    
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 1.5);
-  }
-};
-
-const playCompletionSound = () => {
-    if (typeof window !== 'undefined') {
-        if (!audioContext || audioContext.state === 'closed') {
-            audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-
-        const t = audioContext.currentTime;
-
-        const osc1 = audioContext.createOscillator();
-        const gain1 = audioContext.createGain();
-        osc1.frequency.value = 1046.50; // C6
-        osc1.type = 'sine';
-        gain1.gain.setValueAtTime(0.2, t);
-        gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-        osc1.connect(gain1).connect(audioContext.destination);
-        osc1.start(t);
-        osc1.stop(t + 0.5);
-        
-        const osc2 = audioContext.createOscillator();
-        const gain2 = audioContext.createGain();
-        osc2.frequency.value = 1318.51; // E6
-        osc2.type = 'sine';
-        gain2.gain.setValueAtTime(0.2, t + 0.1);
-        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-        osc2.connect(gain2).connect(audioContext.destination);
-        osc2.start(t + 0.1);
-        osc2.stop(t + 0.6);
-    }
-};
-
-const playAllCompletedSound = () => {
-    if (typeof window !== 'undefined') {
-        if (!audioContext || audioContext.state === 'closed') {
-            audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-
-        const t = audioContext.currentTime;
-        const melody = [
-            { freq: 523.25, delay: 0, duration: 0.15 },
-            { freq: 659.25, delay: 0.15, duration: 0.15 },
-            { freq: 783.99, delay: 0.3, duration: 0.15 },
-            { freq: 1046.50, delay: 0.45, duration: 0.6 },
-        ];
-        
-        melody.forEach((note) => {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.frequency.value = note.freq;
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0.25, t + note.delay);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + note.delay + note.duration);
-            osc.connect(gain).connect(audioContext.destination);
-            osc.start(t + note.delay);
-            osc.stop(t + note.delay + note.duration);
-        });
-    }
-};
-
 const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En la nota!", "¡Sigue así!", "¡Increíble!", "¡Deliciosa!"];
 
 type Difficulty = "Calentamiento" | "Fácil" | "Medio" | "Difícil";
@@ -169,6 +77,108 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const [isMounted, setIsMounted] = useState(false);
   const [radius, setRadius] = useState(170);
 
+  const playbackAudioContextRef = useRef<AudioContext | null>(null);
+
+  const getPlaybackAudioContext = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+
+    let context = playbackAudioContextRef.current;
+    if (!context || context.state === 'closed') {
+        try {
+            context = new (window.AudioContext || (window as any).webkitAudioContext)();
+            playbackAudioContextRef.current = context;
+        } catch (e) {
+            console.error("Could not create playback AudioContext", e);
+            return null;
+        }
+    }
+    if (context.state === 'suspended') {
+        context.resume();
+    }
+    return context;
+  }, []);
+
+  useEffect(() => {
+    getPlaybackAudioContext();
+    return () => {
+        if (playbackAudioContextRef.current && playbackAudioContextRef.current.state !== 'closed') {
+            playbackAudioContextRef.current.close();
+        }
+    }
+  }, [getPlaybackAudioContext]);
+
+  const playNote = useCallback((frequency: number) => {
+    const audioContext = getPlaybackAudioContext();
+    if (!audioContext) return;
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    
+    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 1.5);
+  }, [getPlaybackAudioContext]);
+
+  const playCompletionSound = useCallback(() => {
+    const audioContext = getPlaybackAudioContext();
+    if (!audioContext) return;
+
+    const t = audioContext.currentTime;
+
+    const osc1 = audioContext.createOscillator();
+    const gain1 = audioContext.createGain();
+    osc1.frequency.value = 1046.50; // C6
+    osc1.type = 'sine';
+    gain1.gain.setValueAtTime(0.2, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    osc1.connect(gain1).connect(audioContext.destination);
+    osc1.start(t);
+    osc1.stop(t + 0.5);
+    
+    const osc2 = audioContext.createOscillator();
+    const gain2 = audioContext.createGain();
+    osc2.frequency.value = 1318.51; // E6
+    osc2.type = 'sine';
+    gain2.gain.setValueAtTime(0.2, t + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    osc2.connect(gain2).connect(audioContext.destination);
+    osc2.start(t + 0.1);
+    osc2.stop(t + 0.6);
+  }, [getPlaybackAudioContext]);
+
+  const playAllCompletedSound = useCallback(() => {
+    const audioContext = getPlaybackAudioContext();
+    if (!audioContext) return;
+
+    const t = audioContext.currentTime;
+    const melody = [
+        { freq: 523.25, delay: 0, duration: 0.15 },
+        { freq: 659.25, delay: 0.15, duration: 0.15 },
+        { freq: 783.99, delay: 0.3, duration: 0.15 },
+        { freq: 1046.50, delay: 0.45, duration: 0.6 },
+    ];
+    
+    melody.forEach((note) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.frequency.value = note.freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.25, t + note.delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + note.delay + note.duration);
+        osc.connect(gain).connect(audioContext.destination);
+        osc.start(t + note.delay);
+        osc.stop(t + note.delay + note.duration);
+    });
+  }, [getPlaybackAudioContext]);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -181,18 +191,14 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       let newChallenge: NoteInfo[];
 
       if (difficulty === "Calentamiento") {
-        // For warm-up, select 12 successive notes from a comfortable middle part of the range.
-        // The notePool is already sorted by frequency.
         const middleIndex = Math.floor(notePool.length / 2) - Math.floor(settings.exerciseCount / 2);
         const startIndex = Math.max(0, middleIndex);
         
-        // Ensure we don't go out of bounds if the pool is smaller than the exercise count
         const availableNotes = notePool.length - startIndex;
         const notesToTake = Math.min(settings.exerciseCount, availableNotes);
         
         newChallenge = notePool.slice(startIndex, startIndex + notesToTake);
       } else {
-        // For other difficulties, use the random selection logic.
         newChallenge = generateChallenge(settings.exerciseCount, notePool);
       }
       
@@ -203,7 +209,6 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
 
   const baseTolerance = difficultySettings[difficulty].tolerance;
   let tolerance = baseTolerance;
-  // For notes between G2 (MIDI 43) and C3 (MIDI 48), increase tolerance to 22 cents.
   if (activeNote && activeNote.midi >= 43 && activeNote.midi <= 48) {
       tolerance = 22;
   }
@@ -271,7 +276,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty]);
+  }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound]);
 
   const startNewChallenge = useCallback((diff: ChallengeDifficulty) => {
     setDifficulty(diff);

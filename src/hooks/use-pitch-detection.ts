@@ -121,14 +121,13 @@ export const usePitchDetection = () => {
         audioContextRef.current = context;
 
         analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.fftSize = 2048;
+        analyserRef.current.fftSize = 4096;
 
         const source = audioContextRef.current.createMediaStreamSource(stream);
         
-        // Add a low-pass filter to help with low note detection
         const lowpassFilter = context.createBiquadFilter();
         lowpassFilter.type = 'lowpass';
-        lowpassFilter.frequency.setValueAtTime(800, context.currentTime); // Cut off high harmonics
+        lowpassFilter.frequency.setValueAtTime(800, context.currentTime);
         lowpassFilterRef.current = lowpassFilter;
 
         source.connect(lowpassFilter).connect(analyserRef.current);
