@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, VolumeX } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, VolumeX, Lock, Star, ArrowLeft } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En la nota!", "¡S
 
 type Difficulty = "Calentamiento" | "Fácil" | "Medio" | "Difícil";
 type ChallengeDifficulty = Exclude<Difficulty, "Calentamiento">;
+type ProgressState = Record<ChallengeDifficulty, Record<number, boolean>>;
 
 const difficultySettings = {
   "Calentamiento": { tolerance: 15, exerciseCount: 12 },
@@ -86,9 +87,39 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const [isMounted, setIsMounted] = useState(false);
   const [radius, setRadius] = useState(170);
 
-  const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Cada nivel tiene un número diferente de notas.");
+  const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
+  const [progress, setProgress] = useState<ProgressState>({ "Fácil": {}, "Medio": {}, "Difícil": {} });
+  const [selectedDifficulty, setSelectedDifficulty] = useState<ChallengeDifficulty | null>(null);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    try {
+        const savedProgress = window.localStorage.getItem('vocalStudioProgress');
+        if (savedProgress) {
+            const parsedProgress = JSON.parse(savedProgress);
+            if (parsedProgress['Fácil'] && parsedProgress['Medio'] && parsedProgress['Difícil']) {
+                setProgress(parsedProgress);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to load progress from localStorage", error);
+    }
+    setIsMounted(true);
+  }, []);
+
+  const markLevelAsComplete = useCallback((diff: ChallengeDifficulty, level: number) => {
+    setProgress(prev => {
+        const newProgress = { ...prev };
+        newProgress[diff] = { ...newProgress[diff], [level]: true };
+        try {
+            window.localStorage.setItem('vocalStudioProgress', JSON.stringify(newProgress));
+        } catch (error) {
+            console.error("Failed to save progress to localStorage", error);
+        }
+        return newProgress;
+    });
+  }, []);
 
   const getPlaybackAudioContext = useCallback(() => {
     if (typeof window === 'undefined') return null;
@@ -189,10 +220,6 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
         osc.stop(t + note.delay + note.duration);
     });
   }, [getPlaybackAudioContext]);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
   
   useEffect(() => {
     if (!isMounted || notePool.length === 0) return;
@@ -274,8 +301,12 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           playAllCompletedSound();
           if (difficulty === 'Calentamiento') {
             setDialogMessage("¡Excelente trabajo! Has completado el calentamiento. Ahora escoge un nuevo nivel para seguir practicando.");
-            setTimeout(() => setShowDifficultyDialog(true), 1500);
+            setTimeout(() => {
+              setSelectedDifficulty(null);
+              setShowDifficultyDialog(true);
+            }, 1500);
           } else {
+            markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
             setTimeout(() => setShowLevelCompleteDialog(true), 1500);
           }
         } else {
@@ -289,15 +320,16 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound]);
+  }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel]);
 
-  const startNewChallenge = useCallback((diff: ChallengeDifficulty) => {
+  const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     setDifficulty(diff);
-    setCurrentLevel(1);
+    setCurrentLevel(level);
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
     setShowDifficultyDialog(false);
+    setSelectedDifficulty(null);
     setLastCompletedNoteFullName(null);
     setInTuneTime(0);
     inTuneSinceRef.current = null;
@@ -306,20 +338,15 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     }
   }, [isDetecting, start]);
 
-  const handleNextLevel = () => {
-    setCurrentLevel(prev => prev + 1);
-    setCompletedNotes(new Set());
-    setActiveNote(null);
-    setSessionCompleted(false);
-    setLastCompletedNoteFullName(null);
-    setInTuneTime(0);
-    inTuneSinceRef.current = null;
+  const handleSeeLevels = () => {
     setShowLevelCompleteDialog(false);
+    setSelectedDifficulty(difficulty as ChallengeDifficulty);
+    setShowDifficultyDialog(true);
   };
 
   const handleChooseNewDifficulty = () => {
     setShowLevelCompleteDialog(false);
-    setDialogMessage("¡Felicidades! Has completado todos los niveles. Elige un nuevo desafío.");
+    setSelectedDifficulty(null);
     setShowDifficultyDialog(true);
   };
 
@@ -340,11 +367,8 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           description: "Para obtener mejores resultados, busca un lugar silencioso.",
           duration: 4000,
       });
-      if (challengeNotes.length === 0 || (difficulty === 'Calentamiento' && sessionCompleted)) {
-          setDialogMessage(sessionCompleted 
-            ? "¡Excelente trabajo! Has completado el calentamiento. Ahora escoge un nuevo nivel para seguir practicando."
-            : "Prepárate para poner a prueba tu afinación. Cada nivel tiene un número diferente de notas."
-          );
+      if (challengeNotes.length === 0 || (difficulty === 'Calentamiento' && sessionCompleted) || difficulty !== 'Calentamiento') {
+          setDialogMessage("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
           setShowDifficultyDialog(true);
       } else {
           start();
@@ -461,25 +485,64 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
           {isDetecting ? "Pausar" : "Empezar"}
         </Button>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground text-center max-w-xs px-4">
-            <VolumeX className="w-4 h-4 flex-shrink-0" />
-            <span>Para obtener mejores resultados, busca un lugar silencioso.</span>
-        </div>
+         <Button variant="link" onClick={() => setShowDifficultyDialog(true)}>Elegir Nivel</Button>
       </div>
 
-      <AlertDialog open={showDifficultyDialog}>
-          <AlertDialogContent>
+      <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
+        setShowDifficultyDialog(isOpen);
+        if (!isOpen) {
+            setSelectedDifficulty(null);
+        }
+      }}>
+          <AlertDialogContent className="max-w-md">
               <AlertDialogHeader>
-                  <AlertDialogTitle className="text-2xl">Elige una dificultad</AlertDialogTitle>
-                  <AlertDialogDescription className="text-base">
-                      {dialogMessage}
+                  {selectedDifficulty && (
+                      <Button variant="ghost" size="sm" className="absolute top-3 left-3 px-2 h-auto" onClick={() => setSelectedDifficulty(null)}>
+                          <ArrowLeft className="mr-2 h-4 w-4" />
+                          Atrás
+                      </Button>
+                  )}
+                  <AlertDialogTitle className="text-2xl text-center pt-8 sm:pt-0">
+                      {selectedDifficulty ? `Dificultad ${selectedDifficulty}` : 'Elige una dificultad'}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-base text-center">
+                      {selectedDifficulty ? 'Selecciona un nivel para comenzar.' : dialogMessage}
                   </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex-col sm:flex-row justify-center gap-4 pt-4">
-                  <Button onClick={() => startNewChallenge("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black">Fácil</Button>
-                  <Button onClick={() => startNewChallenge("Medio")} size="lg">Medio</Button>
-                  <Button onClick={() => startNewChallenge("Difícil")} variant="destructive" size="lg">Difícil</Button>
-              </AlertDialogFooter>
+              <div className="pt-4">
+                  {selectedDifficulty ? (
+                      <div className="grid grid-cols-4 gap-3 sm:gap-4">
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(level => {
+                              const isCompleted = progress[selectedDifficulty]?.[level];
+                              const isLocked = level > 1 && !progress[selectedDifficulty]?.[level - 1];
+                              
+                              return (
+                                  <Button
+                                      key={level}
+                                      variant={isCompleted ? "default" : "secondary"}
+                                      disabled={isLocked}
+                                      onClick={() => startLevel(selectedDifficulty, level)}
+                                      className="h-16 sm:h-20 text-xl font-bold flex flex-col gap-1 aspect-square"
+                                  >
+                                      {isLocked ? (
+                                          <Lock className="w-8 h-8"/>
+                                      ) : isCompleted ? (
+                                          <Star className="w-8 h-8 text-accent fill-accent"/>
+                                      ) : (
+                                          <span>{level}</span>
+                                      )}
+                                  </Button>
+                              );
+                          })}
+                      </div>
+                  ) : (
+                      <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
+                          <Button onClick={() => setSelectedDifficulty("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black h-20 text-lg">Fácil</Button>
+                          <Button onClick={() => setSelectedDifficulty("Medio")} size="lg" className="h-20 text-lg">Medio</Button>
+                          <Button onClick={() => setSelectedDifficulty("Difícil")} variant="destructive" size="lg" className="h-20 text-lg">Difícil</Button>
+                      </div>
+                  )}
+              </div>
           </AlertDialogContent>
       </AlertDialog>
 
@@ -493,12 +556,12 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
                     }
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-base">
-                      ¡Excelente trabajo! Estás un paso más cerca de dominar tu voz.
+                      ¡Excelente trabajo! Has desbloqueado el siguiente nivel.
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 {difficulty !== 'Calentamiento' && currentLevel < difficultyLevels[difficulty as ChallengeDifficulty].length ? (
-                    <Button onClick={handleNextLevel} size="lg">Siguiente Nivel</Button>
+                    <Button onClick={handleSeeLevels} size="lg">Ver Niveles</Button>
                 ) : (
                     <Button onClick={handleChooseNewDifficulty} size="lg">Elegir Dificultad</Button>
                 )}
