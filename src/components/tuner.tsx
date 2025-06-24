@@ -90,6 +90,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
   const [progress, setProgress] = useState<ProgressState>({ "Fácil": {}, "Medio": {}, "Difícil": {} });
   const [selectedDifficulty, setSelectedDifficulty] = useState<ChallengeDifficulty | null>(null);
+  const [isInitialWarmupCompleted, setIsInitialWarmupCompleted] = useState(false);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
 
@@ -225,25 +226,27 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     if (!isMounted || notePool.length === 0) return;
 
     let newChallenge: NoteInfo[];
-    let exerciseCount: number;
-
+    
     if (difficulty === "Calentamiento") {
-      const settings = difficultySettings[difficulty];
-      const middleIndex = Math.floor(notePool.length / 2) - Math.floor(settings.exerciseCount / 2);
-      const startIndex = Math.max(0, middleIndex);
-      
-      const availableNotes = notePool.length - startIndex;
-      const notesToTake = Math.min(settings.exerciseCount, availableNotes);
-      
-      newChallenge = notePool.slice(startIndex, startIndex + notesToTake);
+      if (!isInitialWarmupCompleted) {
+        const settings = difficultySettings.Calentamiento;
+        const middleIndex = Math.floor(notePool.length / 2) - Math.floor(settings.exerciseCount / 2);
+        const startIndex = Math.max(0, middleIndex);
+        const availableNotes = notePool.length - startIndex;
+        const notesToTake = Math.min(settings.exerciseCount, availableNotes);
+        newChallenge = notePool.slice(startIndex, startIndex + notesToTake);
+      } else {
+        const exerciseCount = Math.floor(Math.random() * 3) + 1;
+        newChallenge = generateChallenge(exerciseCount, notePool);
+      }
     } else {
       const difficultyKey = difficulty as ChallengeDifficulty;
-      exerciseCount = difficultyLevels[difficultyKey][currentLevel - 1];
+      const exerciseCount = difficultyLevels[difficultyKey][currentLevel - 1];
       newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
     }
     
     setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
-  }, [isMounted, notePool, difficulty, currentLevel]);
+  }, [isMounted, notePool, difficulty, currentLevel, isInitialWarmupCompleted]);
 
   let tolerance = 15;
   if (activeNote && activeNote.midi >= 43 && activeNote.midi <= 48) { // G2 to C3
@@ -300,7 +303,8 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
           setSessionCompleted(true);
           playAllCompletedSound();
           if (difficulty === 'Calentamiento') {
-            setDialogMessage("¡Excelente trabajo! Has completado el calentamiento. Ahora escoge un nuevo nivel para seguir practicando.");
+            setIsInitialWarmupCompleted(true);
+            setDialogMessage("¡Excelente trabajo! Has completado el calentamiento. ¿Quieres practicar un poco más o empezar un desafío?");
             setTimeout(() => {
               setSelectedDifficulty(null);
               setShowDifficultyDialog(true);
@@ -325,6 +329,22 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     setDifficulty(diff);
     setCurrentLevel(level);
+    setCompletedNotes(new Set());
+    setActiveNote(null);
+    setSessionCompleted(false);
+    setShowDifficultyDialog(false);
+    setSelectedDifficulty(null);
+    setLastCompletedNoteFullName(null);
+    setInTuneTime(0);
+    inTuneSinceRef.current = null;
+    if (!isDetecting) {
+      start();
+    }
+  }, [isDetecting, start]);
+
+  const startWarmup = useCallback(() => {
+    setDifficulty("Calentamiento");
+    setCurrentLevel(1);
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -537,6 +557,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
                       </div>
                   ) : (
                       <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
+                          <Button onClick={startWarmup} variant="secondary" size="lg" className="h-20 text-lg">Calentamiento</Button>
                           <Button onClick={() => setSelectedDifficulty("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black h-20 text-lg">Fácil</Button>
                           <Button onClick={() => setSelectedDifficulty("Medio")} size="lg" className="h-20 text-lg">Medio</Button>
                           <Button onClick={() => setSelectedDifficulty("Difícil")} variant="destructive" size="lg" className="h-20 text-lg">Difícil</Button>
