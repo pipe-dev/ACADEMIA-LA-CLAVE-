@@ -320,7 +320,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
       setInTuneTime(0);
       inTuneSinceRef.current = null;
     }
-  }, [note, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel]);
+  }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, tolerance, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel]);
 
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     setDifficulty(diff);
