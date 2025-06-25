@@ -93,7 +93,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const [isInitialWarmupCompleted, setIsInitialWarmupCompleted] = useState(false);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
-  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const audioBuffersCache = useRef(new Map<string, AudioBuffer>());
 
   useEffect(() => {
     try {
@@ -143,34 +143,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   }, []);
   
   useEffect(() => {
-    const loadAudioFile = async () => {
-        const audioContext = getPlaybackAudioContext();
-        if (!audioContext) return;
-        
-        const audioFileName = gender === 'masculino' ? 'masculino-C4.mp3' : 'femenino-C4.mp3';
-
-        try {
-            const response = await fetch(`/sounds/${audioFileName}`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            audioBufferRef.current = audioBuffer;
-        } catch (error) {
-            console.error(`Failed to load reference sound ${audioFileName}, falling back to generated tone.`, error);
-            audioBufferRef.current = null;
-            toast({
-                variant: "destructive",
-                title: "Error de Sonido",
-                description: `No se pudo cargar tu audio de referencia. Se usará un tono generado.`,
-            });
-        }
-    };
-    loadAudioFile();
-  }, [gender, getPlaybackAudioContext, toast]);
-
-  useEffect(() => {
     getPlaybackAudioContext();
     return () => {
         if (playbackAudioContextRef.current && playbackAudioContextRef.current.state !== 'closed') {
@@ -179,25 +151,40 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     }
   }, [getPlaybackAudioContext]);
 
-  const playNote = useCallback((frequency: number) => {
+  const playNote = useCallback(async (noteInfo: NoteInfo) => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
-    
-    if (audioBufferRef.current) {
+
+    const noteKey = `${gender}_${noteInfo.fullName}`;
+    const safeFileName = noteInfo.fullName.replace('#', 's');
+    const audioFilePath = `/sounds/${gender}_${safeFileName}.mp3`;
+
+    try {
+        let buffer = audioBuffersCache.current.get(noteKey);
+
+        if (!buffer) {
+            const response = await fetch(audioFilePath);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            buffer = await audioContext.decodeAudioData(arrayBuffer);
+            audioBuffersCache.current.set(noteKey, buffer);
+        }
+
         const source = audioContext.createBufferSource();
-        source.buffer = audioBufferRef.current;
-    
-        const baseFrequency = 261.63; // Frequency of C4, the reference note
-        source.playbackRate.value = frequency / baseFrequency;
-        
+        source.buffer = buffer;
         source.connect(audioContext.destination);
         source.start(audioContext.currentTime);
-    } else {
+
+    } catch (error) {
+        console.warn(`Could not load custom sound ${audioFilePath}. Falling back to generated tone.`, error);
+        
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
         oscillator.type = "triangle";
-        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
         
         gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
@@ -208,7 +195,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 1.5);
     }
-  }, [getPlaybackAudioContext]);
+  }, [gender, getPlaybackAudioContext]);
 
   const playCompletionSound = useCallback(() => {
     const audioContext = getPlaybackAudioContext();
@@ -410,7 +397,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const handleNoteClick = (noteToActivate: NoteInfo) => {
     if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting) return;
     setActiveNote(noteToActivate);
-    playNote(noteToActivate.frequency);
+    playNote(noteToActivate);
   };
 
   const handleToggleListening = () => {
