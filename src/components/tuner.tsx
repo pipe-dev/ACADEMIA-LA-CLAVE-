@@ -93,6 +93,7 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
   const [isInitialWarmupCompleted, setIsInitialWarmupCompleted] = useState(false);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
 
   useEffect(() => {
     try {
@@ -140,6 +141,30 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     }
     return context;
   }, []);
+  
+  useEffect(() => {
+    const loadAudioFile = async () => {
+        const audioContext = getPlaybackAudioContext();
+        if (!audioContext) return;
+        try {
+            const response = await fetch('/sounds/piano-C4.mp3');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            audioBufferRef.current = audioBuffer;
+        } catch (error) {
+            console.error("Failed to load reference sound, falling back to generated tone.", error);
+            toast({
+                variant: "destructive",
+                title: "Error de Sonido",
+                description: "No se pudo cargar el sonido de referencia. Se usará un tono generado.",
+            });
+        }
+    };
+    loadAudioFile();
+  }, [getPlaybackAudioContext, toast]);
 
   useEffect(() => {
     getPlaybackAudioContext();
@@ -154,20 +179,31 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
     
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.type = "triangle";
-    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    if (audioBufferRef.current) {
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBufferRef.current;
     
-    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
+        const baseFrequency = 261.63; // Frequency of C4, the reference note
+        source.playbackRate.value = frequency / baseFrequency;
+        
+        source.connect(audioContext.destination);
+        source.start(audioContext.currentTime);
+    } else {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 1.5);
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 1.5);
+    }
   }, [getPlaybackAudioContext]);
 
   const playCompletionSound = useCallback(() => {
