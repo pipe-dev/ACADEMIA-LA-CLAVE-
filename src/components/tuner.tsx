@@ -157,10 +157,10 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
-    oscillator.type = "sine";
+    oscillator.type = "triangle";
     oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
     
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
 
     oscillator.connect(gainNode);
