@@ -15,6 +15,8 @@ const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#",
 const A4 = 440;
 const C0 = A4 * Math.pow(2, -4.75);
 
+const EMPTY_NOTE = {};
+
 const noteFromPitch = (frequency: number): Note => {
   const noteNum = 12 * (Math.log(frequency / C0) / Math.log(2));
   const roundedNote = Math.round(noteNum);
@@ -44,15 +46,17 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
     return -1;
   }
 
-  const c = new Float32Array(SIZE);
+  let c = new Float32Array(SIZE);
   for (let i = 0; i < SIZE; i++) {
+    let sum = 0;
     for (let j = 0; j < SIZE - i; j++) {
-      c[i] = c[i] + buf[j] * buf[j + i];
+      sum += buf[j] * buf[j + i];
     }
+    c[i] = sum;
   }
 
   let d = 0;
-  while (d < c.length - 1 && c[d] > c[d + 1]) {
+  while (c[d] > c[d + 1] && d < c.length - 1) {
     d++;
   }
 
@@ -68,20 +72,15 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   if (maxpos === -1) {
     return -1;
   }
-
+  
   let T0 = maxpos;
-  if (T0 > 0 && T0 < SIZE - 1) {
-    const x1 = c[T0 - 1];
-    const x2 = c[T0];
-    const x3 = c[T0 + 1];
-    const a = (x1 + x3 - 2 * x2) / 2;
-    const b = (x3 - x1) / 2;
-    if (a) {
-      const adjustment = -b / (2 * a);
-      if (Math.abs(adjustment) < 1) {
-        T0 += adjustment;
-      }
-    }
+  const x1 = c[T0 - 1];
+  const x2 = c[T0];
+  const x3 = c[T0 + 1];
+  const a = (x1 + x3 - 2 * x2) / 2;
+  const b = (x3 - x1) / 2;
+  if (a) {
+    T0 = T0 - b / (2 * a);
   }
 
   if (T0 === 0) {
@@ -94,7 +93,7 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
 
 export const usePitchDetection = () => {
   const { toast } = useToast();
-  const [note, setNote] = useState<Partial<Note>>({});
+  const [note, setNote] = useState<Partial<Note>>(EMPTY_NOTE);
   const [frequency, setFrequency] = useState(0);
   const [centsOff, setCentsOff] = useState(0);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -165,7 +164,7 @@ export const usePitchDetection = () => {
     }
     setIsDetecting(false);
     setFrequency(0);
-    setNote({});
+    setNote(EMPTY_NOTE);
     setCentsOff(0);
     setSmoothedCentsOff(0);
     smoothedCentsRef.current = 0;
@@ -197,7 +196,7 @@ export const usePitchDetection = () => {
           setSmoothedCentsOff(smoothedCentsRef.current);
         } else {
           setFrequency(0);
-          setNote({});
+          setNote(EMPTY_NOTE);
           setCentsOff(0);
           
           const DECAY_FACTOR = 0.95;
