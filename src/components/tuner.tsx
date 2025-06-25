@@ -64,7 +64,7 @@ function TunerSkeleton() {
     );
   }
 
-export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
+export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'masculino' | 'femenino' }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   const { toast } = useToast();
   
@@ -146,8 +146,11 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
     const loadAudioFile = async () => {
         const audioContext = getPlaybackAudioContext();
         if (!audioContext) return;
+        
+        const audioFileName = gender === 'masculino' ? 'masculino-C4.mp3' : 'femenino-C4.mp3';
+
         try {
-            const response = await fetch('/sounds/piano-C4.mp3');
+            const response = await fetch(`/sounds/${audioFileName}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -155,16 +158,17 @@ export function Tuner({ notePool }: { notePool: NoteInfo[] }) {
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             audioBufferRef.current = audioBuffer;
         } catch (error) {
-            console.error("Failed to load reference sound, falling back to generated tone.", error);
+            console.error(`Failed to load reference sound ${audioFileName}, falling back to generated tone.`, error);
+            audioBufferRef.current = null;
             toast({
                 variant: "destructive",
                 title: "Error de Sonido",
-                description: "No se pudo cargar el sonido de referencia. Se usará un tono generado.",
+                description: `No se pudo cargar tu audio de referencia. Se usará un tono generado.`,
             });
         }
     };
     loadAudioFile();
-  }, [getPlaybackAudioContext, toast]);
+  }, [gender, getPlaybackAudioContext, toast]);
 
   useEffect(() => {
     getPlaybackAudioContext();
