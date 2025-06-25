@@ -56,7 +56,7 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   }
 
   let d = 0;
-  while (c[d] > c[d + 1] && d < c.length - 1) {
+  while (d < c.length -1 && c[d] > c[d + 1]) {
     d++;
   }
 
@@ -106,6 +106,7 @@ export const usePitchDetection = () => {
   const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameId = useRef<number | null>(null);
+  const isSilent = useRef(true);
 
   const start = useCallback(async () => {
     try {
@@ -131,6 +132,7 @@ export const usePitchDetection = () => {
 
         source.connect(lowpassFilter).connect(analyserRef.current);
         
+        isSilent.current = true;
         smoothedCentsRef.current = 0;
         setSmoothedCentsOff(0);
         setIsDetecting(true);
@@ -184,6 +186,7 @@ export const usePitchDetection = () => {
         const pitch = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
         
         if (pitch !== -1 && pitch < 2000) {
+          isSilent.current = false;
           setFrequency(pitch);
           const detectedNote = noteFromPitch(pitch);
           setNote(detectedNote);
@@ -195,16 +198,14 @@ export const usePitchDetection = () => {
           smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
           setSmoothedCentsOff(smoothedCentsRef.current);
         } else {
-          setFrequency(0);
-          setNote(EMPTY_NOTE);
-          setCentsOff(0);
-          
-          const DECAY_FACTOR = 0.95;
-          smoothedCentsRef.current = smoothedCentsRef.current * DECAY_FACTOR;
-          if (Math.abs(smoothedCentsRef.current) < 0.1) {
+          if (!isSilent.current) {
+            isSilent.current = true;
+            setFrequency(0);
+            setNote(EMPTY_NOTE);
+            setCentsOff(0);
             smoothedCentsRef.current = 0;
+            setSmoothedCentsOff(0);
           }
-          setSmoothedCentsOff(smoothedCentsRef.current);
         }
         
         animationFrameId.current = requestAnimationFrame(updatePitch);
