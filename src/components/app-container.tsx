@@ -77,7 +77,7 @@ export function AppContainer() {
       <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold font-headline text-foreground">Desafío de Afinación</h1>
-          <p className="text-muted-foreground mt-2 text-lg">Escucha, canta y mantén la nota para ganar.</p>
+          <p className="text-muted-foreground mt-2 text-lg">Escucha y canta la nota para ganar.</p>
         </div>
         <Tuner notePool={notePool} gender={gender} />
       </main>
