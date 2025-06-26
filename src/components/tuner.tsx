@@ -445,7 +445,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         return (
             <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
                 <p className="text-5xl sm:text-7xl font-bold text-primary">{activeNote.fullName}</p>
-                <p className="text-sm sm:text-md text-muted-foreground -mt-1">Sostén la nota</p>
+                <p className="text-sm sm:text-md text-muted-foreground -mt-1">Canta la nota</p>
                 <div className="w-4/5 pt-2">
                     <Progress value={challengeProgress} className="h-2 sm:h-3" />
                 </div>
