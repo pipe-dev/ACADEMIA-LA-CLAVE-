@@ -189,7 +189,13 @@ export const usePitchDetection = () => {
           isSilent.current = false;
           setFrequency(pitch);
           const detectedNote = noteFromPitch(pitch);
-          setNote(detectedNote);
+          
+          setNote(prevNote => {
+            if (detectedNote.name !== prevNote.name || detectedNote.octave !== prevNote.octave) {
+              return detectedNote;
+            }
+            return prevNote;
+          });
 
           const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
           setCentsOff(currentCents);
