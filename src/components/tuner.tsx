@@ -293,7 +293,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   }, [challengeNotes.length]);
 
 
-  const tolerance = (activeNote && activeNote.midi >= 43 && activeNote.midi <= 48) ? 30 : 15;
+  const tolerance = 35;
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {

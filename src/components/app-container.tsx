@@ -88,13 +88,13 @@ export function AppContainer() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4 sm:p-8">
       <div className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-bold text-foreground">Bienvenido a Vocal Studio</h1>
-        <p className="text-muted-foreground mt-3 max-w-xl text-lg">Para comenzar, ayúdanos a entender tu voz para personalizar tu entrenamiento.</p>
+        <p className="text-muted-foreground mt-3 max-w-xl text-lg">Para comenzar, ayúdanos a entender tu voz para personalizar tu experiencia.</p>
       </div>
 
       <div className="flex flex-col gap-8 w-full max-w-md animate-in fade-in-50 duration-500">
         <Card className="bg-card/50 border-2 border-transparent">
           <CardHeader>
-            <CardTitle className="text-xl font-semibold text-center">¿Cómo describes tu rango vocal natural?</CardTitle>
+            <CardTitle className="text-xl font-semibold text-center">¿Cómo te sientes mejor al cantar?</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <Button onClick={() => setPitchPreference('grave')} variant={pitchPreference === 'grave' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Cómodo en graves</Button>
