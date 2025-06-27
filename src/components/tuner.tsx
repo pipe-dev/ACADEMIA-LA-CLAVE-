@@ -292,7 +292,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     return () => window.removeEventListener('resize', handleResize);
   }, [challengeNotes.length]);
 
-  const tolerance = 25;
+  const tolerance = activeNote && activeNote.midi <= 48 ? 30 : 25;
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
