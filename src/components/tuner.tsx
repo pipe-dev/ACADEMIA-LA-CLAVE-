@@ -33,10 +33,10 @@ type ChallengeDifficulty = Exclude<Difficulty, "Calentamiento">;
 type ProgressState = Record<ChallengeDifficulty, Record<number, boolean>>;
 
 const difficultySettings = {
-  "Calentamiento": { tolerance: 15, exerciseCount: 12 },
-  "Fácil": { tolerance: 15 },
-  "Medio": { tolerance: 15 },
-  "Difícil": { tolerance: 15 },
+  "Calentamiento": { tolerance: 25, exerciseCount: 12 },
+  "Fácil": { tolerance: 25 },
+  "Medio": { tolerance: 19 },
+  "Difícil": { tolerance: 13 },
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
@@ -292,7 +292,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     return () => window.removeEventListener('resize', handleResize);
   }, [challengeNotes.length]);
 
-  const tolerance = activeNote && activeNote.midi >= 43 && activeNote.midi <= 48 ? 25 : 15;
+  const tolerance = 25;
 
   useEffect(() => {
     if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
