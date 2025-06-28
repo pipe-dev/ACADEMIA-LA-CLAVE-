@@ -26,6 +26,62 @@ const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     return selected.sort((a, b) => a.frequency - b.frequency);
 };
 
+const generateIntervalChallenge = (count: number, pool: NoteInfo[], level: number): NoteInfo[] => {
+    if (pool.length < 2) return pool;
+
+    const intervalSets: Record<number, number[]> = {
+        // Odd levels of "Difícil"
+        1: [5, 7, 12, -5, -7, -12], // Perfect 4ths, 5ths, Octaves
+        3: [4, 7, 9, 12, -3, -5, -8, -12], // Add 3rds and 6ths
+        5: [6, 10, 11, 7, -5, -6, -7], // Add dissonant leaps (tritone, sevenths)
+        7: [4, 5, 7, 9, 10, 11, 12].flatMap(i => [i, -i]), // Combine all leaps < octave
+        9: [13, 14, 15, -13, -14, -15], // Focus on leaps > octave
+        11: [6, 7, 10, 11, 12, 13, 14, 15].flatMap(i => [i, -i]), // Mix of very large leaps
+    };
+
+    const intervals = intervalSets[level] || intervalSets[7];
+
+    const selectedNotes = new Map<string, NoteInfo>();
+    const poolByMidi = new Map<number, NoteInfo>(pool.map(n => [n.midi, n]));
+    const poolMidiNumbers = new Set(pool.map(n => n.midi));
+
+    let lastNote = pool[Math.floor(Math.random() * pool.length)];
+    selectedNotes.set(lastNote.fullName, lastNote);
+
+    let attempts = 0;
+    const maxAttempts = count * 5;
+
+    while (selectedNotes.size < Math.min(count, pool.length) && attempts < maxAttempts) {
+        attempts++;
+        const randomInterval = intervals[Math.floor(Math.random() * intervals.length)];
+        const nextMidi = lastNote.midi + randomInterval;
+
+        if (poolMidiNumbers.has(nextMidi)) {
+            const nextNote = poolByMidi.get(nextMidi)!;
+            if (!selectedNotes.has(nextNote.fullName)) {
+                selectedNotes.set(nextNote.fullName, nextNote);
+                lastNote = nextNote;
+                continue;
+            }
+        }
+        
+        const selectedArray = Array.from(selectedNotes.values());
+        lastNote = selectedArray[Math.floor(Math.random() * selectedArray.length)];
+    }
+    
+    if (selectedNotes.size < count) {
+        const unselectedNotes = pool.filter(n => !selectedNotes.has(n.fullName));
+        const shuffled = unselectedNotes.sort(() => 0.5 - Math.random());
+        const needed = count - selectedNotes.size;
+        for (let i = 0; i < Math.min(needed, shuffled.length); i++) {
+            selectedNotes.set(shuffled[i].fullName, shuffled[i]);
+        }
+    }
+
+    const challenge = Array.from(selectedNotes.values());
+    return challenge.sort((a, b) => a.frequency - b.frequency);
+};
+
 const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En la nota!", "¡Sigue así!", "¡Increíble!", "¡Deliciosa!"];
 
 type Difficulty = "Calentamiento" | "Fácil" | "Medio" | "Difícil";
@@ -279,7 +335,12 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     } else {
       const difficultyKey = difficulty as ChallengeDifficulty;
       const exerciseCount = difficultyLevels[difficultyKey][currentLevel - 1];
-      newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+
+      if (difficulty === "Difícil" && currentLevel % 2 !== 0) {
+        newChallenge = generateIntervalChallenge(exerciseCount, notePool, currentLevel);
+      } else {
+        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+      }
     }
     
     setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
