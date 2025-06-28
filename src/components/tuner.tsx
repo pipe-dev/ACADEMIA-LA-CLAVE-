@@ -208,12 +208,14 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     if (!audioContext) return;
 
     try {
+      const fileNameFriendlyFullName = noteInfo.fullName.replace('#', 's');
+      const audioKey = `${gender}_${fileNameFriendlyFullName}`;
       let audioBuffer: AudioBuffer;
-      const audioKey = `${gender}_${noteInfo.fullName}`;
+
       if (audioBufferCache.current.has(audioKey)) {
         audioBuffer = audioBufferCache.current.get(audioKey)!;
       } else {
-        const filePath = `/notes/${gender}_${noteInfo.fullName}.mp3`;
+        const filePath = `/notes/${gender}_${fileNameFriendlyFullName}.mp3`;
         const response = await fetch(filePath);
         if (!response.ok) {
           console.error(`Note file not found: ${filePath}`);
