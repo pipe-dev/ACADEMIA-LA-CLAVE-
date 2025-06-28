@@ -310,8 +310,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         for (let i = 0; i < simonSequence.length; i++) {
             if (isCancelled) return;
             setSimonPlaybackIndex(i);
-            playNote(simonSequence[i], 1);
-            await new Promise(resolve => setTimeout(resolve, 1200));
+            playNote(simonSequence[i], 1.6);
+            await new Promise(resolve => setTimeout(resolve, 1800));
         }
         if (isCancelled) return;
         setSimonPlaybackIndex(null);
