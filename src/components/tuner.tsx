@@ -27,10 +27,10 @@ const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
 };
 
 const generateIntervalChallenge = (count: number, pool: NoteInfo[], level: number): NoteInfo[] => {
-    if (pool.length < 2) return pool;
+    if (pool.length < 2 || count <= 0) return [];
+    if (pool.length < count) return generateChallenge(count, pool); // Fallback
 
     const intervalSets: Record<number, number[]> = {
-        // Odd levels of "Difícil"
         1: [5, 7, 12, -5, -7, -12], // Perfect 4ths, 5ths, Octaves
         3: [4, 7, 9, 12, -3, -5, -8, -12], // Add 3rds and 6ths
         5: [6, 10, 11, 7, -5, -6, -7], // Add dissonant leaps (tritone, sevenths)
@@ -40,41 +40,31 @@ const generateIntervalChallenge = (count: number, pool: NoteInfo[], level: numbe
     };
 
     const intervals = intervalSets[level] || intervalSets[7];
-
     const selectedNotes = new Map<string, NoteInfo>();
     const poolByMidi = new Map<number, NoteInfo>(pool.map(n => [n.midi, n]));
-    const poolMidiNumbers = new Set(pool.map(n => n.midi));
 
     let lastNote = pool[Math.floor(Math.random() * pool.length)];
     selectedNotes.set(lastNote.fullName, lastNote);
 
-    let attempts = 0;
-    const maxAttempts = count * 5;
-
-    while (selectedNotes.size < Math.min(count, pool.length) && attempts < maxAttempts) {
-        attempts++;
-        const randomInterval = intervals[Math.floor(Math.random() * intervals.length)];
-        const nextMidi = lastNote.midi + randomInterval;
-
-        if (poolMidiNumbers.has(nextMidi)) {
-            const nextNote = poolByMidi.get(nextMidi)!;
-            if (!selectedNotes.has(nextNote.fullName)) {
+    while (selectedNotes.size < count) {
+        const shuffledIntervals = [...intervals].sort(() => 0.5 - Math.random());
+        let foundNext = false;
+        for (const interval of shuffledIntervals) {
+            const nextMidi = lastNote.midi + interval;
+            const nextNote = poolByMidi.get(nextMidi);
+            if (nextNote && !selectedNotes.has(nextNote.fullName)) {
                 selectedNotes.set(nextNote.fullName, nextNote);
                 lastNote = nextNote;
-                continue;
+                foundNext = true;
+                break; 
             }
         }
-        
-        const selectedArray = Array.from(selectedNotes.values());
-        lastNote = selectedArray[Math.floor(Math.random() * selectedArray.length)];
-    }
-    
-    if (selectedNotes.size < count) {
-        const unselectedNotes = pool.filter(n => !selectedNotes.has(n.fullName));
-        const shuffled = unselectedNotes.sort(() => 0.5 - Math.random());
-        const needed = count - selectedNotes.size;
-        for (let i = 0; i < Math.min(needed, shuffled.length); i++) {
-            selectedNotes.set(shuffled[i].fullName, shuffled[i]);
+
+        if (!foundNext) {
+            const unselected = pool.filter(n => !selectedNotes.has(n.fullName));
+            if (unselected.length === 0) break; 
+            lastNote = unselected[Math.floor(Math.random() * unselected.length)];
+            selectedNotes.set(lastNote.fullName, lastNote);
         }
     }
 
@@ -89,10 +79,10 @@ type ChallengeDifficulty = Exclude<Difficulty, "Calentamiento">;
 type ProgressState = Record<ChallengeDifficulty, Record<number, boolean>>;
 
 const difficultySettings = {
-  "Calentamiento": { tolerance: 25, exerciseCount: 12 },
-  "Fácil": { tolerance: 25 },
-  "Medio": { tolerance: 19 },
-  "Difícil": { tolerance: 13 },
+  "Calentamiento": { exerciseCount: 12 },
+  "Fácil": {},
+  "Medio": {},
+  "Difícil": {},
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
@@ -155,7 +145,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const [simonPhase, setSimonPhase] = useState<'idle' | 'playback' | 'singing'>('idle');
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
-  const audioBuffersCache = useRef(new Map<string, AudioBuffer>());
 
   useEffect(() => {
     try {
@@ -213,55 +202,26 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     }
   }, [getPlaybackAudioContext]);
 
-  const playNote = useCallback(async (noteInfo: NoteInfo, playbackDuration?: number) => {
+  const playNote = useCallback((noteInfo: NoteInfo, playbackDuration?: number) => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    const duration = playbackDuration ?? 1.5;
 
-    const noteKey = `${gender}_${noteInfo.fullName}`;
-    const safeFileName = noteInfo.fullName.replace('#', 's');
-    const audioFilePath = `/sounds/${gender}_${safeFileName}.mp3`;
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
+    
+    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
 
-    try {
-        let buffer = audioBuffersCache.current.get(noteKey);
-
-        if (!buffer) {
-            const response = await fetch(audioFilePath);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            buffer = await audioContext.decodeAudioData(arrayBuffer);
-            audioBuffersCache.current.set(noteKey, buffer);
-        }
-
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start(audioContext.currentTime);
-        if (playbackDuration) {
-            source.stop(audioContext.currentTime + playbackDuration);
-        }
-
-    } catch (error) {
-        console.warn(`Could not load custom sound ${audioFilePath}. Falling back to generated tone.`, error);
-        
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        const duration = playbackDuration ?? 1.5;
-
-        oscillator.type = "triangle";
-        oscillator.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
-        
-        gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + duration);
-    }
-  }, [gender, getPlaybackAudioContext]);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration);
+  }, [getPlaybackAudioContext]);
 
   const playCompletionSound = useCallback(() => {
     const audioContext = getPlaybackAudioContext();
@@ -387,7 +347,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     };
   }, [simonPhase, simonSequence, playNote]);
 
-  const challengeDuration = 1200;
+  const challengeDuration = 1000;
   
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -404,7 +364,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     return () => window.removeEventListener('resize', handleResize);
   }, [challengeNotes.length]);
 
-  const tolerance = activeNote && activeNote.midi <= 48 ? 30 : 18;
+  const tolerance = activeNote && activeNote.midi <= 60 ? 30 : 18; // C4 is midi 60
 
   useEffect(() => {
     if (gameMode === 'standard') {
@@ -469,7 +429,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         const targetNote = simonSequence[playerSimonIndex];
         if (!targetNote) return;
 
-        const simonTolerance = targetNote.midi <= 48 ? 30 : 18;
+        const simonTolerance = targetNote.midi <= 60 ? 30 : 18;
 
         const isCorrectNote = note.name === targetNote.name && note.octave === targetNote.octave;
         const isTolerablyInTune = Math.abs(smoothedCentsOff) < simonTolerance;
@@ -624,7 +584,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         if (simonPhase === 'singing' && !sessionCompleted) {
             const challengeProgress = (inTuneTime / challengeDuration) * 100;
             const targetNote = simonSequence[playerSimonIndex];
-            const isInTune = targetNote && Math.abs(smoothedCentsOff) < (targetNote.midi <= 48 ? 30 : 18) && note.name === targetNote.name && note.octave === targetNote.octave;
+            const isInTune = targetNote && Math.abs(smoothedCentsOff) < (targetNote.midi <= 60 ? 30 : 18) && note.name === targetNote.name && note.octave === targetNote.octave;
 
             return (
                 <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
