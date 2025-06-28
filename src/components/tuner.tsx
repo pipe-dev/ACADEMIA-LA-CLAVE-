@@ -340,7 +340,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           setTimeout(() => {
             setLastCompletedNoteFullName(null);
             setActiveNote(null);
-          }, 2000);
+          }, 1200);
         }
       }
     } else {
