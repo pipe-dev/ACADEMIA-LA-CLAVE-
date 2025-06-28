@@ -310,8 +310,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         for (let i = 0; i < simonSequence.length; i++) {
             if (isCancelled) return;
             setSimonPlaybackIndex(i);
-            playNote(simonSequence[i], 0.5);
-            await new Promise(resolve => setTimeout(resolve, 700));
+            playNote(simonSequence[i], 1);
+            await new Promise(resolve => setTimeout(resolve, 1200));
         }
         if (isCancelled) return;
         setSimonPlaybackIndex(null);
@@ -673,7 +673,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
                   ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default" 
                   : "bg-card hover:bg-card/80 border-2 border-primary/30",
                 activeNote?.fullName === n.fullName && gameMode === 'standard' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
-                isPlayingBack && "ring-4 ring-offset-background ring-offset-2 ring-accent scale-110"
+                isPlayingBack && "scale-110 neon-glow"
               )}
             >
               <span className={noteNameSize}>{n.name}</span>
