@@ -157,7 +157,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     }
   }, [getPlaybackAudioContext]);
 
-  const playNote = useCallback(async (noteInfo: NoteInfo) => {
+  const playNote = useCallback(async (noteInfo: NoteInfo, playbackDuration?: number) => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
 
@@ -182,24 +182,28 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         source.buffer = buffer;
         source.connect(audioContext.destination);
         source.start(audioContext.currentTime);
+        if (playbackDuration) {
+            source.stop(audioContext.currentTime + playbackDuration);
+        }
 
     } catch (error) {
         console.warn(`Could not load custom sound ${audioFilePath}. Falling back to generated tone.`, error);
         
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
+        const duration = playbackDuration ?? 1.5;
 
         oscillator.type = "triangle";
         oscillator.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
         
         gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.5);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
 
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         
         oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 1.5);
+        oscillator.stop(audioContext.currentTime + duration);
     }
   }, [gender, getPlaybackAudioContext]);
 
@@ -283,8 +287,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
 
   useEffect(() => {
     if (gameMode === 'simon-says' && challengeNotes.length > 0) {
-        const simonLevels: Record<number, number> = { 2: 3, 4: 4, 6: 5, 8: 6, 10: 7, 12: 8 };
-        const sequenceLength = simonLevels[currentLevel] || 3;
+        const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
+        const sequenceLength = simonLevels[currentLevel] || 2;
         
         const shuffled = [...challengeNotes].sort(() => 0.5 - Math.random());
         const sequence = shuffled.slice(0, Math.min(sequenceLength, challengeNotes.length));
@@ -306,8 +310,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         for (let i = 0; i < simonSequence.length; i++) {
             if (isCancelled) return;
             setSimonPlaybackIndex(i);
-            playNote(simonSequence[i]);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            playNote(simonSequence[i], 0.5);
+            await new Promise(resolve => setTimeout(resolve, 700));
         }
         if (isCancelled) return;
         setSimonPlaybackIndex(null);
