@@ -209,12 +209,14 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
 
     try {
       let audioBuffer: AudioBuffer;
-      if (audioBufferCache.current.has(noteInfo.fullName)) {
-        audioBuffer = audioBufferCache.current.get(noteInfo.fullName)!;
+      const audioKey = `${gender}_${noteInfo.fullName}`;
+      if (audioBufferCache.current.has(audioKey)) {
+        audioBuffer = audioBufferCache.current.get(audioKey)!;
       } else {
-        const response = await fetch(`/notes/${noteInfo.fullName}.mp3`);
+        const filePath = `/notes/${gender}_${noteInfo.fullName}.mp3`;
+        const response = await fetch(filePath);
         if (!response.ok) {
-          console.error(`Note file not found: /notes/${noteInfo.fullName}.mp3`);
+          console.error(`Note file not found: ${filePath}`);
           toast({
               variant: "destructive",
               title: "Error de Audio",
@@ -224,7 +226,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         }
         const arrayBuffer = await response.arrayBuffer();
         const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        audioBufferCache.current.set(noteInfo.fullName, decodedBuffer);
+        audioBufferCache.current.set(audioKey, decodedBuffer);
         audioBuffer = decodedBuffer;
       }
 
@@ -240,7 +242,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           description: `Hubo un problema al reproducir la nota ${noteInfo.fullName}.`,
       });
     }
-  }, [getPlaybackAudioContext, toast]);
+  }, [getPlaybackAudioContext, toast, gender]);
 
   const playCompletionSound = useCallback(() => {
     const audioContext = getPlaybackAudioContext();
@@ -383,7 +385,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     return () => window.removeEventListener('resize', handleResize);
   }, [challengeNotes.length]);
 
-  const tolerance = activeNote && activeNote.midi <= 60 ? 30 : 18; // C4 is midi 60
+  const tolerance = activeNote && activeNote.midi < 49 ? 30 : 18; // G2 is 43, C3 is 48. Up to C3 is grave.
 
   useEffect(() => {
     if (gameMode === 'standard') {
@@ -448,7 +450,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         const targetNote = simonSequence[playerSimonIndex];
         if (!targetNote) return;
 
-        const simonTolerance = targetNote.midi <= 60 ? 30 : 18;
+        const simonTolerance = targetNote.midi < 49 ? 30 : 18;
 
         const isCorrectNote = note.name === targetNote.name && note.octave === targetNote.octave;
         const isTolerablyInTune = Math.abs(smoothedCentsOff) < simonTolerance;
@@ -603,7 +605,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         if (simonPhase === 'singing' && !sessionCompleted) {
             const challengeProgress = (inTuneTime / challengeDuration) * 100;
             const targetNote = simonSequence[playerSimonIndex];
-            const isInTune = targetNote && Math.abs(smoothedCentsOff) < (targetNote.midi <= 60 ? 30 : 18) && note.name === targetNote.name && note.octave === targetNote.octave;
+            const isInTune = targetNote && Math.abs(smoothedCentsOff) < (targetNote.midi < 49 ? 30 : 18) && note.name === targetNote.name && note.octave === targetNote.octave;
 
             return (
                 <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
