@@ -212,8 +212,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     if (activeSoundSourceRef.current) {
       try {
         activeSoundSourceRef.current.source.stop(0);
-        activeSoundSourceRef.current.source.disconnect();
-        if (activeSoundSourceRef.current.gainNode) {
+        if (activeSoundSourceRef.current.source.disconnect) activeSoundSourceRef.current.source.disconnect();
+        if (activeSoundSourceRef.current.gainNode && activeSoundSourceRef.current.gainNode.disconnect) {
           activeSoundSourceRef.current.gainNode.disconnect();
         }
       } catch (e) {
@@ -261,7 +261,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           }
           resolve();
         };
-
+        
         source.start(0);
         try {
           source.stop(audioContext.currentTime + duration);
@@ -369,7 +369,9 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       const difficultyKey = difficulty as ChallengeDifficulty;
       const exerciseCount = difficultyLevels[difficultyKey][currentLevel - 1];
 
-      if (difficulty === "Difícil" && currentLevel % 2 !== 0) {
+      if (difficulty === "Difícil" && currentLevel % 2 === 0) { // Simon says on even levels
+        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+      } else if (difficulty === "Difícil") { // Interval training on odd levels
         newChallenge = generateIntervalChallenge(exerciseCount, notePool, currentLevel);
       } else {
         newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
@@ -807,9 +809,9 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           {isDetecting ? "Pausar" : "Empezar"}
         </Button>
         {gameMode === 'simon-says' && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
-          <Button variant="secondary" size="sm" onClick={handleRepeatSequence}>
-              <RefreshCw className="mr-2"/>
-              Repetir Secuencia
+          <Button variant="destructive" size="icon" onClick={handleRepeatSequence}>
+            <RefreshCw />
+            <span className="sr-only">Repetir</span>
           </Button>
         )}
          <Button variant="link" onClick={() => setShowDifficultyDialog(true)}>Elegir Nivel</Button>
