@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, VolumeX, Lock, Star, ArrowLeft } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -143,6 +143,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const [playerSimonIndex, setPlayerSimonIndex] = useState(0);
   const [simonPlaybackIndex, setSimonPlaybackIndex] = useState<number | null>(null);
   const [simonPhase, setSimonPhase] = useState<'idle' | 'playback' | 'singing'>('idle');
+  const [hasRepeatedSequence, setHasRepeatedSequence] = useState(false);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
@@ -239,7 +240,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           source = bufferSource;
           source.connect(audioContext.destination);
         } else {
-          console.warn(`No audio file for ${noteInfo.fullName}, generating fallback tone.`);
           const osc = audioContext.createOscillator();
           const gain = audioContext.createGain();
           gainNode = gain;
@@ -292,7 +292,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       audioBufferCache.current.set(audioKey, decodedBuffer);
       await playTone(decodedBuffer);
     } catch (error) {
-      console.error(`Error loading/decoding audio for ${noteInfo.fullName}.`, error);
       await playTone();
     }
   }, [getPlaybackAudioContext, gender, gameMode]);
@@ -401,12 +400,17 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     let isCancelled = false;
     const playSequence = async () => {
         setActiveNote(null);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Initial delay
+        if (!hasRepeatedSequence) {
+            await new Promise(resolve => setTimeout(resolve, 1500)); 
+        } else {
+            await new Promise(resolve => setTimeout(resolve, 200)); 
+        }
+
         for (let i = 0; i < simonSequence.length; i++) {
             if (isCancelled) break;
-            setSimonPlaybackIndex(i); // Turn on glow
+            setSimonPlaybackIndex(i); 
             await playNote(simonSequence[i]);
-            setSimonPlaybackIndex(null); // Turn off glow
+            setSimonPlaybackIndex(null); 
             if (isCancelled) break;
             
             if (i < simonSequence.length - 1) {
@@ -425,7 +429,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         isCancelled = true;
         setSimonPlaybackIndex(null);
     };
-  }, [simonPhase, simonSequence, playNote]);
+  }, [simonPhase, simonSequence, playNote, hasRepeatedSequence]);
 
   const challengeDuration = 1000;
   
@@ -562,6 +566,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     inTuneSinceRef.current = null;
     
     if (diff === 'Difícil' && level % 2 === 0) {
+        setHasRepeatedSequence(false);
         setGameMode('simon-says');
         setSimonSequence([]);
         setPlayerSimonIndex(0);
@@ -630,6 +635,12 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           start();
       }
     }
+  };
+
+  const handleRepeatSequence = () => {
+    if (gameMode !== 'simon-says' || simonPhase !== 'singing' || hasRepeatedSequence || sessionCompleted) return;
+    setHasRepeatedSequence(true);
+    setSimonPhase('playback');
   };
   
   const renderCentralContent = () => {
@@ -795,6 +806,12 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
           {isDetecting ? "Pausar" : "Empezar"}
         </Button>
+        {gameMode === 'simon-says' && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
+          <Button variant="secondary" size="sm" onClick={handleRepeatSequence}>
+              <RefreshCw className="mr-2"/>
+              Repetir Secuencia
+          </Button>
+        )}
          <Button variant="link" onClick={() => setShowDifficultyDialog(true)}>Elegir Nivel</Button>
       </div>
 
