@@ -216,7 +216,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
             if (audioBufferCache.current.has(audioKey)) {
                 audioBuffer = audioBufferCache.current.get(audioKey)!;
             } else {
-                const filePath = `/notes/${gender}_${fileNameFriendlyFullName}.mp3`;
+                const filePath = `/sounds/${gender}_${fileNameFriendlyFullName}.mp3`;
                 const response = await fetch(filePath);
                 if (!response.ok) {
                     console.error(`Note file not found: ${filePath}`);
@@ -241,6 +241,16 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
                 resolve();
             };
             source.start(0);
+            
+            if (gameMode === 'simon-says') {
+                 setTimeout(() => {
+                    try {
+                        source.stop();
+                    } catch (e) {
+                        // May have already stopped.
+                    }
+                }, 1600);
+            }
 
         } catch (error) {
             console.error(`Error playing note ${noteInfo.fullName}:`, error);
@@ -253,7 +263,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
             reject(error);
         }
     });
-}, [getPlaybackAudioContext, toast, gender]);
+}, [getPlaybackAudioContext, toast, gender, gameMode]);
 
   const playCompletionSound = useCallback(() => {
     const audioContext = getPlaybackAudioContext();
