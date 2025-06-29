@@ -207,44 +207,53 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
 
-    try {
-      const fileNameFriendlyFullName = noteInfo.fullName.replace('#', 's');
-      const audioKey = `${gender}_${fileNameFriendlyFullName}`;
-      let audioBuffer: AudioBuffer;
+    return new Promise<void>(async (resolve, reject) => {
+        try {
+            const fileNameFriendlyFullName = noteInfo.fullName.replace('#', 's');
+            const audioKey = `${gender}_${fileNameFriendlyFullName}`;
+            let audioBuffer: AudioBuffer;
 
-      if (audioBufferCache.current.has(audioKey)) {
-        audioBuffer = audioBufferCache.current.get(audioKey)!;
-      } else {
-        const filePath = `/notes/${gender}_${fileNameFriendlyFullName}.mp3`;
-        const response = await fetch(filePath);
-        if (!response.ok) {
-          console.error(`Note file not found: ${filePath}`);
-          toast({
-              variant: "destructive",
-              title: "Error de Audio",
-              description: `No se pudo cargar el archivo de la nota ${noteInfo.fullName}.`,
-          });
-          return;
+            if (audioBufferCache.current.has(audioKey)) {
+                audioBuffer = audioBufferCache.current.get(audioKey)!;
+            } else {
+                const filePath = `/notes/${gender}_${fileNameFriendlyFullName}.mp3`;
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    console.error(`Note file not found: ${filePath}`);
+                    toast({
+                        variant: "destructive",
+                        title: "Error de Audio",
+                        description: `No se pudo cargar el archivo ${filePath}. Asegúrate de que existe.`,
+                    });
+                    return reject(new Error(`File not found: ${filePath}`));
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                audioBufferCache.current.set(audioKey, decodedBuffer);
+                audioBuffer = decodedBuffer;
+            }
+
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            source.onended = () => {
+                resolve();
+            };
+            source.start(0);
+
+        } catch (error) {
+            console.error(`Error playing note ${noteInfo.fullName}:`, error);
+            const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+            toast({
+                variant: "destructive",
+                title: "Error de Audio",
+                description: `Hubo un problema al reproducir la nota ${noteInfo.fullName}: ${errorMessage}`,
+            });
+            reject(error);
         }
-        const arrayBuffer = await response.arrayBuffer();
-        const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        audioBufferCache.current.set(audioKey, decodedBuffer);
-        audioBuffer = decodedBuffer;
-      }
-
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      source.start(0);
-    } catch (error) {
-      console.error(`Error playing note ${noteInfo.fullName}:`, error);
-      toast({
-          variant: "destructive",
-          title: "Error de Audio",
-          description: `Hubo un problema al reproducir la nota ${noteInfo.fullName}.`,
-      });
-    }
-  }, [getPlaybackAudioContext, toast, gender]);
+    });
+}, [getPlaybackAudioContext, toast, gender]);
 
   const playCompletionSound = useCallback(() => {
     const audioContext = getPlaybackAudioContext();
@@ -350,16 +359,27 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     let isCancelled = false;
     const playSequence = async () => {
         setActiveNote(null);
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Initial delay
         for (let i = 0; i < simonSequence.length; i++) {
-            if (isCancelled) return;
-            setSimonPlaybackIndex(i);
-            await playNote(simonSequence[i]);
-            await new Promise(resolve => setTimeout(resolve, 1800));
+            if (isCancelled) break;
+            setSimonPlaybackIndex(i); // Turn on glow
+            try {
+                await playNote(simonSequence[i]); // Wait for note to finish
+            } catch (err) {
+                console.error("Stopping Simon Says sequence due to audio error.", err);
+                isCancelled = true;
+            }
+            setSimonPlaybackIndex(null); // Turn off glow
+            if (isCancelled) break;
+            
+            if (i < simonSequence.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
         }
-        if (isCancelled) return;
-        setSimonPlaybackIndex(null);
-        setSimonPhase('singing');
+
+        if (!isCancelled) {
+          setSimonPhase('singing');
+        }
     };
 
     playSequence();
