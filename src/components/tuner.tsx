@@ -146,6 +146,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
+  const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
 
   useEffect(() => {
     try {
@@ -207,68 +208,92 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
 
-    const duration = gameMode === 'simon-says' ? 1.6 : 0.75;
+    if (activeSoundSourceRef.current) {
+      try {
+        activeSoundSourceRef.current.source.stop(0);
+        activeSoundSourceRef.current.source.disconnect();
+        if (activeSoundSourceRef.current.gainNode) {
+          activeSoundSourceRef.current.gainNode.disconnect();
+        }
+      } catch (e) {
+        // Already stopped or disconnected, which is fine.
+      }
+      activeSoundSourceRef.current = null;
+    }
+
+    const duration = gameMode === 'simon-says' ? 1.6 : 2.5;
 
     const playTone = (buffer?: AudioBuffer) => {
-        return new Promise<void>(resolve => {
-            if (!audioContext) return resolve();
-            
-            if (buffer) {
-                // Play from audio buffer
-                const source = audioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioContext.destination);
-                source.onended = resolve;
-                source.start(0);
-                try {
-                    source.stop(audioContext.currentTime + duration);
-                } catch(e) {
-                    // Can fail if context is closed
-                }
-            } else {
-                // Generate sine wave
-                console.warn(`No audio file for ${noteInfo.fullName}, generating fallback tone.`);
-                const osc = audioContext.createOscillator();
-                const gain = audioContext.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
-                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration - 0.05);
-                osc.connect(gain).connect(audioContext.destination);
-                osc.onended = resolve;
-                osc.start();
-                try {
-                    osc.stop(audioContext.currentTime + duration);
-                } catch (e) {
-                    // Can fail if context is closed
-                }
-            }
-        });
+      return new Promise<void>(resolve => {
+        if (!audioContext) {
+          resolve();
+          return;
+        }
+
+        let source: AudioScheduledSourceNode;
+        let gainNode: GainNode | undefined = undefined;
+
+        if (buffer) {
+          const bufferSource = audioContext.createBufferSource();
+          bufferSource.buffer = buffer;
+          source = bufferSource;
+          source.connect(audioContext.destination);
+        } else {
+          console.warn(`No audio file for ${noteInfo.fullName}, generating fallback tone.`);
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          gainNode = gain;
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
+          gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration - 0.05);
+
+          osc.connect(gain).connect(audioContext.destination);
+          source = osc;
+        }
+
+        activeSoundSourceRef.current = { source, gainNode };
+
+        source.onended = () => {
+          if (activeSoundSourceRef.current?.source === source) {
+            activeSoundSourceRef.current = null;
+          }
+          resolve();
+        };
+
+        source.start(0);
+        try {
+          source.stop(audioContext.currentTime + duration);
+        } catch (e) {
+          // Can fail if context is closed
+        }
+      });
     };
 
     const fileNameFriendlyFullName = noteInfo.fullName.replace('#', 's');
     const audioKey = `${gender}_${fileNameFriendlyFullName}`;
 
-    // Try cache
     if (audioBufferCache.current.has(audioKey)) {
-        const audioBuffer = audioBufferCache.current.get(audioKey)!;
-        return playTone(audioBuffer);
+      const audioBuffer = audioBufferCache.current.get(audioKey)!;
+      await playTone(audioBuffer);
+      return;
     }
 
-    // Try fetch
     try {
-        const filePath = `/sounds/${gender}_${fileNameFriendlyFullName}.mp3`;
-        const response = await fetch(filePath);
-        if (!response.ok) {
-            return playTone(); // Fallback
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        audioBufferCache.current.set(audioKey, decodedBuffer); // Cache it
-        return playTone(decodedBuffer);
+      const filePath = `/sounds/${gender}_${fileNameFriendlyFullName}.mp3`;
+      const response = await fetch(filePath);
+      if (!response.ok) {
+        await playTone();
+        return;
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      audioBufferCache.current.set(audioKey, decodedBuffer);
+      await playTone(decodedBuffer);
     } catch (error) {
-        console.error(`Error loading/decoding audio for ${noteInfo.fullName}.`, error);
-        return playTone(); // Fallback
+      console.error(`Error loading/decoding audio for ${noteInfo.fullName}.`, error);
+      await playTone();
     }
   }, [getPlaybackAudioContext, gender, gameMode]);
 
