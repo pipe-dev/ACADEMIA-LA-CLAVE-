@@ -203,67 +203,74 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     }
   }, [getPlaybackAudioContext]);
 
-  const playNote = useCallback(async (noteInfo: NoteInfo) => {
+  const playNote = useCallback(async (noteInfo: NoteInfo): Promise<void> => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
 
-    return new Promise<void>(async (resolve, reject) => {
-        try {
-            const fileNameFriendlyFullName = noteInfo.fullName.replace('#', 's');
-            const audioKey = `${gender}_${fileNameFriendlyFullName}`;
-            let audioBuffer: AudioBuffer;
+    const duration = gameMode === 'simon-says' ? 1.6 : 0.75;
 
-            if (audioBufferCache.current.has(audioKey)) {
-                audioBuffer = audioBufferCache.current.get(audioKey)!;
-            } else {
-                const filePath = `/sounds/${gender}_${fileNameFriendlyFullName}.mp3`;
-                const response = await fetch(filePath);
-                if (!response.ok) {
-                    console.error(`Note file not found: ${filePath}`);
-                    toast({
-                        variant: "destructive",
-                        title: "Error de Audio",
-                        description: `No se pudo cargar el archivo ${filePath}. Asegúrate de que existe.`,
-                    });
-                    return reject(new Error(`File not found: ${filePath}`));
+    const playTone = (buffer?: AudioBuffer) => {
+        return new Promise<void>(resolve => {
+            if (!audioContext) return resolve();
+            
+            if (buffer) {
+                // Play from audio buffer
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+                source.onended = resolve;
+                source.start(0);
+                try {
+                    source.stop(audioContext.currentTime + duration);
+                } catch(e) {
+                    // Can fail if context is closed
                 }
-                const arrayBuffer = await response.arrayBuffer();
-                const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                audioBufferCache.current.set(audioKey, decodedBuffer);
-                audioBuffer = decodedBuffer;
+            } else {
+                // Generate sine wave
+                console.warn(`No audio file for ${noteInfo.fullName}, generating fallback tone.`);
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration - 0.05);
+                osc.connect(gain).connect(audioContext.destination);
+                osc.onended = resolve;
+                osc.start();
+                try {
+                    osc.stop(audioContext.currentTime + duration);
+                } catch (e) {
+                    // Can fail if context is closed
+                }
             }
+        });
+    };
 
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-            
-            source.onended = () => {
-                resolve();
-            };
-            source.start(0);
-            
-            if (gameMode === 'simon-says') {
-                 setTimeout(() => {
-                    try {
-                        source.stop();
-                    } catch (e) {
-                        // May have already stopped.
-                    }
-                }, 1600);
-            }
+    const fileNameFriendlyFullName = noteInfo.fullName.replace('#', 's');
+    const audioKey = `${gender}_${fileNameFriendlyFullName}`;
 
-        } catch (error) {
-            console.error(`Error playing note ${noteInfo.fullName}:`, error);
-            const errorMessage = error instanceof Error ? error.message : "Error desconocido";
-            toast({
-                variant: "destructive",
-                title: "Error de Audio",
-                description: `Hubo un problema al reproducir la nota ${noteInfo.fullName}: ${errorMessage}`,
-            });
-            reject(error);
+    // Try cache
+    if (audioBufferCache.current.has(audioKey)) {
+        const audioBuffer = audioBufferCache.current.get(audioKey)!;
+        return playTone(audioBuffer);
+    }
+
+    // Try fetch
+    try {
+        const filePath = `/sounds/${gender}_${fileNameFriendlyFullName}.mp3`;
+        const response = await fetch(filePath);
+        if (!response.ok) {
+            return playTone(); // Fallback
         }
-    });
-}, [getPlaybackAudioContext, toast, gender, gameMode]);
+        const arrayBuffer = await response.arrayBuffer();
+        const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        audioBufferCache.current.set(audioKey, decodedBuffer); // Cache it
+        return playTone(decodedBuffer);
+    } catch (error) {
+        console.error(`Error loading/decoding audio for ${noteInfo.fullName}.`, error);
+        return playTone(); // Fallback
+    }
+  }, [getPlaybackAudioContext, gender, gameMode]);
 
   const playCompletionSound = useCallback(() => {
     const audioContext = getPlaybackAudioContext();
@@ -373,12 +380,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         for (let i = 0; i < simonSequence.length; i++) {
             if (isCancelled) break;
             setSimonPlaybackIndex(i); // Turn on glow
-            try {
-                await playNote(simonSequence[i]); // Wait for note to finish
-            } catch (err) {
-                console.error("Stopping Simon Says sequence due to audio error.", err);
-                isCancelled = true;
-            }
+            await playNote(simonSequence[i]);
             setSimonPlaybackIndex(null); // Turn off glow
             if (isCancelled) break;
             
