@@ -412,15 +412,17 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
             if (isCancelled) break;
             setSimonPlaybackIndex(i); 
             await playNote(simonSequence[i]);
-            setSimonPlaybackIndex(null); 
-            if (isCancelled) break;
-            
+            if (isCancelled) {
+              setSimonPlaybackIndex(null); 
+              break;
+            }
             if (i < simonSequence.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 200));
             }
         }
-
+        
         if (!isCancelled) {
+          setSimonPlaybackIndex(null); 
           setSimonPhase('singing');
         }
     };
@@ -622,7 +624,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const handleToggleListening = () => {
     if (isDetecting) {
       stop();
-      setActiveNote(null);
     } else {
       toast({
           variant: "accent",
@@ -630,7 +631,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           description: "Para obtener mejores resultados, busca un lugar silencioso.",
           duration: 4000,
       });
-      if (challengeNotes.length === 0 || (difficulty === 'Calentamiento' && sessionCompleted) || difficulty !== 'Calentamiento') {
+      if (!challengeNotes.length || (difficulty === 'Calentamiento' && sessionCompleted) || (difficulty !== 'Calentamiento' && sessionCompleted)) {
           setDialogMessage("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
           setShowDifficultyDialog(true);
       } else {
@@ -688,10 +689,10 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
                     </div>
                     <div className="h-16 mt-2 flex flex-col items-center justify-center">
                         <div className={cn("text-3xl sm:text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
-                            {note.name ? `${note.name}${note.octave}` : "--"}
+                            {isDetecting ? (note.name ? `${note.name}${note.octave}` : "--") : ""}
                         </div>
                         <p className={cn("font-mono text-base sm:text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
-                            {centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono"}
+                            {isDetecting ? (centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono") : ""}
                         </p>
                     </div>
                 </div>
@@ -720,10 +721,10 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
                 </div>
                 <div className="h-16 mt-2 flex flex-col items-center justify-center">
                    <div className={cn("text-3xl sm:text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
-                        {note.name ? `${note.name}${note.octave}` : "--"}
+                        {isDetecting ? (note.name ? `${note.name}${note.octave}` : "--") : ""}
                     </div>
                     <p className={cn("font-mono text-base sm:text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
-                        {centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono"}
+                         {isDetecting ? (centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono") : ""}
                     </p>
                 </div>
             </div>
