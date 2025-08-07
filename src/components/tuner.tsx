@@ -563,7 +563,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     setDifficulty(diff);
     setCurrentLevel(level);
-    
+
+    // This is the fix: explicitly set the gameMode every time a level starts.
     if (diff === 'Difícil' && level % 2 === 0) {
         setGameMode('simon-says');
     } else {
@@ -824,8 +825,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           {isDetecting ? "Pausar" : "Empezar"}
         </Button>
         {gameMode === 'simon-says' && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
-          <Button variant="destructive" size="icon" onClick={handleRepeatSequence}>
-            <RefreshCw />
+          <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
+            <RefreshCw className="h-5 w-5"/>
             <span className="sr-only">Repetir</span>
           </Button>
         )}
