@@ -540,9 +540,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             setInTuneTime(sustainedTime);
 
             if (sustainedTime >= challengeDuration) {
-                playCompletionSound();
-                setCompletedNotes(prev => new Set(prev).add(targetNote.fullName + playerSimonIndex)); // Use index to make key unique
-                setLastCompletedNoteFullName(targetNote.fullName + playerSimonIndex);
+                const isMelodyChallenge = gameMode === 'melody-challenge';
+                if (!isMelodyChallenge) {
+                  playCompletionSound();
+                }
+                
+                const uniqueKey = targetNote.fullName + playerSimonIndex;
+                setCompletedNotes(prev => new Set(prev).add(uniqueKey));
+
+                if (!isMelodyChallenge) {
+                    setLastCompletedNoteFullName(uniqueKey);
+                }
                 
                 const nextIndex = playerSimonIndex + 1;
 
@@ -552,10 +560,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
                     setTimeout(() => setShowLevelCompleteDialog(true), 1500);
                 } else {
-                    setTimeout(() => {
+                    const nextStep = () => {
                         setPlayerSimonIndex(nextIndex);
                         setLastCompletedNoteFullName(null);
-                    }, 1200);
+                    };
+
+                    if (isMelodyChallenge) {
+                        nextStep();
+                    } else {
+                        setTimeout(nextStep, 1200);
+                    }
                 }
                 setInTuneTime(0);
                 inTuneSinceRef.current = null;
@@ -576,12 +590,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         if (level === 4) newGameMode = 'melody-challenge';
         else newGameMode = 'standard';
     } else if (diff === "Medio") {
-      if (level === 6) newGameMode = 'melody-challenge';
-      else if (level === 1) newGameMode = 'interval';
-      else newGameMode = Math.random() < 0.2 ? 'standard' : 'interval';
+      if (level === 6) {
+        newGameMode = 'melody-challenge';
+      } else if (level === 1 || Math.random() < 0.2) {
+        newGameMode = 'interval';
+      } else {
+        newGameMode = 'standard';
+      }
     } else if (diff === "Difícil") {
-        if (level === 1) newGameMode = 'simon-says';
-        else if (level === 12) newGameMode = 'simon-says';
+        if (level === 1 || level === 12) newGameMode = 'simon-says';
         else if (level === 9) newGameMode = 'melody-challenge';
         else {
             const modeIndex = (level - 2) % 3;
@@ -892,10 +909,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
               const x = radius * Math.cos(angle);
               const y = radius * Math.sin(angle);
               const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
+              const uniqueKey = `${n.fullName}-${index}`;
 
               return (
                 <Button
-                  key={`${n.fullName}-${index}`}
+                  key={uniqueKey}
                   onClick={() => handleNoteClick(n)}
                   disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
                   style={{ transform: `translate(${x}px, ${y}px)` }}
@@ -980,11 +998,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               if (selectedDifficulty === 'Fácil') {
                                 if (level === 4) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
                               } else if (selectedDifficulty === 'Medio') {
-                                if (level === 6) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
-                                else if (level !== 1 && Math.random() < 0.2) {
-                                  // Standard level, no icon
+                                if (level === 6) {
+                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                } else {
+                                    modeIndicator = <Music className="w-4 h-4" />;
                                 }
-                                else modeIndicator = <Music className="w-4 h-4" />;
                               } else if (selectedDifficulty === 'Difícil') {
                                 if (level === 9) {
                                     modeIndicator = <Music className="w-4 h-4 text-green-500" />;
@@ -1061,3 +1079,4 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
