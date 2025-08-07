@@ -867,20 +867,20 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             <div className="flex flex-col items-center justify-center gap-4 w-full">
                 {rhythmPhase === 'playback' && (
                     <div className="text-center">
-                        <p className="text-2xl font-bold">Escucha el Ritmo</p>
+                        <p className="text-2xl font-bold">Escucha y Observa</p>
                         <p className="text-muted-foreground">Prepárate para tocar...</p>
                     </div>
                 )}
                 {rhythmPhase === 'playing' && (
                     <div className="text-center">
-                        <p className="text-2xl font-bold">¡Tu Turno!</p>
-                        <p className="text-muted-foreground">Toca el ritmo</p>
+                        <p className="text-2xl font-bold">¡Repite el Ritmo!</p>
+                        <p className="text-muted-foreground">Toca el botón con el timing correcto</p>
                     </div>
                 )}
                 {rhythmPhase === 'results' && (
                     <div className="text-center">
-                        <p className="text-2xl font-bold">Puntuación: {rhythmScore.toFixed(0)}%</p>
-                        <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Nivel Superado!" : "¡Inténtalo de nuevo!"}</p>
+                        <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
+                        <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
                          {rhythmScore < 75 && <Button onClick={() => startLevel(difficulty as ChallengeDifficulty, currentLevel)} className="mt-4">Reintentar</Button>}
                     </div>
                 )}
@@ -889,9 +889,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     onClick={handleRhythmTap}
                     disabled={rhythmPhase !== 'playing'}
                     className={cn(
-                        "w-48 h-48 sm:w-64 sm:h-64 rounded-full text-2xl font-bold shadow-lg transition-transform duration-100",
-                        rhythmTapButtonAnimation && "scale-105",
-                        rhythmPhase === 'playing' ? "bg-primary hover:bg-primary/90" : "bg-secondary"
+                        "w-48 h-48 sm:w-64 sm:h-64 rounded-full text-2xl font-bold shadow-lg transition-all duration-100",
+                        rhythmTapButtonAnimation && "scale-105 bg-primary/80",
+                        rhythmPhase === 'playback' && "bg-secondary cursor-not-allowed",
+                        rhythmPhase === 'playing' && "bg-primary hover:bg-primary/90 animate-pulse",
+                        rhythmPhase === 'results' && "bg-secondary"
                     )}
                 >
                     Tocar
@@ -1119,7 +1121,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 setIsPaused(true);
             }
             setSelectedDifficulty(null);
-            setShowDifficultyDialog(true)
+            setShowDifficultyDialog(true);
           }}>Elegir Nivel</Button>
       </div>
 
@@ -1237,3 +1239,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
