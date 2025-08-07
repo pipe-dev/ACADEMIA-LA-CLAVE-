@@ -32,16 +32,30 @@ const generateIntervalChallenge = (count: number, pool: NoteInfo[], level: numbe
     if (pool.length < 2 || count <= 0) return [];
     if (pool.length < count) return generateChallenge(count, pool); // Fallback
 
-    const intervalSets: Record<number, number[]> = {
-        1: [5, 7, 12, -5, -7, -12], // Perfect 4ths, 5ths, Octaves
-        3: [4, 7, 9, 12, -3, -5, -8, -12], // Add 3rds and 6ths
-        5: [6, 10, 11, 7, -5, -6, -7], // Add dissonant leaps (tritone, sevenths)
-        7: [4, 5, 7, 9, 10, 11, 12].flatMap(i => [i, -i]), // Combine all leaps < octave
-        9: [13, 14, 15, -13, -14, -15], // Focus on leaps > octave
-        11: [6, 7, 10, 11, 12, 13, 14, 15].flatMap(i => [i, -i]), // Mix of very large leaps
+    const intervalSets: Record<string, Record<number, number[]>> = {
+      "Medio": {
+        1: [3, 4, 5], // 3rds, 4ths
+        3: [7, 8], // 5ths, minor 6ths
+        5: [9, 10], // major 6ths, minor 7ths
+        7: [11, 12], // major 7ths, octaves
+        9: [3, 4, 5, 7], // Mix of smaller intervals
+        11: [8, 9, 10, 11, 12], // Mix of larger intervals
+      },
+      "Difícil": {
+        1: [5, 7, 12], // Perfect 4ths, 5ths, Octaves
+        3: [4, 7, 9, 12], // Add 3rds and 6ths
+        5: [6, 10, 11, 7], // Add dissonant leaps (tritone, sevenths)
+        7: [4, 5, 7, 9, 10, 11, 12], // Combine all leaps < octave
+        9: [13, 14, 15], // Focus on leaps > octave
+        11: [6, 7, 10, 11, 12, 13, 14, 15], // Mix of very large leaps
+      },
     };
+    
+    const difficultyKey = level > 12 ? "Difícil" : "Medio";
+    const levelKey = (level % 2 === 0 ? level-1 : level);
+    const intervalsUnsigned = intervalSets[difficultyKey]?.[levelKey] || [3, 4, 5, 7];
+    const intervals = intervalsUnsigned.flatMap(i => [i, -i]);
 
-    const intervals = intervalSets[level] || intervalSets[7];
     const selectedNotes = new Map<string, NoteInfo>();
     const poolByMidi = new Map<number, NoteInfo>(pool.map(n => [n.midi, n]));
 
@@ -147,7 +161,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [selectedDifficulty, setSelectedDifficulty] = useState<ChallengeDifficulty | null>(null);
   const [isInitialWarmupCompleted, setIsInitialWarmupCompleted] = useState(false);
   
-  const [gameMode, setGameMode] = useState<'standard' | 'simon-says'>('standard');
+  const [gameMode, setGameMode] = useState<'standard' | 'interval' | 'simon-says'>('standard');
   const [simonSequence, setSimonSequence] = useState<NoteInfo[]>([]);
   const [playerSimonIndex, setPlayerSimonIndex] = useState(0);
   const [simonPlaybackIndex, setSimonPlaybackIndex] = useState<number | null>(null);
@@ -438,8 +452,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const tolerance = activeNote && activeNote.midi < 49 ? 30 : 18; // G2 is 43, C3 is 48. Up to C3 is grave.
 
   useEffect(() => {
-    if (gameMode === 'standard') {
-        if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted) {
+    if (gameMode !== 'simon-says') { // Standard and Interval logic
+        if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted || isPaused) {
           setInTuneTime(0);
           inTuneSinceRef.current = null;
           return;
@@ -492,7 +506,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           inTuneSinceRef.current = null;
         }
     } else { // Simon Says Logic
-        if (!isDetecting || sessionCompleted || simonPhase !== 'singing' || lastCompletedNoteFullName) {
+        if (!isDetecting || sessionCompleted || simonPhase !== 'singing' || lastCompletedNoteFullName || isPaused) {
             setInTuneTime(0);
             inTuneSinceRef.current = null;
             return;
@@ -538,16 +552,23 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             inTuneSinceRef.current = null;
         }
     }
-  }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence]);
+  }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence, isPaused]);
 
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     if (!isMounted || notePool.length === 0) return;
-  
-    const isSimon = diff === 'Difícil' && level % 2 === 0;
+
+    let newGameMode: 'standard' | 'interval' | 'simon-says' = 'standard';
+     if (diff === 'Medio' && level % 2 !== 0) {
+        newGameMode = 'interval';
+    } else if (diff === 'Difícil' && level % 2 === 0) {
+        newGameMode = 'simon-says';
+    } else if (diff === 'Difícil' && level % 2 !== 0) {
+        newGameMode = 'interval';
+    }
+    setGameMode(newGameMode);
     
     setDifficulty(diff);
     setCurrentLevel(level);
-    setGameMode(isSimon ? 'simon-says' : 'standard');
     
     setCompletedNotes(new Set());
     setActiveNote(null);
@@ -560,7 +581,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setHasRepeatedSequence(false);
     setPlayerSimonIndex(0);
   
-    if (isSimon) {
+    if (newGameMode === 'simon-says') {
         const exerciseCount = difficultyLevels[diff][level - 1];
         const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
         const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
@@ -574,9 +595,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     } else {
         const exerciseCount = difficultyLevels[diff][level - 1];
         let newChallenge: NoteInfo[];
-        if (diff === "Difícil") {
+        if (newGameMode === "interval") {
             newChallenge = generateIntervalChallenge(exerciseCount, notePool, level);
-        } else {
+        } else { // standard
             newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
         }
         setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
@@ -632,7 +653,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
 
   const handleNoteClick = (noteToActivate: NoteInfo) => {
-    if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting || gameMode === 'simon-says') return;
+    if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting || gameMode === 'simon-says' || isPaused) return;
     setActiveNote(noteToActivate);
     playNote(noteToActivate);
   };
@@ -642,8 +663,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       stop();
       setIsPaused(true);
     } else {
-      setIsPaused(false);
       start();
+      setIsPaused(false);
       if (!challengeNotes.length || (difficulty === 'Calentamiento' && sessionCompleted) || (difficulty !== 'Calentamiento' && sessionCompleted)) {
           setDialogMessage("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
           setShowDifficultyDialog(true);
@@ -776,6 +797,19 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     return <TunerSkeleton />;
   }
 
+  const getDifficultyTitle = () => {
+    let title = `${difficulty}`;
+    if (difficulty !== 'Calentamiento') {
+      title += ` - Nivel ${currentLevel}`;
+    }
+    if (gameMode === 'simon-says') {
+      title += ' (Simón Dice)';
+    } else if (gameMode === 'interval') {
+      title += ' (Intervalos)';
+    }
+    return title;
+  };
+  
   return (
     <div className="relative flex flex-col items-center gap-8 w-full max-w-5xl mx-auto">
        <Button onClick={handleBackButtonClick} variant="ghost" className="absolute top-0 left-0 text-sm h-auto p-2">
@@ -784,9 +818,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
        </Button>
       <div className="text-center text-foreground font-semibold text-lg mt-12">
         <p>
-            Dificultad: <span className="font-bold text-primary">{difficulty}</span>
-            {difficulty !== 'Calentamiento' && ` - Nivel ${currentLevel}`}
-            {gameMode === 'simon-says' && ' (Simón Dice)'}
+            Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
         </p>
         <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' ? simonSequence.length : challengeNotes.length}</p>
       </div>
@@ -803,7 +835,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 <Button
                   key={n.fullName}
                   onClick={() => handleNoteClick(n)}
-                  disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback'}
+                  disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
                   style={{ transform: `translate(${x}px, ${y}px)` }}
                   className={cn(
                     "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
@@ -811,7 +843,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     completedNotes.has(n.fullName) 
                       ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default" 
                       : "bg-card hover:bg-card/80 border-2 border-primary/30",
-                    activeNote?.fullName === n.fullName && gameMode === 'standard' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
+                    activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
                     isPlayingBack && "scale-110 neon-glow"
                   )}
                 >
@@ -929,11 +961,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 {difficulty !== 'Calentamiento' && currentLevel < difficultyLevels[difficulty as ChallengeDifficulty].length ? (
                     <Button onClick={() => {
                       setShowLevelCompleteDialog(false);
-                      handleSeeLevels();
+                      startLevel(difficulty as ChallengeDifficulty, currentLevel + 1);
                     }} size="lg">Siguiente Nivel</Button>
                 ) : (
                      <Button onClick={handleChooseNewDifficulty} size="lg">Elegir Dificultad</Button>
                 )}
+                <Button onClick={handleSeeLevels} variant="secondary">Ver Niveles</Button>
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
@@ -941,3 +974,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
