@@ -444,7 +444,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     };
   }, [simonPhase, simonSequence, playNote, hasRepeatedSequence, gameMode]);
 
-  const challengeDuration = 1000;
+  const challengeDuration = gameMode === 'melody-challenge' ? 500 : 1000;
   
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1061,4 +1061,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
