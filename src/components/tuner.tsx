@@ -43,6 +43,12 @@ const mediumDifficultyChords = [
     { rootMidi: 56, type: 'minor' },   // Nivel 12: G# minor
 ];
 
+const melodies: Record<string, { midi: number, duration: number }[]> = {
+    beethoven5: [ { midi: 67, duration: 0.3 }, { midi: 67, duration: 0.3 }, { midi: 67, duration: 0.3 }, { midi: 63, duration: 0.8 } ],
+    twinkle: [ { midi: 60, duration: 0.4 }, { midi: 60, duration: 0.4 }, { midi: 67, duration: 0.4 }, { midi: 67, duration: 0.4 }, { midi: 69, duration: 0.4 }, { midi: 69, duration: 0.4 }, { midi: 67, duration: 0.8 } ],
+    happyBirthday: [ { midi: 60, duration: 0.3 }, { midi: 60, duration: 0.4 }, { midi: 62, duration: 0.7 }, { midi: 60, duration: 0.7 }, { midi: 65, duration: 0.7 }, { midi: 64, duration: 1.2 } ],
+    maryHadALamb: [ { midi: 64, duration: 0.4 }, { midi: 62, duration: 0.4 }, { midi: 60, duration: 0.4 }, { midi: 62, duration: 0.4 }, { midi: 64, duration: 0.4 }, { midi: 64, duration: 0.4 }, { midi: 64, duration: 0.8 } ]
+};
 
 const generateIntervalChallenge = (level: number, pool: NoteInfo[]): NoteInfo[] => {
     const poolByMidi = new Map<number, NoteInfo>(pool.map(n => [n.midi, n]));
@@ -165,7 +171,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [selectedDifficulty, setSelectedDifficulty] = useState<ChallengeDifficulty | null>(null);
   const [isInitialWarmupCompleted, setIsInitialWarmupCompleted] = useState(false);
   
-  const [gameMode, setGameMode] = useState<'standard' | 'interval' | 'simon-says'>('standard');
+  const [gameMode, setGameMode] = useState<'standard' | 'interval' | 'simon-says' | 'melody-challenge'>('standard');
   const [simonSequence, setSimonSequence] = useState<NoteInfo[]>([]);
   const [playerSimonIndex, setPlayerSimonIndex] = useState(0);
   const [simonPlaybackIndex, setSimonPlaybackIndex] = useState<number | null>(null);
@@ -238,7 +244,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }
   }, [getPlaybackAudioContext]);
 
-  const playNote = useCallback(async (noteInfo: NoteInfo): Promise<void> => {
+  const playNote = useCallback(async (noteInfo: NoteInfo, duration?: number): Promise<void> => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
 
@@ -255,7 +261,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       activeSoundSourceRef.current = null;
     }
 
-    const duration = gameMode === 'simon-says' ? 1.6 : 2.5;
+    const playDuration = duration || (gameMode === 'simon-says' ? 1.6 : 2.5);
 
     const playTone = (buffer?: AudioBuffer) => {
       return new Promise<void>(resolve => {
@@ -280,7 +286,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           osc.type = 'sine';
           osc.frequency.setValueAtTime(noteInfo.frequency, audioContext.currentTime);
           gain.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration - 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + playDuration - 0.05);
 
           osc.connect(gain).connect(audioContext.destination);
           source = osc;
@@ -297,7 +303,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         
         source.start(0);
         try {
-          source.stop(audioContext.currentTime + duration);
+          source.stop(audioContext.currentTime + playDuration);
         } catch (e) {
           // Can fail if context is closed
         }
@@ -412,11 +418,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
         for (let i = 0; i < simonSequence.length; i++) {
             if (isCancelled) break;
-            setSimonPlaybackIndex(i); 
-            await playNote(simonSequence[i]);
+            setSimonPlaybackIndex(i);
+            const noteToPlay = simonSequence[i];
+            const duration = (gameMode === 'melody-challenge') ? 0.6 : undefined;
+            await playNote(noteToPlay, duration);
             if (isCancelled) break;
             if (i < simonSequence.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 200));
+              const pauseDuration = (gameMode === 'melody-challenge') ? 100 : 200;
+              await new Promise(resolve => setTimeout(resolve, pauseDuration));
             }
              if (isCancelled) break;
         }
@@ -433,7 +442,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         isCancelled = true;
         setSimonPlaybackIndex(null);
     };
-  }, [simonPhase, simonSequence, playNote, hasRepeatedSequence]);
+  }, [simonPhase, simonSequence, playNote, hasRepeatedSequence, gameMode]);
 
   const challengeDuration = 1000;
   
@@ -456,7 +465,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const tolerance = activeNote && activeNote.midi < 49 ? 30 : 18; // G2 is 43, C3 is 48. Up to C3 is grave.
 
   useEffect(() => {
-    if (gameMode !== 'simon-says') { // Standard and Interval logic
+    if (gameMode !== 'simon-says' && gameMode !== 'melody-challenge') { // Standard and Interval logic
         if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted || isPaused) {
           setInTuneTime(0);
           inTuneSinceRef.current = null;
@@ -509,7 +518,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           setInTuneTime(0);
           inTuneSinceRef.current = null;
         }
-    } else { // Simon Says Logic
+    } else { // Simon Says & Melody Logic
         if (!isDetecting || sessionCompleted || simonPhase !== 'singing' || lastCompletedNoteFullName || isPaused) {
             setInTuneTime(0);
             inTuneSinceRef.current = null;
@@ -540,7 +549,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 if (nextIndex >= simonSequence.length) {
                     setSessionCompleted(true);
                     playAllCompletedSound();
-                    markLevelAsComplete('Difícil', currentLevel);
+                    markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
                     setTimeout(() => setShowLevelCompleteDialog(true), 1500);
                 } else {
                     setTimeout(() => {
@@ -561,19 +570,25 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const startLevel = (diff: ChallengeDifficulty, level: number) => {
     if (!isMounted || notePool.length === 0) return;
 
-    let newGameMode: "standard" | "interval" | "simon-says" = "standard";
+    let newGameMode: "standard" | "interval" | "simon-says" | "melody-challenge" = "standard";
 
-    if (diff === "Medio") {
-      newGameMode = 'interval';
+    if (diff === 'Fácil') {
+        if (level === 4) newGameMode = 'melody-challenge';
+        else newGameMode = 'standard';
+    } else if (diff === "Medio") {
+      if (level === 6) newGameMode = 'melody-challenge';
+      else if (level === 1) newGameMode = 'interval';
+      else newGameMode = Math.random() < 0.2 ? 'standard' : 'interval';
     } else if (diff === "Difícil") {
-      if (level === 1) {
-        newGameMode = "simon-says";
-      } else {
-        const modeIndex = (level - 1) % 3;
-        if (modeIndex === 1) newGameMode = "standard";
-        else if (modeIndex === 2) newGameMode = "interval";
-        else newGameMode = "simon-says"; // This makes level 1, 4, 7, 10 simon says
-      }
+        if (level === 12) newGameMode = 'simon-says';
+        else if (level === 1) newGameMode = 'simon-says';
+        else if (level === 9) newGameMode = 'melody-challenge';
+        else {
+            const modeIndex = (level - 2) % 3;
+            if (modeIndex === 0) newGameMode = "standard";
+            else if (modeIndex === 1) newGameMode = "interval";
+            else newGameMode = "simon-says";
+        }
     }
 
     setGameMode(newGameMode);
@@ -592,25 +607,50 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setPlayerSimonIndex(0);
     setIsPaused(false);
 
-    if (newGameMode === "simon-says") {
-      const exerciseCount = difficultyLevels[diff][level - 1];
-      const initialChallenge = generateChallenge(
-        Math.min(exerciseCount, notePool.length),
-        notePool
-      );
-      const simonLevels: Record<number, number> = {
-        1: 3, 2: 3, 3: 3, 4: 4, 5: 4, 6: 4, 7: 5, 8: 5, 9: 5, 10: 6, 11: 6, 12: 6,
-      };
-      const sequenceLength = simonLevels[level] || 3;
-      const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
-      const sequence = shuffled.slice(
-        0,
-        Math.min(sequenceLength, initialChallenge.length)
-      );
+    if (newGameMode === "simon-says" || newGameMode === "melody-challenge") {
+      let sequence: NoteInfo[] = [];
+      const poolByMidi = new Map<number, NoteInfo>(notePool.map(n => [n.midi, n]));
+      
+      if (newGameMode === 'melody-challenge') {
+        const melodyKeys = Object.keys(melodies);
+        const randomMelodyKey = melodyKeys[Math.floor(Math.random() * melodyKeys.length)];
+        const melodySequence = melodies[randomMelodyKey];
+
+        const baseOctave = (gender === 'femenino' ? 4 : 3);
+        const baseMidi = 12 * (baseOctave + 1);
+        const firstNoteMidi = melodySequence[0].midi % 12 + baseMidi;
+        
+        // Find the best starting note in the user's pool
+        let bestStartNote: NoteInfo | undefined = poolByMidi.get(firstNoteMidi)
+        if (!bestStartNote) {
+           const potentialStarts = notePool.filter(n => n.name === noteStrings[melodySequence[0].midi % 12]);
+           bestStartNote = potentialStarts.sort((a,b) => Math.abs(a.midi - firstNoteMidi) - Math.abs(b.midi - firstNoteMidi))[0];
+        }
+
+        if (bestStartNote) {
+            const midiOffset = bestStartNote.midi - melodySequence[0].midi;
+            sequence = melodySequence
+                .map(n => poolByMidi.get(n.midi + midiOffset))
+                .filter((n): n is NoteInfo => !!n);
+        }
+
+        if(sequence.length === 0) { // Fallback to a simple sequence
+           sequence = generateChallenge(5, notePool);
+        }
+
+      } else { // simon-says
+        const exerciseCount = difficultyLevels[diff][level - 1];
+        const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+        const simonLevels: Record<number, number> = { 1: 3, 2: 3, 3: 3, 4: 4, 5: 4, 6: 4, 7: 5, 8: 5, 9: 5, 10: 6, 11: 6, 12: 6, };
+        const sequenceLength = simonLevels[level] || 3;
+        const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
+        sequence = shuffled.slice(0, Math.min(sequenceLength, initialChallenge.length));
+      }
 
       setSimonSequence(sequence);
       setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
       setSimonPhase("playback");
+
     } else {
       let newChallenge: NoteInfo[];
       if (newGameMode === "interval") {
@@ -675,7 +715,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
 
   const handleNoteClick = (noteToActivate: NoteInfo) => {
-    if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting || gameMode === 'simon-says' || isPaused) return;
+    if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting || gameMode === 'simon-says' || gameMode === 'melody-challenge' || isPaused) return;
     setActiveNote(noteToActivate);
     playNote(noteToActivate);
   };
@@ -691,7 +731,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
 
   const handleRepeatSequence = () => {
-    if (gameMode !== 'simon-says' || simonPhase !== 'singing' || hasRepeatedSequence || sessionCompleted) return;
+    if ((gameMode !== 'simon-says' && gameMode !== 'melody-challenge') || simonPhase !== 'singing' || hasRepeatedSequence || sessionCompleted) return;
     setHasRepeatedSequence(true);
     setSimonPhase('playback');
   };
@@ -712,11 +752,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         );
     }
 
-    if (gameMode === 'simon-says') {
+    if (gameMode === 'simon-says' || gameMode === 'melody-challenge') {
         if (simonPhase === 'playback') {
             return (
                 <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in">
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">Memoriza</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{gameMode === 'melody-challenge' ? "Canta la Melodía" : "Memoriza"}</p>
                     <p className="text-muted-foreground text-sm sm:text-base">Escucha la secuencia...</p>
                 </div>
             )
@@ -796,16 +836,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     return (
         <div className="text-center p-4">
             <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                {gameMode === 'simon-says' && simonPhase === 'singing' ? "¡Tu Turno!" : "Selecciona una nota"}
+                {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : "Selecciona una nota"}
             </p>
             <p className="text-muted-foreground mt-1 sm:mt-2 text-base sm:text-lg">
-                {gameMode === 'simon-says' && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : "Haz clic en un círculo para empezar"}
+                {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : "Haz clic en un círculo para empezar"}
             </p>
         </div>
     );
   };
 
-  const notesToDisplay = (gameMode === 'simon-says' && simonPhase !== 'idle' && simonSequence.length > 0) ? simonSequence : challengeNotes;
+  const notesToDisplay = (gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase !== 'idle' && simonSequence.length > 0 ? simonSequence : challengeNotes;
   const isLargeChallenge = notesToDisplay.length > 25;
   const buttonSize = `w-14 h-14 text-sm sm:w-[72px] sm:h-[72px] sm:text-base ${isLargeChallenge ? 'sm:w-14 sm:h-14 sm:text-sm' : ''}`;
   const noteNameSize = `text-xl ${isLargeChallenge ? 'sm:text-xl' : 'sm:text-2xl'}`;
@@ -824,7 +864,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       title += ' (Simón Dice)';
     } else if (gameMode === 'interval') {
       title += ' (Arpegios)';
-    } else if (difficulty !== 'Fácil') {
+    } else if (gameMode === 'melody-challenge') {
+      title += ' (Melodía)';
+    } else if (difficulty !== 'Fácil' && difficulty !== 'Calentamiento') {
         title += ' (Estándar)';
     }
     return title;
@@ -840,7 +882,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         <p>
             Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
         </p>
-        <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' ? simonSequence.length : challengeNotes.length}</p>
+        <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>
       </div>
 
       <div className="relative w-[340px] h-[340px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
@@ -889,7 +931,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           {isDetecting ? "Pausar" : "Empezar"}
         </Button>
         <div className="h-10">
-          {gameMode === 'simon-says' && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
+          {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
             <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
               <RefreshCw className="h-5 w-5"/>
               <span className="sr-only">Repetir</span>
@@ -935,21 +977,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               const isLocked = level > 1 && !progress[selectedDifficulty]?.[level - 1];
                               
                               let modeIndicator: React.ReactNode = null;
-                              if (selectedDifficulty === 'Medio') {
-                                    modeIndicator = <Music className="w-4 h-4" />;
+                              if (selectedDifficulty === 'Fácil') {
+                                if (level === 4) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                              } else if (selectedDifficulty === 'Medio') {
+                                if (level === 6) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                else modeIndicator = <Music className="w-4 h-4" />;
                               } else if (selectedDifficulty === 'Difícil') {
-                                let modeIndex = (level -1) % 3;
-                                if (level === 1) modeIndex = 0; // Simon
-                                else if (level > 1) modeIndex = (level - 2) % 3;
-
-                                if (level === 1) { // Simon
+                                if (level === 9) {
+                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                } else if (level === 1 || level === 12 || (level - 2) % 3 === 2) {
                                     modeIndicator = <Brain className="w-4 h-4" />;
-                                } else if (modeIndex === 1) { // Standard - No icon
-                                    modeIndicator = null;
-                                } else if (modeIndex === 2) { // Interval
+                                } else if ((level - 2) % 3 === 1) {
                                     modeIndicator = <Music className="w-4 h-4" />;
-                                } else { // Simon
-                                    modeIndicator = <Brain className="w-4 h-4" />;
                                 }
                               }
 
@@ -1019,8 +1058,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
-
-    
-
