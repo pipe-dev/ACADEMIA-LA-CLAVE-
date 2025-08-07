@@ -351,7 +351,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     });
   }, [getPlaybackAudioContext]);
   
-  useEffect(() => {
+  const generateNewChallenge = useCallback(() => {
     if (!isMounted || notePool.length === 0) return;
 
     let newChallenge: NoteInfo[];
@@ -381,23 +381,29 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       }
     }
     
-    setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
-  }, [isMounted, notePool, difficulty, currentLevel, isInitialWarmupCompleted, gameMode]);
-
-  useEffect(() => {
-    if (gameMode === 'simon-says' && challengeNotes.length > 0) {
+    const sortedChallenge = newChallenge.sort((a, b) => a.frequency - b.frequency);
+    setChallengeNotes(sortedChallenge);
+    
+    if (gameMode === 'simon-says') {
         const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
         const sequenceLength = simonLevels[currentLevel] || 2;
         
-        const shuffled = [...challengeNotes].sort(() => 0.5 - Math.random());
-        const sequence = shuffled.slice(0, Math.min(sequenceLength, challengeNotes.length));
+        const shuffled = [...sortedChallenge].sort(() => 0.5 - Math.random());
+        const sequence = shuffled.slice(0, Math.min(sequenceLength, sortedChallenge.length));
         
         setSimonSequence(sequence);
         setCompletedNotes(new Set());
         setPlayerSimonIndex(0);
         setSimonPhase('playback');
     }
-  }, [gameMode, currentLevel, challengeNotes]);
+
+  }, [isMounted, notePool, difficulty, currentLevel, isInitialWarmupCompleted, gameMode]);
+
+
+  useEffect(() => {
+    generateNewChallenge();
+  }, [generateNewChallenge]);
+
 
   useEffect(() => {
     if (simonPhase !== 'playback' || simonSequence.length === 0) return;
@@ -561,16 +567,11 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence]);
 
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
+    const isSimon = diff === 'Difícil' && level % 2 === 0;
+    setGameMode(isSimon ? 'simon-says' : 'standard');
     setDifficulty(diff);
     setCurrentLevel(level);
 
-    // This is the fix: explicitly set the gameMode every time a level starts.
-    if (diff === 'Difícil' && level % 2 === 0) {
-        setGameMode('simon-says');
-    } else {
-        setGameMode('standard');
-    }
-    
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -583,6 +584,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     setSimonSequence([]);
     setPlayerSimonIndex(0);
     setSimonPhase('idle');
+    setChallengeNotes([]); 
 
     if (!isDetecting) {
       start();
@@ -879,7 +881,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
                                       )}
                                       {isSimonSays && !isLocked && (
                                           <span className="absolute bottom-1 right-1 text-xs font-normal opacity-70">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 6.005 6.005 6.002 6 6a3 3 0 1 0-5.993-1.003C.002 4.998.005 4.995.01 4.993A3 3 0 1 0 6 4c0 .002-.002.005-.007.007A3 3 0 1 0 12 5Z"/><path d="M12 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 14.005 6.005 14.002 6 14a3 3 0 1 0-5.993-1.003C.002 12.998.005 12.995.01 12.993A3 3 0 1 0 6 12c0 .002-.002.005-.007.007A3 3 0 1 0 12 13Z"/><path d="M21 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C15.01 14.005 15.005 14.002 15 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 15 12c0 .002-.002.005-.007.007A3 3 0 1 0 21 13Z"/><path d="M18 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C12.01 6.005 12.005 6.002 12 6a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 12 4c0 .002-.002.005-.007.007A3 3 0 1 0 18 5Z"/><path d="M21 6a3 3 0 1 0-3-3"/><path d="M3 6a3 3 0 1 1 3-3"/><path d="M12 21a3 3 0 1 0-3-3"/><path d="M12 21a3 3 0 1 0 3-3"/><path d="M12 15a3 3 0 1 0-3-3"/><path d="M12 15a3 3 0 1 0 3-3"/><path d="M6 9a3 3 0 1 0-3-3"/><path d="M6 9a3 3 0 1 0 3-3"/><path d="M18 9a3 3 0 1 0-3-3"/><path d="M18 9a3 3 0 1 0 3-3"/></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 6.005 6.005 6.002 6 6a3 3 0 1 0-5.993-1.003C.002 4.998.005 4.995.01 4.993A3 3 0 1 0 6 4c0 .002-.002.005-.007.007A3 3 0 1 0 12 5Z"/><path d="M12 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 14.005 6.005 14.002 6 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 6 12c0 .002-.002.005-.007.007A3 3 0 1 0 12 13Z"/><path d="M21 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C15.01 14.005 15.005 14.002 15 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 15 12c0 .002-.002.005-.007.007A3 3 0 1 0 21 13Z"/><path d="M18 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C12.01 6.005 12.005 6.002 12 6a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 12 4c0 .002-.002.005-.007.007A3 3 0 1 0 18 5Z"/><path d="M21 6a3 3 0 1 0-3-3"/><path d="M3 6a3 3 0 1 1 3-3"/><path d="M12 21a3 3 0 1 0-3-3"/><path d="M12 21a3 3 0 1 0 3-3"/><path d="M12 15a3 3 0 1 0-3-3"/><path d="M12 15a3 3 0 1 0 3-3"/><path d="M6 9a3 3 0 1 0-3-3"/><path d="M6 9a3 3 0 1 0 3-3"/><path d="M18 9a3 3 0 1 0-3-3"/><path d="M18 9a3 3 0 1 0 3-3"/></svg>
                                           </span>
                                       )}
                                   </Button>
@@ -924,3 +926,5 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     </div>
   );
 }
+
+    
