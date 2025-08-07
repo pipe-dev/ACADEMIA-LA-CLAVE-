@@ -51,18 +51,17 @@ const melodies: Record<string, { midi: number, duration: number }[]> = {
 };
 
 const rhythmPatterns: Record<number, { time: number; instrument: 'snare' | 'clap' }[]> = {
-    9: [ // 100 BPM
-        { time: 0, instrument: 'snare' },
-        { time: 600, instrument: 'snare' },
-        { time: 1200, instrument: 'clap' },
-        { time: 1800, instrument: 'snare' },
+    9: [ // 100 BPM, 2 bars 4/4
+        { time: 0, instrument: 'snare' }, // Bar 1, Beat 1
+        { time: 1200, instrument: 'clap' },  // Bar 1, Beat 3
+        { time: 2400, instrument: 'snare' }, // Bar 2, Beat 1
+        { time: 3600, instrument: 'clap' },  // Bar 2, Beat 3
     ],
-    10: [ // 120 BPM
-        { time: 0, instrument: 'snare' },
-        { time: 500, instrument: 'clap' },
-        { time: 1000, instrument: 'snare' },
-        { time: 1250, instrument: 'clap' },
-        { time: 1500, instrument: 'snare' },
+    10: [ // 120 BPM, 2 bars 4/4
+        { time: 0, instrument: 'snare' }, // Bar 1, Beat 1
+        { time: 1000, instrument: 'clap' },  // Bar 1, Beat 3
+        { time: 2000, instrument: 'snare' }, // Bar 2, Beat 1
+        { time: 3000, instrument: 'clap' },  // Bar 2, Beat 3
     ],
 };
 
@@ -155,31 +154,31 @@ function TunerSkeleton() {
 const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
     const pendulumDuration = 60 / bpm;
     return (
-        <div className="w-[280px] h-[400px] bg-[#1a1a1a] rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-black relative">
+        <div className="w-[280px] h-[400px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
             {/* Screws */}
-            <div className="absolute top-3 left-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
-            <div className="absolute top-3 right-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
-            <div className="absolute bottom-3 left-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
-            <div className="absolute bottom-3 right-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
+            <div className="absolute top-3 left-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
+            <div className="absolute top-3 right-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
+            <div className="absolute bottom-3 left-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
+            <div className="absolute bottom-3 right-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
 
             {/* Inner plate */}
-            <div className="w-full h-full bg-[#2a2a2a] rounded-md border border-black shadow-inner flex flex-col items-center justify-center relative">
+            <div className="w-full h-full bg-background rounded-md border border-border shadow-inner flex flex-col items-center justify-center relative overflow-hidden">
                 {/* Scale */}
                 <div className="absolute w-1/2 h-full flex flex-col justify-around left-2">
-                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-gray-500/50"></div>)}
+                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-muted-foreground/50"></div>)}
                 </div>
                  <div className="absolute w-1/2 h-full flex flex-col justify-around right-2 items-end">
-                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-gray-500/50"></div>)}
+                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-muted-foreground/50"></div>)}
                 </div>
 
                 {/* Pendulum */}
                 <div 
-                    className="absolute w-2 h-4/5 bg-gray-400 origin-bottom"
+                    className="absolute w-2 h-4/5 bg-primary/70 origin-bottom"
                     style={{
                         animation: isPlaying ? `swing ${pendulumDuration * 2}s ease-in-out infinite` : 'none',
                     }}
                 >
-                    <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-8 h-4 bg-white rounded-sm shadow-md"></div>
+                    <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-8 h-4 bg-primary rounded-sm shadow-md"></div>
                 </div>
             </div>
             <style jsx>{`
@@ -243,6 +242,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [rhythmStartTime, setRhythmStartTime] = useState(0);
   const [rhythmScore, setRhythmScore] = useState(0);
   const [rhythmBpm, setRhythmBpm] = useState(100);
+  const [activeRhythmHit, setActiveRhythmHit] = useState<'snare' | 'clap' | null>(null);
+
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
@@ -530,10 +531,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const timeouts = rhythmPattern.map(hit => {
             return setTimeout(() => {
                 playRhythmSound(hit.instrument);
+                setActiveRhythmHit(hit.instrument);
+                setTimeout(() => setActiveRhythmHit(null), 150);
             }, hit.time);
         });
 
-        const totalDuration = rhythmPattern[rhythmPattern.length - 1].time + 500;
+        const totalDuration = rhythmPattern[rhythmPattern.length - 1].time + 1000;
         const endTimeout = setTimeout(stopRhythmPlayback, totalDuration);
         
         rhythmPlaybackTimeouts.current = [...timeouts, endTimeout];
@@ -917,6 +920,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     const handleRhythmTap = (instrument: 'snare' | 'clap') => {
         if (rhythmPhase !== 'playing') return;
         playRhythmSound(instrument);
+        setActiveRhythmHit(instrument);
+        setTimeout(() => setActiveRhythmHit(null), 150);
 
         const tapTime = performance.now() - rhythmStartTime;
         const newTaps = [...userRhythmTaps, { time: tapTime, instrument }];
@@ -958,15 +963,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     };
   
     const renderRhythmGame = () => {
-        const isPlaying = rhythmPhase === 'playback';
+        const isPlaying = rhythmPhase === 'playback' || rhythmPhase === 'playing';
         let statusText = "Toca los botones para igualar el ritmo.";
-        if (rhythmPhase === 'playback') statusText = "Escucha...";
-        if (rhythmPhase === 'playing') statusText = "¡Tu Turno!";
+        if (rhythmPhase === 'playback') statusText = "Escucha y observa...";
+        if (rhythmPhase === 'playing') statusText = "¡Repite el Ritmo!";
         if (rhythmPhase === 'results') statusText = `Precisión: ${rhythmScore.toFixed(0)}%`;
 
 
         return (
-            <div className="flex flex-col items-center justify-start gap-4 w-full h-full text-white">
+            <div className="flex flex-col items-center justify-start gap-4 w-full h-full text-foreground">
                 <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
                 
                 <div className="text-center my-4">
@@ -977,12 +982,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 <div className="w-full flex justify-center items-center gap-2 mb-4">
                     <Button
                         onClick={playRhythmPattern}
-                        disabled={isPlaying}
+                        disabled={rhythmPhase === 'playback' || rhythmPhase === 'playing'}
                         variant="secondary"
                         className="w-32"
                     >
-                        {isPlaying ? <Square className="mr-2 fill-white" /> : <Play className="mr-2" />}
-                        {isPlaying ? "Sonando" : "Escuchar"}
+                        {rhythmPhase === 'playback' ? <Square className="mr-2 fill-current" /> : <Play className="mr-2" />}
+                        {rhythmPhase === 'playback' ? "Sonando" : "Escuchar"}
                     </Button>
                 </div>
 
@@ -992,9 +997,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
                             "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                            "bg-red-600 border-4 border-red-800",
+                            "bg-red-600/80 border-4 border-red-800/80",
                             "active:scale-95 active:bg-red-500",
-                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed"
+                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                            (activeRhythmHit === 'snare') && "neon-glow border-red-400"
                         )}
                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     />
@@ -1003,9 +1009,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
                             "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                            "bg-blue-600 border-4 border-blue-800",
+                            "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
-                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed"
+                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                             (activeRhythmHit === 'clap') && "neon-glow border-blue-400"
                         )}
                          style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     />
@@ -1362,5 +1369,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
