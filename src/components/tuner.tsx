@@ -544,14 +544,12 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     if (!isMounted || notePool.length === 0) return;
 
     const isSimon = diff === 'Difícil' && level % 2 === 0;
-    const newGameMode = isSimon ? 'simon-says' : 'standard';
-
     setDifficulty(diff);
     setCurrentLevel(level);
-    setGameMode(newGameMode);
+    setGameMode(isSimon ? 'simon-says' : 'standard');
 
-    let newChallenge: NoteInfo[] = [];
-    if (newGameMode === 'simon-says') {
+    let newChallenge: NoteInfo[];
+    if (isSimon) {
         const exerciseCount = difficultyLevels[diff][level - 1];
         newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
         const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
@@ -559,6 +557,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         const shuffled = [...newChallenge].sort(() => 0.5 - Math.random());
         const sequence = shuffled.slice(0, Math.min(sequenceLength, newChallenge.length));
         setSimonSequence(sequence);
+        setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
         setSimonPhase('playback');
     } else {
         const exerciseCount = difficultyLevels[diff][level - 1];
@@ -567,11 +566,11 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         } else {
             newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
         }
+        setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
         setSimonSequence([]);
         setSimonPhase('idle');
     }
     
-    setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -663,7 +662,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
                 <Trophy className="w-16 h-16 sm:w-20 sm:h-20 text-accent" />
                 <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
                 <p className="text-muted-foreground text-sm sm:text-base">¡Nivel completado!</p>
-                 <Button onClick={() => setShowDifficultyDialog(true)} className="mt-4">Elegir Nivel</Button>
             </div>
         );
     }
