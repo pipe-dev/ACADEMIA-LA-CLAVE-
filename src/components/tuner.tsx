@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Metronome } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -52,8 +52,8 @@ const melodies: Record<string, { midi: number, duration: number }[]> = {
 
 const rhythmPatterns: Record<number, number[]> = {
     // Level -> pattern of timings in ms
-    2: [0, 500, 1000, 1500], // Simple quarter notes
-    6: [0, 500, 1250, 1500], // quarter, eighth, eighth
+    9: [0, 500, 1000, 1500], // Simple quarter notes
+    10: [0, 500, 750, 1250], // quarter, eighth, quarter
 };
 
 const generateIntervalChallenge = (level: number, pool: NoteInfo[]): NoteInfo[] => {
@@ -112,13 +112,13 @@ type ProgressState = Record<ChallengeDifficulty, Record<number, boolean>>;
 
 const difficultySettings = {
   "Calentamiento": { exerciseCount: 12 },
-  "Fácil": { levelCount: 8 },
+  "Fácil": { levelCount: 10 },
   "Medio": { levelCount: 12 },
   "Difícil": { levelCount: 12 },
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-    "Fácil":   [3, 3, 4, 4, 5, 5, 5, 5],
+    "Fácil":   [3, 3, 4, 4, 4, 5, 5, 5, 0, 0], // Last two are rhythm
     "Medio":   [4, 4, 5, 5, 6, 6, 7, 7, 7, 7, 7, 7],
     "Difícil": [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
 };
@@ -646,7 +646,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
     if (diff === 'Fácil') {
         if (level === 4) newGameMode = 'melody-challenge';
-        else if (level === 2 || level === 6) newGameMode = 'rhythm-challenge';
+        else if (level === 9 || level === 10) newGameMode = 'rhythm-challenge';
         else newGameMode = 'standard';
     } else if (diff === "Medio") {
       if (level === 6) {
@@ -1154,7 +1154,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               let modeIndicator: React.ReactNode = null;
                               if (selectedDifficulty === 'Fácil') {
                                 if (level === 4) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
-                                else if (level === 2 || level === 6) modeIndicator = <Metronome className="w-4 h-4 text-blue-500" />;
+                                else if (level === 9 || level === 10) modeIndicator = <Drum className="w-4 h-4 text-blue-500" />;
                               } else if (selectedDifficulty === 'Medio') {
                                   if (level === 6) {
                                       modeIndicator = <Music className="w-4 h-4 text-green-500" />;
