@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -50,10 +50,20 @@ const melodies: Record<string, { midi: number, duration: number }[]> = {
     maryHadALamb: [ { midi: 64, duration: 0.4 }, { midi: 62, duration: 0.4 }, { midi: 60, duration: 0.4 }, { midi: 62, duration: 0.4 }, { midi: 64, duration: 0.4 }, { midi: 64, duration: 0.4 }, { midi: 64, duration: 0.8 } ]
 };
 
-const rhythmPatterns: Record<number, number[]> = {
-    // Level -> pattern of timings in ms
-    9: [0, 500, 1000, 1500], // Simple quarter notes
-    10: [0, 500, 750, 1250], // quarter, eighth, quarter
+const rhythmPatterns: Record<number, { time: number; instrument: 'snare' | 'clap' }[]> = {
+    9: [ // 100 BPM
+        { time: 0, instrument: 'snare' },
+        { time: 600, instrument: 'snare' },
+        { time: 1200, instrument: 'clap' },
+        { time: 1800, instrument: 'snare' },
+    ],
+    10: [ // 120 BPM
+        { time: 0, instrument: 'snare' },
+        { time: 500, instrument: 'clap' },
+        { time: 1000, instrument: 'snare' },
+        { time: 1250, instrument: 'clap' },
+        { time: 1500, instrument: 'snare' },
+    ],
 };
 
 const generateIntervalChallenge = (level: number, pool: NoteInfo[]): NoteInfo[] => {
@@ -118,7 +128,7 @@ const difficultySettings = {
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-    "Fácil":   [3, 3, 4, 4, 4, 5, 5, 5, 0, 0], // Last two are rhythm
+    "Fácil":   [3, 3, 4, 4, 5, 5, 5, 5, 0, 0], // Last two are rhythm
     "Medio":   [4, 4, 5, 5, 6, 6, 7, 7, 7, 7, 7, 7],
     "Difícil": [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
 };
@@ -141,6 +151,47 @@ function TunerSkeleton() {
       </div>
     );
   }
+
+const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
+    const pendulumDuration = 60 / bpm;
+    return (
+        <div className="w-[280px] h-[400px] bg-[#1a1a1a] rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-black relative">
+            {/* Screws */}
+            <div className="absolute top-3 left-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
+            <div className="absolute top-3 right-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
+            <div className="absolute bottom-3 left-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
+            <div className="absolute bottom-3 right-3 w-3 h-3 bg-gray-500 rounded-full flex items-center justify-center"><div className="w-1.5 h-0.5 bg-black"></div><div className="w-0.5 h-1.5 bg-black absolute"></div></div>
+
+            {/* Inner plate */}
+            <div className="w-full h-full bg-[#2a2a2a] rounded-md border border-black shadow-inner flex flex-col items-center justify-center relative">
+                {/* Scale */}
+                <div className="absolute w-1/2 h-full flex flex-col justify-around left-2">
+                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-gray-500/50"></div>)}
+                </div>
+                 <div className="absolute w-1/2 h-full flex flex-col justify-around right-2 items-end">
+                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-gray-500/50"></div>)}
+                </div>
+
+                {/* Pendulum */}
+                <div 
+                    className="absolute w-2 h-4/5 bg-gray-400 origin-bottom"
+                    style={{
+                        animation: isPlaying ? `swing ${pendulumDuration * 2}s ease-in-out infinite` : 'none',
+                    }}
+                >
+                    <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-8 h-4 bg-white rounded-sm shadow-md"></div>
+                </div>
+            </div>
+            <style jsx>{`
+                @keyframes swing {
+                    0% { transform: rotate(-25deg); }
+                    50% { transform: rotate(25deg); }
+                    100% { transform: rotate(-25deg); }
+                }
+            `}</style>
+        </div>
+    );
+};
 
 export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool: NoteInfo[]; gender: 'masculino' | 'femenino', vocalRangeKey: string, onGoBack: () => void }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
@@ -186,16 +237,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [isPaused, setIsPaused] = useState(false);
   const [repeatCount, setRepeatCount] = useState(0);
 
-  const [rhythmPattern, setRhythmPattern] = useState<number[]>([]);
+  const [rhythmPattern, setRhythmPattern] = useState<{ time: number; instrument: 'snare' | 'clap' }[]>([]);
   const [rhythmPhase, setRhythmPhase] = useState<'idle' | 'playback' | 'playing' | 'results'>('idle');
-  const [userRhythmTaps, setUserRhythmTaps] = useState<number[]>([]);
+  const [userRhythmTaps, setUserRhythmTaps] = useState<{ time: number; instrument: 'snare' | 'clap' }[]>([]);
   const [rhythmStartTime, setRhythmStartTime] = useState(0);
   const [rhythmScore, setRhythmScore] = useState(0);
-  const [rhythmTapButtonAnimation, setRhythmTapButtonAnimation] = useState(false);
+  const [rhythmBpm, setRhythmBpm] = useState(100);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
+  const rhythmPlaybackTimeouts = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     try {
@@ -415,49 +467,85 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     });
   }, [getPlaybackAudioContext]);
 
-    const playRhythmClick = useCallback(() => {
+    const playRhythmSound = useCallback((instrument: 'snare' | 'clap') => {
         const audioContext = getPlaybackAudioContext();
         if (!audioContext) return;
         const t = audioContext.currentTime;
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(880, t);
-        gain.gain.setValueAtTime(0.3, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-        osc.connect(gain).connect(audioContext.destination);
-        osc.start(t);
-        osc.stop(t + 0.05);
+        
+        if (instrument === 'snare') {
+            const noise = audioContext.createBufferSource();
+            const bufferSize = audioContext.sampleRate * 0.1; // 100ms
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            noise.buffer = buffer;
 
-        setRhythmTapButtonAnimation(true);
-        setTimeout(() => setRhythmTapButtonAnimation(false), 100);
+            const noiseFilter = audioContext.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = 1500;
+            noiseFilter.Q.value = 0.5;
+
+            const noiseEnvelope = audioContext.createGain();
+            noiseEnvelope.gain.setValueAtTime(1, t);
+            noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+            
+            noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
+            noise.start(t);
+        } else { // clap
+            const noise = audioContext.createBufferSource();
+            const bufferSize = audioContext.sampleRate * 0.05; // 50ms
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            noise.buffer = buffer;
+            const noiseEnvelope = audioContext.createGain();
+            noise.connect(noiseEnvelope).connect(audioContext.destination);
+            noiseEnvelope.gain.setValueAtTime(0.8, t);
+            noiseEnvelope.gain.exponentialRampToValueAtTime(0.1, t + 0.01);
+            noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+
+            noise.start(t);
+            noise.stop(t + 0.05);
+        }
     }, [getPlaybackAudioContext]);
 
-    useEffect(() => {
-        if (rhythmPhase !== 'playback' || rhythmPattern.length === 0) return;
+    const stopRhythmPlayback = useCallback(() => {
+        rhythmPlaybackTimeouts.current.forEach(clearTimeout);
+        rhythmPlaybackTimeouts.current = [];
+        setRhythmPhase('playing');
+        setRhythmStartTime(performance.now());
+        setUserRhythmTaps([]);
+    }, []);
 
-        let timeouts: NodeJS.Timeout[] = [];
-        const play = async () => {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            rhythmPattern.forEach(time => {
-                const timeout = setTimeout(() => {
-                    playRhythmClick();
-                }, time);
-                timeouts.push(timeout);
-            });
-            const totalDuration = rhythmPattern[rhythmPattern.length - 1] + 500;
-            const timeout = setTimeout(() => {
-                setRhythmPhase('playing');
-                setRhythmStartTime(performance.now());
-                setUserRhythmTaps([]);
-            }, totalDuration);
-            timeouts.push(timeout);
-        };
-        play();
+    const playRhythmPattern = useCallback(() => {
+        if (rhythmPattern.length === 0) return;
+        rhythmPlaybackTimeouts.current.forEach(clearTimeout);
+
+        setRhythmPhase('playback');
+        
+        const timeouts = rhythmPattern.map(hit => {
+            return setTimeout(() => {
+                playRhythmSound(hit.instrument);
+            }, hit.time);
+        });
+
+        const totalDuration = rhythmPattern[rhythmPattern.length - 1].time + 500;
+        const endTimeout = setTimeout(stopRhythmPlayback, totalDuration);
+        
+        rhythmPlaybackTimeouts.current = [...timeouts, endTimeout];
+
+    }, [rhythmPattern, playRhythmSound, stopRhythmPlayback]);
+
+
+    useEffect(() => {
         return () => {
-            timeouts.forEach(clearTimeout);
+            rhythmPlaybackTimeouts.current.forEach(clearTimeout);
         }
-    }, [rhythmPhase, rhythmPattern, playRhythmClick]);
+    }, []);
 
   useEffect(() => {
     if (simonPhase !== 'playback' || simonSequence.length === 0) return;
@@ -689,8 +777,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmScore(0);
 
     if (newGameMode === "rhythm-challenge") {
+        setRhythmBpm(level === 9 ? 100 : 120);
         setRhythmPattern(rhythmPatterns[level] || []);
-        setRhythmPhase('playback');
         if (isDetecting) stop();
     } else if (newGameMode === "simon-says" || newGameMode === "melody-challenge") {
       let sequence: NoteInfo[] = [];
@@ -822,34 +910,41 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const handleBackButtonClick = () => {
     stop();
+    rhythmPlaybackTimeouts.current.forEach(clearTimeout);
     onGoBack();
   }
   
-    const handleRhythmTap = () => {
+    const handleRhythmTap = (instrument: 'snare' | 'clap') => {
         if (rhythmPhase !== 'playing') return;
-        playRhythmClick();
+        playRhythmSound(instrument);
 
         const tapTime = performance.now() - rhythmStartTime;
-        const newTaps = [...userRhythmTaps, tapTime];
+        const newTaps = [...userRhythmTaps, { time: tapTime, instrument }];
         setUserRhythmTaps(newTaps);
 
         if (newTaps.length >= rhythmPattern.length) {
-            // Scoring logic
-            let totalDifference = 0;
-            const maxDifference = 250; // Max time difference in ms to be considered somewhat accurate
-
-            rhythmPattern.forEach((patternTime, i) => {
-                const userTime = newTaps[i] || 0;
-                const difference = Math.abs(patternTime - userTime);
-                totalDifference += Math.min(difference, maxDifference);
-            });
-
-            const maxTotalDifference = rhythmPattern.length * maxDifference;
-            const accuracy = Math.max(0, 100 - (totalDifference / maxTotalDifference) * 100);
-            setRhythmScore(accuracy);
             setRhythmPhase('results');
+            
+            // Scoring logic
+            let score = 0;
+            const timeTolerance = 150; // ms
+            const maxScorePerHit = 100 / rhythmPattern.length;
 
-            if (accuracy >= 75) {
+            rhythmPattern.forEach((patternHit, i) => {
+                const userHit = newTaps[i];
+                if (userHit) {
+                    const timeDiff = Math.abs(patternHit.time - userHit.time);
+                    const instrumentMatch = patternHit.instrument === userHit.instrument;
+                    if (instrumentMatch && timeDiff <= timeTolerance) {
+                        // Award points based on how close the timing was
+                        score += maxScorePerHit * (1 - (timeDiff / timeTolerance));
+                    }
+                }
+            });
+            
+            setRhythmScore(score);
+
+            if (score >= 75) {
                 playAllCompletedSound();
                 markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
                 setTimeout(() => {
@@ -863,48 +958,72 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     };
   
     const renderRhythmGame = () => {
+        const isPlaying = rhythmPhase === 'playback';
+        let statusText = "Toca los botones para igualar el ritmo.";
+        if (rhythmPhase === 'playback') statusText = "Escucha...";
+        if (rhythmPhase === 'playing') statusText = "¡Tu Turno!";
+        if (rhythmPhase === 'results') statusText = `Precisión: ${rhythmScore.toFixed(0)}%`;
+
+
         return (
-            <div className="flex flex-col items-center justify-center gap-4 w-full">
-                {rhythmPhase === 'playback' && (
-                    <div className="text-center">
-                        <p className="text-2xl font-bold">Escucha y Observa</p>
-                        <p className="text-muted-foreground">Prepárate para tocar...</p>
-                    </div>
-                )}
-                {rhythmPhase === 'playing' && (
-                    <div className="text-center">
-                        <p className="text-2xl font-bold">¡Repite el Ritmo!</p>
-                        <p className="text-muted-foreground">Toca el botón con el timing correcto</p>
-                    </div>
-                )}
-                {rhythmPhase === 'results' && (
-                    <div className="text-center">
+            <div className="flex flex-col items-center justify-start gap-4 w-full h-full text-white">
+                <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
+                
+                <div className="text-center my-4">
+                    <p className="text-5xl font-bold">{rhythmBpm}</p>
+                    <p className="text-xl text-muted-foreground">BPM</p>
+                </div>
+                
+                <div className="w-full flex justify-center items-center gap-2 mb-4">
+                    <Button
+                        onClick={playRhythmPattern}
+                        disabled={isPlaying}
+                        variant="secondary"
+                        className="w-32"
+                    >
+                        {isPlaying ? <Square className="mr-2 fill-white" /> : <Play className="mr-2" />}
+                        {isPlaying ? "Sonando" : "Escuchar"}
+                    </Button>
+                </div>
+
+                <div className="w-full flex-grow flex items-center justify-around px-4">
+                    <button
+                        onClick={() => handleRhythmTap('snare')}
+                        disabled={rhythmPhase !== 'playing'}
+                        className={cn(
+                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "bg-red-600 border-4 border-red-800",
+                            "active:scale-95 active:bg-red-500",
+                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed"
+                        )}
+                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
+                    />
+                    <button
+                        onClick={() => handleRhythmTap('clap')}
+                        disabled={rhythmPhase !== 'playing'}
+                        className={cn(
+                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "bg-blue-600 border-4 border-blue-800",
+                            "active:scale-95 active:bg-blue-500",
+                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed"
+                        )}
+                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
+                    />
+                </div>
+                 {rhythmPhase === 'results' && (
+                    <div className="text-center mt-4 text-foreground">
                         <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
                         <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
                          {rhythmScore < 75 && <Button onClick={() => startLevel(difficulty as ChallengeDifficulty, currentLevel)} className="mt-4">Reintentar</Button>}
                     </div>
                 )}
-
-                <Button
-                    onClick={handleRhythmTap}
-                    disabled={rhythmPhase !== 'playing'}
-                    className={cn(
-                        "w-48 h-48 sm:w-64 sm:h-64 rounded-full text-2xl font-bold shadow-lg transition-all duration-100",
-                        rhythmTapButtonAnimation && "scale-105 bg-primary/80",
-                        rhythmPhase === 'playback' && "bg-secondary cursor-not-allowed",
-                        rhythmPhase === 'playing' && "bg-primary hover:bg-primary/90 animate-pulse",
-                        rhythmPhase === 'results' && "bg-secondary"
-                    )}
-                >
-                    Tocar
-                </Button>
             </div>
         );
     };
 
   const renderCentralContent = () => {
     if (gameMode === 'rhythm-challenge') {
-        return renderRhythmGame();
+        return null; // The rhythm game has its own full layout
     }
       
     if (sessionCompleted && !showLevelCompleteDialog) {
@@ -1040,90 +1159,94 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
   
   return (
-    <div className="relative flex flex-col items-center gap-8 w-full max-w-5xl mx-auto">
-       <Button onClick={handleBackButtonClick} variant="ghost" className="absolute top-0 left-0 text-sm h-auto p-2">
+    <div className="relative flex flex-col items-center gap-4 w-full max-w-5xl mx-auto h-screen p-2 sm:p-4">
+       <Button onClick={handleBackButtonClick} variant="ghost" className="absolute top-4 left-4 text-sm h-auto p-2 z-20">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
        </Button>
-      <div className="text-center text-foreground font-semibold text-lg mt-12">
+      <div className="text-center text-foreground font-semibold text-lg mt-12 sm:mt-4">
         <p>
             Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
         </p>
          {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
       </div>
 
-       <div className="relative w-[340px] h-[340px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
-         {gameMode !== 'rhythm-challenge' && (
-           <>
-             {notesToDisplay.length > 0 ? (
-                 notesToDisplay.map((n, index) => {
-                   const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
-                   const x = radius * Math.cos(angle);
-                   const y = radius * Math.sin(angle);
-                   const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
-                   const uniqueKey = `${n.fullName}-${index}`;
-
-                   return (
-                     <Button
-                       key={uniqueKey}
-                       onClick={() => handleNoteClick(n)}
-                       disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
-                       style={{ transform: `translate(${x}px, ${y}px)` }}
-                       className={cn(
-                         "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
-                         buttonSize,
-                         completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? uniqueKey : n.fullName)
-                           ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default"
-                           : "bg-card hover:bg-card/80 border-2 border-primary/30",
-                         activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
-                         isPlayingBack && "scale-110 neon-glow"
-                       )}
-                     >
-                       <span className={noteNameSize}>{n.name}</span>
-                       <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
-                     </Button>
-                   );
-                 })
-             ) : (
-                 <div className="text-muted-foreground">Cargando desafío...</div>
-             )}
-           </>
-         )}
-        
-        <Card className="w-[180px] h-[180px] sm:w-[260px] sm:h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
-            <CardContent className="p-2 flex items-center justify-center">
-              {renderCentralContent()}
-            </CardContent>
-        </Card>
-      </div>
-      
-      <div className="flex flex-col items-center gap-3">
-        {gameMode !== 'rhythm-challenge' ? (
-            <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
-              {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
-              {isDetecting ? "Pausar" : "Empezar"}
-            </Button>
-        ): (
-          <div className="h-16" /> // Placeholder for spacing
-        )}
-
-        <div className="h-10">
-          {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
-            <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
-              <RefreshCw className="h-5 w-5"/>
-              <span className="sr-only">Repetir</span>
-            </Button>
-          )}
+      {gameMode === 'rhythm-challenge' ? (
+        <div className="flex-grow w-full flex items-center justify-center">
+            {renderRhythmGame()}
         </div>
-         <Button variant="link" onClick={() => {
+      ) : (
+          <>
+            <div className="relative w-[340px] h-[340px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
+                {notesToDisplay.length > 0 ? (
+                    notesToDisplay.map((n, index) => {
+                        const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
+                        const x = radius * Math.cos(angle);
+                        const y = radius * Math.sin(angle);
+                        const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
+                        const uniqueKey = `${n.fullName}-${index}`;
+
+                        return (
+                            <Button
+                            key={uniqueKey}
+                            onClick={() => handleNoteClick(n)}
+                            disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
+                            style={{ transform: `translate(${x}px, ${y}px)` }}
+                            className={cn(
+                                "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
+                                buttonSize,
+                                completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? uniqueKey : n.fullName)
+                                ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default"
+                                : "bg-card hover:bg-card/80 border-2 border-primary/30",
+                                activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
+                                isPlayingBack && "scale-110 neon-glow"
+                            )}
+                            >
+                            <span className={noteNameSize}>{n.name}</span>
+                            <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
+                            </Button>
+                        );
+                        })
+                ) : (
+                    <div className="text-muted-foreground">Cargando desafío...</div>
+                )}
+            
+                <Card className="w-[180px] h-[180px] sm:w-[260px] sm:h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                    <CardContent className="p-2 flex items-center justify-center">
+                    {renderCentralContent()}
+                    </CardContent>
+                </Card>
+            </div>
+          
+            <div className="flex flex-col items-center gap-3">
+                <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
+                    {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
+                    {isDetecting ? "Pausar" : "Empezar"}
+                </Button>
+
+                <div className="h-10">
+                {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
+                    <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
+                    <RefreshCw className="h-5 w-5"/>
+                    <span className="sr-only">Repetir</span>
+                    </Button>
+                )}
+                </div>
+            </div>
+        </>
+      )}
+       <Button variant="link" onClick={() => {
             if (isDetecting) {
                 stop();
                 setIsPaused(true);
             }
+            if(rhythmPhase !== 'idle'){
+                rhythmPlaybackTimeouts.current.forEach(clearTimeout);
+                setRhythmPhase('idle');
+            }
             setSelectedDifficulty(null);
             setShowDifficultyDialog(true);
-          }}>Elegir Nivel</Button>
-      </div>
+          }} className="mt-auto pb-4">Elegir Nivel</Button>
 
       <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
         if (!isOpen) {
