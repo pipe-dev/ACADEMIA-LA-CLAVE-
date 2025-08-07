@@ -564,13 +564,20 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     let newGameMode: 'standard' | 'interval' | 'simon-says' = 'standard';
   
     if (diff === 'Medio') {
-      // 1/3 chance of being a standard challenge, otherwise interval
-      newGameMode = Math.random() < 1/3 ? 'standard' : 'interval';
+        if (level === 1) {
+            newGameMode = 'interval';
+        } else {
+            newGameMode = Math.random() < 1/3 ? 'standard' : 'interval';
+        }
     } else if (diff === 'Difícil') {
-      const modeIndex = (level - 1) % 3;
-      if (modeIndex === 0) newGameMode = 'standard';
-      else if (modeIndex === 1) newGameMode = 'interval';
-      else newGameMode = 'simon-says';
+        if (level === 12) {
+            newGameMode = 'simon-says';
+        } else {
+            const modeIndex = (level - 1) % 3;
+            if (modeIndex === 0) newGameMode = 'standard';
+            else if (modeIndex === 1) newGameMode = 'interval';
+            else newGameMode = 'simon-says';
+        }
     }
   
     setGameMode(newGameMode);
@@ -605,7 +612,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       if (newGameMode === "interval") {
         newChallenge = generateIntervalChallenge(level, notePool);
       } else { // standard
-        const exerciseCount = difficultyLevels[diff][level - 1];
+        const exerciseCount = diff === 'Medio'
+          ? difficultyLevels[diff][level - 1]
+          : difficultyLevels[diff][level - 1];
         newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
       }
       setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
@@ -916,9 +925,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               
                               let modeIndicator: React.ReactNode = null;
                               if (selectedDifficulty === 'Medio') {
-                                modeIndicator = <Music className="w-4 h-4" />;
+                                if (level === 1) {
+                                    modeIndicator = <Music className="w-4 h-4" />;
+                                } else {
+                                    // In medio, levels can be interval or standard, but we show interval icon to hint the main mode
+                                    modeIndicator = <Music className="w-4 h-4" />;
+                                }
                               } else if (selectedDifficulty === 'Difícil') {
-                                const modeIndex = (level - 1) % 3;
+                                let modeIndex = (level - 1) % 3;
+                                if(level === 12) modeIndex = 2; // Last level is always Simon Says
+
                                 if (modeIndex === 1) { // Arpeggio
                                      modeIndicator = <Music className="w-4 h-4" />;
                                 } else if (modeIndex === 2) { // Simon Says
@@ -992,5 +1008,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
 
     
