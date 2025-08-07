@@ -112,9 +112,9 @@ const difficultySettings = {
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-  "Fácil": [3, 5, 6, 6, 7, 7, 8, 8],
-  "Medio": [8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 14],
-  "Difícil": [10, 12, 15, 18, 20, 22, 24, 26, 28, 30, 32, 35],
+  "Fácil":   [3, 3, 4, 4, 4, 5, 5, 5],      // Max 5
+  "Medio":   [5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7], // Max 7
+  "Difícil": [8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 11], // Max 11
 };
 
 
@@ -545,7 +545,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                   playCompletionSound();
                 }
                 
-                const uniqueKey = targetNote.fullName + playerSimonIndex;
+                const uniqueKey = `${targetNote.fullName}-${playerSimonIndex}`;
                 setCompletedNotes(prev => new Set(prev).add(uniqueKey));
 
                 if (!isMelodyChallenge) {
@@ -592,15 +592,19 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     } else if (diff === "Medio") {
       if (level === 6) {
         newGameMode = 'melody-challenge';
-      } else if (level === 1 || Math.random() < 0.2) {
+      } else if (level === 1) {
         newGameMode = 'interval';
       } else {
-        newGameMode = 'standard';
+        newGameMode = Math.random() < 0.2 ? 'standard' : 'interval';
       }
     } else if (diff === "Difícil") {
-        if (level === 1 || level === 12) newGameMode = 'simon-says';
-        else if (level === 9) newGameMode = 'melody-challenge';
-        else {
+        if (level === 1) {
+            newGameMode = 'simon-says';
+        } else if (level === 12) {
+            newGameMode = 'simon-says';
+        } else if (level === 9) {
+            newGameMode = 'melody-challenge';
+        } else {
             const modeIndex = (level - 2) % 3;
             if (modeIndex === 0) newGameMode = "standard";
             else if (modeIndex === 1) newGameMode = "interval";
@@ -920,7 +924,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                   className={cn(
                     "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
                     buttonSize,
-                    completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? `${n.fullName}${index}` : n.fullName)
+                    completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? `${n.fullName}-${index}` : n.fullName)
                       ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default" 
                       : "bg-card hover:bg-card/80 border-2 border-primary/30",
                     activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
@@ -998,17 +1002,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               if (selectedDifficulty === 'Fácil') {
                                 if (level === 4) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
                               } else if (selectedDifficulty === 'Medio') {
-                                if (level === 6) {
-                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
-                                } else {
-                                    modeIndicator = <Music className="w-4 h-4" />;
-                                }
+                                  if (level === 6) {
+                                      modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                  } else {
+                                      modeIndicator = <Music className="w-4 h-4" />;
+                                  }
                               } else if (selectedDifficulty === 'Difícil') {
-                                if (level === 9) {
-                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
-                                } else if (level === 1 || level === 12 || (level - 2) % 3 === 2) {
+                                if (level === 1 || level === 12) {
                                     modeIndicator = <Brain className="w-4 h-4" />;
-                                } else if ((level - 2) % 3 === 1) {
+                                } else if (level === 9) {
+                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                } else if ((level - 2) % 3 === 1) { // Arpeggio
                                     modeIndicator = <Music className="w-4 h-4" />;
                                 }
                               }
@@ -1079,6 +1083,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
 
 
 
