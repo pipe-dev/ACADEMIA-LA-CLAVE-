@@ -127,9 +127,9 @@ const difficultySettings = {
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-    "Fácil":   [3, 3, 4, 4, 5, 5, 5, 5, 0, 0], // Last two are rhythm
-    "Medio":   [4, 4, 5, 5, 6, 6, 7, 7, 7, 7, 7, 7],
-    "Difícil": [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
+    "Fácil":   [3, 4, 4, 5, 5, 5, 5, 5, 0, 0], // Last two are rhythm
+    "Medio":   [4, 5, 5, 6, 6, 6, 7, 7, 7, 7, 7, 7],
+    "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10],
 };
 
 
@@ -474,7 +474,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         if (!audioContext) return;
         const t = audioContext.currentTime;
         
-        if (instrument === 'snare') {
+        const createSnare = () => {
             const noise = audioContext.createBufferSource();
             const bufferSize = audioContext.sampleRate * 0.1; // 100ms
             const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
@@ -495,29 +495,32 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             
             noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
             noise.start(t);
-        } else if (instrument === 'clap') {
-            const noise = audioContext.createBufferSource();
-            const bufferSize = audioContext.sampleRate * 0.05; // 50ms
-            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1;
-            }
-            noise.buffer = buffer;
-            const noiseEnvelope = audioContext.createGain();
-            noise.connect(noiseEnvelope).connect(audioContext.destination);
-            noiseEnvelope.gain.setValueAtTime(0.8, t);
-            noiseEnvelope.gain.exponentialRampToValueAtTime(0.1, t + 0.01);
-            noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+            noise.stop(t + 0.1);
+        };
 
-            noise.start(t);
-            noise.stop(t + 0.05);
+        const createKick = () => {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.frequency.setValueAtTime(150, t);
+            osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
+            gain.gain.setValueAtTime(1, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+            osc.connect(gain).connect(audioContext.destination);
+            osc.start(t);
+            osc.stop(t + 0.1);
+        };
+
+        if (instrument === 'snare') {
+            createSnare();
+        } else if (instrument === 'clap') { // Now a kick + snare combo
+            createKick();
+            createSnare();
         } else { // tick
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(1200, t);
-            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.setValueAtTime(0.5, t); // Increased volume
             gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -762,8 +765,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     let newGameMode: "standard" | "interval" | "simon-says" | "melody-challenge" | "rhythm-challenge" = "standard";
 
     if (diff === 'Fácil') {
-        if (level === 4) newGameMode = 'melody-challenge';
-        else if (level === 9 || level === 10) newGameMode = 'rhythm-challenge';
+        if (level === 9 || level === 10) newGameMode = 'rhythm-challenge';
+        else if (level === 4) newGameMode = 'melody-challenge';
         else newGameMode = 'standard';
     } else if (diff === "Medio") {
       if (level === 6) {
@@ -962,7 +965,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         setActiveRhythmHit(instrument);
         setTimeout(() => setActiveRhythmHit(null), 150);
 
-        let newTaps: { time: number; instrument: string }[];
+        let newTaps: { time: number; instrument: 'snare' | 'clap' }[];
         
         if(userRhythmTaps.length === 0){
             // This is the first tap, it establishes the start time
