@@ -26,6 +26,7 @@ export function AppContainer() {
   const [gender, setGender] = useState<'masculino' | 'femenino' | null>(null);
   const [notePool, setNotePool] = useState<NoteInfo[] | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [vocalRangeKey, setVocalRangeKey] = useState<string>('');
 
   useEffect(() => {
     const root = document.documentElement;
@@ -39,6 +40,8 @@ export function AppContainer() {
   useEffect(() => {
     if (pitchPreference && gender) {
       let startMidi: number, endMidi: number;
+      const key = `vocalStudioProgress_${gender}_${pitchPreference}`;
+      setVocalRangeKey(key);
 
       if (gender === 'masculino') {
         if (pitchPreference === 'grave') { // Barítono/Bajo
@@ -72,14 +75,14 @@ export function AppContainer() {
     }
   }, [pitchPreference, gender, toast]);
 
-  if (isReady && notePool && gender) {
+  if (isReady && notePool && gender && vocalRangeKey) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold font-headline text-foreground">Desafío de Afinación</h1>
           <p className="text-muted-foreground mt-2 text-lg">Escucha y canta la nota para ganar.</p>
         </div>
-        <Tuner notePool={notePool} gender={gender} />
+        <Tuner notePool={notePool} gender={gender} vocalRangeKey={vocalRangeKey} />
       </main>
     );
   }

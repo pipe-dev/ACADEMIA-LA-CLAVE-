@@ -112,7 +112,7 @@ function TunerSkeleton() {
     );
   }
 
-export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'masculino' | 'femenino' }) {
+export function Tuner({ notePool, gender, vocalRangeKey }: { notePool: NoteInfo[]; gender: 'masculino' | 'femenino', vocalRangeKey: string }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   const { toast } = useToast();
   
@@ -161,7 +161,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
 
   useEffect(() => {
     try {
-        const savedProgress = window.localStorage.getItem('vocalStudioProgress');
+        const savedProgress = window.localStorage.getItem(vocalRangeKey);
         if (savedProgress) {
             const parsedProgress = JSON.parse(savedProgress);
             if (parsedProgress['Fácil'] && parsedProgress['Medio'] && parsedProgress['Difícil']) {
@@ -172,20 +172,20 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         console.error("Failed to load progress from localStorage", error);
     }
     setIsMounted(true);
-  }, []);
+  }, [vocalRangeKey]);
 
   const markLevelAsComplete = useCallback((diff: ChallengeDifficulty, level: number) => {
     setProgress(prev => {
         const newProgress = { ...prev };
         newProgress[diff] = { ...newProgress[diff], [level]: true };
         try {
-            window.localStorage.setItem('vocalStudioProgress', JSON.stringify(newProgress));
+            window.localStorage.setItem(vocalRangeKey, JSON.stringify(newProgress));
         } catch (error) {
             console.error("Failed to save progress to localStorage", error);
         }
         return newProgress;
     });
-  }, []);
+  }, [vocalRangeKey]);
 
   const getPlaybackAudioContext = useCallback(() => {
     if (typeof window === 'undefined') return null;
@@ -542,34 +542,12 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
 
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     if (!isMounted || notePool.length === 0) return;
-
+  
     const isSimon = diff === 'Difícil' && level % 2 === 0;
+    
     setDifficulty(diff);
     setCurrentLevel(level);
     setGameMode(isSimon ? 'simon-says' : 'standard');
-
-    let newChallenge: NoteInfo[];
-    if (isSimon) {
-        const exerciseCount = difficultyLevels[diff][level - 1];
-        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-        const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
-        const sequenceLength = simonLevels[level] || 2;
-        const shuffled = [...newChallenge].sort(() => 0.5 - Math.random());
-        const sequence = shuffled.slice(0, Math.min(sequenceLength, newChallenge.length));
-        setSimonSequence(sequence);
-        setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
-        setSimonPhase('playback');
-    } else {
-        const exerciseCount = difficultyLevels[diff][level - 1];
-        if (diff === "Difícil") {
-            newChallenge = generateIntervalChallenge(exerciseCount, notePool, level);
-        } else {
-            newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-        }
-        setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
-        setSimonSequence([]);
-        setSimonPhase('idle');
-    }
     
     setCompletedNotes(new Set());
     setActiveNote(null);
@@ -581,7 +559,31 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     inTuneSinceRef.current = null;
     setHasRepeatedSequence(false);
     setPlayerSimonIndex(0);
-
+  
+    if (isSimon) {
+        const exerciseCount = difficultyLevels[diff][level - 1];
+        const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+        const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
+        const sequenceLength = simonLevels[level] || 2;
+        const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
+        const sequence = shuffled.slice(0, Math.min(sequenceLength, initialChallenge.length));
+        
+        setSimonSequence(sequence);
+        setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
+        setSimonPhase('playback');
+    } else {
+        const exerciseCount = difficultyLevels[diff][level - 1];
+        let newChallenge: NoteInfo[];
+        if (diff === "Difícil") {
+            newChallenge = generateIntervalChallenge(exerciseCount, notePool, level);
+        } else {
+            newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+        }
+        setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
+        setSimonSequence([]);
+        setSimonPhase('idle');
+    }
+  
     if (!isDetecting) {
       start();
       setIsPaused(false);
@@ -916,9 +918,15 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
               </AlertDialogHeader>
               <AlertDialogFooter>
                 {difficulty !== 'Calentamiento' && currentLevel < difficultyLevels[difficulty as ChallengeDifficulty].length ? (
-                    <Button onClick={handleSeeLevels} size="lg">Ver Niveles</Button>
+                    <Button onClick={() => {
+                      setShowLevelCompleteDialog(false);
+                      handleSeeLevels();
+                    }} size="lg">Ver Niveles</Button>
                 ) : (
-                    <Button onClick={handleChooseNewDifficulty} size="lg">Elegir Dificultad</Button>
+                    <Button onClick={() => {
+                      setShowLevelCompleteDialog(false);
+                      handleChooseNewDifficulty();
+                    }} size="lg">Elegir Dificultad</Button>
                 )}
               </AlertDialogFooter>
           </AlertDialogContent>
@@ -927,7 +935,3 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     </div>
   );
 }
-
-    
-
-    
