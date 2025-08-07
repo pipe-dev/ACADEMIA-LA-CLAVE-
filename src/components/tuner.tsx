@@ -118,7 +118,14 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   
   const [difficulty, setDifficulty] = useState<Difficulty>("Calentamiento");
   const [currentLevel, setCurrentLevel] = useState(1);
-  const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>([]);
+  const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>(() => {
+    const settings = difficultySettings.Calentamiento;
+    const middleIndex = Math.floor(notePool.length / 2) - Math.floor(settings.exerciseCount / 2);
+    const startIndex = Math.max(0, middleIndex);
+    const availableNotes = notePool.length - startIndex;
+    const notesToTake = Math.min(settings.exerciseCount, availableNotes);
+    return notePool.slice(startIndex, startIndex + notesToTake);
+  });
   const [activeNote, setActiveNote] = useState<NoteInfo | null>(null);
   const [completedNotes, setCompletedNotes] = useState<Set<string>>(new Set());
 
@@ -190,6 +197,11 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
             playbackAudioContextRef.current = context;
         } catch (e) {
             console.error("Could not create playback AudioContext", e);
+            toast({
+                variant: "destructive",
+                title: "Error de Audio",
+                description: `No se pudo inicializar el motor de audio. ${e instanceof Error ? e.message : ''}`,
+            });
             return null;
         }
     }
@@ -197,7 +209,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         context.resume();
     }
     return context;
-  }, []);
+  }, [toast]);
   
   useEffect(() => {
     getPlaybackAudioContext();
@@ -287,7 +299,16 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       const filePath = `/sounds/${gender}_${fileNameFriendlyFullName}.mp3`;
       const response = await fetch(filePath);
       if (!response.ok) {
-        await playTone();
+        if (response.status === 404) {
+            // File not found, play generated tone as fallback
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Error de Carga de Audio",
+                description: `No se pudo cargar ${filePath}. Estado: ${response.status}`,
+            });
+        }
+        await playTone(); // fallback
         return;
       }
       const arrayBuffer = await response.arrayBuffer();
@@ -295,9 +316,14 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       audioBufferCache.current.set(audioKey, decodedBuffer);
       await playTone(decodedBuffer);
     } catch (error) {
-      await playTone();
+        toast({
+            variant: "destructive",
+            title: "Error de Reproducción",
+            description: `No se pudo procesar el audio. Usando tono de respaldo. ${error instanceof Error ? error.message : ''}`,
+        });
+      await playTone(); // fallback
     }
-  }, [getPlaybackAudioContext, gender, gameMode]);
+  }, [getPlaybackAudioContext, gender, gameMode, toast]);
 
   const playCompletionSound = useCallback(() => {
     const audioContext = getPlaybackAudioContext();
@@ -350,60 +376,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         osc.stop(t + note.delay + note.duration);
     });
   }, [getPlaybackAudioContext]);
-  
-  const generateNewChallenge = useCallback(() => {
-    if (!isMounted || notePool.length === 0) return;
-
-    let newChallenge: NoteInfo[];
-    
-    if (difficulty === "Calentamiento") {
-      if (!isInitialWarmupCompleted) {
-        const settings = difficultySettings.Calentamiento;
-        const middleIndex = Math.floor(notePool.length / 2) - Math.floor(settings.exerciseCount / 2);
-        const startIndex = Math.max(0, middleIndex);
-        const availableNotes = notePool.length - startIndex;
-        const notesToTake = Math.min(settings.exerciseCount, availableNotes);
-        newChallenge = notePool.slice(startIndex, startIndex + notesToTake);
-      } else {
-        const exerciseCount = Math.floor(Math.random() * 3) + 1;
-        newChallenge = generateChallenge(exerciseCount, notePool);
-      }
-    } else {
-      const difficultyKey = difficulty as ChallengeDifficulty;
-      const exerciseCount = difficultyLevels[difficultyKey][currentLevel - 1];
-
-      if (gameMode === 'simon-says') { 
-        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-      } else if (difficulty === "Difícil") { // Interval training on odd levels
-        newChallenge = generateIntervalChallenge(exerciseCount, notePool, currentLevel);
-      } else {
-        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-      }
-    }
-    
-    const sortedChallenge = newChallenge.sort((a, b) => a.frequency - b.frequency);
-    setChallengeNotes(sortedChallenge);
-    
-    if (gameMode === 'simon-says') {
-        const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
-        const sequenceLength = simonLevels[currentLevel] || 2;
-        
-        const shuffled = [...sortedChallenge].sort(() => 0.5 - Math.random());
-        const sequence = shuffled.slice(0, Math.min(sequenceLength, sortedChallenge.length));
-        
-        setSimonSequence(sequence);
-        setCompletedNotes(new Set());
-        setPlayerSimonIndex(0);
-        setSimonPhase('playback');
-    }
-
-  }, [isMounted, notePool, difficulty, currentLevel, isInitialWarmupCompleted, gameMode]);
-
-
-  useEffect(() => {
-    generateNewChallenge();
-  }, [generateNewChallenge]);
-
 
   useEffect(() => {
     if (simonPhase !== 'playback' || simonSequence.length === 0) return;
@@ -411,23 +383,24 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     let isCancelled = false;
     const playSequence = async () => {
         setActiveNote(null);
+        if (isCancelled) return;
+        
         if (!hasRepeatedSequence) {
             await new Promise(resolve => setTimeout(resolve, 1500)); 
         } else {
             await new Promise(resolve => setTimeout(resolve, 200)); 
         }
+        if (isCancelled) return;
 
         for (let i = 0; i < simonSequence.length; i++) {
             if (isCancelled) break;
             setSimonPlaybackIndex(i); 
             await playNote(simonSequence[i]);
-            if (isCancelled) {
-              setSimonPlaybackIndex(null); 
-              break;
-            }
+            if (isCancelled) break;
             if (i < simonSequence.length - 1) {
               await new Promise(resolve => setTimeout(resolve, 200));
             }
+             if (isCancelled) break;
         }
         
         if (!isCancelled) {
@@ -451,7 +424,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   
     const handleResize = () => {
       const isMobile = window.innerWidth < 640;
-      const isLargeChallenge = challengeNotes.length > 25;
+      const notes = (gameMode === 'simon-says' && simonPhase !== 'idle') ? simonSequence : challengeNotes;
+      const isLargeChallenge = notes.length > 25;
       setRadius(isMobile ? 140 : (isLargeChallenge ? 210 : 170));
     };
   
@@ -459,7 +433,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     window.addEventListener('resize', handleResize);
   
     return () => window.removeEventListener('resize', handleResize);
-  }, [challengeNotes.length]);
+  }, [challengeNotes.length, simonSequence.length, gameMode, simonPhase]);
 
   const tolerance = activeNote && activeNote.midi < 49 ? 30 : 18; // G2 is 43, C3 is 48. Up to C3 is grave.
 
@@ -567,11 +541,37 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence]);
 
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
+    if (!isMounted || notePool.length === 0) return;
+
     const isSimon = diff === 'Difícil' && level % 2 === 0;
-    setGameMode(isSimon ? 'simon-says' : 'standard');
+    const newGameMode = isSimon ? 'simon-says' : 'standard';
+
     setDifficulty(diff);
     setCurrentLevel(level);
+    setGameMode(newGameMode);
 
+    let newChallenge: NoteInfo[] = [];
+    if (newGameMode === 'simon-says') {
+        const exerciseCount = difficultyLevels[diff][level - 1];
+        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+        const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
+        const sequenceLength = simonLevels[level] || 2;
+        const shuffled = [...newChallenge].sort(() => 0.5 - Math.random());
+        const sequence = shuffled.slice(0, Math.min(sequenceLength, newChallenge.length));
+        setSimonSequence(sequence);
+        setSimonPhase('playback');
+    } else {
+        const exerciseCount = difficultyLevels[diff][level - 1];
+        if (diff === "Difícil") {
+            newChallenge = generateIntervalChallenge(exerciseCount, notePool, level);
+        } else {
+            newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+        }
+        setSimonSequence([]);
+        setSimonPhase('idle');
+    }
+    
+    setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -581,21 +581,28 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     setInTuneTime(0);
     inTuneSinceRef.current = null;
     setHasRepeatedSequence(false);
-    setSimonSequence([]);
     setPlayerSimonIndex(0);
-    setSimonPhase('idle');
-    setChallengeNotes([]); 
 
     if (!isDetecting) {
       start();
       setIsPaused(false);
     }
-  }, [isDetecting, start]);
+  }, [isMounted, notePool, isDetecting, start]);
+
 
   const startWarmup = useCallback(() => {
     setDifficulty("Calentamiento");
     setCurrentLevel(1);
     setGameMode('standard');
+    
+    const settings = difficultySettings.Calentamiento;
+    const middleIndex = Math.floor(notePool.length / 2) - Math.floor(settings.exerciseCount / 2);
+    const startIndex = Math.max(0, middleIndex);
+    const availableNotes = notePool.length - startIndex;
+    const notesToTake = Math.min(settings.exerciseCount, availableNotes);
+    const newChallenge = notePool.slice(startIndex, startIndex + notesToTake);
+    setChallengeNotes(newChallenge);
+    
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -609,7 +616,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       start();
       setIsPaused(false);
     }
-  }, [isDetecting, start]);
+  }, [isDetecting, start, notePool]);
 
   const handleSeeLevels = () => {
     setShowLevelCompleteDialog(false);
@@ -635,17 +642,10 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       setIsPaused(true);
     } else {
       setIsPaused(false);
-      toast({
-          variant: "accent",
-          title: "Consejo de Afinación",
-          description: "Para obtener mejores resultados, busca un lugar silencioso.",
-          duration: 4000,
-      });
+      start();
       if (!challengeNotes.length || (difficulty === 'Calentamiento' && sessionCompleted) || (difficulty !== 'Calentamiento' && sessionCompleted)) {
           setDialogMessage("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
           setShowDifficultyDialog(true);
-      } else {
-          start();
       }
     }
   };
@@ -740,13 +740,11 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
             </div>
         );
     }
-    if (!isDetecting) {
+    if (isPaused) {
          return (
             <div className="text-center p-4">
                 <MicOff className="w-20 h-20 sm:w-24 sm:h-24 text-muted-foreground/30 mx-auto" />
-                {isPaused && (
-                    <p className="text-muted-foreground mt-2">En pausa</p>
-                )}
+                <p className="text-muted-foreground mt-2">En pausa</p>
             </div>
         );
     }
@@ -763,7 +761,8 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     );
   };
 
-  const isLargeChallenge = challengeNotes.length > 25;
+  const notesToDisplay = (gameMode === 'simon-says' && simonPhase !== 'idle') ? simonSequence : challengeNotes;
+  const isLargeChallenge = notesToDisplay.length > 25;
   const buttonSize = `w-14 h-14 text-sm sm:w-[72px] sm:h-[72px] sm:text-base ${isLargeChallenge ? 'sm:w-14 sm:h-14 sm:text-sm' : ''}`;
   const noteNameSize = `text-xl ${isLargeChallenge ? 'sm:text-xl' : 'sm:text-2xl'}`;
   const octaveSize = `text-xs ${isLargeChallenge ? 'sm:text-xs' : 'sm:text-sm'}`;
@@ -771,8 +770,6 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   if (!isMounted) {
     return <TunerSkeleton />;
   }
-
-  const notesToDisplay = (gameMode === 'simon-says' && simonPhase !== 'idle') ? simonSequence : challengeNotes;
 
   return (
     <div className="flex flex-col items-center gap-8 w-full">
@@ -786,33 +783,37 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       </div>
 
       <div className="relative w-[340px] h-[340px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
-        {notesToDisplay.map((n, index) => {
-          const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
-          const x = radius * Math.cos(angle);
-          const y = radius * Math.sin(angle);
-          const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex]?.fullName === n.fullName;
+        {notesToDisplay.length > 0 ? (
+            notesToDisplay.map((n, index) => {
+              const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
+              const x = radius * Math.cos(angle);
+              const y = radius * Math.sin(angle);
+              const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex]?.fullName === n.fullName;
 
-          return (
-            <Button
-              key={n.fullName}
-              onClick={() => handleNoteClick(n)}
-              disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback'}
-              style={{ transform: `translate(${x}px, ${y}px)` }}
-              className={cn(
-                "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
-                buttonSize,
-                completedNotes.has(n.fullName) 
-                  ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default" 
-                  : "bg-card hover:bg-card/80 border-2 border-primary/30",
-                activeNote?.fullName === n.fullName && gameMode === 'standard' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
-                isPlayingBack && "scale-110 neon-glow"
-              )}
-            >
-              <span className={noteNameSize}>{n.name}</span>
-              <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
-            </Button>
-          );
-        })}
+              return (
+                <Button
+                  key={n.fullName}
+                  onClick={() => handleNoteClick(n)}
+                  disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback'}
+                  style={{ transform: `translate(${x}px, ${y}px)` }}
+                  className={cn(
+                    "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
+                    buttonSize,
+                    completedNotes.has(n.fullName) 
+                      ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default" 
+                      : "bg-card hover:bg-card/80 border-2 border-primary/30",
+                    activeNote?.fullName === n.fullName && gameMode === 'standard' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
+                    isPlayingBack && "scale-110 neon-glow"
+                  )}
+                >
+                  <span className={noteNameSize}>{n.name}</span>
+                  <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
+                </Button>
+              );
+            })
+        ) : (
+            <div className="text-muted-foreground">Cargando desafío...</div>
+        )}
         
         <Card className="w-[180px] h-[180px] sm:w-[260px] sm:h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
             <CardContent className="p-2 flex items-center justify-center">
@@ -826,12 +827,14 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
           {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
           {isDetecting ? "Pausar" : "Empezar"}
         </Button>
-        {gameMode === 'simon-says' && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
-          <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
-            <RefreshCw className="h-5 w-5"/>
-            <span className="sr-only">Repetir</span>
-          </Button>
-        )}
+        <div className="h-10">
+          {gameMode === 'simon-says' && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
+            <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
+              <RefreshCw className="h-5 w-5"/>
+              <span className="sr-only">Repetir</span>
+            </Button>
+          )}
+        </div>
          <Button variant="link" onClick={() => setShowDifficultyDialog(true)}>Elegir Nivel</Button>
       </div>
 
@@ -926,5 +929,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     </div>
   );
 }
+
+    
 
     
