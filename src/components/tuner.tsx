@@ -28,51 +28,68 @@ const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     return selected.sort((a, b) => a.frequency - b.frequency);
 };
 
-const generateIntervalChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
-    if (pool.length < 3 || count <= 0) return generateChallenge(count, pool);
-  
-    const selectedNotes = new Map<string, NoteInfo>();
+const mediumDifficultyChords = [
+    { rootMidi: 60, type: 'major' },   // Nivel 1: C Major
+    { rootMidi: 57, type: 'minor' },   // Nivel 2: A minor
+    { rootMidi: 55, type: 'major' },   // Nivel 3: G Major
+    { rootMidi: 52, type: 'minor' },   // Nivel 4: E minor
+    { rootMidi: 53, type: 'major' },   // Nivel 5: F Major
+    { rootMidi: 50, type: 'minor' },   // Nivel 6: D minor
+    { rootMidi: 58, type: 'major' },   // Nivel 7: A Major
+    { rootMidi: 61, type: 'minor' },   // Nivel 8: C# minor
+    { rootMidi: 51, type: 'major' },   // Nivel 9: D# Major
+    { rootMidi: 48, type: 'minor' },   // Nivel 10: C minor
+    { rootMidi: 59, type: 'major' },   // Nivel 11: B Major
+    { rootMidi: 56, type: 'minor' },   // Nivel 12: G# minor
+];
+
+
+const generateIntervalChallenge = (level: number, pool: NoteInfo[]): NoteInfo[] => {
     const poolByMidi = new Map<number, NoteInfo>(pool.map(n => [n.midi, n]));
-    const availableRoots = [...pool];
-  
-    const majorArpeggio = [0, 4, 7]; // Root, Major 3rd, Perfect 5th
-    const minorArpeggio = [0, 3, 7]; // Root, Minor 3rd, Perfect 5th
-  
-    while (selectedNotes.size < count && availableRoots.length > 0) {
-      const rootIndex = Math.floor(Math.random() * availableRoots.length);
-      const rootNote = availableRoots.splice(rootIndex, 1)[0];
-  
-      const arpeggioType = Math.random() > 0.5 ? majorArpeggio : minorArpeggio;
-  
-      const chordNotes: NoteInfo[] = [];
-      let canBuildChord = true;
-  
-      for (const interval of arpeggioType) {
-        const midi = rootNote.midi + interval;
-        const note = poolByMidi.get(midi);
-        if (note && !selectedNotes.has(note.fullName)) {
-          chordNotes.push(note);
-        } else {
-          canBuildChord = false;
-          break;
-        }
-      }
-  
-      if (canBuildChord && (selectedNotes.size + chordNotes.length) <= count) {
-        chordNotes.forEach(note => selectedNotes.set(note.fullName, note));
-      }
+    const challenge = new Map<string, NoteInfo>();
 
-      if(selectedNotes.size >= count) break;
-    }
-  
-    const challenge = Array.from(selectedNotes.values());
+    const chordInfo = mediumDifficultyChords[level - 1];
+    if (!chordInfo) return generateChallenge(4, pool); // Fallback
+
+    const { rootMidi, type } = chordInfo;
     
-    if (challenge.length < count) {
-        const fallback = generateChallenge(count - challenge.length, pool.filter(p => !selectedNotes.has(p.fullName)));
-        return [...challenge, ...fallback].sort((a, b) => a.frequency - b.frequency);
+    // Try to find the ideal octave for the root note within the pool
+    let bestRoot: NoteInfo | undefined;
+    for (let octave = 2; octave <= 5; octave++) {
+        const potentialRootMidi = rootMidi % 12 + 12 * (octave + 1);
+        if (poolByMidi.has(potentialRootMidi)) {
+            bestRoot = poolByMidi.get(potentialRootMidi);
+            break;
+        }
     }
 
-    return challenge.sort((a, b) => a.frequency - b.frequency);
+    // If no suitable octave is found, try to find any note of the same type
+    if (!bestRoot) {
+        const rootNoteName = noteStrings[rootMidi % 12];
+        bestRoot = pool.find(n => n.name === rootNoteName);
+    }
+
+    if (!bestRoot) return generateChallenge(4, pool); // Fallback if root not in pool
+
+    const intervals = type === 'major' 
+        ? [0, 4, 7, 12] // Root, M3, P5, Octave
+        : [0, 3, 7, 12]; // Root, m3, P5, Octave
+
+    for (const interval of intervals) {
+        const midi = bestRoot.midi + interval;
+        const note = poolByMidi.get(midi);
+        if (note) {
+            challenge.set(note.fullName, note);
+        }
+    }
+
+    const result = Array.from(challenge.values());
+    
+    if (result.length < 2) { // Not enough notes to form a meaningful arpeggio
+        return generateChallenge(4, pool);
+    }
+    
+    return result.sort((a, b) => a.frequency - b.frequency);
 };
 
 const completionPhrases = ["¡Perfecto!", "¡Bien hecho!", "¡En la nota!", "¡Sigue así!", "¡Increíble!", "¡Deliciosa!"];
@@ -90,7 +107,7 @@ const difficultySettings = {
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
   "Fácil": [3, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
-  "Medio": [8, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+  "Medio": [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4], // Fixed to 4 notes for arpeggios
   "Difícil": [10, 12, 15, 18, 20, 22, 24, 26, 28, 30, 32, 35],
 };
 
@@ -581,11 +598,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
       setSimonPhase('playback');
     } else {
-      const exerciseCount = difficultyLevels[diff][level - 1];
       let newChallenge: NoteInfo[];
       if (newGameMode === "interval") {
-        newChallenge = generateIntervalChallenge(exerciseCount, notePool);
+        newChallenge = generateIntervalChallenge(level, notePool);
       } else { // standard
+        const exerciseCount = difficultyLevels[diff][level - 1];
         newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
       }
       setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
@@ -864,6 +881,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 stop();
                 setIsPaused(true);
             }
+            setSelectedDifficulty(null);
             setShowDifficultyDialog(true)
           }}>Elegir Nivel</Button>
       </div>
