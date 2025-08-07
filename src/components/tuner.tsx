@@ -560,30 +560,26 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const startLevel = (diff: ChallengeDifficulty, level: number) => {
     if (!isMounted || notePool.length === 0) return;
-  
-    let newGameMode: 'standard' | 'interval' | 'simon-says' = 'standard';
-  
-    if (diff === 'Medio') {
-        if (level === 1) {
-            newGameMode = 'interval';
-        } else {
-            newGameMode = Math.random() < 1/3 ? 'standard' : 'interval';
-        }
-    } else if (diff === 'Difícil') {
-        if (level === 12) {
-            newGameMode = 'simon-says';
-        } else {
-            const modeIndex = (level - 1) % 3;
-            if (modeIndex === 0) newGameMode = 'standard';
-            else if (modeIndex === 1) newGameMode = 'interval';
-            else newGameMode = 'simon-says';
-        }
+
+    let newGameMode: "standard" | "interval" | "simon-says" = "standard";
+
+    if (diff === "Medio") {
+      newGameMode = 'interval';
+    } else if (diff === "Difícil") {
+      if (level === 1) {
+        newGameMode = "simon-says";
+      } else {
+        const modeIndex = (level - 1) % 3;
+        if (modeIndex === 1) newGameMode = "standard";
+        else if (modeIndex === 2) newGameMode = "interval";
+        else newGameMode = "simon-says"; // This makes level 1, 4, 7, 10 simon says
+      }
     }
-  
+
     setGameMode(newGameMode);
     setDifficulty(diff);
     setCurrentLevel(level);
-  
+
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -595,31 +591,43 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setHasRepeatedSequence(false);
     setPlayerSimonIndex(0);
     setIsPaused(false);
-  
-    if (newGameMode === 'simon-says') {
+
+    if (newGameMode === "simon-says") {
       const exerciseCount = difficultyLevels[diff][level - 1];
-      const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-      const simonLevels: Record<number, number> = { 3: 3, 6: 4, 9: 5, 12: 6 };
+      const initialChallenge = generateChallenge(
+        Math.min(exerciseCount, notePool.length),
+        notePool
+      );
+      const simonLevels: Record<number, number> = {
+        1: 3, 2: 3, 3: 3, 4: 4, 5: 4, 6: 4, 7: 5, 8: 5, 9: 5, 10: 6, 11: 6, 12: 6,
+      };
       const sequenceLength = simonLevels[level] || 3;
       const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
-      const sequence = shuffled.slice(0, Math.min(sequenceLength, initialChallenge.length));
-  
+      const sequence = shuffled.slice(
+        0,
+        Math.min(sequenceLength, initialChallenge.length)
+      );
+
       setSimonSequence(sequence);
       setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
-      setSimonPhase('playback');
+      setSimonPhase("playback");
     } else {
       let newChallenge: NoteInfo[];
       if (newGameMode === "interval") {
         newChallenge = generateIntervalChallenge(level, notePool);
-      } else { // standard
+      } else {
+        // standard
         const exerciseCount = difficultyLevels[diff][level - 1];
-        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+        newChallenge = generateChallenge(
+          Math.min(exerciseCount, notePool.length),
+          notePool
+        );
       }
       setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
       setSimonSequence([]);
-      setSimonPhase('idle');
+      setSimonPhase("idle");
     }
-  
+
     if (!isDetecting) {
       start();
     }
@@ -930,12 +938,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               if (selectedDifficulty === 'Medio') {
                                     modeIndicator = <Music className="w-4 h-4" />;
                               } else if (selectedDifficulty === 'Difícil') {
-                                let modeIndex = (level - 1) % 3;
-                                if(level === 12) modeIndex = 2;
+                                let modeIndex = (level -1) % 3;
+                                if (level === 1) modeIndex = 0; // Simon
+                                else if (level > 1) modeIndex = (level - 2) % 3;
 
-                                if (modeIndex === 1) {
-                                     modeIndicator = <Music className="w-4 h-4" />;
-                                } else if (modeIndex === 2) {
+                                if (level === 1) { // Simon
+                                    modeIndicator = <Brain className="w-4 h-4" />;
+                                } else if (modeIndex === 1) { // Standard - No icon
+                                    modeIndicator = null;
+                                } else if (modeIndex === 2) { // Interval
+                                    modeIndicator = <Music className="w-4 h-4" />;
+                                } else { // Simon
                                     modeIndicator = <Brain className="w-4 h-4" />;
                                 }
                               }
@@ -1010,3 +1023,4 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
 
     
+
