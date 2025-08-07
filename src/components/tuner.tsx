@@ -541,8 +541,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
             if (sustainedTime >= challengeDuration) {
                 playCompletionSound();
-                setCompletedNotes(prev => new Set(prev).add(targetNote.fullName));
-                setLastCompletedNoteFullName(targetNote.fullName);
+                setCompletedNotes(prev => new Set(prev).add(targetNote.fullName + playerSimonIndex)); // Use index to make key unique
+                setLastCompletedNoteFullName(targetNote.fullName + playerSimonIndex);
                 
                 const nextIndex = playerSimonIndex + 1;
 
@@ -580,8 +580,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       else if (level === 1) newGameMode = 'interval';
       else newGameMode = Math.random() < 0.2 ? 'standard' : 'interval';
     } else if (diff === "Difícil") {
-        if (level === 12) newGameMode = 'simon-says';
-        else if (level === 1) newGameMode = 'simon-says';
+        if (level === 1) newGameMode = 'simon-says';
+        else if (level === 12) newGameMode = 'simon-says';
         else if (level === 9) newGameMode = 'melody-challenge';
         else {
             const modeIndex = (level - 2) % 3;
@@ -648,7 +648,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       }
 
       setSimonSequence(sequence);
-      setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
+      setChallengeNotes([...new Set(sequence.map(n => n.fullName))].map(fn => sequence.find(n => n.fullName === fn)!));
       setSimonPhase("playback");
 
     } else {
@@ -891,18 +891,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
               const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
               const x = radius * Math.cos(angle);
               const y = radius * Math.sin(angle);
-              const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex]?.fullName === n.fullName;
+              const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
 
               return (
                 <Button
-                  key={n.fullName}
+                  key={`${n.fullName}-${index}`}
                   onClick={() => handleNoteClick(n)}
                   disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
                   style={{ transform: `translate(${x}px, ${y}px)` }}
                   className={cn(
                     "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
                     buttonSize,
-                    completedNotes.has(n.fullName) 
+                    completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? `${n.fullName}${index}` : n.fullName)
                       ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default" 
                       : "bg-card hover:bg-card/80 border-2 border-primary/30",
                     activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
@@ -981,6 +981,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                                 if (level === 4) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
                               } else if (selectedDifficulty === 'Medio') {
                                 if (level === 6) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                else if (level !== 1 && Math.random() < 0.2) {
+                                  // Standard level, no icon
+                                }
                                 else modeIndicator = <Music className="w-4 h-4" />;
                               } else if (selectedDifficulty === 'Difícil') {
                                 if (level === 9) {
@@ -1058,3 +1061,4 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
