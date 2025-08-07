@@ -68,8 +68,8 @@ const generateIntervalChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] 
     const challenge = Array.from(selectedNotes.values());
     
     if (challenge.length < count) {
-        const fallback = generateChallenge(count, pool);
-        return fallback;
+        const fallback = generateChallenge(count - challenge.length, pool.filter(p => !selectedNotes.has(p.fullName)));
+        return [...challenge, ...fallback].sort((a, b) => a.frequency - b.frequency);
     }
 
     return challenge.sort((a, b) => a.frequency - b.frequency);
@@ -567,6 +567,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     inTuneSinceRef.current = null;
     setHasRepeatedSequence(false);
     setPlayerSimonIndex(0);
+    setIsPaused(false);
   
     if (newGameMode === 'simon-says') {
       const exerciseCount = difficultyLevels[diff][level - 1];
@@ -594,7 +595,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
     if (!isDetecting) {
       start();
-      setIsPaused(false);
     }
   };
 
@@ -621,9 +621,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setInTuneTime(0);
     inTuneSinceRef.current = null;
     setSimonPhase('idle');
+    setIsPaused(false);
     if (!isDetecting) {
       start();
-      setIsPaused(false);
     }
   }, [isDetecting, start, notePool]);
 
@@ -652,7 +652,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     } else {
       start();
       setIsPaused(false);
-      if (!challengeNotes.length || (difficulty === 'Calentamiento' && sessionCompleted) || (difficulty !== 'Calentamiento' && sessionCompleted)) {
+      if (sessionCompleted) {
           setDialogMessage("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
           setShowDifficultyDialog(true);
       }
@@ -774,7 +774,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     );
   };
 
-  const notesToDisplay = (gameMode === 'simon-says' && simonPhase !== 'idle') ? simonSequence : challengeNotes;
+  const notesToDisplay = (gameMode === 'simon-says' && simonPhase !== 'idle' && simonSequence.length > 0) ? simonSequence : challengeNotes;
   const isLargeChallenge = notesToDisplay.length > 25;
   const buttonSize = `w-14 h-14 text-sm sm:w-[72px] sm:h-[72px] sm:text-base ${isLargeChallenge ? 'sm:w-14 sm:h-14 sm:text-sm' : ''}`;
   const noteNameSize = `text-xl ${isLargeChallenge ? 'sm:text-xl' : 'sm:text-2xl'}`;
@@ -863,7 +863,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             </Button>
           )}
         </div>
-         <Button variant="link" onClick={() => {setShowDifficultyDialog(true)}}>Elegir Nivel</Button>
+         <Button variant="link" onClick={() => {
+            if (isDetecting) {
+                stop();
+                setIsPaused(true);
+            }
+            setShowDifficultyDialog(true)
+          }}>Elegir Nivel</Button>
       </div>
 
       <AlertDialog open={showDifficultyDialog} onOpenChange={setShowDifficultyDialog}>
@@ -879,7 +885,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                       {selectedDifficulty ? `Dificultad ${selectedDifficulty}` : 'Elige una dificultad'}
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-base text-center">
-                      {selectedDifficulty ? 'Selecciona un nivel para comenzar. Los niveles pares son de memoria (Simón Dice).' : dialogMessage}
+                      {selectedDifficulty ? 'Selecciona un nivel para comenzar.' : dialogMessage}
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="pt-4">
@@ -888,8 +894,24 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                           {Array.from({ length: 12 }, (_, i) => i + 1).map(level => {
                               const isCompleted = progress[selectedDifficulty]?.[level];
                               const isLocked = level > 1 && !progress[selectedDifficulty]?.[level - 1];
-                              const isSimonSays = selectedDifficulty === 'Difícil' && level % 2 === 0;
                               
+                              let modeIndicator: React.ReactNode = null;
+                              if (selectedDifficulty === 'Medio' && level % 2 !== 0) {
+                                modeIndicator = (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="9" y2="15"/><line x1="16" x2="14" y1="9" y2="15"/></svg>
+                                );
+                              } else if (selectedDifficulty === 'Difícil') {
+                                if (level % 2 === 0) { // Simon Says
+                                    modeIndicator = (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 6.005 6.005 6.002 6 6a3 3 0 1 0-5.993-1.003C.002 4.998.005 4.995.01 4.993A3 3 0 1 0 6 4c0 .002-.002.005-.007.007A3 3 0 1 0 12 5Z"/><path d="M12 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 14.005 6.005 14.002 6 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 6 12c0 .002-.002.005-.007.007A3 3 0 1 0 12 13Z"/><path d="M21 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C15.01 14.005 15.005 14.002 15 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 15 12c0 .002-.002.005-.007.007A3 3 0 1 0 21 13Z"/><path d="M18 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C12.01 6.005 12.005 6.002 12 6a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 12 4c0 .002-.002.005-.007.007A3 3 0 1 0 18 5Z"/><path d="M21 6a3 3 0 1 0-3-3"/><path d="M3 6a3 3 0 1 1 3-3"/><path d="M12 21a3 3 0 1 0-3-3"/><path d="M12 21a3 3 0 1 0 3-3"/><path d="M12 15a3 3 0 1 0-3-3"/><path d="M12 15a3 3 0 1 0 3-3"/><path d="M6 9a3 3 0 1 0-3-3"/><path d="M6 9a3 3 0 1 0 3-3"/><path d="M18 9a3 3 0 1 0-3-3"/><path d="M18 9a3 3 0 1 0 3-3"/></svg>
+                                    );
+                                } else { // Interval
+                                     modeIndicator = (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="9" y2="15"/><line x1="16" x2="14" y1="9" y2="15"/></svg>
+                                    );
+                                }
+                              }
+
                               return (
                                   <Button
                                       key={level}
@@ -905,9 +927,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                                       ) : (
                                           <span>{level}</span>
                                       )}
-                                      {isSimonSays && !isLocked && (
+                                      {modeIndicator && !isLocked && (
                                           <span className="absolute bottom-1 right-1 text-xs font-normal opacity-70">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 6.005 6.005 6.002 6 6a3 3 0 1 0-5.993-1.003C.002 4.998.005 4.995.01 4.993A3 3 0 1 0 6 4c0 .002-.002.005-.007.007A3 3 0 1 0 12 5Z"/><path d="M12 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 14.005 6.005 14.002 6 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 6 12c0 .002-.002.005-.007.007A3 3 0 1 0 12 13Z"/><path d="M21 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C15.01 14.005 15.005 14.002 15 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 15 12c0 .002-.002.005-.007.007A3 3 0 1 0 21 13Z"/><path d="M18 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C12.01 6.005 12.005 6.002 12 6a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 12 4c0 .002-.002.005-.007.007A3 3 0 1 0 18 5Z"/><path d="M21 6a3 3 0 1 0-3-3"/><path d="M3 6a3 3 0 1 1 3-3"/><path d="M12 21a3 3 0 1 0-3-3"/><path d="M12 21a3 3 0 1 0 3-3"/><path d="M12 15a3 3 0 1 0-3-3"/><path d="M12 15a3 3 0 1 0 3-3"/><path d="M6 9a3 3 0 1 0-3-3"/><path d="M6 9a3 3 0 1 0 3-3"/><path d="M18 9a3 3 0 1 0-3-3"/><path d="M18 9a3 3 0 1 0 3-3"/></svg>
+                                            {modeIndicator}
                                           </span>
                                       )}
                                   </Button>
@@ -916,7 +938,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                       </div>
                   ) : (
                       <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-                          <Button onClick={startWarmup} variant="secondary" size="lg" className="h-20 text-lg">Calentamiento</Button>
+                          <Button onClick={() => startWarmup()} variant="secondary" size="lg" className="h-20 text-lg">Calentamiento</Button>
                           <Button onClick={() => setSelectedDifficulty("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black h-20 text-lg">Fácil</Button>
                           <Button onClick={() => setSelectedDifficulty("Medio")} size="lg" className="h-20 text-lg">Medio</Button>
                           <Button onClick={() => setSelectedDifficulty("Difícil")} variant="destructive" size="lg" className="h-20 text-lg">Difícil</Button>
@@ -956,3 +978,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
