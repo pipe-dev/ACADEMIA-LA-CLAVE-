@@ -112,9 +112,9 @@ const difficultySettings = {
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-  "Fácil":   [3, 3, 4, 4, 4, 5, 5, 5],      // Max 5
-  "Medio":   [5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7], // Max 7
-  "Difícil": [8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 11], // Max 11
+  "Fácil":   [3, 3, 4, 4, 4, 5, 5, 5],      // 3 to 5 notes
+  "Medio":   [4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7], // 4 to 7 notes
+  "Difícil": [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10], // 5 to 10 notes
 };
 
 
@@ -1083,6 +1083,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
 
 
 
