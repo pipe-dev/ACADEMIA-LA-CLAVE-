@@ -562,12 +562,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (!isMounted || notePool.length === 0) return;
   
     let newGameMode: 'standard' | 'interval' | 'simon-says' = 'standard';
+    
     if (diff === 'Medio') {
       newGameMode = 'interval';
-    } else if (diff === 'Difícil' && level % 2 === 0) {
-      newGameMode = 'simon-says';
-    } else if (diff === 'Difícil' && level % 2 !== 0) {
-      newGameMode = 'interval';
+    } else if (diff === 'Difícil') {
+      const modeIndex = (level - 1) % 3;
+      if (modeIndex === 0) newGameMode = 'standard';
+      else if (modeIndex === 1) newGameMode = 'interval';
+      else newGameMode = 'simon-says';
     }
   
     setGameMode(newGameMode);
@@ -589,8 +591,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (newGameMode === 'simon-says') {
       const exerciseCount = difficultyLevels[diff][level - 1];
       const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-      const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
-      const sequenceLength = simonLevels[level] || 2;
+      const simonLevels: Record<number, number> = { 3: 3, 6: 4, 9: 5, 12: 6 };
+      const sequenceLength = simonLevels[level] || 3;
       const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
       const sequence = shuffled.slice(0, Math.min(sequenceLength, initialChallenge.length));
   
@@ -806,6 +808,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       title += ' (Simón Dice)';
     } else if (gameMode === 'interval') {
       title += ' (Arpegios)';
+    } else if (difficulty === 'Difícil') {
+      title += ' (Estándar)';
     }
     return title;
   };
@@ -915,13 +919,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="9" y2="15"/><line x1="16" x2="14" y1="9" y2="15"/></svg>
                                 );
                               } else if (selectedDifficulty === 'Difícil') {
-                                if (level % 2 === 0) { // Simon Says
-                                    modeIndicator = (
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 6.005 6.005 6.002 6 6a3 3 0 1 0-5.993-1.003C.002 4.998.005 4.995.01 4.993A3 3 0 1 0 6 4c0 .002-.002.005-.007.007A3 3 0 1 0 12 5Z"/><path d="M12 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 14.005 6.005 14.002 6 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 6 12c0 .002-.002.005-.007.007A3 3 0 1 0 12 13Z"/><path d="M21 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C15.01 14.005 15.005 14.002 15 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 15 12c0 .002-.002.005-.007.007A3 3 0 1 0 21 13Z"/><path d="M18 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C12.01 6.005 12.005 6.002 12 6a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 12 4c0 .002-.002.005-.007.007A3 3 0 1 0 18 5Z"/><path d="M21 6a3 3 0 1 0-3-3"/><path d="M3 6a3 3 0 1 1 3-3"/><path d="M12 21a3 3 0 1 0-3-3"/><path d="M12 21a3 3 0 1 0 3-3"/><path d="M12 15a3 3 0 1 0-3-3"/><path d="M12 15a3 3 0 1 0 3-3"/><path d="M6 9a3 3 0 1 0-3-3"/><path d="M6 9a3 3 0 1 0 3-3"/><path d="M18 9a3 3 0 1 0-3-3"/><path d="M18 9a3 3 0 1 0 3-3"/></svg>
-                                    );
-                                } else { // Interval
+                                const modeIndex = (level - 1) % 3;
+                                if (modeIndex === 1) { // Arpeggio
                                      modeIndicator = (
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="9" y2="15"/><line x1="16" x2="14" y1="9" y2="15"/></svg>
+                                    );
+                                } else if (modeIndex === 2) { // Simon Says
+                                    modeIndicator = (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain"><path d="M12 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 6.005 6.005 6.002 6 6a3 3 0 1 0-5.993-1.003C.002 4.998.005 4.995.01 4.993A3 3 0 1 0 6 4c0 .002-.002.005-.007.007A3 3 0 1 0 12 5Z"/><path d="M12 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C6.01 14.005 6.005 14.002 6 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 6 12c0 .002-.002.005-.007.007A3 3 0 1 0 12 13Z"/><path d="M21 13a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C15.01 14.005 15.005 14.002 15 14a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 15 12c0 .002-.002.005-.007.007A3 3 0 1 0 21 13Z"/><path d="M18 5a3 3 0 1 0-5.993 1.003c.005.002.01.005.015.007C12.01 6.005 12.005 6.002 12 6a3 3 0 1 0-5.993-1.003c.002-.005.005-.007.007-.01A3 3 0 1 0 12 4c0 .002-.002.005-.007.007A3 3 0 1 0 18 5Z"/><path d="M21 6a3 3 0 1 0-3-3"/><path d="M3 6a3 3 0 1 1 3-3"/><path d="M12 21a3 3 0 1 0-3-3"/><path d="M12 21a3 3 0 1 0 3-3"/><path d="M12 15a3 3 0 1 0-3-3"/><path d="M12 15a3 3 0 1 0 3-3"/><path d="M6 9a3 3 0 1 0-3-3"/><path d="M6 9a3 3 0 1 0 3-3"/><path d="M18 9a3 3 0 1 0-3-3"/><path d="M18 9a3 3 0 1 0 3-3"/></svg>
                                     );
                                 }
                               }
@@ -992,5 +997,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
