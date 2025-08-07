@@ -50,17 +50,17 @@ const melodies: Record<string, { midi: number, duration: number }[]> = {
     maryHadALamb: [ { midi: 64, duration: 0.4 }, { midi: 62, duration: 0.4 }, { midi: 60, duration: 0.4 }, { midi: 62, duration: 0.4 }, { midi: 64, duration: 0.4 }, { midi: 64, duration: 0.4 }, { midi: 64, duration: 0.8 } ]
 };
 
-const rhythmPatterns: Record<number, { time: number; instrument: 'snare' | 'clap' }[]> = {
+const rhythmPatterns: Record<number, { time: number; instrument: 'clap' | 'kick' }[]> = {
     9: [ // 100 BPM, 2 bars 4/4
-        { time: 0, instrument: 'snare' },     // Bar 1, Beat 1
+        { time: 0, instrument: 'kick' },     // Bar 1, Beat 1
         { time: 1200, instrument: 'clap' },  // Bar 1, Beat 3
-        { time: 2400, instrument: 'snare' },   // Bar 2, Beat 1
+        { time: 2400, instrument: 'kick' },   // Bar 2, Beat 1
         { time: 3600, instrument: 'clap' },    // Bar 2, Beat 3
     ],
     10: [ // 120 BPM, 2 bars 4/4
-        { time: 0, instrument: 'snare' },     // Bar 1, Beat 1
+        { time: 0, instrument: 'kick' },     // Bar 1, Beat 1
         { time: 1000, instrument: 'clap' },  // Bar 1, Beat 3
-        { time: 2000, instrument: 'snare' },   // Bar 2, Beat 1
+        { time: 2000, instrument: 'kick' },   // Bar 2, Beat 1
         { time: 3000, instrument: 'clap' },    // Bar 2, Beat 3
     ],
 };
@@ -236,13 +236,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [isPaused, setIsPaused] = useState(false);
   const [repeatCount, setRepeatCount] = useState(0);
 
-  const [rhythmPattern, setRhythmPattern] = useState<{ time: number; instrument: 'snare' | 'clap' }[]>([]);
+  const [rhythmPattern, setRhythmPattern] = useState<{ time: number; instrument: 'clap' | 'kick' }[]>([]);
   const [rhythmPhase, setRhythmPhase] = useState<'idle' | 'playback' | 'playing' | 'results'>('idle');
-  const [userRhythmTaps, setUserRhythmTaps] = useState<{ time: number; instrument: 'snare' | 'clap' }[]>([]);
+  const [userRhythmTaps, setUserRhythmTaps] = useState<{ time: number; instrument: 'clap' | 'kick' }[]>([]);
   const [rhythmStartTime, setRhythmStartTime] = useState(0);
   const [rhythmScore, setRhythmScore] = useState(0);
   const [rhythmBpm, setRhythmBpm] = useState(100);
-  const [activeRhythmHit, setActiveRhythmHit] = useState<'snare' | 'clap' | null>(null);
+  const [activeRhythmHit, setActiveRhythmHit] = useState<'clap' | 'kick' | null>(null);
 
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
@@ -469,7 +469,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     });
   }, [getPlaybackAudioContext]);
 
-    const playRhythmSound = useCallback((instrument: 'snare' | 'clap' | 'tick') => {
+    const playRhythmSound = useCallback((instrument: 'clap' | 'kick' | 'tick') => {
         const audioContext = getPlaybackAudioContext();
         if (!audioContext) return;
         const t = audioContext.currentTime;
@@ -497,6 +497,30 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             noise.start(t);
             noise.stop(t + 0.1);
         };
+        
+        const createClap = () => {
+             const noise = audioContext.createBufferSource();
+            const bufferSize = audioContext.sampleRate * 0.2; // 200ms
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            let lastValue = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                 // Simple band-limited noise
+                const white = Math.random() * 2 - 1;
+                data[i] = (lastValue + (0.02 * white)) / 1.02;
+                lastValue = data[i];
+                data[i] *= 3.5; // boost
+            }
+            noise.buffer = buffer;
+            
+            const noiseEnvelope = audioContext.createGain();
+            noiseEnvelope.gain.setValueAtTime(1, t);
+            noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            noise.connect(noiseEnvelope).connect(audioContext.destination);
+            
+            noise.start(t);
+            noise.stop(t + 0.2);
+        };
 
         const createKick = () => {
             const osc = audioContext.createOscillator();
@@ -510,9 +534,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             osc.stop(t + 0.1);
         };
 
-        if (instrument === 'snare') {
-            createSnare();
-        } else if (instrument === 'clap') { // Now a kick + snare combo
+        if (instrument === 'clap') { // RED button sound
+            createClap();
+        } else if (instrument === 'kick') { // BLUE button sound
             createKick();
             createSnare();
         } else { // tick
@@ -520,7 +544,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(1200, t);
-            gain.gain.setValueAtTime(0.5, t); // Increased volume
+            gain.gain.setValueAtTime(2.5, t); // Increased volume
             gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -958,14 +982,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     onGoBack();
   }
   
-    const handleRhythmTap = (instrument: 'snare' | 'clap') => {
+    const handleRhythmTap = (instrument: 'clap' | 'kick') => {
         if (rhythmPhase !== 'playing') return;
 
         playRhythmSound(instrument);
         setActiveRhythmHit(instrument);
         setTimeout(() => setActiveRhythmHit(null), 150);
 
-        let newTaps: { time: number; instrument: 'snare' | 'clap' }[];
+        let newTaps: { time: number; instrument: 'clap' | 'kick' }[];
         
         if(userRhythmTaps.length === 0){
             // This is the first tap, it establishes the start time
@@ -1045,29 +1069,29 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </div>
 
                 <div className="w-full flex-grow flex items-center justify-around px-4">
-                    <button
-                        onClick={() => handleRhythmTap('snare')}
-                        disabled={rhythmPhase !== 'playing'}
-                        className={cn(
-                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                            "bg-red-600/80 border-4 border-red-800/80",
-                            "active:scale-95 active:bg-red-500",
-                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                            (activeRhythmHit === 'snare') && "neon-glow border-red-400"
-                        )}
-                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
-                    />
-                    <button
-                        onClick={() => handleRhythmTap('clap')}
+                     <button
+                        onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
                             "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
                              rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                             (activeRhythmHit === 'clap') && "neon-glow border-blue-400"
+                             (activeRhythmHit === 'kick') && "neon-glow border-blue-400"
                         )}
                          style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
+                    />
+                    <button
+                        onClick={() => handleRhythmTap('clap')}
+                        disabled={rhythmPhase !== 'playing'}
+                        className={cn(
+                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "bg-red-600/80 border-4 border-red-800/80",
+                            "active:scale-95 active:bg-red-500",
+                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                            (activeRhythmHit === 'clap') && "neon-glow border-red-400"
+                        )}
+                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     />
                 </div>
                  {rhythmPhase === 'results' && (
