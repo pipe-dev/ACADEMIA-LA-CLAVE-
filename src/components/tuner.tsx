@@ -112,9 +112,9 @@ const difficultySettings = {
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-  "Fácil":   [3, 3, 4, 4, 4, 5, 5, 5],      // 3 to 5 notes
-  "Medio":   [4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7], // 4 to 7 notes
-  "Difícil": [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10], // 5 to 10 notes
+  "Fácil":   [3, 3, 4, 4, 4, 5, 5, 5],
+  "Medio":   [4, 4, 5, 5, 6, 6, 6, 7, 7, 7, 7, 7],
+  "Difícil": [5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
 };
 
 
@@ -178,6 +178,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [simonPhase, setSimonPhase] = useState<'idle' | 'playback' | 'singing'>('idle');
   const [hasRepeatedSequence, setHasRepeatedSequence] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(0);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
@@ -627,6 +628,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setHasRepeatedSequence(false);
     setPlayerSimonIndex(0);
     setIsPaused(false);
+    setRepeatCount(0);
 
     if (newGameMode === "simon-says" || newGameMode === "melody-challenge") {
       let sequence: NoteInfo[] = [];
@@ -752,7 +754,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
 
   const handleRepeatSequence = () => {
-    if ((gameMode !== 'simon-says' && gameMode !== 'melody-challenge') || simonPhase !== 'singing' || hasRepeatedSequence || sessionCompleted) return;
+    if ((gameMode !== 'simon-says' && gameMode !== 'melody-challenge') || simonPhase !== 'singing' || repeatCount >= 3 || sessionCompleted) return;
+    setRepeatCount(prev => prev + 1);
     setHasRepeatedSequence(true);
     setSimonPhase('playback');
   };
@@ -953,7 +956,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           {isDetecting ? "Pausar" : "Empezar"}
         </Button>
         <div className="h-10">
-          {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && !hasRepeatedSequence && !sessionCompleted && (
+          {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
             <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
               <RefreshCw className="h-5 w-5"/>
               <span className="sr-only">Repetir</span>
@@ -1083,6 +1086,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
 
 
 
