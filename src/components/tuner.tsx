@@ -20,6 +20,8 @@ export type NoteInfo = {
   midi: number;
 };
 
+const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
 const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, Math.min(count, pool.length));
@@ -144,6 +146,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const [simonPlaybackIndex, setSimonPlaybackIndex] = useState<number | null>(null);
   const [simonPhase, setSimonPhase] = useState<'idle' | 'playback' | 'singing'>('idle');
   const [hasRepeatedSequence, setHasRepeatedSequence] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
@@ -369,7 +372,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
       const difficultyKey = difficulty as ChallengeDifficulty;
       const exerciseCount = difficultyLevels[difficultyKey][currentLevel - 1];
 
-      if (difficulty === "Difícil" && currentLevel % 2 === 0) { // Simon says on even levels
+      if (gameMode === 'simon-says') { 
         newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
       } else if (difficulty === "Difícil") { // Interval training on odd levels
         newChallenge = generateIntervalChallenge(exerciseCount, notePool, currentLevel);
@@ -379,7 +382,7 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     }
     
     setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
-  }, [isMounted, notePool, difficulty, currentLevel, isInitialWarmupCompleted]);
+  }, [isMounted, notePool, difficulty, currentLevel, isInitialWarmupCompleted, gameMode]);
 
   useEffect(() => {
     if (gameMode === 'simon-says' && challengeNotes.length > 0) {
@@ -560,6 +563,13 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     setDifficulty(diff);
     setCurrentLevel(level);
+    
+    if (diff === 'Difícil' && level % 2 === 0) {
+        setGameMode('simon-says');
+    } else {
+        setGameMode('standard');
+    }
+    
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -568,26 +578,21 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     setLastCompletedNoteFullName(null);
     setInTuneTime(0);
     inTuneSinceRef.current = null;
-    
-    if (diff === 'Difícil' && level % 2 === 0) {
-        setHasRepeatedSequence(false);
-        setGameMode('simon-says');
-        setSimonSequence([]);
-        setPlayerSimonIndex(0);
-        setSimonPhase('idle');
-    } else {
-        setGameMode('standard');
-        setSimonPhase('idle');
-    }
+    setHasRepeatedSequence(false);
+    setSimonSequence([]);
+    setPlayerSimonIndex(0);
+    setSimonPhase('idle');
 
     if (!isDetecting) {
       start();
+      setIsPaused(false);
     }
   }, [isDetecting, start]);
 
   const startWarmup = useCallback(() => {
     setDifficulty("Calentamiento");
     setCurrentLevel(1);
+    setGameMode('standard');
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -596,10 +601,10 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
     setLastCompletedNoteFullName(null);
     setInTuneTime(0);
     inTuneSinceRef.current = null;
-    setGameMode('standard');
     setSimonPhase('idle');
     if (!isDetecting) {
       start();
+      setIsPaused(false);
     }
   }, [isDetecting, start]);
 
@@ -624,7 +629,9 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
   const handleToggleListening = () => {
     if (isDetecting) {
       stop();
+      setIsPaused(true);
     } else {
+      setIsPaused(false);
       toast({
           variant: "accent",
           title: "Consejo de Afinación",
@@ -731,7 +738,14 @@ export function Tuner({ notePool, gender }: { notePool: NoteInfo[]; gender: 'mas
         );
     }
     if (!isDetecting) {
-         return <MicOff className="w-20 h-20 sm:w-24 sm:h-24 text-muted-foreground/30" />;
+         return (
+            <div className="text-center p-4">
+                <MicOff className="w-20 h-20 sm:w-24 sm:h-24 text-muted-foreground/30 mx-auto" />
+                {isPaused && (
+                    <p className="text-muted-foreground mt-2">En pausa</p>
+                )}
+            </div>
+        );
     }
     
     return (
