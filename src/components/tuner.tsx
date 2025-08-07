@@ -100,14 +100,14 @@ type ProgressState = Record<ChallengeDifficulty, Record<number, boolean>>;
 
 const difficultySettings = {
   "Calentamiento": { exerciseCount: 12 },
-  "Fácil": {},
-  "Medio": {},
-  "Difícil": {},
+  "Fácil": { levelCount: 8 },
+  "Medio": { levelCount: 12 },
+  "Difícil": { levelCount: 12 },
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-  "Fácil": [3, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
-  "Medio": [8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 14], // Note counts for standard challenges if they appear
+  "Fácil": [3, 5, 6, 6, 7, 7, 8, 8],
+  "Medio": [8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 14],
   "Difícil": [10, 12, 15, 18, 20, 22, 24, 26, 28, 30, 32, 35],
 };
 
@@ -612,9 +612,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       if (newGameMode === "interval") {
         newChallenge = generateIntervalChallenge(level, notePool);
       } else { // standard
-        const exerciseCount = diff === 'Medio'
-          ? difficultyLevels[diff][level - 1]
-          : difficultyLevels[diff][level - 1];
+        const exerciseCount = difficultyLevels[diff][level - 1];
         newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
       }
       setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
@@ -900,7 +898,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           }}>Elegir Nivel</Button>
       </div>
 
-      <AlertDialog open={showDifficultyDialog} onOpenChange={setShowDifficultyDialog}>
+      <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+            setSelectedDifficulty(null);
+        }
+        setShowDifficultyDialog(isOpen);
+      }}>
           <AlertDialogContent className="max-w-md">
               <AlertDialogHeader>
                   {selectedDifficulty && (
@@ -919,25 +922,20 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
               <div className="pt-4">
                   {selectedDifficulty ? (
                       <div className="grid grid-cols-4 gap-3 sm:gap-4">
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(level => {
+                          {Array.from({ length: difficultySettings[selectedDifficulty].levelCount }, (_, i) => i + 1).map(level => {
                               const isCompleted = progress[selectedDifficulty]?.[level];
                               const isLocked = level > 1 && !progress[selectedDifficulty]?.[level - 1];
                               
                               let modeIndicator: React.ReactNode = null;
                               if (selectedDifficulty === 'Medio') {
-                                if (level === 1) {
                                     modeIndicator = <Music className="w-4 h-4" />;
-                                } else {
-                                    // In medio, levels can be interval or standard, but we show interval icon to hint the main mode
-                                    modeIndicator = <Music className="w-4 h-4" />;
-                                }
                               } else if (selectedDifficulty === 'Difícil') {
                                 let modeIndex = (level - 1) % 3;
-                                if(level === 12) modeIndex = 2; // Last level is always Simon Says
+                                if(level === 12) modeIndex = 2;
 
-                                if (modeIndex === 1) { // Arpeggio
+                                if (modeIndex === 1) {
                                      modeIndicator = <Music className="w-4 h-4" />;
-                                } else if (modeIndex === 2) { // Simon Says
+                                } else if (modeIndex === 2) {
                                     modeIndicator = <Brain className="w-4 h-4" />;
                                 }
                               }
