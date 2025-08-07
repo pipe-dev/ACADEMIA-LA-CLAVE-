@@ -112,7 +112,7 @@ function TunerSkeleton() {
     );
   }
 
-export function Tuner({ notePool, gender, vocalRangeKey }: { notePool: NoteInfo[]; gender: 'masculino' | 'femenino', vocalRangeKey: string }) {
+export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool: NoteInfo[]; gender: 'masculino' | 'femenino', vocalRangeKey: string, onGoBack: () => void }) {
   const { note, centsOff, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   const { toast } = useToast();
   
@@ -656,6 +656,11 @@ export function Tuner({ notePool, gender, vocalRangeKey }: { notePool: NoteInfo[
     setHasRepeatedSequence(true);
     setSimonPhase('playback');
   };
+
+  const handleBackButtonClick = () => {
+    stop();
+    onGoBack();
+  }
   
   const renderCentralContent = () => {
     if (sessionCompleted && !showLevelCompleteDialog) {
@@ -772,8 +777,12 @@ export function Tuner({ notePool, gender, vocalRangeKey }: { notePool: NoteInfo[
   }
 
   return (
-    <div className="flex flex-col items-center gap-8 w-full">
-      <div className="text-center text-foreground font-semibold text-lg">
+    <div className="relative flex flex-col items-center gap-8 w-full max-w-5xl mx-auto">
+       <Button onClick={handleBackButtonClick} variant="ghost" className="absolute top-0 left-0 text-sm h-auto p-2">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Volver
+       </Button>
+      <div className="text-center text-foreground font-semibold text-lg mt-12">
         <p>
             Dificultad: <span className="font-bold text-primary">{difficulty}</span>
             {difficulty !== 'Calentamiento' && ` - Nivel ${currentLevel}`}
@@ -921,12 +930,9 @@ export function Tuner({ notePool, gender, vocalRangeKey }: { notePool: NoteInfo[
                     <Button onClick={() => {
                       setShowLevelCompleteDialog(false);
                       handleSeeLevels();
-                    }} size="lg">Ver Niveles</Button>
+                    }} size="lg">Siguiente Nivel</Button>
                 ) : (
-                    <Button onClick={() => {
-                      setShowLevelCompleteDialog(false);
-                      handleChooseNewDifficulty();
-                    }} size="lg">Elegir Dificultad</Button>
+                     <Button onClick={handleChooseNewDifficulty} size="lg">Elegir Dificultad</Button>
                 )}
               </AlertDialogFooter>
           </AlertDialogContent>

@@ -6,6 +6,7 @@ import { Tuner, type NoteInfo } from '@/components/tuner';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft } from 'lucide-react';
 
 const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -27,6 +28,14 @@ export function AppContainer() {
   const [notePool, setNotePool] = useState<NoteInfo[] | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [vocalRangeKey, setVocalRangeKey] = useState<string>('');
+
+  const handleGoBack = () => {
+    setIsReady(false);
+    setPitchPreference(null);
+    setGender(null);
+    setNotePool(null);
+    setVocalRangeKey('');
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -78,11 +87,7 @@ export function AppContainer() {
   if (isReady && notePool && gender && vocalRangeKey) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold font-headline text-foreground">Desafío de Afinación</h1>
-          <p className="text-muted-foreground mt-2 text-lg">Escucha y canta la nota para ganar.</p>
-        </div>
-        <Tuner notePool={notePool} gender={gender} vocalRangeKey={vocalRangeKey} />
+        <Tuner notePool={notePool} gender={gender} vocalRangeKey={vocalRangeKey} onGoBack={handleGoBack} />
       </main>
     );
   }
