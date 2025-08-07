@@ -554,22 +554,22 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }
   }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence, isPaused]);
 
-  const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
+  const startLevel = (diff: ChallengeDifficulty, level: number) => {
     if (!isMounted || notePool.length === 0) return;
-
+  
     let newGameMode: 'standard' | 'interval' | 'simon-says' = 'standard';
-     if (diff === 'Medio' && level % 2 !== 0) {
-        newGameMode = 'interval';
+    if (diff === 'Medio' && level % 2 !== 0) {
+      newGameMode = 'interval';
     } else if (diff === 'Difícil' && level % 2 === 0) {
-        newGameMode = 'simon-says';
+      newGameMode = 'simon-says';
     } else if (diff === 'Difícil' && level % 2 !== 0) {
-        newGameMode = 'interval';
+      newGameMode = 'interval';
     }
+  
     setGameMode(newGameMode);
-    
     setDifficulty(diff);
     setCurrentLevel(level);
-    
+  
     setCompletedNotes(new Set());
     setActiveNote(null);
     setSessionCompleted(false);
@@ -582,34 +582,34 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setPlayerSimonIndex(0);
   
     if (newGameMode === 'simon-says') {
-        const exerciseCount = difficultyLevels[diff][level - 1];
-        const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-        const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
-        const sequenceLength = simonLevels[level] || 2;
-        const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
-        const sequence = shuffled.slice(0, Math.min(sequenceLength, initialChallenge.length));
-        
-        setSimonSequence(sequence);
-        setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
-        setSimonPhase('playback');
+      const exerciseCount = difficultyLevels[diff][level - 1];
+      const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+      const simonLevels: Record<number, number> = { 2: 2, 4: 3, 6: 4, 8: 5, 10: 6, 12: 7 };
+      const sequenceLength = simonLevels[level] || 2;
+      const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
+      const sequence = shuffled.slice(0, Math.min(sequenceLength, initialChallenge.length));
+  
+      setSimonSequence(sequence);
+      setChallengeNotes(sequence.sort((a, b) => a.frequency - b.frequency));
+      setSimonPhase('playback');
     } else {
-        const exerciseCount = difficultyLevels[diff][level - 1];
-        let newChallenge: NoteInfo[];
-        if (newGameMode === "interval") {
-            newChallenge = generateIntervalChallenge(exerciseCount, notePool, level);
-        } else { // standard
-            newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
-        }
-        setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
-        setSimonSequence([]);
-        setSimonPhase('idle');
+      const exerciseCount = difficultyLevels[diff][level - 1];
+      let newChallenge: NoteInfo[];
+      if (newGameMode === "interval") {
+        newChallenge = generateIntervalChallenge(exerciseCount, notePool, level);
+      } else { // standard
+        newChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+      }
+      setChallengeNotes(newChallenge.sort((a, b) => a.frequency - b.frequency));
+      setSimonSequence([]);
+      setSimonPhase('idle');
     }
   
     if (!isDetecting) {
       start();
       setIsPaused(false);
     }
-  }, [isMounted, notePool, isDetecting, start]);
+  };
 
 
   const startWarmup = useCallback(() => {
@@ -879,12 +879,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
          <Button variant="link" onClick={() => setShowDifficultyDialog(true)}>Elegir Nivel</Button>
       </div>
 
-      <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
-        setShowDifficultyDialog(isOpen);
-        if (!isOpen) {
-            setSelectedDifficulty(null);
-        }
-      }}>
+      <AlertDialog open={showDifficultyDialog} onOpenChange={setShowDifficultyDialog}>
           <AlertDialogContent className="max-w-md">
               <AlertDialogHeader>
                   {selectedDifficulty && (
@@ -974,5 +969,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
