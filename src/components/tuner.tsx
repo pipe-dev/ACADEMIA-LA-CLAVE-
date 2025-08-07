@@ -249,6 +249,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
   const rhythmPlaybackTimeouts = useRef<NodeJS.Timeout[]>([]);
+  const metronomeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     try {
@@ -468,7 +469,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     });
   }, [getPlaybackAudioContext]);
 
-    const playRhythmSound = useCallback((instrument: 'snare' | 'clap') => {
+    const playRhythmSound = useCallback((instrument: 'snare' | 'clap' | 'tick') => {
         const audioContext = getPlaybackAudioContext();
         if (!audioContext) return;
         const t = audioContext.currentTime;
@@ -494,7 +495,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             
             noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
             noise.start(t);
-        } else { // clap
+        } else if (instrument === 'clap') {
             const noise = audioContext.createBufferSource();
             const bufferSize = audioContext.sampleRate * 0.05; // 50ms
             const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
@@ -511,6 +512,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
             noise.start(t);
             noise.stop(t + 0.05);
+        } else { // tick
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(1200, t);
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+            osc.connect(gain).connect(audioContext.destination);
+            osc.start(t);
+            osc.stop(t + 0.1);
         }
     }, [getPlaybackAudioContext]);
 
@@ -547,8 +558,32 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     useEffect(() => {
         return () => {
             rhythmPlaybackTimeouts.current.forEach(clearTimeout);
+            if (metronomeIntervalRef.current) {
+                clearInterval(metronomeIntervalRef.current);
+            }
         }
     }, []);
+    
+    useEffect(() => {
+        const isRhythmPlaying = rhythmPhase === 'playback' || rhythmPhase === 'playing';
+        if (isRhythmPlaying && !metronomeIntervalRef.current) {
+            const interval = 60000 / rhythmBpm;
+            metronomeIntervalRef.current = setInterval(() => {
+                playRhythmSound('tick');
+            }, interval);
+        } else if (!isRhythmPlaying && metronomeIntervalRef.current) {
+            clearInterval(metronomeIntervalRef.current);
+            metronomeIntervalRef.current = null;
+        }
+
+        return () => {
+            if (metronomeIntervalRef.current) {
+                clearInterval(metronomeIntervalRef.current);
+                metronomeIntervalRef.current = null;
+            }
+        }
+    }, [rhythmPhase, rhythmBpm, playRhythmSound]);
+
 
   useEffect(() => {
     if (simonPhase !== 'playback' || simonSequence.length === 0) return;
@@ -778,6 +813,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRepeatCount(0);
     setRhythmPhase('idle');
     setRhythmScore(0);
+    if (metronomeIntervalRef.current) {
+        clearInterval(metronomeIntervalRef.current);
+        metronomeIntervalRef.current = null;
+    }
+
 
     if (newGameMode === "rhythm-challenge") {
         setRhythmBpm(level === 9 ? 100 : 120);
@@ -871,6 +911,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     inTuneSinceRef.current = null;
     setSimonPhase('idle');
     setIsPaused(false);
+    if (metronomeIntervalRef.current) {
+        clearInterval(metronomeIntervalRef.current);
+        metronomeIntervalRef.current = null;
+    }
     if (!isDetecting) {
       start();
     }
@@ -914,6 +958,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const handleBackButtonClick = () => {
     stop();
     rhythmPlaybackTimeouts.current.forEach(clearTimeout);
+    if (metronomeIntervalRef.current) {
+        clearInterval(metronomeIntervalRef.current);
+    }
     onGoBack();
   }
   
@@ -1249,6 +1296,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             }
             if(rhythmPhase !== 'idle'){
                 rhythmPlaybackTimeouts.current.forEach(clearTimeout);
+                if (metronomeIntervalRef.current) {
+                    clearInterval(metronomeIntervalRef.current);
+                    metronomeIntervalRef.current = null;
+                }
                 setRhythmPhase('idle');
             }
             setSelectedDifficulty(null);
