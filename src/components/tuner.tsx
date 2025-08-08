@@ -54,15 +54,20 @@ const rhythmPatterns: Record<number, { time: number; instrument: 'clap' | 'kick'
     // Fácil (Levels 7-12)
     7: [ // 80 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
+        { time: 750, instrument: 'kick' },
         { time: 1500, instrument: 'clap' },
+        { time: 2250, instrument: 'kick' },
         { time: 3000, instrument: 'kick' },
+        { time: 3750, instrument: 'kick' },
         { time: 4500, instrument: 'clap' },
+        { time: 5250, instrument: 'kick' },
     ],
     8: [ // 90 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
         { time: 1333, instrument: 'clap' },
+        { time: 2000, instrument: 'kick' },
         { time: 2666, instrument: 'kick' },
-        { time: 3999, instrument: 'clap' },
+        { time: 3333, instrument: 'clap' },
     ],
     9: [ // 100 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
@@ -72,21 +77,30 @@ const rhythmPatterns: Record<number, { time: number; instrument: 'clap' | 'kick'
     ],
     10: [ // 110 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
+        { time: 545, instrument: 'kick' },
         { time: 1091, instrument: 'clap' },
+        { time: 1636, instrument: 'kick' },
         { time: 2182, instrument: 'kick' },
-        { time: 3273, instrument: 'clap' },
+        { time: 2727, instrument: 'clap' },
     ],
      11: [ // 120 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
+        { time: 500, instrument: 'kick' },
         { time: 1000, instrument: 'clap' },
+        { time: 1500, instrument: 'kick' },
         { time: 2000, instrument: 'kick' },
+        { time: 2500, instrument: 'kick' },
         { time: 3000, instrument: 'clap' },
     ],
      12: [ // 130 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
+        { time: 461, instrument: 'kick' },
         { time: 923, instrument: 'clap' },
+        { time: 1384, instrument: 'kick' },
         { time: 1846, instrument: 'kick' },
-        { time: 2769, instrument: 'clap' },
+        { time: 2307, instrument: 'clap' },
+        { time: 2769, instrument: 'kick' },
+        { time: 3230, instrument: 'clap' },
     ],
 };
 
@@ -515,7 +529,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             noiseFilter.Q.value = 0.5;
 
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(1, t);
+            noiseEnvelope.gain.setValueAtTime(4, t);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             
             noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
@@ -539,7 +553,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             noise.buffer = buffer;
             
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(1, t);
+            noiseEnvelope.gain.setValueAtTime(4, t);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
             noise.connect(noiseEnvelope).connect(audioContext.destination);
             
@@ -552,7 +566,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.frequency.setValueAtTime(150, t);
             osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
-            gain.gain.setValueAtTime(1, t);
+            gain.gain.setValueAtTime(4, t);
             gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
