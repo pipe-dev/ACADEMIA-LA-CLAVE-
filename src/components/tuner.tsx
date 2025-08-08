@@ -51,17 +51,42 @@ const melodies: Record<string, { midi: number, duration: number }[]> = {
 };
 
 const rhythmPatterns: Record<number, { time: number; instrument: 'clap' | 'kick' }[]> = {
-    9: [ // 100 BPM, 2 bars 4/4
-        { time: 0, instrument: 'kick' },     // Bar 1, Beat 1
-        { time: 1200, instrument: 'clap' },  // Bar 1, Beat 3
-        { time: 2400, instrument: 'kick' },   // Bar 2, Beat 1
-        { time: 3600, instrument: 'clap' },    // Bar 2, Beat 3
+    // Fácil (Levels 7-12)
+    7: [ // 80 BPM, 2 bars 4/4
+        { time: 0, instrument: 'kick' },
+        { time: 1500, instrument: 'clap' },
+        { time: 3000, instrument: 'kick' },
+        { time: 4500, instrument: 'clap' },
     ],
-    10: [ // 120 BPM, 2 bars 4/4
-        { time: 0, instrument: 'kick' },     // Bar 1, Beat 1
-        { time: 1000, instrument: 'clap' },  // Bar 1, Beat 3
-        { time: 2000, instrument: 'kick' },   // Bar 2, Beat 1
-        { time: 3000, instrument: 'clap' },    // Bar 2, Beat 3
+    8: [ // 90 BPM, 2 bars 4/4
+        { time: 0, instrument: 'kick' },
+        { time: 1333, instrument: 'clap' },
+        { time: 2666, instrument: 'kick' },
+        { time: 3999, instrument: 'clap' },
+    ],
+    9: [ // 100 BPM, 2 bars 4/4
+        { time: 0, instrument: 'kick' },
+        { time: 1200, instrument: 'clap' },
+        { time: 2400, instrument: 'kick' },
+        { time: 3600, instrument: 'clap' },
+    ],
+    10: [ // 110 BPM, 2 bars 4/4
+        { time: 0, instrument: 'kick' },
+        { time: 1091, instrument: 'clap' },
+        { time: 2182, instrument: 'kick' },
+        { time: 3273, instrument: 'clap' },
+    ],
+     11: [ // 120 BPM, 2 bars 4/4
+        { time: 0, instrument: 'kick' },
+        { time: 1000, instrument: 'clap' },
+        { time: 2000, instrument: 'kick' },
+        { time: 3000, instrument: 'clap' },
+    ],
+     12: [ // 130 BPM, 2 bars 4/4
+        { time: 0, instrument: 'kick' },
+        { time: 923, instrument: 'clap' },
+        { time: 1846, instrument: 'kick' },
+        { time: 2769, instrument: 'clap' },
     ],
 };
 
@@ -121,13 +146,13 @@ type ProgressState = Record<ChallengeDifficulty, Record<number, boolean>>;
 
 const difficultySettings = {
   "Calentamiento": { exerciseCount: 12 },
-  "Fácil": { levelCount: 10 },
+  "Fácil": { levelCount: 12 },
   "Medio": { levelCount: 12 },
   "Difícil": { levelCount: 12 },
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
-    "Fácil":   [3, 4, 4, 5, 5, 5, 5, 5, 0, 0], // Last two are rhythm
+    "Fácil":   [3, 4, 4, 5, 5, 6, 0, 0, 0, 0, 0, 0], // 6 tuning, 6 rhythm
     "Medio":   [4, 5, 5, 6, 6, 6, 7, 7, 7, 7, 7, 7],
     "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10],
 };
@@ -807,9 +832,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     let newGameMode: "standard" | "interval" | "simon-says" | "melody-challenge" | "rhythm-challenge" = "standard";
 
     if (diff === 'Fácil') {
-        if (level === 9 || level === 10) newGameMode = 'rhythm-challenge';
-        else if (level === 4) newGameMode = 'melody-challenge';
-        else newGameMode = 'standard';
+        if (level >= 7) {
+            newGameMode = 'rhythm-challenge';
+        } else if (level === 4 || level === 6) {
+            newGameMode = 'melody-challenge';
+        } else {
+            newGameMode = 'standard';
+        }
     } else if (diff === "Medio") {
       if (level === 6) {
         newGameMode = 'melody-challenge';
@@ -857,7 +886,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
 
     if (newGameMode === "rhythm-challenge") {
-        setRhythmBpm(level === 9 ? 100 : 120);
+        const bpmMap: Record<number, number> = { 7: 80, 8: 90, 9: 100, 10: 110, 11: 120, 12: 130 };
+        setRhythmBpm(bpmMap[level] || 100);
         setRhythmPattern(rhythmPatterns[level] || []);
         if (isDetecting) stop();
     } else if (newGameMode === "simon-says" || newGameMode === "melody-challenge") {
@@ -1385,8 +1415,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               
                               let modeIndicator: React.ReactNode = null;
                               if (selectedDifficulty === 'Fácil') {
-                                if (level === 4) modeIndicator = <Music className="w-4 h-4 text-green-500" />;
-                                else if (level === 9 || level === 10) modeIndicator = <Drum className="w-4 h-4 text-blue-500" />;
+                                if (level >= 7) {
+                                    modeIndicator = <Drum className="w-4 h-4 text-blue-500" />;
+                                } else if (level === 4 || level === 6) {
+                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                }
                               } else if (selectedDifficulty === 'Medio') {
                                   if (level === 6) {
                                       modeIndicator = <Music className="w-4 h-4 text-green-500" />;
