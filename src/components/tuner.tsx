@@ -573,11 +573,29 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         });
 
         const totalDuration = rhythmPattern[rhythmPattern.length - 1].time + 1000;
-        const endTimeout = setTimeout(stopRhythmPlayback, totalDuration);
+        const endTimeout = setTimeout(() => {
+            setRhythmPhase('playing'); // Let user play after demo ends
+        }, totalDuration);
         
         rhythmPlaybackTimeouts.current = [...timeouts, endTimeout];
 
-    }, [rhythmPattern, playRhythmSound, stopRhythmPlayback, rhythmPhase]);
+    }, [rhythmPattern, playRhythmSound, rhythmPhase]);
+
+    useEffect(() => {
+        if (gameMode === 'rhythm-challenge' && rhythmPhase === 'idle' && rhythmPattern.length > 0) {
+            playRhythmPattern();
+        }
+    }, [gameMode, rhythmPhase, rhythmPattern, playRhythmPattern]);
+
+    const handleListenStopClick = () => {
+        if (rhythmPhase === 'playback') {
+            rhythmPlaybackTimeouts.current.forEach(clearTimeout);
+            rhythmPlaybackTimeouts.current = [];
+            setRhythmPhase('playing');
+        } else {
+            playRhythmPattern();
+        }
+    };
 
 
     useEffect(() => {
@@ -831,6 +849,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRepeatCount(0);
     setRhythmPhase('idle');
     setRhythmScore(0);
+    setUserRhythmTaps([]);
     if (metronomeIntervalRef.current) {
         clearInterval(metronomeIntervalRef.current);
         metronomeIntervalRef.current = null;
@@ -1058,13 +1077,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 
                 <div className="w-full flex justify-center items-center gap-2 mb-4">
                     <Button
-                        onClick={playRhythmPattern}
-                        disabled={rhythmPhase === 'playback' || (rhythmPhase === 'playing' && userRhythmTaps.length > 0)}
+                        onClick={handleListenStopClick}
+                        disabled={rhythmPhase === 'results' || (rhythmPhase === 'playing' && userRhythmTaps.length > 0)}
                         variant="secondary"
                         className="w-32"
                     >
                         {rhythmPhase === 'playback' ? <Square className="mr-2 fill-current" /> : <Play className="mr-2" />}
-                        {rhythmPhase === 'playback' ? "Sonando" : "Escuchar"}
+                        {rhythmPhase === 'playback' ? "Detener" : "Escuchar"}
                     </Button>
                 </div>
 
