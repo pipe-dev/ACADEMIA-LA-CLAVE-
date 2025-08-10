@@ -591,6 +591,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         }
     }, [getPlaybackAudioContext]);
 
+  const rhythmPhaseRef = useRef(rhythmPhase);
+  useEffect(() => {
+    rhythmPhaseRef.current = rhythmPhase;
+  }, [rhythmPhase]);
+
   const stopRhythmPlaybackAndSing = useCallback(() => {
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
@@ -599,13 +604,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         setRhythmPhase('playing');
         setUserRhythmTaps([]);
         setRhythmStartTime(performance.now());
+    } else if (rhythmPhaseRef.current === 'playing' && rhythmPattern.length > 0) {
+        // Force evaluation if user stops early
+         setRhythmPhase('results');
     }
-  }, []);
-
-  const rhythmPhaseRef = useRef(rhythmPhase);
-  useEffect(() => {
-    rhythmPhaseRef.current = rhythmPhase;
-  }, [rhythmPhase]);
+  }, [rhythmPattern]);
 
   const playRhythmPattern = useCallback(() => {
     if (rhythmPattern.length === 0 || rhythmPhaseRef.current !== 'idle') return;
@@ -638,7 +641,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
             const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
             const transitionTimeout = setTimeout(() => {
-                stopRhythmPlaybackAndSing();
+                if(rhythmPhaseRef.current === 'playback') {
+                  stopRhythmPlaybackAndSing();
+                }
             }, totalDuration);
             scheduledRhythmEvents.current.push(transitionTimeout);
 
@@ -1394,8 +1399,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             {renderRhythmGame()}
         </div>
       ) : (
-        <div className="w-full flex-grow flex flex-col items-center justify-center">
-            <div id="tuner-container" className="relative w-full flex-grow flex items-center justify-center">
+        <div className="w-full flex-grow flex flex-col items-center">
+            <div id="tuner-container" className="relative w-full my-auto flex items-center justify-center">
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
                         const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
