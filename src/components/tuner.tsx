@@ -220,7 +220,7 @@ function TunerSkeleton() {
   }
 
 const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
-    const pendulumDuration = (60 / bpm) * 2; // Duration for a full swing (left to right and back)
+    const pendulumDuration = (60 / bpm);
     return (
         <div className="w-[280px] h-[400px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
             {/* Screws */}
@@ -287,7 +287,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [sessionCompleted, setSessionCompleted] = useState(false);
   
   const [isMounted, setIsMounted] = useState(false);
-  const radius = 125;
+  const [radius, setRadius] = useState(125);
 
   const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
   const [progress, setProgress] = useState<ProgressState>({ "Fácil": {}, "Medio": {}, "Difícil": {} });
@@ -1349,10 +1349,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
     return (
         <div className="text-center p-4">
-            <p className="text-3xl font-bold text-foreground">
+            <p className="text-2xl font-bold text-foreground">
                 {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : "Selecciona una nota"}
             </p>
-            <p className="text-muted-foreground mt-2 text-lg">
+            <p className="text-muted-foreground mt-2 text-base">
                 {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : "Haz clic en un círculo para empezar"}
             </p>
         </div>
@@ -1390,11 +1390,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto h-screen p-4">
-      <div className="relative w-full h-12 flex items-center justify-center mb-4">
-        <Button onClick={handleBackButtonClick} variant="ghost" className="absolute left-0 text-sm h-auto p-2 z-20">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver
-       </Button>
+      <div className="w-full h-12 flex items-center justify-center mb-4">
+        <div className="absolute left-0">
+          <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2 z-20">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver
+        </Button>
+        </div>
        
         <div className="text-center text-foreground font-semibold text-lg">
           <p>
