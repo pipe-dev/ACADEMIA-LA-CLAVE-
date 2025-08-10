@@ -1378,72 +1378,78 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
   
   return (
-    <div className="flex flex-col items-center w-full max-w-md mx-auto h-screen p-4">
-       <div className="w-full flex items-center justify-between flex-shrink-0 h-16">
-          <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
-          </Button>
-          <div className="text-center text-foreground font-semibold text-lg flex-grow">
-              <p>
-                  Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
-              </p>
-              {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+    <div className="grid grid-rows-[auto_1fr_auto] w-full max-w-md mx-auto h-screen p-4">
+      {/* Header */}
+      <div className="row-start-1 row-end-2 flex-shrink-0">
+          <div className="w-full flex items-center justify-between">
+              <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Volver
+              </Button>
+              <div className="text-center text-foreground font-semibold text-lg flex-grow">
+                  <p>
+                      Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
+                  </p>
+                  {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+              </div>
+              <div className="w-16"></div>
           </div>
-          <div className="w-16"></div>
       </div>
       
-
-      {gameMode === 'rhythm-challenge' ? (
-        <div className="flex-grow w-full flex items-center justify-center">
-            {renderRhythmGame()}
-        </div>
-      ) : (
-        <>
-            <div className="flex-grow flex items-center justify-center w-full">
-                <div id="tuner-container" className="relative w-full flex items-center justify-center">
-                    {notesToDisplay.length > 0 ? (
-                        notesToDisplay.map((n, index) => {
-                            const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
-                            const x = radius * Math.cos(angle);
-                            const y = radius * Math.sin(angle);
-                            const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
-                            const uniqueKey = `${n.fullName}-${index}`;
-
-                            return (
-                                <Button
-                                key={uniqueKey}
-                                onClick={() => handleNoteClick(n)}
-                                disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
-                                style={{ transform: `translate(${x}px, ${y}px)` }}
-                                className={cn(
-                                    "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
-                                    buttonSize,
-                                    completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? uniqueKey : n.fullName)
-                                    ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default"
-                                    : "bg-card hover:bg-card/80 border-2 border-primary/30",
-                                    activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
-                                    isPlayingBack && "scale-110 neon-glow"
-                                )}
-                                >
-                                <span className={noteNameSize}>{n.name}</span>
-                                <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
-                                </Button>
-                            );
-                            })
-                    ) : (
-                        <div className="text-muted-foreground">Cargando desafío...</div>
-                    )}
-                
-                    <Card className="absolute w-[220px] h-[220px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
-                        <CardContent className="p-2 flex items-center justify-center">
-                            {renderCentralContent()}
-                        </CardContent>
-                    </Card>
-                </div>
+      {/* Main Content */}
+      <div className="row-start-2 row-end-3 flex items-center justify-center w-full overflow-hidden">
+        {gameMode === 'rhythm-challenge' ? (
+            <div className="w-full h-full flex items-center justify-center">
+                {renderRhythmGame()}
             </div>
+        ) : (
+            <div id="tuner-container" className="relative w-full flex items-center justify-center" style={{ minHeight: `${radius * 2 + 80}px`}}>
+                {notesToDisplay.length > 0 ? (
+                    notesToDisplay.map((n, index) => {
+                        const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
+                        const x = radius * Math.cos(angle);
+                        const y = radius * Math.sin(angle);
+                        const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
+                        const uniqueKey = `${n.fullName}-${index}`;
 
-            <div className="flex flex-col items-center gap-3 flex-shrink-0 py-4">
+                        return (
+                            <Button
+                            key={uniqueKey}
+                            onClick={() => handleNoteClick(n)}
+                            disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
+                            style={{ transform: `translate(${x}px, ${y}px)` }}
+                            className={cn(
+                                "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
+                                buttonSize,
+                                completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? uniqueKey : n.fullName)
+                                ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default"
+                                : "bg-card hover:bg-card/80 border-2 border-primary/30",
+                                activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
+                                isPlayingBack && "scale-110 neon-glow"
+                            )}
+                            >
+                            <span className={noteNameSize}>{n.name}</span>
+                            <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
+                            </Button>
+                        );
+                        })
+                ) : (
+                    <div className="text-muted-foreground">Cargando desafío...</div>
+                )}
+            
+                <Card className="absolute w-[220px] h-[220px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                    <CardContent className="p-2 flex items-center justify-center">
+                        {renderCentralContent()}
+                    </CardContent>
+                </Card>
+            </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="row-start-3 row-end-4 flex flex-col items-center gap-3 flex-shrink-0 py-4">
+        {gameMode !== 'rhythm-challenge' && (
+            <>
                 <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
                     {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
                     {isDetecting ? "Pausar" : "Empezar"}
@@ -1468,10 +1474,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         </Button>
                     )}
                 </div>
-            </div>
-        </>
-      )}
-
+            </>
+        )}
+      </div>
 
       <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
         if (!isOpen) {
@@ -1599,3 +1604,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
