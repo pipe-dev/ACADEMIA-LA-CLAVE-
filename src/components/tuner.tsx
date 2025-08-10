@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square } from "lucide-react";
@@ -289,6 +288,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   const [isMounted, setIsMounted] = useState(false);
   const [radius, setRadius] = useState(170);
+  const tunerContainerRef = useRef<HTMLDivElement>(null);
 
   const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
   const [progress, setProgress] = useState<ProgressState>({ "Fácil": {}, "Medio": {}, "Difícil": {} });
@@ -318,6 +318,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
   const metronomeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const playbackStartTimeRef = useRef<number>(0);
+  const scheduledRhythmEvents = useRef<NodeJS.Timeout[]>([]);
+
 
   useEffect(() => {
     try {
@@ -620,34 +622,66 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         }
     }, [getPlaybackAudioContext]);
 
-    const playRhythmPattern = useCallback((isAutoPlay: boolean) => {
-        if (rhythmPattern.length === 0 || rhythmPhase === 'playback') return;
-        setRhythmPhase('playback');
-    }, [rhythmPattern, rhythmPhase]);
+    const playRhythmPattern = useCallback(() => {
+      if (rhythmPattern.length === 0 || rhythmPhase !== 'idle') return;
+      setRhythmPhase('playback');
+      
+      const intervalMs = 60000 / rhythmBpm;
+      const now = performance.now();
+      const timeSinceLastBeat = now % intervalMs;
+      const timeToNextBeat = intervalMs - timeSinceLastBeat;
 
-    const stopRhythmPlaybackAndSing = useCallback(() => {
-        setRhythmPhase('playing');
-        setUserRhythmTaps([]);
-        setRhythmStartTime(performance.now());
-    }, []);
+      playbackStartTimeRef.current = now + timeToNextBeat;
 
-    const handleListenStopClick = () => {
+      const newScheduledEvents: NodeJS.Timeout[] = [];
+      rhythmPattern.forEach(hit => {
+          const timeout = setTimeout(() => {
+              playRhythmSound(hit.instrument);
+              setActiveRhythmHit(hit.instrument);
+              setTimeout(() => setActiveRhythmHit(null), 150);
+          }, timeToNextBeat + hit.time);
+          newScheduledEvents.push(timeout);
+      });
+      
+      const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
+      const endPlaybackTimeout = setTimeout(() => {
         if (rhythmPhase === 'playback') {
-            stopRhythmPlaybackAndSing();
-        } else {
-            playRhythmPattern(false);
+          stopRhythmPlaybackAndSing();
         }
-    };
+      }, timeToNextBeat + totalDuration);
+      newScheduledEvents.push(endPlaybackTimeout);
+      
+      scheduledRhythmEvents.current = newScheduledEvents;
+
+  }, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound]);
+
+
+  const stopRhythmPlaybackAndSing = useCallback(() => {
+    scheduledRhythmEvents.current.forEach(clearTimeout);
+    scheduledRhythmEvents.current = [];
+    setRhythmPhase('playing');
+    setUserRhythmTaps([]);
+    setRhythmStartTime(performance.now());
+  }, []);
+
+  const handleListenStopClick = () => {
+    if (rhythmPhase === 'playback') {
+      stopRhythmPlaybackAndSing();
+    } else {
+      setRhythmPhase('idle'); // Reset and prepare for auto-play
+      setTimeout(() => playRhythmPattern(), 0);
+    }
+  };
     
     useEffect(() => {
         if (gameMode === 'rhythm-challenge' && rhythmPhase === 'idle' && rhythmPattern.length > 0) {
-            const autoPlayTimeout = setTimeout(() => playRhythmPattern(true), 500);
+            const autoPlayTimeout = setTimeout(() => playRhythmPattern(), 500);
             return () => clearTimeout(autoPlayTimeout);
         }
     }, [gameMode, rhythmPhase, rhythmPattern, playRhythmPattern]);
     
      useEffect(() => {
-        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'idle' || rhythmPhase === 'results') {
+        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'results') {
             if (metronomeIntervalRef.current) {
                 clearInterval(metronomeIntervalRef.current);
                 metronomeIntervalRef.current = null;
@@ -656,42 +690,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         }
 
         const intervalMs = 60000 / rhythmBpm;
-        let beatCount = 0;
         
-        let playbackHits = new Map<number, string>();
-        if(rhythmPhase === 'playback') {
-            const playbackStartTime = performance.now();
-            playbackHits = new Map(rhythmPattern.map(hit => {
-                const beatIndex = Math.round((playbackStartTime + hit.time - performance.now()) / intervalMs);
-                return [beatCount + beatIndex, hit.instrument];
-            }));
-        }
-
         if (metronomeIntervalRef.current) {
             clearInterval(metronomeIntervalRef.current);
         }
 
         const tick = () => {
             playRhythmSound('tick');
-
-            if (rhythmPhase === 'playback') {
-                const instrumentToPlay = playbackHits.get(beatCount);
-                if (instrumentToPlay) {
-                     playRhythmSound(instrumentToPlay as 'kick' | 'clap');
-                     setActiveRhythmHit(instrumentToPlay as 'kick' | 'clap');
-                     setTimeout(() => setActiveRhythmHit(null), 150);
-                }
-                const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time : 0;
-                const totalBeats = Math.ceil(totalDuration / intervalMs) + 4; // Add extra beats for buffer
-                if (beatCount >= totalBeats) {
-                    stopRhythmPlaybackAndSing();
-                }
-            }
-            beatCount++;
         };
         
         const startTicking = () => {
-             beatCount = 0;
              tick(); // First tick immediately
              metronomeIntervalRef.current = setInterval(tick, intervalMs);
         }
@@ -708,7 +716,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 clearInterval(metronomeIntervalRef.current);
             }
         }
-    }, [rhythmPhase, rhythmBpm, gameMode, playRhythmSound, rhythmPattern, stopRhythmPlaybackAndSing]);
+    }, [rhythmPhase, rhythmBpm, gameMode, playRhythmSound]);
 
 
   useEffect(() => {
@@ -758,19 +766,28 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   useEffect(() => {
     if (typeof window === 'undefined') return;
-  
+    
+    const container = tunerContainerRef.current;
+
     const handleResize = () => {
-      const isMobile = window.innerWidth < 640;
-      const notes = (gameMode === 'simon-says' && simonPhase !== 'idle') ? simonSequence : challengeNotes;
-      const isLargeChallenge = notes.length > 25;
-      setRadius(isMobile ? 120 : (isLargeChallenge ? 210 : 170));
+        const isMobile = window.innerWidth < 640;
+        if (isMobile) {
+            setRadius(120);
+        } else if (container) {
+            const containerWidth = container.offsetWidth;
+            setRadius(containerWidth * 0.45); // Use 45% of container width for radius
+        }
     };
-  
+
     handleResize();
     window.addEventListener('resize', handleResize);
-  
+    
+    // Also run on game mode change as container might be ready
+    if(container) handleResize();
+
     return () => window.removeEventListener('resize', handleResize);
-  }, [challengeNotes.length, simonSequence.length, gameMode, simonPhase]);
+}, [challengeNotes.length, simonSequence.length, gameMode, simonPhase, isMounted]);
+
 
   const tolerance = activeNote && activeNote.midi < 49 ? 30 : 18; // G2 is 43, C3 is 48. Up to C3 is grave.
 
@@ -958,9 +975,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const bpmMap: Record<number, number> = { 
             7: 80, 8: 90, 9: 100, 10: 110, 11: 120, 12: 130, // Fácil
             13: 140, 14: 150, 15: 160, 16: 170, // Medio
+            17: 180, 18: 190, 19: 200, 20: 210, // Dificil
         };
         const patternMap: Record<number, number> = {
             13: 13, 14: 14, 15: 15, 16: 16, // Medio
+            17: 17, 18: 18, 19: 19, 20: 20, // Dificil
         };
 
         let bpm, patternKey;
@@ -971,8 +990,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             bpm = bpmMap[level] || 140;
             patternKey = patternMap[level] || 13;
         } else { // Dificil
-            bpm = (130 + (level - 12) * 10); // 140, 150, 160, 170
-            patternKey = (12 + (level - 12));
+             bpm = bpmMap[level] || 180;
+             patternKey = patternMap[level] || 17;
         }
 
         setRhythmBpm(bpm);
@@ -1128,8 +1147,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const tapTime = performance.now();
         
         let newTaps;
+        const firstTapOffset = userRhythmTaps.length === 0 ? tapTime - rhythmStartTime : 0;
+        
         if (userRhythmTaps.length === 0) {
-            setRhythmStartTime(tapTime);
+            setRhythmStartTime(tapTime); // This marks the user's "beat 1"
             newTaps = [{ time: 0, instrument }];
         } else {
             const elapsedTime = tapTime - rhythmStartTime;
@@ -1145,14 +1166,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const timeTolerance = 200; // ms
             const maxScorePerHit = 100 / rhythmPattern.length;
             
+            // The first user tap sets the tempo reference. The subsequent taps are compared against it.
+            const userBpm = newTaps.length > 1 ? 60000 / ((newTaps[newTaps.length-1].time - newTaps[0].time)/(newTaps.length-1)) : rhythmBpm;
+
             rhythmPattern.forEach((patternHit, i) => {
                 const userHit = newTaps[i];
                 if (userHit) {
-                    const expectedTime = patternHit.time;
-                    const userTime = userHit.time;
-                    const timeDiff = Math.abs(expectedTime - userTime);
-                    const instrumentMatch = patternHit.instrument === userHit.instrument;
+                    const expectedRelativeTime = patternHit.time;
+                    const userRelativeTime = userHit.time;
 
+                    const timeDiff = Math.abs(expectedRelativeTime - userRelativeTime);
+                    const instrumentMatch = patternHit.instrument === userHit.instrument;
+                    
                     if (instrumentMatch && timeDiff <= timeTolerance) {
                         score += maxScorePerHit * (1 - (timeDiff / timeTolerance));
                     }
@@ -1205,7 +1230,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </div>
 
                 <div className="w-full flex-grow flex items-center justify-around px-2 sm:px-4">
-                    <button
+                     <button
                         onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
@@ -1397,7 +1422,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         </div>
       ) : (
           <>
-            <div className="relative w-[320px] h-[320px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
+            <div ref={tunerContainerRef} className="relative w-[320px] h-[320px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
                         const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
