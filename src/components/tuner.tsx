@@ -611,71 +611,45 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
     const intervalMs = 60000 / rhythmBpm;
     let nextHitIndex = 0;
-
-    const tick = () => {
-        if (nextHitIndex < rhythmPattern.length) {
-            const hit = rhythmPattern[nextHitIndex];
-            // Since the interval fires at the start of each beat, we can check if a hit should happen now
-            // This assumes pattern times are aligned to beats, which they should be.
-            // A more robust way might involve audioContext.currentTime for scheduling
-            playRhythmSound(hit.instrument);
-            setActiveRhythmHit(hit.instrument);
-            setTimeout(() => setActiveRhythmHit(null), 150);
-            nextHitIndex++;
-        }
-
-        if (nextHitIndex >= rhythmPattern.length) {
-            if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
-            const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + intervalMs : 0;
-            const endTimeout = setTimeout(() => {
-                 if (rhythmPhase === 'playback') {
-                    stopRhythmPlaybackAndSing();
-                 }
-            }, totalDuration);
-            scheduledRhythmEvents.current.push(endTimeout);
-        }
-    };
     
+    let beatCount = 0;
+    let currentHitIndex = 0;
+
     const startNextBeatSync = () => {
         const now = performance.now();
         const timeToNextBeat = intervalMs - (now % intervalMs);
 
         const startTimeout = setTimeout(() => {
             if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
-            
-            // This is the synchronized start
-            let beatCount = 0;
-            let currentHitIndex = 0;
+            playbackStartTimeRef.current = performance.now(); 
 
             const intervalTick = () => {
-                playRhythmSound('tick');
-                
-                if(currentHitIndex < rhythmPattern.length) {
-                    // Check if a note should be played on this beat
-                    // Simplified: assumes one note per beat for demo
-                    // A real implementation needs to handle arbitrary timings within the pattern
-                    const expectedTime = beatCount * intervalMs;
-                    const hit = rhythmPattern[currentHitIndex];
-                    
-                    if (Math.abs(hit.time - expectedTime) < 50) { // Tolerance
-                        playRhythmSound(hit.instrument);
-                        setActiveRhythmHit(hit.instrument);
-                        setTimeout(() => setActiveRhythmHit(null), 150);
-                        currentHitIndex++;
-                    }
-                }
-                
-                beatCount++;
+                 playRhythmSound('tick');
+                 
+                 const elapsedTime = (beatCount * intervalMs);
 
-                if (currentHitIndex >= rhythmPattern.length) {
-                    if(metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
+                 if (currentHitIndex < rhythmPattern.length) {
+                     const hit = rhythmPattern[currentHitIndex];
+                     if (elapsedTime >= hit.time - 5) { // 5ms tolerance
+                         playRhythmSound(hit.instrument);
+                         setActiveRhythmHit(hit.instrument);
+                         setTimeout(() => setActiveRhythmHit(null), 150);
+                         currentHitIndex++;
+                     }
+                 }
+                 
+                 beatCount++;
+
+                 const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + intervalMs : 0;
+                 if (elapsedTime >= totalDuration) {
+                     if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
                      const endTimeout = setTimeout(() => {
                          if (rhythmPhase === 'playback') {
                             stopRhythmPlaybackAndSing();
                          }
                     }, intervalMs);
                     scheduledRhythmEvents.current.push(endTimeout);
-                }
+                 }
             };
             
             intervalTick(); // play first beat immediately
@@ -795,10 +769,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     const tunerElement = document.getElementById('tuner-container');
     const handleResize = () => {
         if (tunerElement && window.innerWidth >= 640) { // sm breakpoint
-             const newRadius = tunerElement.offsetWidth * 0.35;
+             const newRadius = tunerElement.offsetWidth * 0.28;
              setRadius(newRadius);
         } else {
-             setRadius(120);
+             setRadius(110);
         }
     };
     
@@ -1659,5 +1633,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
