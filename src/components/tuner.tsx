@@ -220,7 +220,7 @@ function TunerSkeleton() {
   }
 
 const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
-    const pendulumDuration = (120 / bpm); // Duration for a full swing (left to right and back)
+    const pendulumDuration = (60 / bpm) * 2; // Duration for a full swing (left to right and back)
     return (
         <div className="w-[280px] h-[400px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
             {/* Screws */}
@@ -287,7 +287,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [sessionCompleted, setSessionCompleted] = useState(false);
   
   const [isMounted, setIsMounted] = useState(false);
-  const radius = 115;
+  const radius = 125;
 
   const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
   const [progress, setProgress] = useState<ProgressState>({ "Fácil": {}, "Medio": {}, "Difícil": {} });
@@ -610,7 +610,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmPhase('playback');
 
     const intervalMs = 60000 / rhythmBpm;
-    let nextHitIndex = 0;
     
     let beatCount = 0;
     let currentHitIndex = 0;
@@ -1468,7 +1467,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     }
                     setSelectedDifficulty(null);
                     setShowDifficultyDialog(true);
-                  }} className="z-10">Elegir Nivel</Button>
+                  }}>Elegir Nivel</Button>
 
                 <div className="h-10 flex items-center justify-center">
                     {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
