@@ -625,7 +625,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
             const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
             const transitionTimeout = setTimeout(() => {
-                // Failsafe to ensure we transition to 'playing' state
                 if (rhythmPhase === 'playback') {
                     stopRhythmPlaybackAndSing();
                 }
@@ -696,7 +695,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 metronomeIntervalRef.current = null;
             }
         }
-    }, [gameMode, rhythmBpm, playRhythmSound]);
+    }, [gameMode, rhythmBpm, playRhythmSound, rhythmPhase]);
 
 
   useEffect(() => {
@@ -1319,14 +1318,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }
     
     return (
-        <div className="text-center p-4">
-            <p className="text-2xl font-bold text-foreground">
-                {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : "Selecciona una nota"}
-            </p>
-            <p className="text-base text-muted-foreground mt-2">
-                {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : "Haz clic en un círculo para empezar"}
-            </p>
-        </div>
+      <div className="text-center p-4">
+          <p className="text-2xl font-bold text-foreground">
+              {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : "Selecciona una nota"}
+          </p>
+          <p className="text-base text-muted-foreground mt-2">
+              {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : "Haz clic en un círculo para empezar"}
+          </p>
+      </div>
     );
   };
 
@@ -1361,17 +1360,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto h-screen p-4">
-       <div className="w-full h-16 flex items-center justify-center mb-4 relative">
-        <Button onClick={handleBackButtonClick} variant="ghost" className="absolute left-0 text-sm h-auto p-2 z-20">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver
-        </Button>
-        <div className="text-center text-foreground font-semibold text-lg">
-          <p>
-              Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
-          </p>
-          {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
-        </div>
+       <div className="w-full flex items-center justify-between h-16 mb-4">
+          <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver
+          </Button>
+          <div className="text-center text-foreground font-semibold text-lg flex-grow">
+              <p>
+                  Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
+              </p>
+              {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+          </div>
+          <div className="w-16"></div>
       </div>
       
 
