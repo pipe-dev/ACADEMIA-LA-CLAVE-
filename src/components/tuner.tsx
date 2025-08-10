@@ -222,7 +222,7 @@ function TunerSkeleton() {
 const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
     const pendulumDuration = (60 / bpm);
     return (
-        <div className="w-[280px] h-[400px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
+        <div className="w-[240px] h-[320px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
             {/* Screws */}
             <div className="absolute top-3 left-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
             <div className="absolute top-3 right-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
@@ -1169,7 +1169,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
                 
                 <div className="text-center my-4">
-                    <p className="text-5xl font-bold">{rhythmBpm}</p>
+                    <p className="text-4xl font-bold">{rhythmBpm}</p>
                     <p className="text-xl text-muted-foreground">BPM</p>
                 </div>
                 
@@ -1190,7 +1190,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-36 h-36 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
                              rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
@@ -1202,7 +1202,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('clap')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-36 h-36 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-red-600/80 border-4 border-red-800/80",
                             "active:scale-95 active:bg-red-500",
                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
