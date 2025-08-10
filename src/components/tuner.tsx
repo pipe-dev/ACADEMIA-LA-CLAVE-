@@ -595,27 +595,40 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
     
-    setRhythmPhase('playing');
-    setUserRhythmTaps([]);
-    setRhythmStartTime(performance.now());
+    if (rhythmPhaseRef.current === 'playback') {
+        setRhythmPhase('playing');
+        setUserRhythmTaps([]);
+        setRhythmStartTime(performance.now());
+    }
   }, []);
 
+  const rhythmPhaseRef = useRef(rhythmPhase);
+  useEffect(() => {
+    rhythmPhaseRef.current = rhythmPhase;
+  }, [rhythmPhase]);
+
   const playRhythmPattern = useCallback(() => {
-    if (rhythmPattern.length === 0 || rhythmPhase !== 'idle') return;
+    if (rhythmPattern.length === 0 || rhythmPhaseRef.current !== 'idle') return;
 
     setRhythmPhase('playback');
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
 
     const startNextBeatSync = () => {
+        const audioContext = getPlaybackAudioContext();
+        if (!audioContext) return;
+        
         const intervalMs = 60000 / rhythmBpm;
-        const now = performance.now();
+        const now = audioContext.currentTime * 1000;
         const timeSinceLastBeat = now % intervalMs;
         const timeToNextBeat = intervalMs - timeSinceLastBeat;
 
         const startTimeout = setTimeout(() => {
+            if (rhythmPhaseRef.current !== 'playback') return;
+
             rhythmPattern.forEach(hit => {
                 const hitTimeout = setTimeout(() => {
+                    if (rhythmPhaseRef.current !== 'playback') return;
                     playRhythmSound(hit.instrument);
                     setActiveRhythmHit(hit.instrument);
                     setTimeout(() => setActiveRhythmHit(null), 150);
@@ -625,9 +638,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
             const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
             const transitionTimeout = setTimeout(() => {
-                if (rhythmPhase === 'playback') {
-                    stopRhythmPlaybackAndSing();
-                }
+                stopRhythmPlaybackAndSing();
             }, totalDuration);
             scheduledRhythmEvents.current.push(transitionTimeout);
 
@@ -638,7 +649,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
     startNextBeatSync();
 
-  }, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, stopRhythmPlaybackAndSing]);
+  }, [rhythmPattern, rhythmBpm, playRhythmSound, getPlaybackAudioContext, stopRhythmPlaybackAndSing]);
 
   const handleListenStopClick = () => {
     if (rhythmPhase === 'playback') {
@@ -658,7 +669,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
     // Centralized Metronome Management
     useEffect(() => {
-        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'results' || sessionCompleted) {
+        if (gameMode !== 'rhythm-challenge' || sessionCompleted) {
             if (metronomeIntervalRef.current) {
                 clearInterval(metronomeIntervalRef.current);
                 metronomeIntervalRef.current = null;
@@ -671,6 +682,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
              metronomeIntervalRef.current = null;
         }
 
+        const audioContext = getPlaybackAudioContext();
+        if(!audioContext) return;
+
         const intervalMs = 60000 / rhythmBpm;
         
         const tick = () => {
@@ -682,7 +696,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
              metronomeIntervalRef.current = setInterval(tick, intervalMs);
         }
         
-        const now = performance.now();
+        const now = audioContext.currentTime * 1000;
         const timeSinceLastBeat = now % intervalMs;
         const timeToNextBeat = intervalMs - timeSinceLastBeat;
         
@@ -695,7 +709,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 metronomeIntervalRef.current = null;
             }
         }
-    }, [gameMode, rhythmBpm, playRhythmSound, rhythmPhase, sessionCompleted]);
+    }, [gameMode, rhythmBpm, playRhythmSound, sessionCompleted, getPlaybackAudioContext]);
 
 
   useEffect(() => {
@@ -1422,7 +1436,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </Card>
             </div>
 
-            <div className="flex flex-col items-center gap-3 mt-8">
+            <div className="flex flex-col items-center gap-3 mt-16">
                 <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
                     {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
                     {isDetecting ? "Pausar" : "Empezar"}
