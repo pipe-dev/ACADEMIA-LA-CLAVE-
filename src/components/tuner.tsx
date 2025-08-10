@@ -317,7 +317,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
   const metronomeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scheduledRhythmEvents = useRef<NodeJS.Timeout[]>([]);
-  const playbackStartTimeRef = useRef<number>(0);
 
 
   useEffect(() => {
@@ -593,12 +592,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }, [getPlaybackAudioContext]);
 
   const stopRhythmPlaybackAndSing = useCallback(() => {
-    if (metronomeIntervalRef.current) {
-        clearInterval(metronomeIntervalRef.current);
-        metronomeIntervalRef.current = null;
-    }
+    // Clear scheduled pattern sounds, but not the metronome interval
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
+    
     setRhythmPhase('playing');
     setUserRhythmTaps([]);
     setRhythmStartTime(performance.now());
@@ -609,59 +606,31 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
     setRhythmPhase('playback');
 
-    const intervalMs = 60000 / rhythmBpm;
+    // Clear any previous scheduled events
+    scheduledRhythmEvents.current.forEach(clearTimeout);
+    scheduledRhythmEvents.current = [];
+
+    const playbackStartTime = performance.now();
+
+    rhythmPattern.forEach(hit => {
+        const hitTimeout = setTimeout(() => {
+            playRhythmSound(hit.instrument);
+            setActiveRhythmHit(hit.instrument);
+            setTimeout(() => setActiveRhythmHit(null), 150);
+        }, hit.time);
+        scheduledRhythmEvents.current.push(hitTimeout);
+    });
+
+    const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 500 : 0;
     
-    let beatCount = 0;
-    let currentHitIndex = 0;
+    const transitionTimeout = setTimeout(() => {
+        if (rhythmPhase === 'playback') {
+           stopRhythmPlaybackAndSing();
+        }
+    }, totalDuration);
+    scheduledRhythmEvents.current.push(transitionTimeout);
 
-    const startNextBeatSync = () => {
-        const now = performance.now();
-        const timeToNextBeat = intervalMs - (now % intervalMs);
-
-        const startTimeout = setTimeout(() => {
-            if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
-            playbackStartTimeRef.current = performance.now(); 
-
-            const intervalTick = () => {
-                 playRhythmSound('tick');
-                 
-                 const elapsedTime = (beatCount * intervalMs);
-
-                 if (currentHitIndex < rhythmPattern.length) {
-                     const hit = rhythmPattern[currentHitIndex];
-                     if (elapsedTime >= hit.time - 5) { // 5ms tolerance
-                         playRhythmSound(hit.instrument);
-                         setActiveRhythmHit(hit.instrument);
-                         setTimeout(() => setActiveRhythmHit(null), 150);
-                         currentHitIndex++;
-                     }
-                 }
-                 
-                 beatCount++;
-
-                 const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + intervalMs : 0;
-                 if (elapsedTime >= totalDuration) {
-                     if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
-                     const endTimeout = setTimeout(() => {
-                         if (rhythmPhase === 'playback') {
-                            stopRhythmPlaybackAndSing();
-                         }
-                    }, intervalMs);
-                    scheduledRhythmEvents.current.push(endTimeout);
-                 }
-            };
-            
-            intervalTick(); // play first beat immediately
-            metronomeIntervalRef.current = setInterval(intervalTick, intervalMs);
-
-        }, timeToNextBeat);
-        
-        scheduledRhythmEvents.current = [startTimeout];
-    };
-
-    startNextBeatSync();
-
-  }, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, getPlaybackAudioContext, stopRhythmPlaybackAndSing]);
+  }, [rhythmPattern, rhythmPhase, playRhythmSound, stopRhythmPlaybackAndSing]);
 
 
   const handleListenStopClick = () => {
@@ -681,7 +650,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }, [gameMode, rhythmPhase, rhythmPattern, playRhythmPattern]);
     
      useEffect(() => {
-        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'results' || rhythmPhase === 'playback') {
+        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'results') {
             if (metronomeIntervalRef.current) {
                 clearInterval(metronomeIntervalRef.current);
                 metronomeIntervalRef.current = null;
@@ -689,7 +658,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             return;
         }
         
-        if (rhythmPhase === 'playing' && !metronomeIntervalRef.current) {
+        if ( (rhythmPhase === 'playing' || rhythmPhase === 'playback') && !metronomeIntervalRef.current) {
             const intervalMs = 60000 / rhythmBpm;
             
             const tick = () => {
@@ -711,6 +680,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 clearTimeout(startTimeout);
                 if (metronomeIntervalRef.current) {
                     clearInterval(metronomeIntervalRef.current);
+                    metronomeIntervalRef.current = null;
                 }
             }
         }
@@ -1322,7 +1292,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const challengeProgress = (inTuneTime / challengeDuration) * 100;
         return (
             <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
-                <p className="text-7xl font-bold text-primary">{activeNote.fullName}</p>
+                <p className="text-5xl font-bold text-primary">{activeNote.fullName}</p>
                 <p className="text-md text-muted-foreground -mt-1">Canta la nota</p>
                 <div className="w-4/5 pt-2">
                     <Progress value={challengeProgress} className="h-3" />
@@ -1352,7 +1322,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             <p className="text-2xl font-bold text-foreground">
                 {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : "Selecciona una nota"}
             </p>
-            <p className="text-muted-foreground mt-2 text-base">
+            <p className="text-base text-muted-foreground mt-2">
                 {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : "Haz clic en un círculo para empezar"}
             </p>
         </div>
@@ -1390,15 +1360,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto h-screen p-4">
-      <div className="w-full h-16 flex items-center justify-center mb-4 relative">
-        <div className="absolute left-0">
-          <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2 z-20">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
+       <div className="w-full h-16 flex items-center justify-center mb-4 relative">
+        <Button onClick={handleBackButtonClick} variant="ghost" className="absolute left-0 text-sm h-auto p-2 z-20">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Volver
         </Button>
-        </div>
-       
-        <div className="text-center text-foreground font-semibold text-lg absolute top-1/2 -translate-y-1/2">
+        <div className="text-center text-foreground font-semibold text-lg">
           <p>
               Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
           </p>
