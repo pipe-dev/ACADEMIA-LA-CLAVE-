@@ -1142,7 +1142,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             setRhythmPhase('results');
             
             let score = 0;
-            const timeTolerance = 250; // ms
+            const timeTolerance = 200; // ms
             const maxScorePerHit = 100 / rhythmPattern.length;
             
             rhythmPattern.forEach((patternHit, i) => {
@@ -1209,7 +1209,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-32 h-32 sm:w-36 sm:h-36 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-36 h-36 sm:w-44 sm:h-44 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
                              rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
@@ -1221,7 +1221,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('clap')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-32 h-32 sm:w-36 sm:h-36 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-36 h-36 sm:w-44 sm:h-44 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-red-600/80 border-4 border-red-800/80",
                             "active:scale-95 active:bg-red-500",
                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
@@ -1490,7 +1490,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
               </AlertDialogHeader>
               <div className="pt-4">
                   {selectedDifficulty ? (
-                      <div className="grid grid-cols-3 xs:grid-cols-4 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-4 gap-3 sm:gap-4">
                           {Array.from({ length: difficultySettings[selectedDifficulty].levelCount }, (_, i) => i + 1).map(level => {
                               const isCompleted = progress[selectedDifficulty]?.[level];
                               
