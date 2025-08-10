@@ -1390,7 +1390,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto h-screen p-4">
-      <div className="w-full h-12 flex items-center justify-center mb-4">
+      <div className="w-full h-16 flex items-center justify-center mb-4 relative">
         <div className="absolute left-0">
           <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2 z-20">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1398,7 +1398,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         </Button>
         </div>
        
-        <div className="text-center text-foreground font-semibold text-lg">
+        <div className="text-center text-foreground font-semibold text-lg absolute top-1/2 -translate-y-1/2">
           <p>
               Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
           </p>
@@ -1447,7 +1447,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     <div className="text-muted-foreground">Cargando desafío...</div>
                 )}
             
-                <Card className="absolute w-[180px] h-[180px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                <Card className="absolute w-[220px] h-[220px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
                     <CardContent className="p-2 flex items-center justify-center">
                         {renderCentralContent()}
                     </CardContent>
