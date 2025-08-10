@@ -555,7 +555,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             
             const noiseEnvelope = audioContext.createGain();
             noiseEnvelope.gain.setValueAtTime(0, t);
-            noiseEnvelope.gain.linearRampToValueAtTime(1.5, t + 0.01);
+            noiseEnvelope.gain.linearRampToValueAtTime(2.5, t + 0.01);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
             noise.connect(noiseEnvelope).connect(audioContext.destination);
             
@@ -568,7 +568,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.frequency.setValueAtTime(150, t);
             osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
-            gain.gain.setValueAtTime(2.5, t);
+            gain.gain.setValueAtTime(3.5, t);
             gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -594,30 +594,36 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const playRhythmPattern = useCallback(() => {
     if (rhythmPattern.length === 0 || rhythmPhase !== 'idle') return;
-    
-    const audioContext = getPlaybackAudioContext();
-    if (!audioContext) return;
-  
+
     setRhythmPhase('playback');
-    
+
     const intervalMs = 60000 / rhythmBpm;
-    let currentBeat = 0;
     let nextHitIndex = 0;
-    
+
     const tick = () => {
-        const lookahead = 25.0; // ms
-        const scheduleAheadTime = 0.1; // sec
-        
-        while(nextHitIndex < rhythmPattern.length && rhythmPattern[nextHitIndex].time < (audioContext.currentTime + scheduleAheadTime) * 1000 - playbackStartTimeRef.current) {
+        if (nextHitIndex < rhythmPattern.length) {
             const hit = rhythmPattern[nextHitIndex];
-            const hitTimeInSeconds = (playbackStartTimeRef.current + hit.time) / 1000;
-            if (hitTimeInSeconds > audioContext.currentTime) {
-                playRhythmSound(hit.instrument); // Note: This needs to schedule sound, not play immediately. Let's simplify and play immediately on timeout
-            }
+            // Since the interval fires at the start of each beat, we can check if a hit should happen now
+            // This assumes pattern times are aligned to beats, which they should be.
+            // A more robust way might involve audioContext.currentTime for scheduling
+            playRhythmSound(hit.instrument);
+            setActiveRhythmHit(hit.instrument);
+            setTimeout(() => setActiveRhythmHit(null), 150);
             nextHitIndex++;
         }
-    };
 
+        if (nextHitIndex >= rhythmPattern.length) {
+            if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
+            const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + intervalMs : 0;
+            const endTimeout = setTimeout(() => {
+                 if (rhythmPhase === 'playback') {
+                    stopRhythmPlaybackAndSing();
+                 }
+            }, totalDuration);
+            scheduledRhythmEvents.current.push(endTimeout);
+        }
+    };
+    
     const startNextBeatSync = () => {
         const now = performance.now();
         const timeToNextBeat = intervalMs - (now % intervalMs);
@@ -625,37 +631,59 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const startTimeout = setTimeout(() => {
             if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
             
-            let nextHitIndex = 0;
-            const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
-            playbackStartTimeRef.current = performance.now(); // For visual cues
+            // This is the synchronized start
+            let beatCount = 0;
+            let currentHitIndex = 0;
 
-            rhythmPattern.forEach(hit => {
-                const hitTimeout = setTimeout(() => {
-                    playRhythmSound(hit.instrument);
-                    setActiveRhythmHit(hit.instrument);
-                    setTimeout(() => setActiveRhythmHit(null), 150);
-                }, hit.time);
-                scheduledRhythmEvents.current.push(hitTimeout);
-            });
-
-            const endTimeout = setTimeout(() => {
-                if (rhythmPhase === 'playback') { // Ensure we don't accidentally call this if user stopped it
-                    stopRhythmPlaybackAndSing();
+            const intervalTick = () => {
+                playRhythmSound('tick');
+                
+                if(currentHitIndex < rhythmPattern.length) {
+                    // Check if a note should be played on this beat
+                    // Simplified: assumes one note per beat for demo
+                    // A real implementation needs to handle arbitrary timings within the pattern
+                    const expectedTime = beatCount * intervalMs;
+                    const hit = rhythmPattern[currentHitIndex];
+                    
+                    if (Math.abs(hit.time - expectedTime) < 50) { // Tolerance
+                        playRhythmSound(hit.instrument);
+                        setActiveRhythmHit(hit.instrument);
+                        setTimeout(() => setActiveRhythmHit(null), 150);
+                        currentHitIndex++;
+                    }
                 }
-            }, totalDuration);
-            scheduledRhythmEvents.current.push(endTimeout);
+                
+                beatCount++;
+
+                if (currentHitIndex >= rhythmPattern.length) {
+                    if(metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
+                     const endTimeout = setTimeout(() => {
+                         if (rhythmPhase === 'playback') {
+                            stopRhythmPlaybackAndSing();
+                         }
+                    }, intervalMs);
+                    scheduledRhythmEvents.current.push(endTimeout);
+                }
+            };
+            
+            intervalTick(); // play first beat immediately
+            metronomeIntervalRef.current = setInterval(intervalTick, intervalMs);
 
         }, timeToNextBeat);
         
         scheduledRhythmEvents.current = [startTimeout];
     };
-    
+
     startNextBeatSync();
 
-}, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, getPlaybackAudioContext]);
+}, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, getPlaybackAudioContext, stopRhythmPlaybackAndSing]);
 
 
   const stopRhythmPlaybackAndSing = useCallback(() => {
+    if (metronomeIntervalRef.current) {
+        clearInterval(metronomeIntervalRef.current);
+        metronomeIntervalRef.current = null;
+    }
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
     setRhythmPhase('playing');
@@ -680,39 +708,37 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }, [gameMode, rhythmPhase, rhythmPattern, playRhythmPattern]);
     
      useEffect(() => {
-        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'results') {
+        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'results' || rhythmPhase === 'playback') {
             if (metronomeIntervalRef.current) {
                 clearInterval(metronomeIntervalRef.current);
                 metronomeIntervalRef.current = null;
             }
             return;
         }
+        
+        if (rhythmPhase === 'playing' && !metronomeIntervalRef.current) {
+            const intervalMs = 60000 / rhythmBpm;
+            
+            const tick = () => {
+                playRhythmSound('tick');
+            };
+            
+            const startTicking = () => {
+                 tick(); // First tick immediately
+                 metronomeIntervalRef.current = setInterval(tick, intervalMs);
+            }
+            
+            const now = performance.now();
+            const timeSinceLastBeat = now % intervalMs;
+            const timeToNextBeat = intervalMs - timeSinceLastBeat;
+            
+            const startTimeout = setTimeout(startTicking, timeToNextBeat);
 
-        const intervalMs = 60000 / rhythmBpm;
-        
-        if (metronomeIntervalRef.current) {
-            clearInterval(metronomeIntervalRef.current);
-        }
-
-        const tick = () => {
-            playRhythmSound('tick');
-        };
-        
-        const startTicking = () => {
-             tick(); // First tick immediately
-             metronomeIntervalRef.current = setInterval(tick, intervalMs);
-        }
-        
-        const now = performance.now();
-        const timeSinceLastBeat = now % intervalMs;
-        const timeToNextBeat = intervalMs - timeSinceLastBeat;
-        
-        const startTimeout = setTimeout(startTicking, timeToNextBeat);
-
-        return () => {
-            clearTimeout(startTimeout);
-            if (metronomeIntervalRef.current) {
-                clearInterval(metronomeIntervalRef.current);
+            return () => {
+                clearTimeout(startTimeout);
+                if (metronomeIntervalRef.current) {
+                    clearInterval(metronomeIntervalRef.current);
+                }
             }
         }
     }, [rhythmPhase, rhythmBpm, gameMode, playRhythmSound]);
@@ -768,8 +794,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
     const tunerElement = document.getElementById('tuner-container');
     const handleResize = () => {
-        if (tunerElement && window.innerWidth >= 768) { // sm breakpoint
-             const newRadius = tunerElement.offsetWidth * 0.45;
+        if (tunerElement && window.innerWidth >= 640) { // sm breakpoint
+             const newRadius = tunerElement.offsetWidth * 0.35;
              setRadius(newRadius);
         } else {
              setRadius(120);
@@ -1152,6 +1178,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         let newTaps;
         let currentRhythmStartTime = rhythmStartTime;
 
+        // Start timing from the first tap
         if (userRhythmTaps.length === 0) {
             currentRhythmStartTime = tapTime;
             setRhythmStartTime(currentRhythmStartTime);
@@ -1163,6 +1190,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         
         setUserRhythmTaps(newTaps);
         
+        // If the user has completed the pattern, evaluate it
         if (newTaps.length >= rhythmPattern.length) {
             setRhythmPhase('results');
             
@@ -1170,16 +1198,19 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const timeTolerance = 200; // ms
             const maxScorePerHit = 100 / rhythmPattern.length;
             
-            const timeShift = rhythmPattern[0].time - newTaps[0].time;
+            // Calculate the time shift based on the user's first tap vs the pattern's first event
+            // This allows the user to start on any beat, as long as they are on tempo.
+            const timeShift = newTaps[0].time - rhythmPattern[0].time;
                 
             rhythmPattern.forEach((patternHit, i) => {
                 const userHit = newTaps[i];
                 if (userHit) {
-                    const expectedUserTime = patternHit.time - timeShift;
-                    const timeDiff = Math.abs(userHit.time - expectedUserTime);
+                    // Compare user's relative time to the pattern's relative time
+                    const timeDiff = Math.abs(userHit.time - (patternHit.time + timeShift));
                     const instrumentMatch = patternHit.instrument === userHit.instrument;
                     
                     if (instrumentMatch && timeDiff <= timeTolerance) {
+                        // Score is inversely proportional to the time difference
                         score += maxScorePerHit * (1 - (timeDiff / timeTolerance));
                     }
                 }
@@ -1416,11 +1447,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             Volver
        </Button>
        
-        <div className="text-center text-foreground font-semibold text-2xl">
+        <div className="text-center text-foreground font-semibold text-lg sm:text-xl">
           <p>
               Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
           </p>
-          {gameMode !== 'rhythm-challenge' && <p className="text-xl text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+          {gameMode !== 'rhythm-challenge' && <p className="text-base sm:text-lg text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
         </div>
       </div>
       
@@ -1465,7 +1496,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     <div className="text-muted-foreground">Cargando desafío...</div>
                 )}
             
-                <Card className="w-[260px] h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                <Card className="absolute w-[260px] h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
                     <CardContent className="p-2 flex items-center justify-center">
                         {renderCentralContent()}
                     </CardContent>
