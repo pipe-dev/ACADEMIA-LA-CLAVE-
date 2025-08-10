@@ -592,6 +592,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         }
     }, [getPlaybackAudioContext]);
 
+  const stopRhythmPlaybackAndSing = useCallback(() => {
+    if (metronomeIntervalRef.current) {
+        clearInterval(metronomeIntervalRef.current);
+        metronomeIntervalRef.current = null;
+    }
+    scheduledRhythmEvents.current.forEach(clearTimeout);
+    scheduledRhythmEvents.current = [];
+    setRhythmPhase('playing');
+    setUserRhythmTaps([]);
+    setRhythmStartTime(performance.now());
+  }, []);
+
   const playRhythmPattern = useCallback(() => {
     if (rhythmPattern.length === 0 || rhythmPhase !== 'idle') return;
 
@@ -676,20 +688,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
     startNextBeatSync();
 
-}, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, getPlaybackAudioContext, stopRhythmPlaybackAndSing]);
+  }, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, getPlaybackAudioContext, stopRhythmPlaybackAndSing]);
 
-
-  const stopRhythmPlaybackAndSing = useCallback(() => {
-    if (metronomeIntervalRef.current) {
-        clearInterval(metronomeIntervalRef.current);
-        metronomeIntervalRef.current = null;
-    }
-    scheduledRhythmEvents.current.forEach(clearTimeout);
-    scheduledRhythmEvents.current = [];
-    setRhythmPhase('playing');
-    setUserRhythmTaps([]);
-    setRhythmStartTime(performance.now());
-  }, []);
 
   const handleListenStopClick = () => {
     if (rhythmPhase === 'playback') {
@@ -1440,8 +1440,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
   
   return (
-    <div className="flex flex-col items-center gap-4 w-full max-w-5xl mx-auto h-screen p-4">
-      <div className="relative w-full h-12 flex items-center justify-center">
+    <div className="flex flex-col items-center w-full max-w-5xl mx-auto h-screen p-4">
+      <div className="relative w-full h-12 flex items-center justify-center mb-4">
         <Button onClick={handleBackButtonClick} variant="ghost" className="absolute left-0 text-sm h-auto p-2 z-20">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
@@ -1461,7 +1461,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             {renderRhythmGame()}
         </div>
       ) : (
-        <>
+        <div className="w-full flex-grow flex flex-col items-center justify-center">
             <div id="tuner-container" className="relative w-full flex-grow flex items-center justify-center">
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
@@ -1503,7 +1503,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </Card>
             </div>
 
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 mt-4">
                 <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
                     {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
                     {isDetecting ? "Pausar" : "Empezar"}
@@ -1529,7 +1529,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     setShowDifficultyDialog(true);
                   }} className="z-10">Elegir Nivel</Button>
             </div>
-        </>
+        </div>
       )}
 
 
@@ -1659,3 +1659,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
