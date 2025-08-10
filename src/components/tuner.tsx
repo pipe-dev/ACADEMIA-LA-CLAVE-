@@ -592,11 +592,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }, [getPlaybackAudioContext]);
 
   const stopRhythmPlaybackAndSing = useCallback(() => {
-    // Clear scheduled pattern sounds
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
     
-    // Switch to playing phase for user input
     setRhythmPhase('playing');
     setUserRhythmTaps([]);
     setRhythmStartTime(performance.now());
@@ -606,31 +604,42 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (rhythmPattern.length === 0 || rhythmPhase !== 'idle') return;
 
     setRhythmPhase('playback');
-
-    // Clear any previous scheduled events
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
 
-    rhythmPattern.forEach(hit => {
-        const hitTimeout = setTimeout(() => {
-            playRhythmSound(hit.instrument);
-            setActiveRhythmHit(hit.instrument);
-            setTimeout(() => setActiveRhythmHit(null), 150);
-        }, hit.time);
-        scheduledRhythmEvents.current.push(hitTimeout);
-    });
+    const startNextBeatSync = () => {
+        const intervalMs = 60000 / rhythmBpm;
+        const now = performance.now();
+        const timeSinceLastBeat = now % intervalMs;
+        const timeToNextBeat = intervalMs - timeSinceLastBeat;
 
-    const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 500 : 0;
-    
-    // Automatically transition to user playing mode after pattern finishes
-    const transitionTimeout = setTimeout(() => {
-       if (rhythmPhase === 'playback') {
-           stopRhythmPlaybackAndSing();
-       }
-    }, totalDuration);
-    scheduledRhythmEvents.current.push(transitionTimeout);
+        const startTimeout = setTimeout(() => {
+            const playbackStartTime = performance.now();
+            rhythmPattern.forEach(hit => {
+                const hitTimeout = setTimeout(() => {
+                    playRhythmSound(hit.instrument);
+                    setActiveRhythmHit(hit.instrument);
+                    setTimeout(() => setActiveRhythmHit(null), 150);
+                }, hit.time);
+                scheduledRhythmEvents.current.push(hitTimeout);
+            });
 
-  }, [rhythmPattern, rhythmPhase, playRhythmSound, stopRhythmPlaybackAndSing]);
+            const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
+            const transitionTimeout = setTimeout(() => {
+                if (rhythmPhase === 'playback') {
+                    stopRhythmPlaybackAndSing();
+                }
+            }, totalDuration);
+            scheduledRhythmEvents.current.push(transitionTimeout);
+
+        }, timeToNextBeat);
+
+        scheduledRhythmEvents.current.push(startTimeout);
+    };
+
+    startNextBeatSync();
+
+  }, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, stopRhythmPlaybackAndSing]);
 
   const handleListenStopClick = () => {
     if (rhythmPhase === 'playback') {
@@ -650,46 +659,44 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
     // Centralized Metronome Management
     useEffect(() => {
-        const isRhythmActive = gameMode === 'rhythm-challenge' && (rhythmPhase === 'playback' || rhythmPhase === 'playing');
-
-        if (isRhythmActive && !metronomeIntervalRef.current) {
-            const intervalMs = 60000 / rhythmBpm;
-            
-            const tick = () => {
-                playRhythmSound('tick');
-            };
-            
-            const startTicking = () => {
-                 tick();
-                 metronomeIntervalRef.current = setInterval(tick, intervalMs);
+        if (gameMode !== 'rhythm-challenge') {
+            if (metronomeIntervalRef.current) {
+                clearInterval(metronomeIntervalRef.current);
+                metronomeIntervalRef.current = null;
             }
-            
-            const now = performance.now();
-            const timeSinceLastBeat = now % intervalMs;
-            const timeToNextBeat = intervalMs - timeSinceLastBeat;
-            
-            const startTimeout = setTimeout(startTicking, timeToNextBeat);
-
-            return () => {
-                clearTimeout(startTimeout);
-                if (metronomeIntervalRef.current) {
-                    clearInterval(metronomeIntervalRef.current);
-                    metronomeIntervalRef.current = null;
-                }
-            }
-        } else if (!isRhythmActive && metronomeIntervalRef.current) {
-            clearInterval(metronomeIntervalRef.current);
-            metronomeIntervalRef.current = null;
+            return;
         }
 
-        // Cleanup on unmount or when dependencies change in a way that should stop the metronome
+        if (metronomeIntervalRef.current) {
+             clearInterval(metronomeIntervalRef.current);
+             metronomeIntervalRef.current = null;
+        }
+
+        const intervalMs = 60000 / rhythmBpm;
+        
+        const tick = () => {
+            playRhythmSound('tick');
+        };
+        
+        const startTicking = () => {
+             tick();
+             metronomeIntervalRef.current = setInterval(tick, intervalMs);
+        }
+        
+        const now = performance.now();
+        const timeSinceLastBeat = now % intervalMs;
+        const timeToNextBeat = intervalMs - timeSinceLastBeat;
+        
+        const startTimeout = setTimeout(startTicking, timeToNextBeat);
+
         return () => {
-             if (metronomeIntervalRef.current) {
+            clearTimeout(startTimeout);
+            if (metronomeIntervalRef.current) {
                 clearInterval(metronomeIntervalRef.current);
                 metronomeIntervalRef.current = null;
             }
         }
-    }, [gameMode, rhythmPhase, rhythmBpm, playRhythmSound]);
+    }, [gameMode, rhythmBpm, playRhythmSound]);
 
 
   useEffect(() => {
@@ -918,10 +925,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmPhase('idle');
     setRhythmScore(0);
     setUserRhythmTaps([]);
-    if (metronomeIntervalRef.current) {
-        clearInterval(metronomeIntervalRef.current);
-        metronomeIntervalRef.current = null;
-    }
 
 
     if (newGameMode === "rhythm-challenge") {
@@ -1038,10 +1041,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     inTuneSinceRef.current = null;
     setSimonPhase('idle');
     setIsPaused(false);
-    if (metronomeIntervalRef.current) {
-        clearInterval(metronomeIntervalRef.current);
-        metronomeIntervalRef.current = null;
-    }
     if (!isDetecting) {
       start();
     }
@@ -1084,9 +1083,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const handleBackButtonClick = () => {
     stop();
-    if (metronomeIntervalRef.current) {
-        clearInterval(metronomeIntervalRef.current);
-    }
     onGoBack();
   }
   
