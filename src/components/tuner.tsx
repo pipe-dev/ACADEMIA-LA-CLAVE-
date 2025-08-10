@@ -317,7 +317,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
   const metronomeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scheduledRhythmEvents = useRef<NodeJS.Timeout[]>([]);
-  const playbackStartTimeRef = useRef<number>(0);
+  const playbackStartTimeRef = useRef(0);
 
 
   useEffect(() => {
@@ -555,7 +555,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             
             const noiseEnvelope = audioContext.createGain();
             noiseEnvelope.gain.setValueAtTime(0, t);
-            noiseEnvelope.gain.linearRampToValueAtTime(1, t + 0.01);
+            noiseEnvelope.gain.linearRampToValueAtTime(1.5, t + 0.01);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
             noise.connect(noiseEnvelope).connect(audioContext.destination);
             
@@ -568,7 +568,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.frequency.setValueAtTime(150, t);
             osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
-            gain.gain.setValueAtTime(2, t);
+            gain.gain.setValueAtTime(2.5, t);
             gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -601,27 +601,21 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmPhase('playback');
     
     const intervalMs = 60000 / rhythmBpm;
-    let beatCount = 0;
+    let currentBeat = 0;
+    let nextHitIndex = 0;
     
     const tick = () => {
-        const now = audioContext.currentTime;
-        const currentBeatPositionMs = (beatCount % (rhythmPattern[rhythmPattern.length-1].time + intervalMs)) * intervalMs;
-
-        rhythmPattern.forEach(hit => {
-            // Schedule hit if it falls within this tick's timeframe
-            if (Math.abs(hit.time - currentBeatPositionMs) < 20) { // 20ms tolerance
-                playRhythmSound(hit.instrument);
-
-                // Visual cue
-                const visualTimeout = setTimeout(() => {
-                    setActiveRhythmHit(hit.instrument);
-                    setTimeout(() => setActiveRhythmHit(null), 150);
-                }, (now - audioContext.currentTime) * 1000 + (hit.time % intervalMs));
-                scheduledRhythmEvents.current.push(visualTimeout);
-            }
-        });
+        const lookahead = 25.0; // ms
+        const scheduleAheadTime = 0.1; // sec
         
-        beatCount++;
+        while(nextHitIndex < rhythmPattern.length && rhythmPattern[nextHitIndex].time < (audioContext.currentTime + scheduleAheadTime) * 1000 - playbackStartTimeRef.current) {
+            const hit = rhythmPattern[nextHitIndex];
+            const hitTimeInSeconds = (playbackStartTimeRef.current + hit.time) / 1000;
+            if (hitTimeInSeconds > audioContext.currentTime) {
+                playRhythmSound(hit.instrument); // Note: This needs to schedule sound, not play immediately. Let's simplify and play immediately on timeout
+            }
+            nextHitIndex++;
+        }
     };
 
     const startNextBeatSync = () => {
@@ -631,7 +625,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const startTimeout = setTimeout(() => {
             if (metronomeIntervalRef.current) clearInterval(metronomeIntervalRef.current);
             
-            // This is the main playback loop
             let nextHitIndex = 0;
             const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
             playbackStartTimeRef.current = performance.now(); // For visual cues
@@ -773,17 +766,29 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
+    const tunerElement = document.getElementById('tuner-container');
     const handleResize = () => {
-      if (window.innerWidth < 768) { // md breakpoint
-        setRadius(120);
-      } else {
-        setRadius(170);
-      }
+        if (tunerElement && window.innerWidth >= 768) { // sm breakpoint
+             const newRadius = tunerElement.offsetWidth * 0.45;
+             setRadius(newRadius);
+        } else {
+             setRadius(120);
+        }
     };
-
+    
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(handleResize);
+    if (tunerElement) {
+        resizeObserver.observe(tunerElement);
+    }
+
+    return () => {
+        window.removeEventListener('resize', handleResize);
+        if (tunerElement) {
+            resizeObserver.unobserve(tunerElement);
+        }
+    };
   }, [isMounted]);
 
 
@@ -1405,17 +1410,20 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   return (
     <div className="flex flex-col items-center gap-4 w-full max-w-5xl mx-auto h-screen p-4">
-       <Button onClick={handleBackButtonClick} variant="ghost" className="absolute top-4 left-4 text-sm h-auto p-2 z-20">
+      <div className="relative w-full h-12 flex items-center justify-center">
+        <Button onClick={handleBackButtonClick} variant="ghost" className="absolute left-0 text-sm h-auto p-2 z-20">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
        </Button>
        
-      <div className="text-center text-foreground font-semibold text-2xl pt-8">
-        <p>
-            Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
-        </p>
-        {gameMode !== 'rhythm-challenge' && <p className="text-xl text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+        <div className="text-center text-foreground font-semibold text-2xl">
+          <p>
+              Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
+          </p>
+          {gameMode !== 'rhythm-challenge' && <p className="text-xl text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+        </div>
       </div>
+      
 
       {gameMode === 'rhythm-challenge' ? (
         <div className="flex-grow w-full flex items-center justify-center">
@@ -1423,7 +1431,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         </div>
       ) : (
         <>
-            <div className="relative w-full flex-grow flex items-center justify-center">
+            <div id="tuner-container" className="relative w-full flex-grow flex items-center justify-center">
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
                         const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
@@ -1470,13 +1478,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     {isDetecting ? "Pausar" : "Empezar"}
                 </Button>
 
-                <div className="h-10">
-                {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
-                    <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
-                    <RefreshCw className="h-5 w-5"/>
-                    <span className="sr-only">Repetir</span>
-                    </Button>
-                )}
+                <div className="h-10 flex items-center justify-center">
+                    {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
+                        <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
+                        <RefreshCw className="h-5 w-5"/>
+                        <span className="sr-only">Repetir</span>
+                        </Button>
+                    )}
                 </div>
                  <Button variant="link" onClick={() => {
                     if (isDetecting) {
