@@ -614,7 +614,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const timeToNextBeat = intervalMs - timeSinceLastBeat;
 
         const startTimeout = setTimeout(() => {
-            const playbackStartTime = performance.now();
             rhythmPattern.forEach(hit => {
                 const hitTimeout = setTimeout(() => {
                     playRhythmSound(hit.instrument);
@@ -626,6 +625,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
             const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
             const transitionTimeout = setTimeout(() => {
+                // Failsafe to ensure we transition to 'playing' state
                 if (rhythmPhase === 'playback') {
                     stopRhythmPlaybackAndSing();
                 }
