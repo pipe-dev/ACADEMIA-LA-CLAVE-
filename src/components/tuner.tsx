@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square } from "lucide-react";
@@ -219,7 +220,7 @@ function TunerSkeleton() {
   }
 
 const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
-    const pendulumDuration = (60 / bpm); // Duration for a full swing (left to right and back)
+    const pendulumDuration = (120 / bpm); // Duration for a full swing (left to right and back)
     return (
         <div className="w-[280px] h-[400px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
             {/* Screws */}
@@ -316,6 +317,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
   const metronomeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scheduledRhythmEvents = useRef<NodeJS.Timeout[]>([]);
+  const playbackStartTimeRef = useRef<number>(0);
 
 
   useEffect(() => {
@@ -557,7 +559,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             noiseFilter.Q.value = 0.5;
 
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(16, t);
+            noiseEnvelope.gain.setValueAtTime(24, t);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             
             noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
@@ -581,7 +583,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             noise.buffer = buffer;
             
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(16, t);
+            noiseEnvelope.gain.setValueAtTime(24, t);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
             noise.connect(noiseEnvelope).connect(audioContext.destination);
             
@@ -594,7 +596,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.frequency.setValueAtTime(150, t);
             osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
-            gain.gain.setValueAtTime(16, t);
+            gain.gain.setValueAtTime(24, t);
             gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -1194,27 +1196,21 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             
             // The first hit's timing doesn't matter, it sets the reference.
             // But we must check if the instrument is correct.
-            if (newTaps[0].instrument === rhythmPattern[0].instrument) {
-                // Find offset between user's start and theoretical start
-                const userOffset = newTaps[0].time;
-                const patternOffset = rhythmPattern[0].time;
-                const timeShift = userOffset - patternOffset;
+            const userOffset = newTaps[0].time;
+            const timeShift = rhythmPattern[0].time - userOffset;
                 
-                rhythmPattern.forEach((patternHit, i) => {
-                    const userHit = newTaps[i];
-                    if (userHit) {
-                        const expectedRelativeTime = patternHit.time;
-                        const userRelativeTime = userHit.time;
-                        
-                        const timeDiff = Math.abs(userRelativeTime - (expectedRelativeTime + timeShift));
-                        const instrumentMatch = patternHit.instrument === userHit.instrument;
-                        
-                        if (instrumentMatch && timeDiff <= timeTolerance) {
-                            score += maxScorePerHit * (1 - (timeDiff / timeTolerance));
-                        }
+            rhythmPattern.forEach((patternHit, i) => {
+                const userHit = newTaps[i];
+                if (userHit) {
+                    const expectedUserTime = patternHit.time - timeShift;
+                    const timeDiff = Math.abs(userHit.time - expectedUserTime);
+                    const instrumentMatch = patternHit.instrument === userHit.instrument;
+                    
+                    if (instrumentMatch && timeDiff <= timeTolerance) {
+                        score += maxScorePerHit * (1 - (timeDiff / timeTolerance));
                     }
-                });
-            }
+                }
+            });
             
             setRhythmScore(score);
 
@@ -1270,11 +1266,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-44 h-44 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                            "bg-red-600/80 border-4 border-red-800/80",
-                            "active:scale-95 active:bg-red-500",
+                            "w-32 h-32 sm:w-44 sm:h-44 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "bg-blue-600/80 border-4 border-blue-800/80",
+                            "active:scale-95 active:bg-blue-500",
                              rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                             (activeRhythmHit === 'kick') && "neon-glow border-red-400"
+                             (activeRhythmHit === 'kick') && "neon-glow border-blue-400"
                         )}
                          style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     />
@@ -1282,11 +1278,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('clap')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-44 h-44 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                            "bg-blue-600/80 border-4 border-blue-800/80",
-                            "active:scale-95 active:bg-blue-500",
+                            "w-32 h-32 sm:w-44 sm:h-44 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "bg-red-600/80 border-4 border-red-800/80",
+                            "active:scale-95 active:bg-red-500",
                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                            (activeRhythmHit === 'clap') && "neon-glow border-blue-400"
+                            (activeRhythmHit === 'clap') && "neon-glow border-red-400"
                         )}
                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     />
