@@ -1399,8 +1399,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             {renderRhythmGame()}
         </div>
       ) : (
-        <div className="w-full flex-grow flex flex-col items-center">
-            <div id="tuner-container" className="relative w-full my-auto flex items-center justify-center">
+        <div className="w-full flex-grow flex flex-col items-center justify-center">
+            <div id="tuner-container" className="relative w-full flex items-center justify-center">
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
                         const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
@@ -1441,7 +1441,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </Card>
             </div>
 
-            <div className="flex flex-col items-center gap-3 mt-16">
+            <div className="flex flex-col items-center gap-3 mt-4">
                 <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
                     {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
                     {isDetecting ? "Pausar" : "Empezar"}
