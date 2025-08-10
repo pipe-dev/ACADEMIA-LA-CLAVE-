@@ -560,7 +560,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             noiseFilter.Q.value = 0.5;
 
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(8 * 2, t);
+            noiseEnvelope.gain.setValueAtTime(16, t);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             
             noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
@@ -579,12 +579,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 const white = Math.random() * 2 - 1;
                 data[i] = (lastValue + (0.02 * white)) / 1.02;
                 lastValue = data[i];
-                data[i] *= (3.5 * 2) * 2; // boost x2 x2
+                data[i] *= 16 * 2;
             }
             noise.buffer = buffer;
             
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(8 * 2, t);
+            noiseEnvelope.gain.setValueAtTime(16, t);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
             noise.connect(noiseEnvelope).connect(audioContext.destination);
             
@@ -597,16 +597,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.frequency.setValueAtTime(150, t);
             osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
-            gain.gain.setValueAtTime(8 * 2, t); // boost x2
+            gain.gain.setValueAtTime(16, t);
             gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
             osc.stop(t + 0.1);
         };
 
-        if (instrument === 'clap') { // RED button sound
+        if (instrument === 'clap') {
             createClap();
-        } else if (instrument === 'kick') { // BLUE button sound
+        } else if (instrument === 'kick') {
             createKick();
             createSnare();
         } else { // tick
@@ -614,7 +614,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(1200, t);
-            gain.gain.setValueAtTime(2.5 * 5, t); // Increased volume x5
+            gain.gain.setValueAtTime(12.5, t);
             gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -624,36 +624,75 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
     const playRhythmPattern = useCallback(() => {
       if (rhythmPattern.length === 0 || rhythmPhase !== 'idle') return;
+      
+      const audioContext = getPlaybackAudioContext();
+      if (!audioContext) return;
+    
       setRhythmPhase('playback');
       
       const intervalMs = 60000 / rhythmBpm;
       const now = performance.now();
-      const timeSinceLastBeat = now % intervalMs;
-      const timeToNextBeat = intervalMs - timeSinceLastBeat;
+      const audioContextTime = audioContext.currentTime;
 
-      playbackStartTimeRef.current = now + timeToNextBeat;
+      // Find the time until the next beat in both performance.now and audioContext.currentTime domains
+      const timeSinceLastBeatPerf = now % intervalMs;
+      const timeToNextBeatPerf = intervalMs - timeSinceLastBeatPerf;
+      
+      // Schedule audio events using the more precise AudioContext time
+      const timeToNextBeatAudio = timeToNextBeatPerf / 1000;
+      
+      playbackStartTimeRef.current = now + timeToNextBeatPerf; // For UI/logic timing
 
       const newScheduledEvents: NodeJS.Timeout[] = [];
-      rhythmPattern.forEach(hit => {
-          const timeout = setTimeout(() => {
-              playRhythmSound(hit.instrument);
-              setActiveRhythmHit(hit.instrument);
-              setTimeout(() => setActiveRhythmHit(null), 150);
-          }, timeToNextBeat + hit.time);
-          newScheduledEvents.push(timeout);
-      });
       
-      const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
-      const endPlaybackTimeout = setTimeout(() => {
-        if (rhythmPhase === 'playback') {
-          stopRhythmPlaybackAndSing();
+      let nextHitIndex = 0;
+      let beatCount = 0;
+      
+      const scheduleHits = () => {
+        const lookahead = 25.0; // ms
+        const scheduleAheadTime = 0.1; // sec
+        
+        while (nextHitIndex < rhythmPattern.length && (rhythmPattern[nextHitIndex].time / 1000) < (audioContext.currentTime - audioContextTime + scheduleAheadTime)) {
+             const hit = rhythmPattern[nextHitIndex];
+             playRhythmSound(hit.instrument);
+             const visualTimeout = setTimeout(() => {
+                setActiveRhythmHit(hit.instrument);
+                setTimeout(() => setActiveRhythmHit(null), 150);
+            }, hit.time - (performance.now() - playbackStartTimeRef.current));
+            newScheduledEvents.push(visualTimeout);
+
+            nextHitIndex++;
         }
-      }, timeToNextBeat + totalDuration);
-      newScheduledEvents.push(endPlaybackTimeout);
+      }
+
+      const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 1000 : 0;
       
+      const startPlayback = () => {
+          playbackStartTimeRef.current = performance.now(); // Reset start time for precision
+
+          rhythmPattern.forEach(hit => {
+            const timeout = setTimeout(() => {
+                playRhythmSound(hit.instrument);
+                setActiveRhythmHit(hit.instrument);
+                setTimeout(() => setActiveRhythmHit(null), 150);
+            }, hit.time);
+            newScheduledEvents.push(timeout);
+          });
+          
+          const endPlaybackTimeout = setTimeout(() => {
+            if (rhythmPhase === 'playback') {
+              stopRhythmPlaybackAndSing();
+            }
+          }, totalDuration);
+          newScheduledEvents.push(endPlaybackTimeout);
+      };
+
+      const startTimeout = setTimeout(startPlayback, timeToNextBeatPerf);
+      newScheduledEvents.push(startTimeout);
+
       scheduledRhythmEvents.current = newScheduledEvents;
 
-  }, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound]);
+  }, [rhythmPattern, rhythmPhase, rhythmBpm, playRhythmSound, getPlaybackAudioContext]);
 
 
   const stopRhythmPlaybackAndSing = useCallback(() => {
@@ -668,7 +707,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (rhythmPhase === 'playback') {
       stopRhythmPlaybackAndSing();
     } else {
-      setRhythmPhase('idle'); // Reset and prepare for auto-play
+      setRhythmPhase('idle'); 
       setTimeout(() => playRhythmPattern(), 0);
     }
   };
@@ -770,19 +809,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     const container = tunerContainerRef.current;
 
     const handleResize = () => {
-        const isMobile = window.innerWidth < 640;
-        if (isMobile) {
+        if (window.innerWidth < 768) { // md breakpoint
             setRadius(120);
         } else if (container) {
-            const containerWidth = container.offsetWidth;
-            setRadius(containerWidth * 0.45); // Use 45% of container width for radius
+            const containerHeight = container.offsetHeight;
+            setRadius(containerHeight * 0.4); 
         }
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     
-    // Also run on game mode change as container might be ready
     if(container) handleResize();
 
     return () => window.removeEventListener('resize', handleResize);
@@ -1147,7 +1184,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const tapTime = performance.now();
         
         let newTaps;
-        const firstTapOffset = userRhythmTaps.length === 0 ? tapTime - rhythmStartTime : 0;
         
         if (userRhythmTaps.length === 0) {
             setRhythmStartTime(tapTime); // This marks the user's "beat 1"
@@ -1166,9 +1202,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const timeTolerance = 200; // ms
             const maxScorePerHit = 100 / rhythmPattern.length;
             
-            // The first user tap sets the tempo reference. The subsequent taps are compared against it.
-            const userBpm = newTaps.length > 1 ? 60000 / ((newTaps[newTaps.length-1].time - newTaps[0].time)/(newTaps.length-1)) : rhythmBpm;
-
             rhythmPattern.forEach((patternHit, i) => {
                 const userHit = newTaps[i];
                 if (userHit) {
@@ -1404,82 +1437,110 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
   
   return (
-    <div className="relative flex flex-col items-center gap-4 w-full max-w-5xl mx-auto h-screen p-2 sm:p-4">
+    <div className="relative flex flex-col md:flex-row items-center gap-4 w-full max-w-7xl mx-auto h-screen p-2 sm:p-4">
        <Button onClick={handleBackButtonClick} variant="ghost" className="absolute top-4 left-4 text-sm h-auto p-2 z-20">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
        </Button>
-      <div className="text-center text-foreground font-semibold text-lg mt-12 sm:mt-4">
-        <p>
-            Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
-        </p>
-         {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
-      </div>
 
+       {/* This div is for mobile layout. Hidden on md and up. */}
+       <div className="md:hidden flex flex-col items-center w-full">
+            <div className="text-center text-foreground font-semibold text-lg mt-12">
+                <p>
+                    Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
+                </p>
+                {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+            </div>
+       </div>
+      
       {gameMode === 'rhythm-challenge' ? (
         <div className="flex-grow w-full flex items-center justify-center">
             {renderRhythmGame()}
         </div>
       ) : (
           <>
-            <div ref={tunerContainerRef} className="relative w-[320px] h-[320px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
-                {notesToDisplay.length > 0 ? (
-                    notesToDisplay.map((n, index) => {
-                        const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
-                        const x = radius * Math.cos(angle);
-                        const y = radius * Math.sin(angle);
-                        const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
-                        const uniqueKey = `${n.fullName}-${index}`;
+            {/* Left Column (Desktop) / Main Content Area (Mobile) */}
+            <div className="w-full md:w-1/2 h-full flex flex-col items-center justify-center gap-4 order-2 md:order-1">
+                <div ref={tunerContainerRef} className="relative w-full h-auto md:w-full md:h-full flex items-center justify-center">
+                    {notesToDisplay.length > 0 ? (
+                        notesToDisplay.map((n, index) => {
+                            const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
+                            const x = radius * Math.cos(angle);
+                            const y = radius * Math.sin(angle);
+                            const isPlayingBack = simonPlaybackIndex !== null && simonSequence[simonPlaybackIndex] === n && simonPlaybackIndex === index;
+                            const uniqueKey = `${n.fullName}-${index}`;
 
-                        return (
-                            <Button
-                            key={uniqueKey}
-                            onClick={() => handleNoteClick(n)}
-                            disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
-                            style={{ transform: `translate(${x}px, ${y}px)` }}
-                            className={cn(
-                                "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
-                                buttonSize,
-                                completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? uniqueKey : n.fullName)
-                                ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default"
-                                : "bg-card hover:bg-card/80 border-2 border-primary/30",
-                                activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
-                                isPlayingBack && "scale-110 neon-glow"
-                            )}
-                            >
-                            <span className={noteNameSize}>{n.name}</span>
-                            <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
-                            </Button>
-                        );
-                        })
-                ) : (
-                    <div className="text-muted-foreground">Cargando desafío...</div>
-                )}
-            
-                <Card className="w-[180px] h-[180px] sm:w-[260px] sm:h-[260px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                            return (
+                                <Button
+                                key={uniqueKey}
+                                onClick={() => handleNoteClick(n)}
+                                disabled={!isDetecting || !!lastCompletedNoteFullName || simonPhase === 'playback' || isPaused}
+                                style={{ transform: `translate(${x}px, ${y}px)` }}
+                                className={cn(
+                                    "absolute rounded-full flex flex-col justify-center items-center font-bold transition-all duration-300 shadow-lg",
+                                    buttonSize,
+                                    completedNotes.has(gameMode === 'melody-challenge' || gameMode === 'simon-says' ? uniqueKey : n.fullName)
+                                    ? "bg-primary text-primary-foreground border-2 border-primary-foreground/50 cursor-default"
+                                    : "bg-card hover:bg-card/80 border-2 border-primary/30",
+                                    activeNote?.fullName === n.fullName && gameMode !== 'simon-says' && "ring-4 ring-offset-background ring-offset-2 ring-accent",
+                                    isPlayingBack && "scale-110 neon-glow"
+                                )}
+                                >
+                                <span className={noteNameSize}>{n.name}</span>
+                                <span className={cn("opacity-70", octaveSize)}>OCT {n.octave}</span>
+                                </Button>
+                            );
+                            })
+                    ) : (
+                        <div className="text-muted-foreground">Cargando desafío...</div>
+                    )}
+                
+                    <Card className="hidden md:flex w-[260px] h-[260px] rounded-full shadow-2xl border-2 border-primary/20 items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                        <CardContent className="p-2 flex items-center justify-center">
+                            {renderCentralContent()}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                 <div className="flex flex-col items-center gap-3">
+                    <Button onClick={handleToggleListening} size="lg" className="rounded-full w-48 sm:w-56 h-14 sm:h-16 text-lg sm:text-xl shadow-lg">
+                        {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
+                        {isDetecting ? "Pausar" : "Empezar"}
+                    </Button>
+
+                    <div className="h-10">
+                    {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
+                        <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
+                        <RefreshCw className="h-5 w-5"/>
+                        <span className="sr-only">Repetir</span>
+                        </Button>
+                    )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Right Column (Desktop) / Central Content (Mobile) */}
+            <div className="w-full md:w-1/2 h-full flex flex-col items-center justify-center gap-4 order-1 md:order-2">
+                 <div className="hidden md:flex flex-col text-center text-foreground font-semibold text-2xl">
+                    <p>
+                        Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
+                    </p>
+                     {gameMode !== 'rhythm-challenge' && <p className="text-xl text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+                </div>
+                
+                <Card className="w-[320px] h-[320px] md:hidden rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
                     <CardContent className="p-2 flex items-center justify-center">
                     {renderCentralContent()}
                     </CardContent>
                 </Card>
-            </div>
-          
-            <div className="flex flex-col items-center gap-3">
-                <Button onClick={handleToggleListening} size="lg" className="rounded-full w-48 sm:w-56 h-14 sm:h-16 text-lg sm:text-xl shadow-lg">
-                    {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
-                    {isDetecting ? "Pausar" : "Empezar"}
-                </Button>
 
-                <div className="h-10">
-                {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
-                    <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
-                    <RefreshCw className="h-5 w-5"/>
-                    <span className="sr-only">Repetir</span>
-                    </Button>
-                )}
+                <div className="hidden md:block w-full max-w-md h-96">
+                    {/* Placeholder for future desktop-specific content */}
                 </div>
             </div>
         </>
       )}
+
        <Button variant="link" onClick={() => {
             if (isDetecting) {
                 stop();
@@ -1490,7 +1551,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             }
             setSelectedDifficulty(null);
             setShowDifficultyDialog(true);
-          }} className="mt-auto pb-4">Elegir Nivel</Button>
+          }} className="absolute bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 z-10">Elegir Nivel</Button>
 
       <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
         if (!isOpen) {
