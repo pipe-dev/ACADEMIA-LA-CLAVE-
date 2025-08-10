@@ -543,47 +543,19 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         if (!audioContext) return;
         const t = audioContext.currentTime;
         
-        const createSnare = () => {
-            const noise = audioContext.createBufferSource();
-            const bufferSize = audioContext.sampleRate * 0.1; // 100ms
-            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1;
-            }
-            noise.buffer = buffer;
-
-            const noiseFilter = audioContext.createBiquadFilter();
-            noiseFilter.type = 'bandpass';
-            noiseFilter.frequency.value = 1500;
-            noiseFilter.Q.value = 0.5;
-
-            const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(24, t);
-            noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
-            
-            noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
-            noise.start(t);
-            noise.stop(t + 0.1);
-        };
-        
         const createClap = () => {
-             const noise = audioContext.createBufferSource();
-            const bufferSize = audioContext.sampleRate * 0.2; // 200ms
+            const noise = audioContext.createBufferSource();
+            const bufferSize = audioContext.sampleRate * 0.2;
             const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
             const data = buffer.getChannelData(0);
-            let lastValue = 0;
             for (let i = 0; i < bufferSize; i++) {
-                 // Simple band-limited noise
-                const white = Math.random() * 2 - 1;
-                data[i] = (lastValue + (0.02 * white)) / 1.02;
-                lastValue = data[i];
-                data[i] *= 32 * 2;
+                data[i] = (Math.random() * 2 - 1);
             }
             noise.buffer = buffer;
             
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(24, t);
+            noiseEnvelope.gain.setValueAtTime(0, t);
+            noiseEnvelope.gain.linearRampToValueAtTime(1, t + 0.01);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
             noise.connect(noiseEnvelope).connect(audioContext.destination);
             
@@ -596,7 +568,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const gain = audioContext.createGain();
             osc.frequency.setValueAtTime(150, t);
             osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.1);
-            gain.gain.setValueAtTime(24, t);
+            gain.gain.setValueAtTime(2, t);
             gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -607,13 +579,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             createClap();
         } else if (instrument === 'kick') {
             createKick();
-            createSnare();
         } else { // tick
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(1200, t);
-            gain.gain.setValueAtTime(16, t);
+            gain.gain.setValueAtTime(1, t);
             gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
             osc.connect(gain).connect(audioContext.destination);
             osc.start(t);
@@ -1194,10 +1165,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             const timeTolerance = 200; // ms
             const maxScorePerHit = 100 / rhythmPattern.length;
             
-            // The first hit's timing doesn't matter, it sets the reference.
-            // But we must check if the instrument is correct.
-            const userOffset = newTaps[0].time;
-            const timeShift = rhythmPattern[0].time - userOffset;
+            const timeShift = rhythmPattern[0].time - newTaps[0].time;
                 
             rhythmPattern.forEach((patternHit, i) => {
                 const userHit = newTaps[i];
@@ -1510,21 +1478,21 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     </Button>
                 )}
                 </div>
+                 <Button variant="link" onClick={() => {
+                    if (isDetecting) {
+                        stop();
+                        setIsPaused(true);
+                    }
+                    if(rhythmPhase !== 'idle'){
+                        setRhythmPhase('idle');
+                    }
+                    setSelectedDifficulty(null);
+                    setShowDifficultyDialog(true);
+                  }} className="z-10">Elegir Nivel</Button>
             </div>
         </>
       )}
 
-       <Button variant="link" onClick={() => {
-            if (isDetecting) {
-                stop();
-                setIsPaused(true);
-            }
-            if(rhythmPhase !== 'idle'){
-                setRhythmPhase('idle');
-            }
-            setSelectedDifficulty(null);
-            setShowDifficultyDialog(true);
-          }} className="absolute bottom-4 right-4 z-10">Elegir Nivel</Button>
 
       <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
         if (!isOpen) {
