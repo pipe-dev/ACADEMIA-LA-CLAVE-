@@ -191,13 +191,13 @@ const difficultySettings = {
   "Calentamiento": { exerciseCount: 12 },
   "Fácil": { levelCount: 12 },
   "Medio": { levelCount: 16 },
-  "Difícil": { levelCount: 20 },
+  "Difícil": { levelCount: 16 },
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
     "Fácil":   [3, 4, 4, 5, 5, 6, 0, 0, 0, 0, 0, 0], // 6 tuning, 6 rhythm
     "Medio":   [4, 5, 5, 6, 6, 6, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0], // 12 tuning, 4 rhythm
-    "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0], // 12 tuning, 8 rhythm
+    "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0], // 12 tuning, 4 rhythm
 };
 
 
@@ -558,7 +558,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             noiseFilter.Q.value = 0.5;
 
             const noiseEnvelope = audioContext.createGain();
-            noiseEnvelope.gain.setValueAtTime(8, t);
+            noiseEnvelope.gain.setValueAtTime(8 * 2, t);
             noiseEnvelope.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             
             noise.connect(noiseFilter).connect(noiseEnvelope).connect(audioContext.destination);
@@ -628,8 +628,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     const stopRhythmPlaybackAndSing = useCallback(() => {
         setRhythmPhase('playing');
         setUserRhythmTaps([]);
-        // The start time is set relative to the metronome interval now, not on first tap
-        setRhythmStartTime(performance.now()); 
+        setRhythmStartTime(performance.now());
     }, []);
 
     const handleListenStopClick = () => {
@@ -661,7 +660,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         
         let playbackHits = new Map<number, string>();
         if(rhythmPhase === 'playback') {
-            playbackHits = new Map(rhythmPattern.map(hit => [Math.round(hit.time / intervalMs), hit.instrument]));
+            const playbackStartTime = performance.now();
+            playbackHits = new Map(rhythmPattern.map(hit => {
+                const beatIndex = Math.round((playbackStartTime + hit.time - performance.now()) / intervalMs);
+                return [beatCount + beatIndex, hit.instrument];
+            }));
         }
 
         if (metronomeIntervalRef.current) {
@@ -678,7 +681,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                      setActiveRhythmHit(instrumentToPlay as 'kick' | 'clap');
                      setTimeout(() => setActiveRhythmHit(null), 150);
                 }
-                const totalBeats = Math.ceil((rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time : 0) / intervalMs);
+                const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time : 0;
+                const totalBeats = Math.ceil(totalDuration / intervalMs) + 4; // Add extra beats for buffer
                 if (beatCount >= totalBeats) {
                     stopRhythmPlaybackAndSing();
                 }
@@ -687,7 +691,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         };
         
         const startTicking = () => {
-             playbackStartTimeRef.current = performance.now();
              beatCount = 0;
              tick(); // First tick immediately
              metronomeIntervalRef.current = setInterval(tick, intervalMs);
@@ -760,7 +763,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       const isMobile = window.innerWidth < 640;
       const notes = (gameMode === 'simon-says' && simonPhase !== 'idle') ? simonSequence : challengeNotes;
       const isLargeChallenge = notes.length > 25;
-      setRadius(isMobile ? 140 : (isLargeChallenge ? 210 : 170));
+      setRadius(isMobile ? 120 : (isLargeChallenge ? 210 : 170));
     };
   
     handleResize();
@@ -912,7 +915,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         newGameMode = Math.random() < 0.2 ? 'standard' : 'interval';
       }
     } else if (diff === "Difícil") {
-        if (level > 16) {
+        if (level > 12) {
             newGameMode = 'rhythm-challenge';
         } else if (level === 1 || level === 12) {
             newGameMode = 'simon-says';
@@ -958,7 +961,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         };
         const patternMap: Record<number, number> = {
             13: 13, 14: 14, 15: 15, 16: 16, // Medio
-            17: 17, 18: 18, 19: 19, 20: 20, // Dificil
         };
 
         let bpm, patternKey;
@@ -969,8 +971,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             bpm = bpmMap[level] || 140;
             patternKey = patternMap[level] || 13;
         } else { // Dificil
-            bpm = (170 + (level - 16) * 10); // 180, 190, 200, 210
-            patternKey = (16 + (level - 16));
+            bpm = (130 + (level - 12) * 10); // 140, 150, 160, 170
+            patternKey = (12 + (level - 12));
         }
 
         setRhythmBpm(bpm);
@@ -1126,26 +1128,27 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const tapTime = performance.now();
         
         let newTaps;
-        const elapsedTime = tapTime - rhythmStartTime;
-        newTaps = [...userRhythmTaps, { time: elapsedTime, instrument }];
+        if (userRhythmTaps.length === 0) {
+            setRhythmStartTime(tapTime);
+            newTaps = [{ time: 0, instrument }];
+        } else {
+            const elapsedTime = tapTime - rhythmStartTime;
+            newTaps = [...userRhythmTaps, { time: elapsedTime, instrument }];
+        }
         
         setUserRhythmTaps(newTaps);
         
         if (newTaps.length >= rhythmPattern.length) {
             setRhythmPhase('results');
             
-            // Scoring logic relative to the metronome pulse
             let score = 0;
-            const timeTolerance = 200; // ms
+            const timeTolerance = 250; // ms
             const maxScorePerHit = 100 / rhythmPattern.length;
             
             rhythmPattern.forEach((patternHit, i) => {
                 const userHit = newTaps[i];
                 if (userHit) {
-                    // Find the time of the user's first tap relative to the pattern start time.
-                    // This becomes the offset for all subsequent hits.
-                    const userTimeOffset = newTaps[0].time - rhythmPattern[0].time;
-                    const expectedTime = patternHit.time + userTimeOffset;
+                    const expectedTime = patternHit.time;
                     const userTime = userHit.time;
                     const timeDiff = Math.abs(expectedTime - userTime);
                     const instrumentMatch = patternHit.instrument === userHit.instrument;
@@ -1181,32 +1184,32 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
 
         return (
-            <div className="flex flex-col items-center justify-start gap-4 w-full h-full text-foreground">
+            <div className="flex flex-col items-center justify-start gap-2 sm:gap-4 w-full h-full text-foreground">
                 <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
                 
-                <div className="text-center my-4">
-                    <p className="text-5xl font-bold">{rhythmBpm}</p>
-                    <p className="text-xl text-muted-foreground">BPM</p>
+                <div className="text-center my-2 sm:my-4">
+                    <p className="text-4xl sm:text-5xl font-bold">{rhythmBpm}</p>
+                    <p className="text-lg sm:text-xl text-muted-foreground">BPM</p>
                 </div>
                 
-                <div className="w-full flex justify-center items-center gap-2 mb-4">
+                <div className="w-full flex justify-center items-center gap-2 mb-2 sm:mb-4">
                     <Button
                         onClick={handleListenStopClick}
                         disabled={rhythmPhase === 'results'}
                         variant="secondary"
-                        className="w-32"
+                        className="w-28 sm:w-32"
                     >
                         {rhythmPhase === 'playback' ? <Square className="mr-2 fill-current" /> : <Play className="mr-2" />}
                         {rhythmPhase === 'playback' ? "Tocar" : "Escuchar"}
                     </Button>
                 </div>
 
-                <div className="w-full flex-grow flex items-center justify-around px-4">
+                <div className="w-full flex-grow flex items-center justify-around px-2 sm:px-4">
                     <button
                         onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-32 h-32 sm:w-36 sm:h-36 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
                              rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
@@ -1218,7 +1221,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('clap')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-32 h-32 sm:w-36 sm:h-36 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-red-600/80 border-4 border-red-800/80",
                             "active:scale-95 active:bg-red-500",
                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
@@ -1228,8 +1231,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     />
                 </div>
                  {rhythmPhase === 'results' && (
-                    <div className="text-center mt-4 text-foreground">
-                        <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
+                    <div className="text-center mt-2 sm:mt-4 text-foreground">
+                        <p className="text-xl sm:text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
                         <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
                          {rhythmScore < 75 && <Button onClick={() => startLevel(difficulty as ChallengeDifficulty, currentLevel)} className="mt-4">Reintentar</Button>}
                     </div>
@@ -1394,7 +1397,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         </div>
       ) : (
           <>
-            <div className="relative w-[340px] h-[340px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
+            <div className="relative w-[320px] h-[320px] sm:w-[450px] sm:h-[450px] flex items-center justify-center">
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
                         const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
@@ -1436,7 +1439,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             </div>
           
             <div className="flex flex-col items-center gap-3">
-                <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
+                <Button onClick={handleToggleListening} size="lg" className="rounded-full w-48 sm:w-56 h-14 sm:h-16 text-lg sm:text-xl shadow-lg">
                     {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
                     {isDetecting ? "Pausar" : "Empezar"}
                 </Button>
@@ -1487,7 +1490,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
               </AlertDialogHeader>
               <div className="pt-4">
                   {selectedDifficulty ? (
-                      <div className="grid grid-cols-4 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-3 xs:grid-cols-4 gap-3 sm:gap-4">
                           {Array.from({ length: difficultySettings[selectedDifficulty].levelCount }, (_, i) => i + 1).map(level => {
                               const isCompleted = progress[selectedDifficulty]?.[level];
                               
@@ -1513,7 +1516,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                                       modeIndicator = <Music className="w-4 h-4" />;
                                   }
                               } else if (selectedDifficulty === 'Difícil') {
-                                if (level > 16) {
+                                if (level > 12) {
                                     modeIndicator = <Drum className="w-4 h-4 text-blue-500" />;
                                 } else if (level === 1 || level === 12) {
                                     modeIndicator = <Brain className="w-4 h-4" />;
@@ -1550,10 +1553,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                       </div>
                   ) : (
                       <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-                          <Button onClick={startWarmup} variant="secondary" size="lg" className="h-20 text-lg">Calentamiento</Button>
-                          <Button onClick={() => setSelectedDifficulty("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black h-20 text-lg">Fácil</Button>
-                          <Button onClick={() => setSelectedDifficulty("Medio")} size="lg" className="h-20 text-lg">Medio</Button>
-                          <Button onClick={() => setSelectedDifficulty("Difícil")} variant="destructive" size="lg" className="h-20 text-lg">Difícil</Button>
+                          <Button onClick={startWarmup} variant="secondary" size="lg" className="h-16 sm:h-20 text-lg">Calentamiento</Button>
+                          <Button onClick={() => setSelectedDifficulty("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black h-16 sm:h-20 text-lg">Fácil</Button>
+                          <Button onClick={() => setSelectedDifficulty("Medio")} size="lg" className="h-16 sm:h-20 text-lg">Medio</Button>
+                          <Button onClick={() => setSelectedDifficulty("Difícil")} variant="destructive" size="lg" className="h-16 sm:h-20 text-lg">Difícil</Button>
                       </div>
                   )}
               </div>
@@ -1590,5 +1593,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
