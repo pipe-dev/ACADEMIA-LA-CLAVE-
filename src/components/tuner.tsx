@@ -287,7 +287,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [sessionCompleted, setSessionCompleted] = useState(false);
   
   const [isMounted, setIsMounted] = useState(false);
-  const radius = 125;
+  const radius = 160;
 
   const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
   const [progress, setProgress] = useState<ProgressState>({ "Fácil": {}, "Medio": {}, "Difícil": {} });
@@ -658,7 +658,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
     // Centralized Metronome Management
     useEffect(() => {
-        if (gameMode !== 'rhythm-challenge') {
+        if (gameMode !== 'rhythm-challenge' || rhythmPhase === 'results' || sessionCompleted) {
             if (metronomeIntervalRef.current) {
                 clearInterval(metronomeIntervalRef.current);
                 metronomeIntervalRef.current = null;
@@ -695,7 +695,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 metronomeIntervalRef.current = null;
             }
         }
-    }, [gameMode, rhythmBpm, playRhythmSound, rhythmPhase]);
+    }, [gameMode, rhythmBpm, playRhythmSound, rhythmPhase, sessionCompleted]);
 
 
   useEffect(() => {
