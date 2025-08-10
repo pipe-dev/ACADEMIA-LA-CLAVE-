@@ -1378,9 +1378,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
   
   return (
-    <div className="grid grid-rows-[auto_1fr_auto] w-full max-w-md mx-auto h-screen p-4">
+    <div className="flex flex-col w-full max-w-md mx-auto min-h-screen p-4">
       {/* Header */}
-      <div className="row-start-1 row-end-2 flex-shrink-0">
+      <div className="flex-shrink-0">
           <div className="w-full flex items-center justify-between">
               <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
                   <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1397,7 +1397,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </div>
       
       {/* Main Content */}
-      <div className="row-start-2 row-end-3 flex items-center justify-center w-full overflow-hidden">
+      <div className="flex-grow flex items-center justify-center w-full my-8">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
                 {renderRhythmGame()}
@@ -1447,7 +1447,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </div>
 
       {/* Footer */}
-      <div className="row-start-3 row-end-4 flex flex-col items-center gap-3 flex-shrink-0 py-4">
+      <div className="flex flex-col items-center gap-3 flex-shrink-0 py-4">
         {gameMode !== 'rhythm-challenge' && (
             <>
                 <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
