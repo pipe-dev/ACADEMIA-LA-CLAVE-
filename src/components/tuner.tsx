@@ -1378,7 +1378,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
   
   return (
-    <div className="flex flex-col w-full max-w-md mx-auto min-h-screen p-4">
+    <div className="flex flex-col w-full max-w-md mx-auto p-4">
       {/* Header */}
       <div className="w-full flex items-center justify-between">
           <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
@@ -1602,7 +1602,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
-
-    
