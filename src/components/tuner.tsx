@@ -1380,20 +1380,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   return (
     <div className="flex flex-col w-full max-w-md mx-auto min-h-screen p-4">
       {/* Header */}
-      <div className="flex-shrink-0">
-          <div className="w-full flex items-center justify-between">
-              <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Volver
-              </Button>
-              <div className="text-center text-foreground font-semibold text-lg flex-grow">
-                  <p>
-                      Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
-                  </p>
-                  {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
-              </div>
-              <div className="w-16"></div>
+      <div className="w-full flex items-center justify-between">
+          <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver
+          </Button>
+          <div className="text-center text-foreground font-semibold text-lg flex-grow">
+              <p>
+                  Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
+              </p>
+              {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
           </div>
+          <div className="w-16"></div>
       </div>
       
       {/* Main Content */}
