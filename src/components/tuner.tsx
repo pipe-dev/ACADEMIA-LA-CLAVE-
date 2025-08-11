@@ -1397,7 +1397,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </div>
       
       {/* Main Content */}
-      <div className="flex-grow flex items-center justify-center w-full my-8">
+      <div className="flex flex-col items-center justify-center w-full my-8">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
                 {renderRhythmGame()}
@@ -1447,7 +1447,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </div>
 
       {/* Footer */}
-      <div className="flex flex-col items-center gap-2 flex-shrink-0 py-2">
+      <div className="flex flex-col items-center gap-2 flex-shrink-0 mb-4">
         {gameMode !== 'rhythm-challenge' && (
             <>
                 <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
