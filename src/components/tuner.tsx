@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MockingDuck } from "@/components/mocking-duck";
 
 export type NoteInfo = {
   name: string;
@@ -310,6 +311,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [rhythmScore, setRhythmScore] = useState(0);
   const [rhythmBpm, setRhythmBpm] = useState(100);
   const [activeRhythmHit, setActiveRhythmHit] = useState<'clap' | 'kick' | null>(null);
+  const [showFailureDuck, setShowFailureDuck] = useState(false);
 
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
@@ -1182,11 +1184,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     setShowLevelCompleteDialog(true)
                 }, 1500);
             } else {
+                 setShowFailureDuck(true);
                  setTimeout(() => {
+                     setShowFailureDuck(false);
                      setRhythmPhase('idle');
                      setUserRhythmTaps([]);
                      setRhythmScore(0);
-                 }, 2000);
+                 }, 3000);
             }
         }
     };
@@ -1248,7 +1252,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     />
                 </div>
                  {rhythmPhase === 'results' && (
-                    <div className="text-center mt-4 text-foreground">
+                    <div className="text-center mt-4 text-foreground relative">
+                        {showFailureDuck && <MockingDuck />}
                         <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
                         <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
                          {rhythmScore < 75 && <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>}
@@ -1624,5 +1629,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
