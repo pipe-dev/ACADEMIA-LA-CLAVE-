@@ -54,7 +54,7 @@ export function MockingDuck({ className }: { className?: string }) {
       `}</style>
       <div className="troll-container">
         <div className="troll">
-          <svg
+           <svg
             viewBox="0 0 200 200"
             xmlns="http://www.w3.org/2000/svg"
             className="w-full h-full"
