@@ -8,24 +8,33 @@ export function MockingDuck({ className }: { className?: string }) {
     <div className={cn("relative w-32 h-32", className)}>
       <style jsx>{`
         .duck-container {
-          animation: head-shake 0.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) both;
+          animation: head-shake 0.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) 0.2s both;
           transform-origin: bottom center;
         }
 
         .tongue {
-          animation: tongue-flick 0.8s ease-in-out both;
+          animation: tongue-flick 0.8s ease-in-out 0.4s both;
           transform-origin: 50% 0%;
+        }
+
+        .eye-left, .eye-right {
+          animation: eye-squint 0.8s ease-in-out both;
         }
 
         @keyframes head-shake {
           0%, 100% { transform: translateX(0) rotate(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px) rotate(-5deg); }
-          20%, 40%, 60%, 80% { transform: translateX(4px) rotate(5deg); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-5px) rotate(-8deg); }
+          20%, 40%, 60%, 80% { transform: translateX(5px) rotate(8deg); }
+        }
+        
+        @keyframes tongue-flick {
+          0%, 20%, 80%, 100% { transform: scaleY(0); }
+          30%, 70% { transform: scaleY(1.2); }
         }
 
-        @keyframes tongue-flick {
-          0%, 20%, 40%, 100% { transform: scaleY(0); }
-          30% { transform: scaleY(1); }
+        @keyframes eye-squint {
+           0%, 100% { transform: scaleY(1); }
+           50% { transform: scaleY(0.2); }
         }
       `}</style>
       <div className="duck-container absolute inset-0">
@@ -35,37 +44,43 @@ export function MockingDuck({ className }: { className?: string }) {
           className="w-full h-full"
         >
           {/* Sombra */}
-          <ellipse cx="50" cy="95" rx="30" ry="5" fill="rgba(0,0,0,0.15)" />
+          <ellipse cx="50" cy="95" rx="35" ry="6" fill="rgba(0,0,0,0.15)" />
 
           {/* Cuerpo */}
           <path
-            d="M25,60 C10,90 40,110 50,90 C60,110 90,90 75,60"
+            d="M20,65 C5,95 40,115 50,90 C60,115 95,95 80,65"
             fill="#FFD700"
-            stroke="#EDAA00"
-            strokeWidth="3"
+            stroke="#EAA200"
+            strokeWidth="3.5"
           />
 
           {/* Cabeza */}
-          <circle cx="50" cy="40" r="25" fill="#FFD700" stroke="#EDAA00" strokeWidth="3" />
+          <circle cx="50" cy="45" r="30" fill="#FFD700" stroke="#EAA200" strokeWidth="3.5" />
 
-          {/* Ojos */}
-          <circle cx="38" cy="38" r="5" fill="white" />
-          <circle cx="38" cy="38" r="2.5" fill="black" />
-          <circle cx="62" cy="38" r="5" fill="white" />
-          <circle cx="62" cy="38" r="2.5" fill="black" />
+          {/* Ojos - Troll Face */}
+           <g className="eye-left" transform-origin="35px 42px">
+            <path d="M25 42 C 30 35, 40 35, 45 42" stroke="black" strokeWidth="3" fill="none" />
+            <circle cx="35" cy="42" r="3" fill="black" />
+          </g>
+           <g className="eye-right" transform-origin="65px 42px">
+            <path d="M55 42 C 60 35, 70 35, 75 42" stroke="black" strokeWidth="3" fill="none" />
+            <circle cx="65" cy="42" r="3" fill="black" />
+          </g>
 
-          {/* Pico y Lengua */}
-          <g transform="translate(0, 5)">
-            <path
-              d="M35,50 Q50,65 65,50 Q60,55 50,58 Q40,55 35,50 Z"
+          {/* Pico y Lengua - Troll Smirk */}
+          <g transform="translate(0, 8)">
+             <path
+              d="M30,55 Q50,70 70,55 C 65,65 55,68 50,65 C 45,68 35,65 30,55 Z"
               fill="#FFA500"
               stroke="#D98C00"
-              strokeWidth="2.5"
+              strokeWidth="3"
             />
             {/* Lengua */}
             <path
-              d="M48 56 Q50 63 52 56 Z"
+              d="M48 63 Q50 72 52 63 Z"
               fill="#FF4136"
+              stroke="black"
+              strokeWidth="1"
               className="tongue"
             />
           </g>
@@ -75,7 +90,7 @@ export function MockingDuck({ className }: { className?: string }) {
             d="M45,15 Q50,5 55,15 M48,13 Q50,8 52,13"
             fill="none"
             stroke="#EAA200"
-            strokeWidth="2.5"
+            strokeWidth="3"
             strokeLinecap="round"
           />
         </svg>
