@@ -5,95 +5,114 @@ import { cn } from "@/lib/utils";
 
 export function MockingDuck({ className }: { className?: string }) {
   return (
-    <div className={cn("relative w-32 h-32", className)}>
+    <div className={cn("relative w-48 h-48", className)}>
       <style jsx>{`
-        .duck-container {
-          animation: head-shake 0.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) 0.2s both;
-          transform-origin: bottom center;
+        .dog-container {
+          width: 100%;
+          height: 100%;
+          position: relative;
+          overflow: hidden;
         }
 
-        .tongue {
-          animation: tongue-flick 0.8s ease-in-out 0.4s both;
-          transform-origin: 50% 0%;
+        .dog {
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 60%;
+          height: 70%;
+          animation: laughing-dog-animation 2s ease-in-out forwards;
         }
 
-        .eye-left, .eye-right {
-          animation: eye-squint 0.8s ease-in-out both;
+        .grass {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 35%;
+          z-index: 10;
         }
 
-        @keyframes head-shake {
-          0%, 100% { transform: translateX(0) rotate(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-5px) rotate(-8deg); }
-          20%, 40%, 60%, 80% { transform: translateX(5px) rotate(8deg); }
-        }
-        
-        @keyframes tongue-flick {
-          0%, 20%, 80%, 100% { transform: scaleY(0); }
-          30%, 70% { transform: scaleY(1.2); }
-        }
-
-        @keyframes eye-squint {
-           0%, 100% { transform: scaleY(1); }
-           50% { transform: scaleY(0.2); }
+        @keyframes laughing-dog-animation {
+          0% {
+            transform: translate(-50%, 100%);
+          }
+          10%,
+          90% {
+            transform: translate(-50%, 5%);
+          }
+          15%, 25%, 35%, 45%, 55%, 65%, 75%, 85% {
+            transform: translate(-50%, 0%);
+          }
+          20%, 30%, 40%, 50%, 60%, 70%, 80% {
+            transform: translate(-50%, 5%);
+          }
+          100% {
+            transform: translate(-50%, 100%);
+          }
         }
       `}</style>
-      <div className="duck-container absolute inset-0">
-        <svg
-          viewBox="0 0 100 100"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full"
-        >
-          {/* Sombra */}
-          <ellipse cx="50" cy="95" rx="35" ry="6" fill="rgba(0,0,0,0.15)" />
+      <div className="dog-container">
+        <div className="dog">
+          <svg
+            viewBox="0 0 80 80"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-full h-full"
+            shapeRendering="crispEdges"
+          >
+            {/* Body */}
+            <path d="M20 50 H60 V75 H20 Z" fill="#8C5432" />
+            <path d="M28 50 H36 V58 H28 Z" fill="#5A341E" />
 
-          {/* Cuerpo */}
-          <path
-            d="M20,65 C5,95 40,115 50,90 C60,115 95,95 80,65"
-            fill="#FFD700"
-            stroke="#EAA200"
-            strokeWidth="3.5"
-          />
-
-          {/* Cabeza */}
-          <circle cx="50" cy="45" r="30" fill="#FFD700" stroke="#EAA200" strokeWidth="3.5" />
-
-          {/* Ojos - Troll Face */}
-           <g className="eye-left" style={{ transformOrigin: "35px 42px" }}>
-            <path d="M25 42 C 30 35, 40 35, 45 42" stroke="black" strokeWidth="3" fill="none" />
-            <circle cx="35" cy="42" r="3" fill="black" />
-          </g>
-           <g className="eye-right" style={{ transformOrigin: "65px 42px" }}>
-            <path d="M55 42 C 60 35, 70 35, 75 42" stroke="black" strokeWidth="3" fill="none" />
-            <circle cx="65" cy="42" r="3" fill="black" />
-          </g>
-
-          {/* Pico y Lengua - Troll Smirk */}
-          <g transform="translate(0, 8)">
-             <path
-              d="M30,55 Q50,70 70,55 C 65,65 55,68 50,65 C 45,68 35,65 30,55 Z"
-              fill="#FFA500"
-              stroke="#D98C00"
-              strokeWidth="3"
-            />
-            {/* Lengua */}
+            {/* Head */}
+            <path d="M25 25 H55 V55 H25 Z" fill="#8C5432" />
+            {/* Snout */}
             <path
-              d="M48 63 Q50 72 52 63 Z"
-              fill="#FF4136"
-              stroke="black"
-              strokeWidth="1"
-              className="tongue"
+              d="M30 40 H50 V52 H30 Z M32 38 H48 V40 H32 Z M35 52 H45 V55 H35 Z"
+              fill="white"
             />
-          </g>
-          
-          {/* Pelo */}
-          <path
-            d="M45,15 Q50,5 55,15 M48,13 Q50,8 52,13"
-            fill="none"
-            stroke="#EAA200"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-        </svg>
+            <path
+              d="M30 40 H32 V52 H30 Z M48 40 H50 V52 H48 Z M32 40 H35 V42 H32Z M45 40 H48 V42 H45 Z M32 50 H35 V52 H32 Z M45 50 H48 V52 H45 Z"
+              fill="#E0E0E0"
+            />
+            {/* Nose */}
+            <path d="M38 43 H42 V46 H38 Z" fill="black" />
+
+            {/* Eyes */}
+            <path
+              d="M32 32 H38 V38 H32 Z M42 32 H48 V38 H42 Z"
+              fill="white"
+            />
+            <path d="M34 34 H36 V36 H34 Z M44 34 H46 V36 H44 Z" fill="black" />
+             <path d="M31 29 H39 V32 H31 Z M41 29 H49 V32 H41 Z" fill="#8C5432"/>
+
+
+            {/* Ears */}
+            <path d="M15 22 H25 V40 H15 Z" fill="black" />
+            <path d="M55 22 H65 V40 H55 Z" fill="black" />
+             <path d="M53 20 H57 V22 H53 Z" fill="black" />
+             <path d="M23 20 H27 V22 H23 Z" fill="black" />
+          </svg>
+        </div>
+        <div className="grass">
+          <svg
+            viewBox="0 0 100 35"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-full h-full"
+            preserveAspectRatio="none"
+            shapeRendering="crispEdges"
+          >
+            <path
+              d="M0 35 V20 L5 25 V15 L10 20 V10 L15 22 V12 L20 25 V5 L25 20 L30 15 L35 25 L40 10 L45 28 L50 15 L55 30 L60 20 L65 25 L70 15 L75 30 L80 20 L85 28 L90 18 L95 25 L100 20 V35 H0Z"
+              fill="#6A994E"
+            />
+             <path
+              d="M0 35 V25 L3 28 V20 L8 25 V18 L12 24 V15 L18 28 V20 L22 26 V18 L28 29 L33 20 L38 30 L43 18 L48 32 L53 20 L58 33 L63 25 L68 29 L73 20 L78 33 L83 24 L88 30 L93 22 L98 28 V35 H0Z"
+              fill="#A7C957"
+              opacity="0.7"
+            />
+          </svg>
+        </div>
       </div>
     </div>
   );
