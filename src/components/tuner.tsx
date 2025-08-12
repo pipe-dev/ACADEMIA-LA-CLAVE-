@@ -1015,7 +1015,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
       } else { // simon-says
         const exerciseCount = difficultyLevels[diff][level - 1];
-        const simonLevels: Record<number, number> = { 1: 3, 2: 3, 3: 3, 4: 4, 5: 4, 6: 4, 7: 5, 8: 5, 9: 5, 10: 6, 11: 6, 12: 6, };
+        const simonLevels: Record<number, number> = { 1: 3, 2: 3, 3: 3, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 4, 11: 4, 12: 4, };
         const sequenceLength = simonLevels[level] || 3;
         const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
         const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
@@ -1410,13 +1410,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </div>
       
       {/* Main Content */}
-      <div className="flex flex-col items-center justify-center w-full my-8">
+      <div className="flex flex-col flex-grow items-center justify-center w-full">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
                 {renderRhythmGame()}
             </div>
         ) : (
-            <div id="tuner-container" className="relative w-full flex items-center justify-center" style={{ minHeight: `${radius * 2 + 80}px`}}>
+            <div id="tuner-container" className="relative w-full flex items-center justify-center my-8" style={{ minHeight: `${radius * 2 + 80}px`}}>
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
                         const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
