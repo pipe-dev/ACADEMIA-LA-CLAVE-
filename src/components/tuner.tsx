@@ -1031,6 +1031,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       let newChallenge: NoteInfo[];
       if (newGameMode === "interval") {
         newChallenge = generateIntervalChallenge(level, notePool);
+        if (newChallenge.length > 0) {
+            setActiveNote(newChallenge[0]);
+            playNote(newChallenge[0]);
+        }
       } else {
         // standard
         const exerciseCount = difficultyLevels[diff][level - 1];
@@ -1088,7 +1092,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   };
 
   const handleNoteClick = (noteToActivate: NoteInfo) => {
-    if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting || gameMode === 'simon-says' || gameMode === 'melody-challenge' || isPaused) return;
+    if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting || gameMode === 'simon-says' || gameMode === 'melody-challenge' || isPaused || gameMode === 'interval') return;
     setActiveNote(noteToActivate);
     playNote(noteToActivate);
   };
@@ -1350,10 +1354,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     return (
       <div className="text-center p-4">
           <p className="text-2xl font-bold text-foreground">
-              {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : "Selecciona una nota"}
+              {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : (gameMode === 'interval' ? 'Canta el Arpegio' : 'Selecciona una nota')}
           </p>
           <p className="text-base text-muted-foreground mt-2">
-              {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : "Haz clic en un círculo para empezar"}
+              {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : (gameMode === 'interval' ? 'Sigue la secuencia de notas' : "Haz clic en un círculo para empezar")}
           </p>
       </div>
     );
