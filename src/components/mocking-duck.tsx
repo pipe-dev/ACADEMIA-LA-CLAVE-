@@ -57,6 +57,7 @@ export function MockingDuck({ className }: { className?: string }) {
           <svg
             width="651"
             height="606"
+            viewBox="0 0 651 606"
             xmlns="http://www.w3.org/2000/svg"
             className="w-full h-full"
             preserveAspectRatio="xMidYMid meet"
