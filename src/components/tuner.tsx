@@ -222,7 +222,7 @@ function TunerSkeleton() {
 const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
     const pendulumDuration = (60 / bpm);
     return (
-        <div className="w-[240px] h-[320px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
+        <div className="w-[180px] h-[240px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
             {/* Screws */}
             <div className="absolute top-3 left-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
             <div className="absolute top-3 right-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
@@ -1014,14 +1014,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         }
 
       } else { // simon-says
-        const exerciseCount = difficultyLevels[diff][level - 1];
         const simonLevels: Record<number, number> = {
-            1: 2, 2: 2, 3: 2, 4: 2, // Fácil
-            5: 3, 6: 3, 7: 3, 8: 3, // Medio
-            9: 4, 10: 4, 11: 4, 12: 4, // Difícil
+            1: 2, 2: 2, 3: 2, 4: 2,
+            5: 3, 6: 3, 7: 3, 8: 3,
+            9: 4, 10: 4, 11: 4, 12: 4,
         };
-        const sequenceLength = simonLevels[level] || 3;
-        const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
+        const sequenceLength = simonLevels[level] || 2;
+        const initialChallenge = generateChallenge(Math.min(notePool.length, 8), notePool);
         const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
         sequence = shuffled.slice(0, Math.min(sequenceLength, initialChallenge.length));
       }
@@ -1416,7 +1415,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </header>
       
       {/* Main Content */}
-      <main className="flex-grow flex flex-col items-center justify-center">
+      <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
                 {renderRhythmGame()}
