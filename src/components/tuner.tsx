@@ -815,7 +815,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             } else {
               setTimeout(() => {
                 setLastCompletedNoteFullName(null);
-                setActiveNote(null);
+                if (gameMode === 'interval') {
+                    const currentIndex = challengeNotes.findIndex(n => n.fullName === activeNote.fullName);
+                    const nextNote = challengeNotes[currentIndex + 1];
+                    if (nextNote) {
+                        setActiveNote(nextNote);
+                        playNote(nextNote);
+                    } else {
+                        setActiveNote(null);
+                    }
+                } else {
+                    setActiveNote(null);
+                }
               }, 1200);
             }
           }
@@ -884,7 +895,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             inTuneSinceRef.current = null;
         }
     }
-  }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence, isPaused]);
+  }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence, isPaused, challengeNotes, playNote]);
 
   const startLevel = (diff: ChallengeDifficulty, level: number) => {
     if (!isMounted || notePool.length === 0) return;
@@ -1602,3 +1613,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
