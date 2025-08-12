@@ -58,11 +58,11 @@ export function MockingDuck({ className }: { className?: string }) {
           <circle cx="50" cy="45" r="30" fill="#FFD700" stroke="#EAA200" strokeWidth="3.5" />
 
           {/* Ojos - Troll Face */}
-           <g className="eye-left" transform-origin="35px 42px">
+           <g className="eye-left" style={{ transformOrigin: "35px 42px" }}>
             <path d="M25 42 C 30 35, 40 35, 45 42" stroke="black" strokeWidth="3" fill="none" />
             <circle cx="35" cy="42" r="3" fill="black" />
           </g>
-           <g className="eye-right" transform-origin="65px 42px">
+           <g className="eye-right" style={{ transformOrigin: "65px 42px" }}>
             <path d="M55 42 C 60 35, 70 35, 75 42" stroke="black" strokeWidth="3" fill="none" />
             <circle cx="65" cy="42" r="3" fill="black" />
           </g>
