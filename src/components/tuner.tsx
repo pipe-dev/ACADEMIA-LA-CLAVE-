@@ -1015,7 +1015,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
       } else { // simon-says
         const exerciseCount = difficultyLevels[diff][level - 1];
-        const simonLevels: Record<number, number> = { 1: 3, 2: 3, 3: 3, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 4, 11: 4, 12: 4, };
+        const simonLevels: Record<number, number> = {
+            1: 2, 2: 2, 3: 2, 4: 2, // Fácil
+            5: 3, 6: 3, 7: 3, 8: 3, // Medio
+            9: 4, 10: 4, 11: 4, 12: 4, // Difícil
+        };
         const sequenceLength = simonLevels[level] || 3;
         const initialChallenge = generateChallenge(Math.min(exerciseCount, notePool.length), notePool);
         const shuffled = [...initialChallenge].sort(() => 0.5 - Math.random());
@@ -1395,22 +1399,24 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   return (
     <div className="flex flex-col w-full max-w-md mx-auto p-4">
       {/* Header */}
-      <div className="w-full flex items-center justify-between">
-          <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
-          </Button>
-          <div className="text-center text-foreground font-semibold text-lg flex-grow">
-              <p>
-                  Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
-              </p>
-              {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
-          </div>
-          <div className="w-16"></div>
-      </div>
+      <header className="flex-shrink-0">
+        <div className="w-full flex items-center justify-between">
+            <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Volver
+            </Button>
+            <div className="text-center text-foreground font-semibold text-lg flex-grow">
+                <p>
+                    Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
+                </p>
+                {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+            </div>
+            <div className="w-16"></div>
+        </div>
+      </header>
       
       {/* Main Content */}
-      <div className="flex flex-col flex-grow items-center justify-center w-full">
+      <main className="flex-grow flex flex-col items-center justify-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
                 {renderRhythmGame()}
@@ -1457,39 +1463,41 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </Card>
             </div>
         )}
-      </div>
+      </main>
 
       {/* Footer */}
-      <div className="flex flex-col items-center gap-2 flex-shrink-0 mb-4">
-        {gameMode !== 'rhythm-challenge' && (
-            <>
-                <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
-                    {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
-                    {isDetecting ? "Pausar" : "Empezar"}
-                </Button>
-                 <Button variant="link" onClick={() => {
-                    if (isDetecting) {
-                        stop();
-                        setIsPaused(true);
-                    }
-                    if(rhythmPhase !== 'idle'){
-                        setRhythmPhase('idle');
-                    }
-                    setSelectedDifficulty(null);
-                    setShowDifficultyDialog(true);
-                  }}>Elegir Nivel</Button>
+      <footer className="flex-shrink-0 mb-4">
+        <div className="flex flex-col items-center gap-2">
+          {gameMode !== 'rhythm-challenge' && (
+              <>
+                  <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
+                      {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
+                      {isDetecting ? "Pausar" : "Empezar"}
+                  </Button>
+                  <Button variant="link" onClick={() => {
+                      if (isDetecting) {
+                          stop();
+                          setIsPaused(true);
+                      }
+                      if(rhythmPhase !== 'idle'){
+                          setRhythmPhase('idle');
+                      }
+                      setSelectedDifficulty(null);
+                      setShowDifficultyDialog(true);
+                    }}>Elegir Nivel</Button>
 
-                <div className="h-10 flex items-center justify-center">
-                    {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
-                        <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
-                        <RefreshCw className="h-5 w-5"/>
-                        <span className="sr-only">Repetir</span>
-                        </Button>
-                    )}
-                </div>
-            </>
-        )}
-      </div>
+                  <div className="h-10 flex items-center justify-center">
+                      {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' && repeatCount < 3 && !sessionCompleted && (
+                          <Button variant="destructive" size="icon" onClick={handleRepeatSequence} className="w-10 h-10 rounded-full">
+                          <RefreshCw className="h-5 w-5"/>
+                          <span className="sr-only">Repetir</span>
+                          </Button>
+                      )}
+                  </div>
+              </>
+          )}
+        </div>
+      </footer>
 
       <AlertDialog open={showDifficultyDialog} onOpenChange={(isOpen) => {
         if (!isOpen) {
