@@ -1230,33 +1230,33 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
     const renderRhythmGame = () => {
         const isPlaying = rhythmPhase === 'playback' || rhythmPhase === 'playing';
-        let statusText = "Toca los botones para igualar el ritmo.";
-        if (rhythmPhase === 'playback') statusText = "Escucha y observa...";
-        if (rhythmPhase === 'playing' && userRhythmTaps.length === 0) statusText = "¡Toca para empezar!";
-        else if (rhythmPhase === 'playing') statusText = "¡Repite el Ritmo!";
-        if (rhythmPhase === 'results') statusText = `Precisión: ${rhythmScore.toFixed(0)}%`;
-
 
         return (
             <div className="flex flex-col items-center justify-center gap-4 w-full h-full text-foreground">
-                <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
                 
-                <div className="text-center my-4">
-                    <p className="text-4xl font-bold">{rhythmBpm}</p>
-                    <p className="text-xl text-muted-foreground">BPM</p>
-                </div>
+                {rhythmPhase !== 'results' && (
+                    <>
+                        <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
                 
-                <div className="w-full flex justify-center items-center gap-2 mb-4">
-                    <Button
-                        onClick={handleListenStopClick}
-                        disabled={rhythmPhase === 'results'}
-                        variant="secondary"
-                        className="w-32"
-                    >
-                        {rhythmPhase === 'playback' ? <Square className="mr-2 fill-current" /> : <Play className="mr-2" />}
-                        {rhythmPhase === 'playback' ? "Tocar" : "Escuchar"}
-                    </Button>
-                </div>
+                        <div className="text-center my-4">
+                            <p className="text-4xl font-bold">{rhythmBpm}</p>
+                            <p className="text-xl text-muted-foreground">BPM</p>
+                        </div>
+                        
+                        <div className="w-full flex justify-center items-center gap-2 mb-4">
+                            <Button
+                                onClick={handleListenStopClick}
+                                disabled={rhythmPhase === 'results'}
+                                variant="secondary"
+                                className="w-32"
+                            >
+                                {rhythmPhase === 'playback' ? <Square className="mr-2 fill-current" /> : <Play className="mr-2" />}
+                                {rhythmPhase === 'playback' ? "Tocar" : "Escuchar"}
+                            </Button>
+                        </div>
+                    </>
+                )}
+
 
                 <div className="w-full flex-grow flex items-center justify-around px-4 relative">
                      <div className={cn(
@@ -1267,39 +1267,43 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     )}>
                         <RhythmDuck animate={animateDuck} />
                     </div>
-                     <button
-                        onClick={() => handleRhythmTap('kick')}
-                        disabled={rhythmPhase !== 'playing'}
-                        className={cn(
-                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                            "bg-blue-600/80 border-4 border-blue-800/80",
-                            "active:scale-95 active:bg-blue-500",
-                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                             (activeRhythmHit === 'kick') && "neon-glow border-blue-400"
-                        )}
-                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
-                    />
-                     <button
-                        onClick={() => handleRhythmTap('clap')}
-                        disabled={rhythmPhase !== 'playing'}
-                        className={cn(
-                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                            "bg-red-600/80 border-4 border-red-800/80",
-                            "active:scale-95 active:bg-red-500",
-                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                            (activeRhythmHit === 'clap') && "neon-glow border-red-400"
-                        )}
-                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
-                    />
+
+                    {rhythmPhase === 'results' ? (
+                        <div className="text-center text-foreground relative flex flex-col items-center justify-center gap-4">
+                            {showFailureDuck && <MockingDuck />}
+                            <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
+                            <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
+                            {rhythmScore < 75 && <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>}
+                        </div>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => handleRhythmTap('kick')}
+                                disabled={rhythmPhase !== 'playing'}
+                                className={cn(
+                                    "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                                    "bg-blue-600/80 border-4 border-blue-800/80",
+                                    "active:scale-95 active:bg-blue-500",
+                                    rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                                    (activeRhythmHit === 'kick') && "neon-glow border-blue-400"
+                                )}
+                                style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
+                            />
+                            <button
+                                onClick={() => handleRhythmTap('clap')}
+                                disabled={rhythmPhase !== 'playing'}
+                                className={cn(
+                                    "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                                    "bg-red-600/80 border-4 border-red-800/80",
+                                    "active:scale-95 active:bg-red-500",
+                                    rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                                    (activeRhythmHit === 'clap') && "neon-glow border-red-400"
+                                )}
+                                style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
+                            />
+                        </>
+                    )}
                 </div>
-                 {rhythmPhase === 'results' && (
-                    <div className="text-center mt-4 text-foreground relative">
-                        {showFailureDuck && <MockingDuck />}
-                        <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
-                        <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
-                         {rhythmScore < 75 && <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>}
-                    </div>
-                )}
             </div>
         );
     };
