@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MockingDuck } from "@/components/mocking-duck";
+import Image from 'next/image';
 
 export type NoteInfo = {
   name: string;
@@ -201,6 +202,20 @@ const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
     "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0], // 12 tuning, 4 rhythm
 };
 
+const RhythmDuck = () => {
+    return (
+        <div className="w-10 h-10 relative">
+             <Image 
+                src="/duck.png" 
+                alt="Rhythm Duck" 
+                width={40} 
+                height={40}
+                className="pixelated"
+                style={{ imageRendering: 'pixelated' }}
+            />
+        </div>
+    )
+}
 
 function TunerSkeleton() {
     return (
@@ -312,6 +327,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [rhythmBpm, setRhythmBpm] = useState(100);
   const [activeRhythmHit, setActiveRhythmHit] = useState<'clap' | 'kick' | null>(null);
   const [showFailureDuck, setShowFailureDuck] = useState(false);
+  const [duckPosition, setDuckPosition] = useState<'kick' | 'clap' | null>(null);
 
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
@@ -603,6 +619,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     scheduledRhythmEvents.current = [];
     
     if (rhythmPhaseRef.current === 'playback') {
+        setDuckPosition(null);
         setRhythmPhase('playing');
         setUserRhythmTaps([]);
         setRhythmStartTime(performance.now());
@@ -616,6 +633,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (rhythmPattern.length === 0 || rhythmPhaseRef.current !== 'idle') return;
 
     setRhythmPhase('playback');
+    setDuckPosition(null);
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
 
@@ -636,6 +654,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     if (rhythmPhaseRef.current !== 'playback') return;
                     playRhythmSound(hit.instrument);
                     setActiveRhythmHit(hit.instrument);
+                    setDuckPosition(hit.instrument);
                     setTimeout(() => setActiveRhythmHit(null), 150);
                 }, hit.time);
                 scheduledRhythmEvents.current.push(hitTimeout);
@@ -956,6 +975,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmPhase('idle');
     setRhythmScore(0);
     setUserRhythmTaps([]);
+    setDuckPosition(null);
 
 
     if (newGameMode === "rhythm-challenge") {
@@ -1225,7 +1245,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     </Button>
                 </div>
 
-                <div className="w-full flex-grow flex items-center justify-around px-4">
+                <div className="w-full flex-grow flex items-center justify-around px-4 relative">
+                    <div className={cn(
+                        "absolute top-[-50px] left-1/2 -translate-x-1/2 transition-all duration-200 ease-out",
+                        !duckPosition && "opacity-0",
+                        duckPosition === 'kick' && "left-[25%]",
+                        duckPosition === 'clap' && "left-[75%]",
+                    )}>
+                        <RhythmDuck />
+                    </div>
                      <button
                         onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
