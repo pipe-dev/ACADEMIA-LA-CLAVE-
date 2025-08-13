@@ -202,15 +202,36 @@ const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
     "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0], // 12 tuning, 4 rhythm
 };
 
-const RhythmDuck = () => {
+const RhythmDuck = ({ animate }: { animate: boolean }) => {
     return (
         <div className="w-10 h-10 relative">
+            <style jsx>{`
+                @keyframes bounce-in {
+                    0% {
+                        transform: translateY(-80px) scale(0.8);
+                        opacity: 0;
+                    }
+                    50% {
+                        transform: translateY(0) scale(1.1);
+                        opacity: 1;
+                    }
+                    70% {
+                        transform: translateY(-15px) scale(0.95);
+                    }
+                    100% {
+                        transform: translateY(0) scale(1);
+                    }
+                }
+                .bounce {
+                    animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+                }
+            `}</style>
              <Image 
                 src="/duck.png" 
                 alt="Rhythm Duck" 
                 width={40} 
                 height={40}
-                className="pixelated"
+                className={cn("pixelated", animate && "bounce")}
                 style={{ imageRendering: 'pixelated' }}
             />
         </div>
@@ -328,6 +349,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [activeRhythmHit, setActiveRhythmHit] = useState<'clap' | 'kick' | null>(null);
   const [showFailureDuck, setShowFailureDuck] = useState(false);
   const [duckPosition, setDuckPosition] = useState<'kick' | 'clap' | null>(null);
+  const [animateDuck, setAnimateDuck] = useState(false);
+
+  useEffect(() => {
+    if (duckPosition) {
+        setAnimateDuck(true);
+        const timer = setTimeout(() => setAnimateDuck(false), 600); // Duration of the bounce animation
+        return () => clearTimeout(timer);
+    }
+  }, [duckPosition]);
 
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
@@ -654,7 +684,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     if (rhythmPhaseRef.current !== 'playback') return;
                     playRhythmSound(hit.instrument);
                     setActiveRhythmHit(hit.instrument);
-                    setDuckPosition(hit.instrument);
+                    setDuckPosition(null); // Reset to trigger useEffect
+                    setTimeout(() => setDuckPosition(hit.instrument), 10);
                     setTimeout(() => setActiveRhythmHit(null), 150);
                 }, hit.time);
                 scheduledRhythmEvents.current.push(hitTimeout);
@@ -1246,13 +1277,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </div>
 
                 <div className="w-full flex-grow flex items-center justify-around px-4 relative">
-                    <div className={cn(
-                        "absolute top-[-50px] left-1/2 -translate-x-1/2 transition-all duration-200 ease-out",
+                     <div className={cn(
+                        "absolute top-[-60px] left-1/2 -translate-x-1/2 transition-all duration-200 ease-out",
                         !duckPosition && "opacity-0",
                         duckPosition === 'kick' && "left-[25%]",
                         duckPosition === 'clap' && "left-[75%]",
                     )}>
-                        <RhythmDuck />
+                        <RhythmDuck animate={animateDuck} />
                     </div>
                      <button
                         onClick={() => handleRhythmTap('kick')}
