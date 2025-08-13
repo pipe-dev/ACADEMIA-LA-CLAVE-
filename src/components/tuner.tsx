@@ -1267,7 +1267,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 <div className="w-full flex-grow flex items-center justify-around px-4 relative h-40">
                     <RhythmDuck animationClass={animationClass} />
                     
-                    {rhythmPhase !== 'results' && (
+                    {(rhythmPhase !== 'results') && (
                         <>
                             <button
                                 onClick={() => handleRhythmTap('kick')}
@@ -1301,8 +1301,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     };
 
   const renderCentralContent = () => {
-    if (rhythmPhase === 'results' && rhythmScore < 75) {
-        return (
+    if (rhythmPhase === 'results') {
+       return (
             <div className="flex flex-col items-center justify-center text-center text-foreground gap-4">
                 {showFailureDuck && <MockingDuck />}
                 <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
@@ -1467,7 +1467,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
-                {rhythmPhase === 'results' && rhythmScore < 75 
+                {rhythmPhase === 'results' 
                     ? renderCentralContent() 
                     : renderRhythmGame()
                 }
@@ -1656,8 +1656,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     }
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-base">
-                      {gameMode === 'rhythm-challenge' && rhythmScore >= 75 ? "¡Ritmo perfecto!" : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
+                      {gameMode === 'rhythm-challenge' ? "¡Ritmo perfecto!" : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
                   </AlertDialogDescription>
+                   {gameMode === 'rhythm-challenge' && rhythmScore >= 75 && (
+                      <p className="text-lg font-bold text-center text-foreground pt-2">
+                          Precisión: {rhythmScore.toFixed(0)}%
+                      </p>
+                  )}
               </AlertDialogHeader>
               <AlertDialogFooter>
                 {difficulty !== 'Calentamiento' && currentLevel < difficultySettings[difficulty as ChallengeDifficulty].levelCount ? (
