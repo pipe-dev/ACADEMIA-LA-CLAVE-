@@ -217,7 +217,7 @@ const RhythmDuck = ({ animationClass }: { animationClass: string }) => {
                 alt="Rhythm Duck" 
                 width={80} 
                 height={80}
-                className={"pixelated w-full h-full"}
+                className={"w-full h-full"}
                 style={{ imageRendering: 'pixelated' }}
             />
         </div>
@@ -1246,12 +1246,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
             <div className="flex flex-col items-center justify-start gap-0 w-full h-full text-foreground">
                 <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
         
-                <div className="text-center my-2">
+                <div className="text-center mt-2">
                     <p className="text-4xl font-bold">{rhythmBpm}</p>
                     <p className="text-lg text-muted-foreground -mt-1">BPM</p>
                 </div>
                 
-                <div className="w-full flex justify-center items-center gap-2 mb-2">
+                <div className="w-full flex justify-center items-center gap-2 mt-2">
                     <Button
                         onClick={handleListenStopClick}
                         disabled={rhythmPhase === 'results'}
@@ -1264,50 +1264,51 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </div>
 
 
-                <div className="w-full flex-grow flex items-center justify-around px-4 relative h-40">
+                <div className="w-full flex-grow flex items-center justify-around px-4 relative h-40 mt-4">
                     <RhythmDuck animationClass={animationClass} />
                     
-                    {(rhythmPhase !== 'results') && (
-                        <>
-                            <button
-                                onClick={() => handleRhythmTap('kick')}
-                                disabled={rhythmPhase !== 'playing'}
-                                className={cn(
-                                    "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                                    "bg-blue-600/80 border-4 border-blue-800/80",
-                                    "active:scale-95 active:bg-blue-500",
-                                    rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                                    (activeRhythmHit === 'kick') && "neon-glow border-blue-400"
-                                )}
-                                style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
-                            />
-                            <button
-                                onClick={() => handleRhythmTap('clap')}
-                                disabled={rhythmPhase !== 'playing'}
-                                className={cn(
-                                    "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
-                                    "bg-red-600/80 border-4 border-red-800/80",
-                                    "active:scale-95 active:bg-red-500",
-                                    rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
-                                    (activeRhythmHit === 'clap') && "neon-glow border-red-400"
-                                )}
-                                style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
-                            />
-                        </>
-                    )}
+                    <button
+                        onClick={() => handleRhythmTap('kick')}
+                        disabled={rhythmPhase !== 'playing'}
+                        className={cn(
+                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "bg-blue-600/80 border-4 border-blue-800/80",
+                            "active:scale-95 active:bg-blue-500",
+                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                            (activeRhythmHit === 'kick') && "neon-glow border-blue-400"
+                        )}
+                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
+                    />
+                    <button
+                        onClick={() => handleRhythmTap('clap')}
+                        disabled={rhythmPhase !== 'playing'}
+                        className={cn(
+                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "bg-red-600/80 border-4 border-red-800/80",
+                            "active:scale-95 active:bg-red-500",
+                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                            (activeRhythmHit === 'clap') && "neon-glow border-red-400"
+                        )}
+                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
+                    />
                 </div>
             </div>
         );
     };
 
   const renderCentralContent = () => {
-    if (rhythmPhase === 'results') {
-       return (
-            <div className="flex flex-col items-center justify-center text-center text-foreground gap-4">
-                {showFailureDuck && <MockingDuck />}
+    if (rhythmPhase === 'results' || showFailureDuck) {
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center text-center text-foreground gap-4">
+                <MockingDuck />
                 <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
                 <p className="text-muted-foreground">¡Casi! Necesitas 75% para ganar.</p>
-                <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>
+                <Button onClick={() => {
+                    setShowFailureDuck(false);
+                    setRhythmPhase('idle');
+                    setUserRhythmTaps([]);
+                    setRhythmScore(0);
+                }} className="mt-4">Reintentar</Button>
             </div>
         );
     }
@@ -1467,7 +1468,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
-                {rhythmPhase === 'results' 
+                {rhythmPhase === 'results' || showFailureDuck
                     ? renderCentralContent() 
                     : renderRhythmGame()
                 }
@@ -1655,13 +1656,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         : `¡Dificultad ${difficulty} Completada!`
                     }
                   </AlertDialogTitle>
-                  <AlertDialogDescription className="text-base">
-                      {gameMode === 'rhythm-challenge' ? "¡Ritmo perfecto!" : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
-                  </AlertDialogDescription>
-                   {gameMode === 'rhythm-challenge' && rhythmScore >= 75 && (
+                  {gameMode !== 'rhythm-challenge' ? (
+                    <AlertDialogDescription className="text-base">
+                        ¡Excelente trabajo! Has desbloqueado el siguiente nivel.
+                    </AlertDialogDescription>
+                  ) : (
+                    rhythmScore >= 75 && (
                       <p className="text-lg font-bold text-center text-foreground pt-2">
                           Precisión: {rhythmScore.toFixed(0)}%
                       </p>
+                    )
                   )}
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1681,3 +1685,4 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
