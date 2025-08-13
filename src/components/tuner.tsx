@@ -1310,7 +1310,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const renderCentralContent = () => {
     if (gameMode === 'rhythm-challenge') {
-        return null; // The rhythm game has its own full layout
+         if (rhythmPhase === 'results') {
+            return (
+                <div className="text-center text-foreground relative flex flex-col items-center justify-center gap-4">
+                    {showFailureDuck && <MockingDuck />}
+                    <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
+                    <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
+                    {rhythmScore < 75 && <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>}
+                </div>
+            );
+        }
+        return null;
     }
       
     if (sessionCompleted && !showLevelCompleteDialog) {
