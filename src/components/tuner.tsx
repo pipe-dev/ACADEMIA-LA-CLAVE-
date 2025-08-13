@@ -1260,7 +1260,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
                 <div className="w-full flex-grow flex items-center justify-around px-4 relative">
                      <div className={cn(
-                        "absolute top-[-60px] left-1/2 -translate-x-1/2 transition-all duration-200 ease-out",
+                        "absolute top-[-60px] left-1/2 -translate-x-1/2 ease-out",
                         !duckPosition && "opacity-0",
                         duckPosition === 'kick' && "left-[25%]",
                         duckPosition === 'clap' && "left-[75%]",
