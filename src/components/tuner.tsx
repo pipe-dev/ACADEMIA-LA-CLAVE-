@@ -208,18 +208,18 @@ const RhythmDuck = ({ animate }: { animate: boolean }) => {
             <style jsx>{`
                 @keyframes bounce-in {
                     0% {
-                        transform: translateY(-80px) scale(0.8);
+                        transform: translateY(-80px) scale(0.8) rotate(0deg);
                         opacity: 0;
                     }
                     50% {
-                        transform: translateY(0) scale(1.1);
+                        transform: translateY(0) scale(1.1) rotate(360deg);
                         opacity: 1;
                     }
                     70% {
-                        transform: translateY(-15px) scale(0.95);
+                        transform: translateY(-15px) scale(0.95) rotate(345deg);
                     }
                     100% {
-                        transform: translateY(0) scale(1);
+                        transform: translateY(0) scale(1) rotate(360deg);
                     }
                 }
                 .bounce {
