@@ -57,13 +57,13 @@ export function MockingDuck({ className }: { className?: string }) {
         <div className="troll">
             {/* 
               Instructions for the user:
-              1. Add your trollface.jpeg image to the `public` folder.
-              2. If your image is not a JPEG or has a different name,
+              1. Add your trollface.png image to the `public` folder.
+              2. If your image is not a PNG or has a different name,
                  update the `src` attribute below. For example, if you have
-                 `public/my-image.png`, change the src to `"/my-image.png"`.
+                 `public/my-image.jpg`, change the src to `"/my-image.jpg"`.
             */}
            <Image 
-            src="/trollface.jpeg" 
+            src="/trollface.png" 
             alt="Trollface" 
             width={150} 
             height={150}
