@@ -119,6 +119,27 @@
       box-shadow: 0 0 10px hsl(var(--primary)), 0 0 20px hsl(var(--primary)), 0 0 30px hsl(var(--primary));
     }
   }
+
+  .animate-duck-bounce {
+    animation: duck-bounce 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+  }
+
+  @keyframes duck-bounce {
+    0% {
+      transform: translateY(-80px) scale(0.8) rotate(0deg);
+      opacity: 0;
+    }
+    50% {
+      transform: translateY(0) scale(1.1) rotate(360deg);
+      opacity: 1;
+    }
+    70% {
+      transform: translateY(-15px) scale(0.95) rotate(345deg);
+    }
+    100% {
+      transform: translateY(0) scale(1) rotate(360deg);
+    }
+  }
 }
 
 @layer base {

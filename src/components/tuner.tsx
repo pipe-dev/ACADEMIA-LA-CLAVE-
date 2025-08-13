@@ -204,34 +204,16 @@ const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
 
 const RhythmDuck = ({ animate }: { animate: boolean }) => {
     return (
-        <div className="w-10 h-10 relative">
-            <style jsx>{`
-                @keyframes bounce-in {
-                    0% {
-                        transform: translateY(-80px) scale(0.8) rotate(0deg);
-                        opacity: 0;
-                    }
-                    50% {
-                        transform: translateY(0) scale(1.1) rotate(360deg);
-                        opacity: 1;
-                    }
-                    70% {
-                        transform: translateY(-15px) scale(0.95) rotate(345deg);
-                    }
-                    100% {
-                        transform: translateY(0) scale(1) rotate(360deg);
-                    }
-                }
-                .bounce {
-                    animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
-                }
-            `}</style>
+        <div className="w-20 h-20 relative">
              <Image 
                 src="/duck.png" 
                 alt="Rhythm Duck" 
-                width={40} 
-                height={40}
-                className={cn("pixelated", animate && "bounce")}
+                width={80} 
+                height={80}
+                className={cn(
+                    "pixelated", 
+                    animate && "animate-duck-bounce"
+                )}
                 style={{ imageRendering: 'pixelated' }}
             />
         </div>
