@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Skeleton } from "@/components/ui/skeleton";
 import { MockingDuck } from "@/components/mocking-duck";
 import Image from 'next/image';
+import { ThemeToggle } from "./theme-toggle";
 
 export type NoteInfo = {
   name: string;
@@ -333,7 +334,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [rhythmBpm, setRhythmBpm] = useState(100);
   const [activeRhythmHit, setActiveRhythmHit] = useState<'clap' | 'kick' | null>(null);
   const [showFailureDuck, setShowFailureDuck] = useState(false);
-  const [duckAnimationClass, setDuckAnimationClass] = useState('opacity-0');
+  const [animationClass, setAnimationClass] = useState('');
   const duckPrevPositionRef = useRef<'kick' | 'clap' | null>(null);
 
 
@@ -626,7 +627,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     scheduledRhythmEvents.current = [];
     
     if (rhythmPhaseRef.current === 'playback') {
-        setDuckAnimationClass('opacity-0');
+        setAnimationClass('');
         duckPrevPositionRef.current = null;
         setRhythmPhase('playing');
         setUserRhythmTaps([]);
@@ -666,13 +667,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     // Duck animation logic
                     const prevPos = duckPrevPositionRef.current;
                     const newPos = hit.instrument;
+                    let animClass = '';
                     if (prevPos === null) { // First note
-                         setDuckAnimationClass(newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap');
+                         animClass = newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap';
                     } else if (prevPos === newPos) { // Same button
-                        setDuckAnimationClass(newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap');
+                        animClass = newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap';
                     } else { // Different button
-                        setDuckAnimationClass(newPos === 'kick' ? 'animate-jump-clap-to-kick' : 'animate-jump-kick-to-clap');
+                        animClass = newPos === 'kick' ? 'animate-jump-clap-to-kick' : 'animate-jump-kick-to-clap';
                     }
+                    setAnimationClass(animClass);
                     duckPrevPositionRef.current = newPos;
 
                     setTimeout(() => setActiveRhythmHit(null), 150);
@@ -995,7 +998,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmPhase('idle');
     setRhythmScore(0);
     setUserRhythmTaps([]);
-    setDuckAnimationClass('opacity-0');
+    setAnimationClass('');
     duckPrevPositionRef.current = null;
 
 
@@ -1262,7 +1265,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
 
                 <div className="w-full flex-grow flex items-center justify-around px-4 relative h-40">
-                    <RhythmDuck animationClass={duckAnimationClass} />
+                    <RhythmDuck animationClass={animationClass} />
                     
                     {rhythmPhase !== 'results' && (
                         <>
@@ -1298,18 +1301,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     };
 
   const renderCentralContent = () => {
-    if (gameMode === 'rhythm-challenge') {
-         if (rhythmPhase === 'results' && rhythmScore < 75) {
-            return (
-                <div className="flex flex-col items-center justify-center text-center text-foreground gap-4">
-                    {showFailureDuck && <MockingDuck />}
-                    <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
-                    <p className="text-muted-foreground">¡Casi! Necesitas 75% para ganar.</p>
-                    <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>
-                </div>
-            );
-        }
-        return null; // The rhythm game is rendered entirely in renderRhythmGame() except for the failure screen
+    if (rhythmPhase === 'results' && rhythmScore < 75) {
+        return (
+            <div className="flex flex-col items-center justify-center text-center text-foreground gap-4">
+                {showFailureDuck && <MockingDuck />}
+                <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
+                <p className="text-muted-foreground">¡Casi! Necesitas 75% para ganar.</p>
+                <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>
+            </div>
+        );
     }
       
     if (sessionCompleted && !showLevelCompleteDialog) {
@@ -1447,7 +1447,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   return (
     <div className="flex flex-col w-full max-w-md mx-auto p-4">
       {/* Header */}
-      <header className="flex-shrink-0">
+      <header className="flex-shrink-0 mb-4">
         <div className="w-full flex items-center justify-between">
             <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1459,7 +1459,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 </p>
                 {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
             </div>
-            <div className="w-16"></div>
+            <ThemeToggle />
         </div>
       </header>
       
@@ -1467,7 +1467,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
-                {rhythmPhase !== 'results' || rhythmScore >= 75 ? renderRhythmGame() : renderCentralContent()}
+                {rhythmPhase === 'results' && rhythmScore < 75 
+                    ? renderCentralContent() 
+                    : renderRhythmGame()
+                }
             </div>
         ) : (
             <div id="tuner-container" className="relative w-full flex items-center justify-center my-8" style={{ minHeight: `${radius * 2 + 80}px`}}>

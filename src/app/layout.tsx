@@ -2,7 +2,6 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 export const metadata: Metadata = {
   title: 'Vocal Studio',
@@ -28,12 +27,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="relative">
-            <div className="absolute top-4 right-4 z-50">
-              <ThemeToggle />
-            </div>
-            {children}
-          </div>
+          {children}
           <Toaster />
         </ThemeProvider>
       </body>
