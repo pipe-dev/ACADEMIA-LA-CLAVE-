@@ -140,6 +140,33 @@
       transform: translateY(0) scale(1) rotate(360deg);
     }
   }
+
+  .animate-jump-kick-to-clap { animation: jump-kick-to-clap 0.4s ease-out forwards; }
+  .animate-jump-clap-to-kick { animation: jump-clap-to-kick 0.4s ease-out forwards; }
+  .animate-jump-hop-kick { animation: jump-hop-kick 0.4s ease-out forwards; }
+  .animate-jump-hop-clap { animation: jump-hop-clap 0.4s ease-out forwards; }
+
+  @keyframes jump-kick-to-clap {
+    0% { transform: translate(-50%, -80px) scale(0.8) rotate(0deg); left: 25%; opacity: 0; }
+    30% { transform: translate(-50%, -160px) scale(1.1) rotate(180deg); opacity: 1; }
+    100% { transform: translate(-50%, -80px) scale(1) rotate(360deg); left: 75%; opacity: 1; }
+  }
+  @keyframes jump-clap-to-kick {
+    0% { transform: translate(-50%, -80px) scale(0.8) rotate(0deg); left: 75%; opacity: 0; }
+    30% { transform: translate(-50%, -160px) scale(1.1) rotate(-180deg); opacity: 1; }
+    100% { transform: translate(-50%, -80px) scale(1) rotate(-360deg); left: 25%; opacity: 1; }
+  }
+  @keyframes jump-hop-kick {
+    0% { transform: translate(-50%, -80px) scale(0.8) rotate(0deg); left: 25%; opacity: 0; }
+    50% { transform: translate(-50%, -140px) scale(1.1) rotate(360deg); opacity: 1; }
+    100% { transform: translate(-50%, -80px) scale(1) rotate(360deg); left: 25%; opacity: 1; }
+  }
+  @keyframes jump-hop-clap {
+    0% { transform: translate(-50%, -80px) scale(0.8) rotate(0deg); left: 75%; opacity: 0; }
+    50% { transform: translate(-50%, -140px) scale(1.1) rotate(360deg); opacity: 1; }
+    100% { transform: translate(-50%, -80px) scale(1) rotate(360deg); left: 75%; opacity: 1; }
+  }
+
 }
 
 @layer base {

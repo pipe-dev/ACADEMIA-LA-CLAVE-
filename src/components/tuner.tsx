@@ -202,18 +202,21 @@ const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
     "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0], // 12 tuning, 4 rhythm
 };
 
-const RhythmDuck = ({ animate, className }: { animate: boolean, className?: string }) => {
+const RhythmDuck = ({ animationClass }: { animationClass: string }) => {
+    const [key, setKey] = useState(0);
+    
+    useEffect(() => {
+        setKey(prev => prev + 1);
+    }, [animationClass]);
+
     return (
-        <div className={cn("w-20 h-20 relative", className)}>
+        <div key={key} className={cn("w-20 h-20 absolute", animationClass)}>
              <Image 
                 src="/duck.png" 
                 alt="Rhythm Duck" 
                 width={80} 
                 height={80}
-                className={cn(
-                    "pixelated", 
-                    animate && "animate-duck-bounce"
-                )}
+                className={"pixelated w-full h-full"}
                 style={{ imageRendering: 'pixelated' }}
             />
         </div>
@@ -330,19 +333,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [rhythmBpm, setRhythmBpm] = useState(100);
   const [activeRhythmHit, setActiveRhythmHit] = useState<'clap' | 'kick' | null>(null);
   const [showFailureDuck, setShowFailureDuck] = useState(false);
-  const [duckPosition, setDuckPosition] = useState<'kick' | 'clap' | null>(null);
-  const [animateDuck, setAnimateDuck] = useState(false);
-
-  useEffect(() => {
-    if (duckPosition) {
-        setAnimateDuck(true);
-        const timer = setTimeout(() => {
-            setAnimateDuck(false)
-            setDuckPosition(null)
-        }, 600); // Duration of the bounce animation
-        return () => clearTimeout(timer);
-    }
-  }, [duckPosition]);
+  const [duckAnimationClass, setDuckAnimationClass] = useState('opacity-0');
+  const duckPrevPositionRef = useRef<'kick' | 'clap' | null>(null);
 
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
@@ -634,7 +626,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     scheduledRhythmEvents.current = [];
     
     if (rhythmPhaseRef.current === 'playback') {
-        setDuckPosition(null);
+        setDuckAnimationClass('opacity-0');
+        duckPrevPositionRef.current = null;
         setRhythmPhase('playing');
         setUserRhythmTaps([]);
         setRhythmStartTime(performance.now());
@@ -648,7 +641,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (rhythmPattern.length === 0 || rhythmPhaseRef.current !== 'idle') return;
 
     setRhythmPhase('playback');
-    setDuckPosition(null);
     scheduledRhythmEvents.current.forEach(clearTimeout);
     scheduledRhythmEvents.current = [];
 
@@ -663,13 +655,26 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
         const startTimeout = setTimeout(() => {
             if (rhythmPhaseRef.current !== 'playback') return;
+            duckPrevPositionRef.current = null; // Reset for new sequence
 
             rhythmPattern.forEach(hit => {
                 const hitTimeout = setTimeout(() => {
                     if (rhythmPhaseRef.current !== 'playback') return;
                     playRhythmSound(hit.instrument);
                     setActiveRhythmHit(hit.instrument);
-                    setDuckPosition(hit.instrument);
+
+                    // Duck animation logic
+                    const prevPos = duckPrevPositionRef.current;
+                    const newPos = hit.instrument;
+                    if (prevPos === null) { // First note
+                         setDuckAnimationClass(newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap');
+                    } else if (prevPos === newPos) { // Same button
+                        setDuckAnimationClass(newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap');
+                    } else { // Different button
+                        setDuckAnimationClass(newPos === 'kick' ? 'animate-jump-clap-to-kick' : 'animate-jump-kick-to-clap');
+                    }
+                    duckPrevPositionRef.current = newPos;
+
                     setTimeout(() => setActiveRhythmHit(null), 150);
                 }, hit.time);
                 scheduledRhythmEvents.current.push(hitTimeout);
@@ -990,7 +995,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmPhase('idle');
     setRhythmScore(0);
     setUserRhythmTaps([]);
-    setDuckPosition(null);
+    setDuckAnimationClass('opacity-0');
+    duckPrevPositionRef.current = null;
 
 
     if (newGameMode === "rhythm-challenge") {
@@ -1234,7 +1240,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const isPlaying = rhythmPhase === 'playback' || rhythmPhase === 'playing';
 
         return (
-            <div className="flex flex-col items-center justify-start gap-2 w-full h-full text-foreground">
+            <div className="flex flex-col items-center justify-start gap-0 w-full h-full text-foreground">
                 
                 {rhythmPhase !== 'results' && (
                     <>
@@ -1242,7 +1248,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 
                         <div className="text-center my-2">
                             <p className="text-4xl font-bold">{rhythmBpm}</p>
-                            <p className="text-lg text-muted-foreground">BPM</p>
+                            <p className="text-lg text-muted-foreground -mt-1">BPM</p>
                         </div>
                         
                         <div className="w-full flex justify-center items-center gap-2 mb-2">
@@ -1260,14 +1266,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 )}
 
 
-                <div className="w-full flex-grow flex items-center justify-around px-4 relative">
-                    <RhythmDuck animate={animateDuck} className={cn(
-                        "absolute top-[-80px] left-1/2 -translate-x-1/2 ease-out",
-                        !duckPosition && "opacity-0",
-                        duckPosition === 'kick' && "left-[25%]",
-                        duckPosition === 'clap' && "left-[75%]",
-                    )} />
-
+                <div className="w-full flex-grow flex items-center justify-around px-4 relative h-40">
+                    {rhythmPhase === 'playback' && <RhythmDuck animationClass={duckAnimationClass} />}
+                    
                     {rhythmPhase === 'results' ? (
                         <div className="text-center text-foreground relative flex flex-col items-center justify-center gap-4">
                             {showFailureDuck && <MockingDuck />}
