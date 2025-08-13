@@ -202,9 +202,9 @@ const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
     "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0], // 12 tuning, 4 rhythm
 };
 
-const RhythmDuck = ({ animate }: { animate: boolean }) => {
+const RhythmDuck = ({ animate, className }: { animate: boolean, className?: string }) => {
     return (
-        <div className="w-20 h-20 relative">
+        <div className={cn("w-20 h-20 relative", className)}>
              <Image 
                 src="/duck.png" 
                 alt="Rhythm Duck" 
@@ -336,7 +336,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   useEffect(() => {
     if (duckPosition) {
         setAnimateDuck(true);
-        const timer = setTimeout(() => setAnimateDuck(false), 600); // Duration of the bounce animation
+        const timer = setTimeout(() => {
+            setAnimateDuck(false)
+            setDuckPosition(null)
+        }, 600); // Duration of the bounce animation
         return () => clearTimeout(timer);
     }
   }, [duckPosition]);
@@ -666,8 +669,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     if (rhythmPhaseRef.current !== 'playback') return;
                     playRhythmSound(hit.instrument);
                     setActiveRhythmHit(hit.instrument);
-                    setDuckPosition(null); // Reset to trigger useEffect
-                    setTimeout(() => setDuckPosition(hit.instrument), 10);
+                    setDuckPosition(hit.instrument);
                     setTimeout(() => setActiveRhythmHit(null), 150);
                 }, hit.time);
                 scheduledRhythmEvents.current.push(hitTimeout);
@@ -1232,18 +1234,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const isPlaying = rhythmPhase === 'playback' || rhythmPhase === 'playing';
 
         return (
-            <div className="flex flex-col items-center justify-center gap-4 w-full h-full text-foreground">
+            <div className="flex flex-col items-center justify-start gap-2 w-full h-full text-foreground">
                 
                 {rhythmPhase !== 'results' && (
                     <>
                         <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
                 
-                        <div className="text-center my-4">
+                        <div className="text-center my-2">
                             <p className="text-4xl font-bold">{rhythmBpm}</p>
-                            <p className="text-xl text-muted-foreground">BPM</p>
+                            <p className="text-lg text-muted-foreground">BPM</p>
                         </div>
                         
-                        <div className="w-full flex justify-center items-center gap-2 mb-4">
+                        <div className="w-full flex justify-center items-center gap-2 mb-2">
                             <Button
                                 onClick={handleListenStopClick}
                                 disabled={rhythmPhase === 'results'}
@@ -1259,14 +1261,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
 
                 <div className="w-full flex-grow flex items-center justify-around px-4 relative">
-                     <div className={cn(
-                        "absolute top-[-60px] left-1/2 -translate-x-1/2 ease-out",
+                    <RhythmDuck animate={animateDuck} className={cn(
+                        "absolute top-[-80px] left-1/2 -translate-x-1/2 ease-out",
                         !duckPosition && "opacity-0",
                         duckPosition === 'kick' && "left-[25%]",
                         duckPosition === 'clap' && "left-[75%]",
-                    )}>
-                        <RhythmDuck animate={animateDuck} />
-                    </div>
+                    )} />
 
                     {rhythmPhase === 'results' ? (
                         <div className="text-center text-foreground relative flex flex-col items-center justify-center gap-4">
