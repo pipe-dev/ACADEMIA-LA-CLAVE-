@@ -1241,42 +1241,30 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
         return (
             <div className="flex flex-col items-center justify-start gap-0 w-full h-full text-foreground">
+                <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
+        
+                <div className="text-center my-2">
+                    <p className="text-4xl font-bold">{rhythmBpm}</p>
+                    <p className="text-lg text-muted-foreground -mt-1">BPM</p>
+                </div>
                 
-                {rhythmPhase !== 'results' && (
-                    <>
-                        <Metronome bpm={rhythmBpm} isPlaying={isPlaying} />
-                
-                        <div className="text-center my-2">
-                            <p className="text-4xl font-bold">{rhythmBpm}</p>
-                            <p className="text-lg text-muted-foreground -mt-1">BPM</p>
-                        </div>
-                        
-                        <div className="w-full flex justify-center items-center gap-2 mb-2">
-                            <Button
-                                onClick={handleListenStopClick}
-                                disabled={rhythmPhase === 'results'}
-                                variant="secondary"
-                                className="w-32"
-                            >
-                                {rhythmPhase === 'playback' ? <Square className="mr-2 fill-current" /> : <Play className="mr-2" />}
-                                {rhythmPhase === 'playback' ? "Tocar" : "Escuchar"}
-                            </Button>
-                        </div>
-                    </>
-                )}
+                <div className="w-full flex justify-center items-center gap-2 mb-2">
+                    <Button
+                        onClick={handleListenStopClick}
+                        disabled={rhythmPhase === 'results'}
+                        variant="secondary"
+                        className="w-32"
+                    >
+                        {rhythmPhase === 'playback' ? <Square className="mr-2 fill-current" /> : <Play className="mr-2" />}
+                        {rhythmPhase === 'playback' ? "Tocar" : "Escuchar"}
+                    </Button>
+                </div>
 
 
                 <div className="w-full flex-grow flex items-center justify-around px-4 relative h-40">
-                    {rhythmPhase === 'playback' && <RhythmDuck animationClass={duckAnimationClass} />}
+                    <RhythmDuck animationClass={duckAnimationClass} />
                     
-                    {rhythmPhase === 'results' ? (
-                        <div className="text-center text-foreground relative flex flex-col items-center justify-center gap-4">
-                            {showFailureDuck && <MockingDuck />}
-                            <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
-                            <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
-                            {rhythmScore < 75 && <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>}
-                        </div>
-                    ) : (
+                    {rhythmPhase !== 'results' && (
                         <>
                             <button
                                 onClick={() => handleRhythmTap('kick')}
@@ -1311,17 +1299,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const renderCentralContent = () => {
     if (gameMode === 'rhythm-challenge') {
-         if (rhythmPhase === 'results') {
+         if (rhythmPhase === 'results' && rhythmScore < 75) {
             return (
-                <div className="text-center text-foreground relative flex flex-col items-center justify-center gap-4">
+                <div className="flex flex-col items-center justify-center text-center text-foreground gap-4">
                     {showFailureDuck && <MockingDuck />}
                     <p className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</p>
-                    <p className="text-muted-foreground">{rhythmScore >= 75 ? "¡Excelente, nivel superado!" : "¡Casi! Necesitas 75% para ganar."}</p>
-                    {rhythmScore < 75 && <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>}
+                    <p className="text-muted-foreground">¡Casi! Necesitas 75% para ganar.</p>
+                    <Button onClick={() => setRhythmPhase('idle')} className="mt-4">Reintentar</Button>
                 </div>
             );
         }
-        return null;
+        return null; // The rhythm game is rendered entirely in renderRhythmGame() except for the failure screen
     }
       
     if (sessionCompleted && !showLevelCompleteDialog) {
@@ -1479,7 +1467,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
-                {renderRhythmGame()}
+                {rhythmPhase !== 'results' || rhythmScore >= 75 ? renderRhythmGame() : renderCentralContent()}
             </div>
         ) : (
             <div id="tuner-container" className="relative w-full flex items-center justify-center my-8" style={{ minHeight: `${radius * 2 + 80}px`}}>
