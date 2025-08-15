@@ -338,8 +338,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const duckPrevPositionRef = useRef<'kick' | 'clap' | null>(null);
   const [showEasyWinVideo, setShowEasyWinVideo] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
@@ -1713,9 +1711,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-base">
                       {gameMode === 'rhythm-challenge' && rhythmScore >= 75 ? (
-                          <p className="text-lg font-bold text-center text-foreground pt-2">
+                          <div className="text-lg font-bold text-center text-foreground pt-2">
                               Precisión: {rhythmScore.toFixed(0)}%
-                          </p>
+                          </div>
                       ) : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
                   </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1737,11 +1735,4 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   );
 }
 
-
     
-
-    
-
-
-
-
