@@ -1319,7 +1319,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         );
     }
     
-    if (showFailureDuck && !sessionCompleted) {
+    if (showFailureDuck) {
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-center text-foreground gap-4">
                 <MockingDuck />
@@ -1459,14 +1459,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
   if (showEasyWinVideo) {
     return (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
-            <video
-                src="/Duck Win.mp4"
-                autoPlay
-                loop
-                muted
-                className="w-full h-full object-cover"
-            />
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-md aspect-square">
+                <video
+                    src="/Duck Win.mp4"
+                    autoPlay
+                    className="w-full h-full object-contain"
+                />
+            </div>
             <Button 
                 onClick={() => {
                     setShowEasyWinVideo(false);
@@ -1476,7 +1476,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 }}
                 className="absolute bottom-10 z-20"
             >
-                Volver a Dificultades
+                Menú
             </Button>
         </div>
     )
@@ -1505,7 +1505,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
-                {(showFailureDuck && !sessionCompleted)
+                {(showFailureDuck)
                     ? renderCentralContent() 
                     : renderRhythmGame()
                 }
@@ -1693,17 +1693,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         : `¡Dificultad ${difficulty} Completada!`
                     }
                   </AlertDialogTitle>
-                  {gameMode !== 'rhythm-challenge' ? (
-                    <AlertDialogDescription className="text-base">
-                        ¡Excelente trabajo! Has desbloqueado el siguiente nivel.
-                    </AlertDialogDescription>
-                  ) : (
-                    rhythmScore >= 75 && (
-                      <p className="text-lg font-bold text-center text-foreground pt-2">
-                          Precisión: {rhythmScore.toFixed(0)}%
-                      </p>
-                    )
-                  )}
+                  <AlertDialogDescription className="text-base">
+                      {gameMode === 'rhythm-challenge' ? (
+                          rhythmScore >= 75 && (
+                              <p className="text-lg font-bold text-center text-foreground pt-2">
+                                  Precisión: {rhythmScore.toFixed(0)}%
+                              </p>
+                          )
+                      ) : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
+                  </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 {difficulty !== 'Calentamiento' && currentLevel < difficultySettings[difficulty as ChallengeDifficulty].levelCount ? (
@@ -1727,3 +1725,4 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
 
     
+
