@@ -1297,7 +1297,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     };
 
   const renderCentralContent = () => {
-    if (rhythmPhase === 'results' || showFailureDuck) {
+    if (showFailureDuck) {
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-center text-foreground gap-4">
                 <MockingDuck />
@@ -1468,7 +1468,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
-                {rhythmPhase === 'results' || showFailureDuck
+                {showFailureDuck
                     ? renderCentralContent() 
                     : renderRhythmGame()
                 }
@@ -1686,3 +1686,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   );
 }
 
+
+    
