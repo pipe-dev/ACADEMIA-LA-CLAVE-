@@ -1167,6 +1167,54 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     stop();
     onGoBack();
   }
+
+  const evaluateRhythm = useCallback((taps: { time: number; instrument: 'clap' | 'kick' }[]) => {
+      if (taps.length < rhythmPattern.length) return 0; // Not enough taps
+
+      const timeTolerance = 250; // ms
+      const maxScorePerHit = 100 / rhythmPattern.length;
+      let bestScore = 0;
+
+      // Try to match the user's pattern against the reference pattern with different offsets
+      for (let offset = 0; offset <= rhythmPattern.length - taps.length; offset++) {
+          let currentScore = 0;
+          const timeShift = taps[0].time - rhythmPattern[offset].time;
+
+          for (let i = 0; i < taps.length; i++) {
+              const userHit = taps[i];
+              const patternHit = rhythmPattern[i + offset];
+
+              if (patternHit) {
+                  const timeDiff = Math.abs(userHit.time - (patternHit.time + timeShift));
+                  const instrumentMatch = patternHit.instrument === userHit.instrument;
+                  
+                  if (instrumentMatch && timeDiff <= timeTolerance) {
+                      currentScore += maxScorePerHit * (1 - (timeDiff / timeTolerance));
+                  }
+              }
+          }
+          if (currentScore > bestScore) {
+              bestScore = currentScore;
+          }
+      }
+
+      setRhythmScore(bestScore);
+
+      if (bestScore >= 75) {
+          playAllCompletedSound();
+          markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
+          setSessionCompleted(true);
+          setTimeout(() => setShowLevelCompleteDialog(true), 1500);
+      } else {
+          setShowFailureDuck(true);
+          setTimeout(() => {
+              setShowFailureDuck(false);
+              setRhythmPhase('idle');
+              setUserRhythmTaps([]);
+              setRhythmScore(0);
+          }, 3000);
+      }
+  }, [rhythmPattern, difficulty, currentLevel, playAllCompletedSound, markLevelAsComplete]);
   
     const handleRhythmTap = (instrument: 'clap' | 'kick') => {
         if (rhythmPhase !== 'playing') return;
@@ -1180,7 +1228,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         let newTaps;
         let currentRhythmStartTime = rhythmStartTime;
 
-        // Start timing from the first tap
         if (userRhythmTaps.length === 0) {
             currentRhythmStartTime = tapTime;
             setRhythmStartTime(currentRhythmStartTime);
@@ -1192,50 +1239,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         
         setUserRhythmTaps(newTaps);
         
-        // If the user has completed the pattern, evaluate it
         if (newTaps.length >= rhythmPattern.length) {
             setRhythmPhase('results');
-            
-            let score = 0;
-            const timeTolerance = 200; // ms
-            const maxScorePerHit = 100 / rhythmPattern.length;
-            
-            // Calculate the time shift based on the user's first tap vs the pattern's first event
-            // This allows the user to start on any beat, as long as they are on tempo.
-            const timeShift = newTaps[0].time - rhythmPattern[0].time;
-                
-            rhythmPattern.forEach((patternHit, i) => {
-                const userHit = newTaps[i];
-                if (userHit) {
-                    // Compare user's relative time to the pattern's relative time
-                    const timeDiff = Math.abs(userHit.time - (patternHit.time + timeShift));
-                    const instrumentMatch = patternHit.instrument === userHit.instrument;
-                    
-                    if (instrumentMatch && timeDiff <= timeTolerance) {
-                        // Score is inversely proportional to the time difference
-                        score += maxScorePerHit * (1 - (timeDiff / timeTolerance));
-                    }
-                }
-            });
-            
-            setRhythmScore(score);
-
-            if (score >= 75) {
-                playAllCompletedSound();
-                markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
-                setTimeout(() => {
-                    setSessionCompleted(true);
-                    setShowLevelCompleteDialog(true)
-                }, 1500);
-            } else {
-                 setShowFailureDuck(true);
-                 setTimeout(() => {
-                     setShowFailureDuck(false);
-                     setRhythmPhase('idle');
-                     setUserRhythmTaps([]);
-                     setRhythmScore(0);
-                 }, 3000);
-            }
+            evaluateRhythm(newTaps);
         }
     };
   
@@ -1686,5 +1692,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   );
 }
 
+
+    
 
     
