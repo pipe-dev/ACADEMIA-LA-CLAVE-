@@ -336,6 +336,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [showFailureDuck, setShowFailureDuck] = useState(false);
   const [animationClass, setAnimationClass] = useState('');
   const duckPrevPositionRef = useRef<'kick' | 'clap' | null>(null);
+  const [showEasyWinVideo, setShowEasyWinVideo] = useState(false);
 
 
   const playbackAudioContextRef = useRef<AudioContext | null>(null);
@@ -361,17 +362,23 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   }, [vocalRangeKey]);
 
   const markLevelAsComplete = useCallback((diff: ChallengeDifficulty, level: number) => {
-    setProgress(prev => {
-        const newProgress = { ...prev };
-        newProgress[diff] = { ...newProgress[diff], [level]: true };
-        try {
-            window.localStorage.setItem(vocalRangeKey, JSON.stringify(newProgress));
-        } catch (error) {
-            console.error("Failed to save progress to localStorage", error);
+    const newProgress = { ...progress };
+    newProgress[diff] = { ...newProgress[diff], [level]: true };
+    setProgress(newProgress);
+    try {
+        window.localStorage.setItem(vocalRangeKey, JSON.stringify(newProgress));
+    } catch (error) {
+        console.error("Failed to save progress to localStorage", error);
+    }
+
+    if (diff === 'Fácil') {
+        const easyLevels = difficultySettings[diff].levelCount;
+        const completedEasyLevels = Object.keys(newProgress[diff]).length;
+        if (completedEasyLevels >= easyLevels) {
+            setShowEasyWinVideo(true);
         }
-        return newProgress;
-    });
-  }, [vocalRangeKey]);
+    }
+  }, [vocalRangeKey, progress]);
 
   const getPlaybackAudioContext = useCallback(() => {
     if (typeof window === 'undefined') return null;
@@ -1169,81 +1176,79 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   }
 
   const evaluateRhythm = useCallback((taps: { time: number; instrument: 'clap' | 'kick' }[]) => {
-      if (taps.length < rhythmPattern.length) return 0; // Not enough taps
+    if (!rhythmPattern || taps.length === 0) return 0;
 
-      const timeTolerance = 250; // ms
-      const maxScorePerHit = 100 / rhythmPattern.length;
-      let bestScore = 0;
+    const timeTolerance = 250; // ms
+    const maxScorePerHit = 100 / rhythmPattern.length;
+    let bestScore = 0;
+    
+    // Try to match the user's pattern against the reference pattern with different offsets
+    for (let offset = 0; offset <= rhythmPattern.length - taps.length; offset++) {
+        let currentScore = 0;
+        
+        if (!rhythmPattern[offset]) continue;
+        
+        const timeShift = taps[0].time - rhythmPattern[offset].time;
 
-      // Try to match the user's pattern against the reference pattern with different offsets
-      for (let offset = 0; offset <= rhythmPattern.length - taps.length; offset++) {
-          let currentScore = 0;
-          const timeShift = taps[0].time - rhythmPattern[offset].time;
+        for (let i = 0; i < taps.length; i++) {
+            const userHit = taps[i];
+            const patternHitIndex = i + offset;
+            
+            if (patternHitIndex < rhythmPattern.length) {
+                const patternHit = rhythmPattern[patternHitIndex];
+                const timeDiff = Math.abs(userHit.time - (patternHit.time + timeShift));
+                const instrumentMatch = patternHit.instrument === userHit.instrument;
+                
+                if (instrumentMatch && timeDiff <= timeTolerance) {
+                    currentScore += maxScorePerHit * (1 - (timeDiff / timeTolerance));
+                }
+            }
+        }
+        if (currentScore > bestScore) {
+            bestScore = currentScore;
+        }
+    }
+    return bestScore;
+}, [rhythmPattern]);
 
-          for (let i = 0; i < taps.length; i++) {
-              const userHit = taps[i];
-              const patternHit = rhythmPattern[i + offset];
+  const handleRhythmTap = (instrument: 'clap' | 'kick') => {
+      if (rhythmPhase !== 'playing') return;
 
-              if (patternHit) {
-                  const timeDiff = Math.abs(userHit.time - (patternHit.time + timeShift));
-                  const instrumentMatch = patternHit.instrument === userHit.instrument;
-                  
-                  if (instrumentMatch && timeDiff <= timeTolerance) {
-                      currentScore += maxScorePerHit * (1 - (timeDiff / timeTolerance));
-                  }
-              }
-          }
-          if (currentScore > bestScore) {
-              bestScore = currentScore;
-          }
-      }
+      playRhythmSound(instrument);
+      setActiveRhythmHit(instrument);
+      setTimeout(() => setActiveRhythmHit(null), 150);
 
-      setRhythmScore(bestScore);
+      const tapTime = performance.now();
+      
+      let newTaps;
+      let currentRhythmStartTime = rhythmStartTime;
 
-      if (bestScore >= 75) {
-          playAllCompletedSound();
-          markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
-          setSessionCompleted(true);
-          setTimeout(() => setShowLevelCompleteDialog(true), 1500);
+      if (userRhythmTaps.length === 0) {
+          currentRhythmStartTime = tapTime;
+          setRhythmStartTime(currentRhythmStartTime);
+          newTaps = [{ time: 0, instrument }];
       } else {
-          setShowFailureDuck(true);
-          setTimeout(() => {
-              setShowFailureDuck(false);
-              setRhythmPhase('idle');
-              setUserRhythmTaps([]);
-              setRhythmScore(0);
-          }, 3000);
+          const elapsedTime = tapTime - currentRhythmStartTime;
+          newTaps = [...userRhythmTaps, { time: elapsedTime, instrument }];
       }
-  }, [rhythmPattern, difficulty, currentLevel, playAllCompletedSound, markLevelAsComplete]);
-  
-    const handleRhythmTap = (instrument: 'clap' | 'kick') => {
-        if (rhythmPhase !== 'playing') return;
+      
+      setUserRhythmTaps(newTaps);
+      
+      if (newTaps.length >= rhythmPattern.length) {
+          setRhythmPhase('results');
+          const finalScore = evaluateRhythm(newTaps);
+          setRhythmScore(finalScore);
 
-        playRhythmSound(instrument);
-        setActiveRhythmHit(instrument);
-        setTimeout(() => setActiveRhythmHit(null), 150);
-
-        const tapTime = performance.now();
-        
-        let newTaps;
-        let currentRhythmStartTime = rhythmStartTime;
-
-        if (userRhythmTaps.length === 0) {
-            currentRhythmStartTime = tapTime;
-            setRhythmStartTime(currentRhythmStartTime);
-            newTaps = [{ time: 0, instrument }];
-        } else {
-            const elapsedTime = tapTime - currentRhythmStartTime;
-            newTaps = [...userRhythmTaps, { time: elapsedTime, instrument }];
-        }
-        
-        setUserRhythmTaps(newTaps);
-        
-        if (newTaps.length >= rhythmPattern.length) {
-            setRhythmPhase('results');
-            evaluateRhythm(newTaps);
-        }
-    };
+          if (finalScore >= 75) {
+              playAllCompletedSound();
+              markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
+              setSessionCompleted(true);
+              setTimeout(() => setShowLevelCompleteDialog(true), 1500);
+          } else {
+              setShowFailureDuck(true);
+          }
+      }
+  };
   
     const renderRhythmGame = () => {
         const isPlaying = rhythmPhase === 'playback' || rhythmPhase === 'playing';
@@ -1303,7 +1308,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     };
 
   const renderCentralContent = () => {
-    if (showFailureDuck) {
+      
+    if (sessionCompleted && !showLevelCompleteDialog) {
+        return (
+            <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
+                <Trophy className="w-20 h-20 text-accent" />
+                <p className="text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
+                <p className="text-muted-foreground">¡Nivel completado!</p>
+            </div>
+        );
+    }
+    
+    if (showFailureDuck && !sessionCompleted) {
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-center text-foreground gap-4">
                 <MockingDuck />
@@ -1315,16 +1331,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     setUserRhythmTaps([]);
                     setRhythmScore(0);
                 }} className="mt-4">Reintentar</Button>
-            </div>
-        );
-    }
-      
-    if (sessionCompleted && !showLevelCompleteDialog) {
-        return (
-            <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
-                <Trophy className="w-20 h-20 text-accent" />
-                <p className="text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
-                <p className="text-muted-foreground">¡Nivel completado!</p>
             </div>
         );
     }
@@ -1451,6 +1457,31 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     return title;
   };
   
+  if (showEasyWinVideo) {
+    return (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
+            <video
+                src="/Duck Win.mp4"
+                autoPlay
+                loop
+                muted
+                className="w-full h-full object-cover"
+            />
+            <Button 
+                onClick={() => {
+                    setShowEasyWinVideo(false);
+                    setShowLevelCompleteDialog(false);
+                    setSelectedDifficulty(null);
+                    setShowDifficultyDialog(true);
+                }}
+                className="absolute bottom-10 z-20"
+            >
+                Volver a Dificultades
+            </Button>
+        </div>
+    )
+  }
+
   return (
     <div className="flex flex-col w-full max-w-md mx-auto p-4">
       {/* Header */}
@@ -1474,7 +1505,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       <main className="flex-grow flex flex-col items-center">
         {gameMode === 'rhythm-challenge' ? (
             <div className="w-full h-full flex items-center justify-center">
-                {showFailureDuck
+                {(showFailureDuck && !sessionCompleted)
                     ? renderCentralContent() 
                     : renderRhythmGame()
                 }
