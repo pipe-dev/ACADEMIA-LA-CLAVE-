@@ -344,6 +344,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
   const metronomeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scheduledRhythmEvents = useRef<NodeJS.Timeout[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
 
   useEffect(() => {
@@ -1457,8 +1458,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     return title;
   };
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   useEffect(() => {
     if (showEasyWinVideo && videoRef.current) {
         const video = videoRef.current;
@@ -1742,5 +1741,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
 
     
+
 
 
