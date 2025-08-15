@@ -1309,7 +1309,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const renderCentralContent = () => {
       
-    if (sessionCompleted && !showLevelCompleteDialog) {
+    if (sessionCompleted && !showLevelCompleteDialog && !showFailureDuck) {
         return (
             <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
                 <Trophy className="w-20 h-20 text-accent" />
@@ -1457,13 +1457,32 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     return title;
   };
   
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (showEasyWinVideo && videoRef.current) {
+        const video = videoRef.current;
+        const handleTimeUpdate = () => {
+            if (video.currentTime >= 6) {
+                video.currentTime = 5;
+            }
+        };
+        video.addEventListener('timeupdate', handleTimeUpdate);
+        return () => {
+            video.removeEventListener('timeupdate', handleTimeUpdate);
+        };
+    }
+  }, [showEasyWinVideo]);
+
   if (showEasyWinVideo) {
     return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-md aspect-square">
                 <video
+                    ref={videoRef}
                     src="/Duck Win.mp4"
                     autoPlay
+                    muted={false}
                     className="w-full h-full object-contain"
                 />
             </div>
@@ -1694,12 +1713,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     }
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-base">
-                      {gameMode === 'rhythm-challenge' ? (
-                          rhythmScore >= 75 && (
-                              <p className="text-lg font-bold text-center text-foreground pt-2">
-                                  Precisión: {rhythmScore.toFixed(0)}%
-                              </p>
-                          )
+                      {gameMode === 'rhythm-challenge' && rhythmScore >= 75 ? (
+                          <p className="text-lg font-bold text-center text-foreground pt-2">
+                              Precisión: {rhythmScore.toFixed(0)}%
+                          </p>
                       ) : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
                   </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1725,4 +1742,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
 
     
+
 
