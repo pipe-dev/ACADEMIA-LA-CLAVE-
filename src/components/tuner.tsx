@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square, Pause } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -392,14 +392,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         console.error("Failed to save progress to localStorage", error);
     }
 
-    if (diff === 'Fácil') {
-        const easyLevels = difficultySettings[diff].levelCount;
-        const completedEasyLevels = Object.keys(newProgress[diff]).length;
-        if (completedEasyLevels >= easyLevels) {
-            setShowEasyWinVideo(true);
-        }
+    if (diff === 'Fácil' && level === difficultySettings[diff].levelCount) {
+        setShowEasyWinVideo(true);
     }
-  }, [vocalRangeKey, progress]);
+  }, [vocalRangeKey, progress, difficultySettings]);
 
   const getPlaybackAudioContext = useCallback(() => {
     if (typeof window === 'undefined') return null;
@@ -676,7 +672,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
     while (nextNoteTimeRef.current < currentTime + scheduleAheadTime) {
       // Schedule metronome ticks
-      playRhythmSound('tick', nextNoteTimeRef.current);
+      playRhythmSound('tick', nextNoteTimeTimeRef.current);
       
       // Schedule pattern notes that fall within this lookahead window
       const patternNotesInWindow = rhythmPattern.filter(note => {
@@ -714,54 +710,45 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         rhythmTimerWorkerRef.current.postMessage({ command: 'stop' });
       }
       setIsPlayingMetronome(false);
-      setRhythmPhase('idle');
       duckPrevPositionRef.current = null;
       setAnimationClass('');
   }, []);
-  
-  useEffect(() => {
-    const worker = rhythmTimerWorkerRef.current;
-    if (isPlayingMetronome && worker) {
-      worker.onmessage = (e) => {
-        if (e.data === 'tick') {
-          scheduleRhythm();
-        }
-      };
-      worker.postMessage({ command: 'start', interval: lookahead });
-    }
-    return () => {
-      if (worker) {
-        worker.onmessage = null;
-      }
-    };
-  }, [isPlayingMetronome, scheduleRhythm]);
 
   const playRhythmPattern = useCallback(() => {
-    const audioContext = getPlaybackAudioContext();
-    if (!audioContext || !rhythmTimerWorkerRef.current) return;
-    
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-    
-    stopAllRhythm();
-    setRhythmPhase('playback');
-    
-    const secondsPerBeat = 60.0 / rhythmBpm;
-    const startTime = audioContext.currentTime + secondsPerBeat;
-    nextNoteTimeRef.current = startTime;
-    setIsPlayingMetronome(true);
-    
-    const patternDurationSeconds = (rhythmPattern[rhythmPattern.length - 1].time / 1000) + secondsPerBeat;
+      const audioContext = getPlaybackAudioContext();
+      if (!audioContext || !rhythmTimerWorkerRef.current) return;
+      
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      
+      stopAllRhythm();
+      setRhythmPhase('playback');
+      
+      const secondsPerBeat = 60.0 / rhythmBpm;
+      const startTime = audioContext.currentTime + secondsPerBeat;
+      nextNoteTimeRef.current = startTime;
+      setIsPlayingMetronome(true);
+      
+      const patternDurationSeconds = (rhythmPattern[rhythmPattern.length - 1].time / 1000) + secondsPerBeat;
 
-    setTimeout(() => {
-      if (rhythmPhaseRef.current !== 'playback') return;
-      setRhythmPhase('playing');
-      setUserRhythmTaps([]);
-      setRhythmStartTime(performance.now());
-    }, (patternDurationSeconds) * 1000);
+      setTimeout(() => {
+        if (rhythmPhaseRef.current !== 'playback') return;
+        setRhythmPhase('playing');
+        setUserRhythmTaps([]);
+        setRhythmStartTime(performance.now());
+      }, (patternDurationSeconds) * 1000);
 
   }, [rhythmBpm, rhythmPattern, getPlaybackAudioContext, stopAllRhythm]);
+
+  const handleToggleRhythmPlayback = () => {
+    if (rhythmPhase === 'playback') {
+      stopAllRhythm();
+      setRhythmPhase('idle');
+    } else {
+      playRhythmPattern();
+    }
+  };
   
   useEffect(() => {
     return () => stopAllRhythm();
@@ -1277,13 +1264,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 
                 <div className="w-full flex justify-center items-center gap-2 mt-2">
                     <Button
-                        onClick={playRhythmPattern}
-                        disabled={rhythmPhase !== 'idle' && rhythmPhase !== 'results'}
+                        onClick={handleToggleRhythmPlayback}
+                        disabled={rhythmPhase === 'playing' || rhythmPhase === 'results'}
                         variant="secondary"
                         className="w-32"
                     >
-                        <Play className="mr-2" />
-                        Escuchar
+                        {rhythmPhase === 'playback' ? <Pause className="mr-2" /> : <Play className="mr-2" />}
+                        {rhythmPhase === 'playback' ? 'Pausar' : 'Escuchar'}
                     </Button>
                 </div>
 
@@ -1343,6 +1330,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     setRhythmPhase('idle');
                     setUserRhythmTaps([]);
                     setRhythmScore(0);
+                    playRhythmPattern();
                 }} className="mt-4">Reintentar</Button>
             </div>
         );
@@ -1707,13 +1695,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     }
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-base">
-                      ¡Excelente trabajo! Has desbloqueado el siguiente nivel.
+                      {gameMode === 'rhythm-challenge' && rhythmScore >= 75 ? (
+                          <div className="text-lg font-bold text-center text-foreground pt-2">
+                              Precisión: {rhythmScore.toFixed(0)}%
+                          </div>
+                      ) : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
                   </AlertDialogDescription>
-                   {gameMode === 'rhythm-challenge' && rhythmScore >= 75 && (
-                      <div className="text-lg font-bold text-center text-foreground pt-2">
-                          Precisión: {rhythmScore.toFixed(0)}%
-                      </div>
-                  )}
               </AlertDialogHeader>
               <AlertDialogFooter>
                 {difficulty !== 'Calentamiento' && currentLevel < difficultySettings[difficulty as ChallengeDifficulty].levelCount ? (
@@ -1732,3 +1719,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
