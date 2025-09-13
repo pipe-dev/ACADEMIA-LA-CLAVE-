@@ -342,13 +342,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   // Rhythm engine state
   const rhythmAudioContextRef = useRef<AudioContext | null>(null);
-  const rhythmTimerWorkerRef = useRef<Worker | null>(null);
-  const nextNoteTimeRef = useRef(0.0);
+  const rhythmAnimationRef = useRef<number | null>(null);
+  const lastTickTimeRef = useRef(0);
   const rhythmQueueRef = useRef<{ time: number; instrument: 'clap' | 'kick' | 'tick' }[]>([]);
-  const rhythmPatternLookup = useRef<Map<number, 'clap' | 'kick'>>(new Map());
   const [isPlayingMetronome, setIsPlayingMetronome] = useState(false);
-  const lookahead = 25.0; // How frequently to call scheduling function (in milliseconds)
-  const scheduleAheadTime = 0.1; // How far ahead to schedule audio (in seconds)
   
   // Audio refs
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
@@ -367,24 +364,22 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         console.error("Failed to load progress from localStorage", error);
     }
     setIsMounted(true);
+
+    return () => {
+        if (rhythmAnimationRef.current) {
+            cancelAnimationFrame(rhythmAnimationRef.current);
+        }
+        if (rhythmAudioContextRef.current && rhythmAudioContextRef.current.state !== 'closed') {
+            rhythmAudioContextRef.current.close();
+        }
+    }
   }, [vocalRangeKey]);
 
   useEffect(() => {
     if (showEasyWinVideo && videoRef.current) {
         const video = videoRef.current;
-        const handleTimeUpdate = () => {
-            if (video.currentTime >= 6) {
-                video.currentTime = 5;
-            }
-        };
-        video.addEventListener('timeupdate', handleTimeUpdate);
+        video.currentTime = 0;
         video.play().catch(e => console.error("Video play failed:", e));
-        
-        return () => {
-            if (video) {
-              video.removeEventListener('timeupdate', handleTimeUpdate);
-            }
-        };
     }
   }, [showEasyWinVideo]);
 
@@ -422,33 +417,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     return context;
   }, [toast]);
   
-  useEffect(() => {
-    const workerCode = `
-      let timerID;
-      self.onmessage = function(e) {
-        if (e.data.command === 'start') {
-          if (timerID) clearInterval(timerID);
-          timerID = setInterval(function() { postMessage('tick'); }, e.data.interval);
-        } else if (e.data.command === 'stop') {
-          clearInterval(timerID);
-          timerID = null;
-        }
-      };
-    `;
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const worker = new Worker(URL.createObjectURL(blob));
-    rhythmTimerWorkerRef.current = worker;
-    
-    return () => {
-        if (rhythmAudioContextRef.current && rhythmAudioContextRef.current.state !== 'closed') {
-            rhythmAudioContextRef.current.close().catch(e => console.error("Error closing audio context", e));
-        }
-        if (rhythmTimerWorkerRef.current) {
-          rhythmTimerWorkerRef.current.postMessage({ command: 'stop' });
-          rhythmTimerWorkerRef.current.terminate();
-        }
-    }
-  }, []);
 
   const playNote = useCallback(async (noteInfo: NoteInfo, duration?: number): Promise<void> => {
     const audioContext = getPlaybackAudioContext();
@@ -652,124 +620,118 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     }
   }, []);
   
-  const scheduleRhythm = useCallback(() => {
-    const audioContext = rhythmAudioContextRef.current;
-    if (!audioContext || !isPlayingMetronome) return;
-
-    const currentTime = audioContext.currentTime;
-    while (nextNoteTimeRef.current < currentTime + scheduleAheadTime) {
-        const beatDuration = 60.0 / rhythmBpm;
-        const currentPatternTimeMs = (nextNoteTimeRef.current - rhythmStartTime) * 1000;
-
-        let hitThisBeat: {instrument: 'clap' | 'kick' } | undefined;
-        if (rhythmPhase === 'playback') {
-            for (const note of rhythmPattern) {
-                if (Math.abs(note.time - currentPatternTimeMs) < 20) { // 20ms tolerance
-                    hitThisBeat = note;
-                    break;
-                }
-            }
-        }
-        
-        if (hitThisBeat) {
-            playRhythmSound(hitThisBeat.instrument, nextNoteTimeRef.current);
-
-            // Schedule animation
-            const timeUntilNote = (nextNoteTimeRef.current - currentTime) * 1000;
-            setTimeout(() => {
-                const prevPos = duckPrevPositionRef.current;
-                const newPos = hitThisBeat!.instrument;
-                let animClass = '';
-                if (prevPos === null) animClass = newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap';
-                else if (prevPos === newPos) animClass = newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap';
-                else animClass = newPos === 'kick' ? 'animate-jump-clap-to-kick' : 'animate-jump-kick-to-clap';
-                setAnimationClass(animClass);
-                duckPrevPositionRef.current = newPos;
-            }, timeUntilNote);
-
-        } else {
-             playRhythmSound('tick', nextNoteTimeRef.current);
-        }
-
-        nextNoteTimeRef.current += beatDuration;
-    }
-  }, [playRhythmSound, isPlayingMetronome, rhythmBpm, rhythmPattern, rhythmStartTime, rhythmPhase]);
-
   const stopAllRhythm = useCallback(() => {
     setIsPlayingMetronome(false);
-    rhythmTimerWorkerRef.current?.postMessage({ command: 'stop' });
-    
-    // Clear any pending animations/state changes
+    if (rhythmAnimationRef.current) {
+        cancelAnimationFrame(rhythmAnimationRef.current);
+        rhythmAnimationRef.current = null;
+    }
     setAnimationClass('');
     duckPrevPositionRef.current = null;
-    
-    // Suspend audio context to save resources
-    const audioContext = rhythmAudioContextRef.current;
-    if (audioContext && audioContext.state === 'running') {
-        audioContext.suspend().catch(e => console.error("Error suspending audio context", e));
-    }
   }, []);
 
-  const startRhythmPlayback = useCallback(async () => {
-    const audioContext = getPlaybackAudioContext();
-    const worker = rhythmTimerWorkerRef.current;
-    if (!audioContext || !worker) return;
-
-    if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-    }
-    
-    stopAllRhythm();
-    setRhythmPhase('playback');
-    
-    const beatDuration = 60.0 / rhythmBpm;
-    const startTime = audioContext.currentTime + beatDuration; // Start on the next beat
-    
-    setRhythmStartTime(startTime);
-    nextNoteTimeRef.current = startTime;
-    setIsPlayingMetronome(true);
-    
-    worker.postMessage({ command: 'start', interval: lookahead });
-    
-    // Transition to 'playing' phase after pattern finishes
-    const lastNoteTime = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time : 0;
-    const patternDurationSeconds = (lastNoteTime / 1000) + beatDuration * 4; // Add a buffer
-
-    const timeoutId = setTimeout(() => {
-      // Check if we are still in playback phase before switching
-      setRhythmPhase(currentPhase => {
-        if (currentPhase === 'playback') {
-          setUserRhythmTaps([]);
-          setRhythmStartTime(audioContext.currentTime); // Reset start time for user input
-          return 'playing';
-        }
-        return currentPhase;
+  const startRhythmPlayback = useCallback(() => {
+      const audioContext = getPlaybackAudioContext();
+      if (!audioContext) {
+          console.error("Audio context not available for rhythm playback");
+          return;
+      }
+      
+      const patternLookup = new Map<number, 'clap' | 'kick'>();
+      rhythmPattern.forEach(hit => {
+          const roundedTime = Math.round(hit.time / 10) * 10;
+          patternLookup.set(roundedTime, hit.instrument);
       });
-    }, patternDurationSeconds * 1000);
 
-    return () => clearTimeout(timeoutId);
+      const tick = (timestamp: number) => {
+          if (!isPlayingMetronomeRef.current) return;
+          
+          const audioCtx = rhythmAudioContextRef.current;
+          if (!audioCtx) return;
 
-  }, [rhythmBpm, rhythmPattern, getPlaybackAudioContext, stopAllRhythm, lookahead]);
-  
-  useEffect(() => {
-    const worker = rhythmTimerWorkerRef.current;
-    if (worker) {
-        const messageHandler = (e: MessageEvent) => {
-            if (e.data === 'tick') {
-                scheduleRhythm();
+          const beatDurationMs = (60 / rhythmBpm) * 1000;
+          const currentTime = audioCtx.currentTime * 1000;
+          const rhythmEngineStartTime = rhythmStartTimeRef.current;
+
+          // Schedule notes
+          while (nextNoteTimeRef.current < audioCtx.currentTime + 0.1) {
+              const currentPatternTimeMs = (nextNoteTimeRef.current * 1000) - rhythmEngineStartTime;
+              
+              let soundToPlay: 'tick' | 'clap' | 'kick' = 'tick';
+              
+              if (rhythmPhaseRef.current === 'playback') {
+                  const roundedTime = Math.round(currentPatternTimeMs / 10) * 10;
+                  const hit = patternLookup.get(roundedTime);
+                  if (hit) {
+                      soundToPlay = hit;
+                  }
+              }
+
+              playRhythmSound(soundToPlay, nextNoteTimeRef.current);
+              
+              if (soundToPlay !== 'tick') {
+                const timeUntilNote = (nextNoteTimeRef.current - audioCtx.currentTime) * 1000;
+                setTimeout(() => {
+                    const prevPos = duckPrevPositionRef.current;
+                    const newPos = soundToPlay as 'clap' | 'kick';
+                    let animClass = '';
+                    if (prevPos === null || prevPos === newPos) animClass = newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap';
+                    else animClass = newPos === 'kick' ? 'animate-jump-clap-to-kick' : 'animate-jump-kick-to-clap';
+                    setAnimationClass(animClass);
+                    duckPrevPositionRef.current = newPos;
+                }, timeUntilNote);
+              }
+              
+              nextNoteTimeRef.current += beatDurationMs / 1000;
+          }
+
+          rhythmAnimationRef.current = requestAnimationFrame(tick);
+      };
+
+      const isPlayingMetronomeRef = useRef(isPlayingMetronome);
+      const rhythmPhaseRef = useRef(rhythmPhase);
+      const rhythmStartTimeRef = useRef(rhythmStartTime);
+      const nextNoteTimeRef = useRef(0);
+      
+      isPlayingMetronomeRef.current = true;
+      rhythmPhaseRef.current = 'playback';
+      
+      const startTime = audioContext.currentTime + 0.1;
+      rhythmStartTimeRef.current = startTime * 1000;
+      nextNoteTimeRef.current = startTime;
+      lastTickTimeRef.current = startTime * 1000;
+
+      setIsPlayingMetronome(true);
+      setRhythmPhase('playback');
+      
+      if (rhythmAnimationRef.current) cancelAnimationFrame(rhythmAnimationRef.current);
+      rhythmAnimationRef.current = requestAnimationFrame(tick);
+
+      const patternDuration = (rhythmPattern[rhythmPattern.length - 1]?.time || 0) + 2000;
+      const timeoutId = setTimeout(() => {
+        setRhythmPhase(current => {
+            if (current === 'playback') {
+                setUserRhythmTaps([]);
+                setRhythmStartTime(audioContext.currentTime * 1000); // Reset for user
+                return 'playing';
             }
-        };
-        worker.addEventListener('message', messageHandler);
-        return () => worker.removeEventListener('message', messageHandler);
-    }
-  }, [scheduleRhythm]);
+            return current;
+        });
+      }, patternDuration);
 
+      return () => clearTimeout(timeoutId);
+
+  }, [rhythmBpm, rhythmPattern, getPlaybackAudioContext, playRhythmSound, isPlayingMetronome, rhythmPhase, rhythmStartTime]);
+  
   const handleToggleRhythmPlayback = () => {
     if (isPlayingMetronome) {
       stopAllRhythm();
       setRhythmPhase('idle');
     } else {
-      startRhythmPlayback();
+        const audioContext = getPlaybackAudioContext();
+        if(audioContext) {
+             startRhythmPlayback();
+        }
     }
   };
   
@@ -779,10 +741,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   useEffect(() => {
       if (gameMode === 'rhythm-challenge' && rhythmPhase === 'idle' && rhythmPattern.length > 0) {
-          const autoPlayTimeout = setTimeout(() => startRhythmPlayback(), 500);
+          const autoPlayTimeout = setTimeout(() => {
+              const audioContext = getPlaybackAudioContext();
+              if (audioContext) startRhythmPlayback();
+          }, 500);
           return () => clearTimeout(autoPlayTimeout);
       }
-  }, [gameMode, rhythmPhase, rhythmPattern, startRhythmPlayback]);
+  }, [gameMode, rhythmPhase, rhythmPattern, startRhythmPlayback, getPlaybackAudioContext]);
   
   useEffect(() => {
     if (simonPhase !== 'playback' || simonSequence.length === 0) return;
@@ -1236,11 +1201,13 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       if (rhythmPhase !== 'playing') return;
 
       const audioContext = rhythmAudioContextRef.current;
-      if(audioContext) playRhythmSound(instrument, audioContext.currentTime);
+      if(!audioContext) return;
+      
+      playRhythmSound(instrument, audioContext.currentTime);
       setActiveRhythmHit(instrument);
       setTimeout(() => setActiveRhythmHit(null), 150);
 
-      const tapTime = audioContext.currentTime;
+      const tapTime = audioContext.currentTime * 1000;
       
       let newTaps;
       let currentRhythmStartTime = rhythmStartTime;
@@ -1250,7 +1217,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           setRhythmStartTime(currentRhythmStartTime);
           newTaps = [{ time: 0, instrument }];
       } else {
-          const elapsedTime = (tapTime - currentRhythmStartTime) * 1000;
+          const elapsedTime = tapTime - currentRhythmStartTime;
           newTaps = [...userRhythmTaps, { time: elapsedTime, instrument }];
       }
       
@@ -1276,15 +1243,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     const renderRhythmGame = () => {
         const isPlaybackPhase = rhythmPhase === 'playback';
         const isResultsPhase = rhythmPhase === 'results' || showFailureDuck;
-        const buttonText = isResultsPhase ? "Reintentar" : (isPlaybackPhase ? "Pausar" : "Escuchar");
+        const buttonText = isResultsPhase ? "Reintentar" : (isPlayingMetronome ? "Pausar" : "Escuchar");
 
         const handleButtonClick = () => {
             if (isResultsPhase) { // Retry logic
                 setShowFailureDuck(false);
-                setRhythmPhase('idle');
                 setUserRhythmTaps([]);
                 setRhythmScore(0);
-                // The useEffect for 'idle' phase will auto-start playback.
+                setRhythmPhase('idle'); // This will trigger the auto-play useEffect
             } else { // Play/Pause logic
                 handleToggleRhythmPlayback();
             }
@@ -1363,10 +1329,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 <p className="text-muted-foreground">¡Casi! Necesitas 75% para ganar.</p>
                 <Button onClick={() => {
                     setShowFailureDuck(false);
-                    setRhythmPhase('idle');
                     setUserRhythmTaps([]);
                     setRhythmScore(0);
-                    startRhythmPlayback();
+                    setRhythmPhase('idle'); // Will trigger useEffect to restart
                 }} className="mt-4">Reintentar</Button>
             </div>
         );
@@ -1503,6 +1468,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     src="/Duck Win.mp4"
                     autoPlay
                     muted={false}
+                    loop
                     className="w-full h-full object-contain"
                 />
             </div>
@@ -1515,7 +1481,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 }}
                 className="absolute bottom-10 z-20"
             >
-                Menú
+                Menú de Niveles
             </Button>
         </div>
     )
@@ -1730,7 +1696,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         : `¡Dificultad ${difficulty} Completada!`
                     }
                   </AlertDialogTitle>
-                  <AlertDialogDescription className="text-base">
+                   <AlertDialogDescription className="text-base">
                       {gameMode === 'rhythm-challenge' && rhythmScore >= 75 ? (
                           <div className="text-lg font-bold text-center text-foreground pt-2">
                               Precisión: {rhythmScore.toFixed(0)}%
@@ -1755,3 +1721,5 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+
+    
