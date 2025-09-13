@@ -343,7 +343,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   // Rhythm engine state
   const rhythmAudioContextRef = useRef<AudioContext | null>(null);
   const rhythmAnimationRef = useRef<number | null>(null);
-  const [isPlayingMetronome, setIsPlayingMetronome] = useState(isPlayingMetronome);
+  const [isPlayingMetronome, setIsPlayingMetronome] = useState(false);
   const [isRhythmPaused, setIsRhythmPaused] = useState(false);
   
   // Audio refs
@@ -739,22 +739,23 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         handleRhythmRetry();
         return;
     }
-
-    if (rhythmPhase === 'playing') {
-      stopAllRhythm();
-      startRhythmPlayback();
-      return;
-    }
     
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
     
     if (isPlayingMetronome) {
-        setIsRhythmPaused(current => !current);
-        isPlayingMetronomeRef.current = isRhythmPaused; // it's the opposite of the new state
-        if (!isRhythmPaused) { // If it was paused, now it's playing
-            rhythmAnimationRef.current = requestAnimationFrame(() => {}); // Kickstart animation
-        }
+        setIsRhythmPaused(current => {
+            const newPausedState = !current;
+            isPlayingMetronomeRef.current = !newPausedState; // if paused, metronome is not playing
+            if (!newPausedState) { // If it was paused, now it's playing
+                 if(rhythmAnimationRef.current) cancelAnimationFrame(rhythmAnimationRef.current);
+                 rhythmAnimationRef.current = requestAnimationFrame(startRhythmPlayback);
+            } else {
+                 if(rhythmAnimationRef.current) cancelAnimationFrame(rhythmAnimationRef.current);
+            }
+            return newPausedState;
+        });
+
     } else {
         startRhythmPlayback();
     }
@@ -1307,6 +1308,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={handleToggleRhythmPlayback}
                         variant="secondary"
                         className="w-32"
+                        disabled={rhythmPhase === 'playing'}
                     >
                         {buttonIcon}
                         {buttonText}
