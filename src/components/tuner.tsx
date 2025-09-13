@@ -347,6 +347,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const rhythmQueueRef = useRef<{ time: number; instrument: 'clap' | 'kick' | 'tick' }[]>([]);
   const [isPlayingMetronome, setIsPlayingMetronome] = useState(false);
   
+  const isPlayingMetronomeRef = useRef(isPlayingMetronome);
+  const rhythmPhaseRef = useRef(rhythmPhase);
+  const rhythmStartTimeRef = useRef(rhythmStartTime);
+  const nextNoteTimeRef = useRef(0);
+  
   // Audio refs
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
@@ -643,7 +648,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
           patternLookup.set(roundedTime, hit.instrument);
       });
 
-      const tick = (timestamp: number) => {
+      const tick = () => {
           if (!isPlayingMetronomeRef.current) return;
           
           const audioCtx = rhythmAudioContextRef.current;
@@ -687,11 +692,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
           rhythmAnimationRef.current = requestAnimationFrame(tick);
       };
-
-      const isPlayingMetronomeRef = useRef(isPlayingMetronome);
-      const rhythmPhaseRef = useRef(rhythmPhase);
-      const rhythmStartTimeRef = useRef(rhythmStartTime);
-      const nextNoteTimeRef = useRef(0);
       
       isPlayingMetronomeRef.current = true;
       rhythmPhaseRef.current = 'playback';
@@ -721,7 +721,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
       return () => clearTimeout(timeoutId);
 
-  }, [rhythmBpm, rhythmPattern, getPlaybackAudioContext, playRhythmSound, isPlayingMetronome, rhythmPhase, rhythmStartTime]);
+  }, [rhythmBpm, rhythmPattern, getPlaybackAudioContext, playRhythmSound]);
   
   const handleToggleRhythmPlayback = () => {
     if (isPlayingMetronome) {
