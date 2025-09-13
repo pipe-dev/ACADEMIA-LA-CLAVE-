@@ -343,7 +343,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   // Rhythm engine state
   const rhythmAudioContextRef = useRef<AudioContext | null>(null);
   const rhythmAnimationRef = useRef<number | null>(null);
-  const [isPlayingMetronome, setIsPlayingMetronome] = useState(false);
+  const [isPlayingMetronome, setIsPlayingMetronome] = useState(isPlayingMetronome);
   const [isRhythmPaused, setIsRhythmPaused] = useState(false);
   
   // Audio refs
@@ -738,6 +738,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (rhythmPhase === 'results' || showFailureDuck) {
         handleRhythmRetry();
         return;
+    }
+
+    if (rhythmPhase === 'playing') {
+      stopAllRhythm();
+      startRhythmPlayback();
+      return;
     }
     
     const audioContext = getPlaybackAudioContext();
@@ -1299,7 +1305,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 <div className="w-full flex justify-center items-center gap-2 mt-2">
                     <Button
                         onClick={handleToggleRhythmPlayback}
-                        disabled={rhythmPhase === 'playing'}
                         variant="secondary"
                         className="w-32"
                     >
@@ -1747,5 +1752,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
+    
 
     
