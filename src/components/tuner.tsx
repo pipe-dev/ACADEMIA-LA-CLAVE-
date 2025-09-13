@@ -1696,13 +1696,14 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         : `¡Dificultad ${difficulty} Completada!`
                     }
                   </AlertDialogTitle>
-                   <AlertDialogDescription className="text-base">
-                      {gameMode === 'rhythm-challenge' && rhythmScore >= 75 ? (
-                          <div className="text-lg font-bold text-center text-foreground pt-2">
-                              Precisión: {rhythmScore.toFixed(0)}%
-                          </div>
-                      ) : "¡Excelente trabajo! Has desbloqueado el siguiente nivel."}
+                  <AlertDialogDescription className="text-base">
+                      ¡Excelente trabajo! Has desbloqueado el siguiente nivel.
                   </AlertDialogDescription>
+                  {gameMode === 'rhythm-challenge' && rhythmScore >= 75 && (
+                    <div className="text-lg font-bold text-center text-foreground pt-2">
+                        Precisión: {rhythmScore.toFixed(0)}%
+                    </div>
+                  )}
               </AlertDialogHeader>
               <AlertDialogFooter>
                 {difficulty !== 'Calentamiento' && currentLevel < difficultySettings[difficulty as ChallengeDifficulty].levelCount ? (
@@ -1721,5 +1722,3 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     </div>
   );
 }
-
-    
