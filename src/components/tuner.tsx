@@ -343,6 +343,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const rhythmBpmRef = useRef(rhythmBpm);
   const isGuidePlayingRef = useRef(isGuidePlaying);
+  const rhythmPhaseRef = useRef(rhythmPhase);
   
   // Audio refs
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
@@ -737,18 +738,21 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const handleToggleRhythmPlayback = () => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
-    
+
     if (rhythmPhase !== 'idle') {
         stopAllRhythm();
         setIsGuidePlaying(false);
+        setRhythmPhase('playing'); 
+        setRhythmStartTime(audioContext.currentTime * 1000);
+        setUserRhythmTaps([]);
     } else {
-        setRhythmPhase('playback');
         setIsGuidePlaying(true);
         const startTime = audioContext.currentTime + 0.1;
         setRhythmStartTime(startTime * 1000);
         nextNoteTimeRef.current = startTime;
+        setRhythmPhase('playback');
     }
-  };
+};
 
   const handleRhythmRetry = () => {
     stopAllRhythm();
@@ -1257,6 +1261,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   
     const renderRhythmGame = () => {
         const isResultsPhase = rhythmPhase === 'results' || showFailureDuck;
+        const isPlaybackPhase = rhythmPhase === 'playback' || isGuidePlaying;
+
         
         let buttonText = "Escuchar Guía";
         let buttonIcon = <Play className="mr-2" />;
@@ -1264,7 +1270,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         if (isResultsPhase) {
             buttonText = "Reintentar";
             buttonIcon = <RefreshCw className="mr-2" />;
-        } else if (rhythmPhase !== 'idle') {
+        } else if (isPlaybackPhase) {
             buttonText = "Detener";
             buttonIcon = <Square className="mr-2" />;
         }
@@ -1293,24 +1299,24 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     
                     <button
                         onClick={() => handleRhythmTap('kick')}
-                        disabled={rhythmPhase !== 'playing'}
+                        disabled={isPlaybackPhase || rhythmPhase === 'idle' || rhythmPhase === 'results'}
                         className={cn(
                             "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
-                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                            (isPlaybackPhase || rhythmPhase === 'idle' || rhythmPhase === 'results') && "opacity-50 cursor-not-allowed",
                             (activeRhythmHit === 'kick') && "neon-glow border-blue-400"
                         )}
                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     />
                     <button
                         onClick={() => handleRhythmTap('clap')}
-                        disabled={rhythmPhase !== 'playing'}
+                        disabled={isPlaybackPhase || rhythmPhase === 'idle' || rhythmPhase === 'results'}
                         className={cn(
                             "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-red-600/80 border-4 border-red-800/80",
                             "active:scale-95 active:bg-red-500",
-                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
+                            (isPlaybackPhase || rhythmPhase === 'idle' || rhythmPhase === 'results') && "opacity-50 cursor-not-allowed",
                             (activeRhythmHit === 'clap') && "neon-glow border-red-400"
                         )}
                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
@@ -1702,13 +1708,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         : `¡Dificultad ${difficulty} Completada!`
                     }
                   </AlertDialogTitle>
-                   <AlertDialogDescription className="text-sm sm:text-base">
-                      {`¡Excelente trabajo! Has desbloqueado el siguiente nivel.`}
-                  </AlertDialogDescription>
-                   {gameMode === 'rhythm-challenge' && rhythmScore >= 75 && (
-                      <div className="text-md sm:text-lg font-bold text-center text-foreground pt-2">
-                          Precisión: {rhythmScore.toFixed(0)}%
-                      </div>
+                  {gameMode === 'rhythm-challenge' && rhythmScore >= 75 ? (
+                      <>
+                        <AlertDialogDescription className="text-sm sm:text-base">¡Excelente trabajo! Has desbloqueado el siguiente nivel.</AlertDialogDescription>
+                        <div className="text-md sm:text-lg font-bold text-center text-foreground pt-2">
+                            Precisión: {rhythmScore.toFixed(0)}%
+                        </div>
+                      </>
+                  ) : (
+                    <AlertDialogDescription className="text-sm sm:text-base">
+                      ¡Excelente trabajo! Has desbloqueado el siguiente nivel.
+                    </AlertDialogDescription>
                   )}
               </AlertDialogHeader>
               <AlertDialogFooter>
