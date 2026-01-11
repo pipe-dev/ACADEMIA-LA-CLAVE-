@@ -172,52 +172,51 @@ export const usePitchDetection = () => {
     smoothedCentsRef.current = 0;
   }, []);
 
+  const updatePitch = useCallback(() => {
+    if (!analyserRef.current || !audioContextRef.current) {
+      animationFrameId.current = requestAnimationFrame(updatePitch);
+      return;
+    }
+  
+    const dataArray = new Float32Array(analyserRef.current.fftSize);
+    analyserRef.current.getFloatTimeDomainData(dataArray);
+    const pitch = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
+  
+    if (pitch !== -1 && pitch < 2000) {
+      isSilent.current = false;
+      setFrequency(pitch);
+      const detectedNote = noteFromPitch(pitch);
+  
+      setNote(prevNote => {
+        if (detectedNote.name !== prevNote.name || detectedNote.octave !== prevNote.octave) {
+          return detectedNote;
+        }
+        return prevNote;
+      });
+  
+      const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
+      setCentsOff(currentCents);
+  
+      const SMOOTHING_FACTOR = 0.25;
+      smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
+      setSmoothedCentsOff(smoothedCentsRef.current);
+    } else {
+      if (!isSilent.current) {
+        isSilent.current = true;
+        setFrequency(0);
+        setNote(EMPTY_NOTE);
+        setCentsOff(0);
+        smoothedCentsRef.current = 0;
+        setSmoothedCentsOff(0);
+      }
+    }
+  
+    animationFrameId.current = requestAnimationFrame(updatePitch);
+  }, []);
+  
   useEffect(() => {
-    if (isDetecting && analyserRef.current && audioContextRef.current) {
-      const dataArray = new Float32Array(analyserRef.current.fftSize);
-
-      const updatePitch = () => {
-        if (!analyserRef.current || !audioContextRef.current) {
-            animationFrameId.current = requestAnimationFrame(updatePitch);
-            return;
-        }
-        
-        analyserRef.current.getFloatTimeDomainData(dataArray);
-        const pitch = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
-        
-        if (pitch !== -1 && pitch < 2000) {
-          isSilent.current = false;
-          setFrequency(pitch);
-          const detectedNote = noteFromPitch(pitch);
-          
-          setNote(prevNote => {
-            if (detectedNote.name !== prevNote.name || detectedNote.octave !== prevNote.octave) {
-              return detectedNote;
-            }
-            return prevNote;
-          });
-
-          const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
-          setCentsOff(currentCents);
-
-          const SMOOTHING_FACTOR = 0.25;
-          smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
-          setSmoothedCentsOff(smoothedCentsRef.current);
-        } else {
-          if (!isSilent.current) {
-            isSilent.current = true;
-            setFrequency(0);
-            setNote(EMPTY_NOTE);
-            setCentsOff(0);
-            smoothedCentsRef.current = 0;
-            setSmoothedCentsOff(0);
-          }
-        }
-        
+    if (isDetecting) {
         animationFrameId.current = requestAnimationFrame(updatePitch);
-      };
-
-      updatePitch();
     }
     
     return () => {
@@ -226,7 +225,7 @@ export const usePitchDetection = () => {
             animationFrameId.current = null;
         }
     }
-  }, [isDetecting]);
+  }, [isDetecting, updatePitch]);
 
 
   return { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop };
