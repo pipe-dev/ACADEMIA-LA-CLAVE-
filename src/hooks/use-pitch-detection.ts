@@ -10,7 +10,7 @@ type Note = {
   frequency: number;
 };
 
-const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteStrings = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
 
 const A4 = 440;
 const C0 = A4 * Math.pow(2, -4.75);

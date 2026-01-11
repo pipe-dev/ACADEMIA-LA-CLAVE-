@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from 'lucide-react';
 
-const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteStrings = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
 
 const generateNotePool = (startMidi: number, endMidi: number): NoteInfo[] => {
     const notes: NoteInfo[] = [];

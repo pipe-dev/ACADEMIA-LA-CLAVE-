@@ -23,7 +23,8 @@ export type NoteInfo = {
   midi: number;
 };
 
-const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteStrings = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
+const americanNoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
@@ -507,8 +508,10 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         }
       });
     };
-
-    const fileNameFriendlyFullName = noteInfo.fullName.replace('#', 's');
+    
+    const americanNoteName = americanNoteStrings[noteInfo.midi % 12];
+    const americanFullName = `${americanNoteName}${noteInfo.octave}`;
+    const fileNameFriendlyFullName = americanFullName.replace('#', 's');
     const audioKey = `${gender}_${fileNameFriendlyFullName}`;
 
     if (audioBufferCache.current.has(audioKey)) {
@@ -1743,3 +1746,4 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     
 
     
+
