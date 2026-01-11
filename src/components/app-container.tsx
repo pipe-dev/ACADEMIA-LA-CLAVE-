@@ -94,29 +94,29 @@ export function AppContainer() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground">Bienvenido a Vocal Studio</h1>
-        <p className="text-muted-foreground mt-3 max-w-xl text-lg">Para comenzar, ayúdanos a entender tu voz para personalizar tu experiencia.</p>
+      <div className="text-center mb-6 sm:mb-8">
+        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">Bienvenido a Vocal Studio</h1>
+        <p className="text-muted-foreground mt-2 sm:mt-3 max-w-md sm:max-w-xl text-md sm:text-lg">Para comenzar, ayúdanos a entender tu voz para personalizar tu experiencia.</p>
       </div>
 
-      <div className="flex flex-col gap-6 w-full max-w-sm animate-in fade-in-50 duration-500">
+      <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-xs sm:max-w-sm animate-in fade-in-50 duration-500">
         <Card className="bg-card/50 border-2 border-transparent">
           <CardHeader>
-            <CardTitle className="text-xl font-semibold text-center">¿Cómo te sientes mejor al cantar?</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-semibold text-center">¿Cómo te sientes mejor al cantar?</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <Button onClick={() => setPitchPreference('grave')} variant={pitchPreference === 'grave' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Cómodo en graves</Button>
-            <Button onClick={() => setPitchPreference('agudo')} variant={pitchPreference === 'agudo' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Cómodo en agudos</Button>
+            <Button onClick={() => setPitchPreference('grave')} variant={pitchPreference === 'grave' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Cómodo en graves</Button>
+            <Button onClick={() => setPitchPreference('agudo')} variant={pitchPreference === 'agudo' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Cómodo en agudos</Button>
           </CardContent>
         </Card>
 
         <Card className="bg-card/50 border-2 border-transparent">
           <CardHeader>
-            <CardTitle className="text-xl font-semibold text-center">¿Cuál es tu tipo de voz?</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-semibold text-center">¿Cuál es tu tipo de voz?</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <Button onClick={() => setGender('masculino')} variant={gender === 'masculino' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Masculina</Button>
-            <Button onClick={() => setGender('femenino')} variant={gender === 'femenino' ? 'default' : 'secondary'} size="lg" className="h-16 text-base">Femenina</Button>
+            <Button onClick={() => setGender('masculino')} variant={gender === 'masculino' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Masculina</Button>
+            <Button onClick={() => setGender('femenino')} variant={gender === 'femenino' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Femenina</Button>
           </CardContent>
         </Card>
       </div>

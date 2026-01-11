@@ -242,42 +242,36 @@ function TunerSkeleton() {
     );
   }
 
-const Metronome = ({ bpm, isPlaying }: { bpm: number; isPlaying: boolean }) => {
-    const pendulumDuration = (60 / bpm);
+const Metronome = ({ bpm, rotation }: { bpm: number; rotation: number }) => {
     return (
-        <div className="w-[180px] h-[240px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-4 border-2 border-border relative">
+        <div className="w-[150px] sm:w-[180px] h-[200px] sm:h-[240px] bg-card rounded-t-xl rounded-b-lg shadow-2xl flex flex-col items-center p-2 sm:p-4 border-2 border-border relative">
             {/* Screws */}
-            <div className="absolute top-3 left-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
-            <div className="absolute top-3 right-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
-            <div className="absolute bottom-3 left-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
-            <div className="absolute bottom-3 right-3 w-3 h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1.5 h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1.5 bg-foreground/30 absolute"></div></div>
+            <div className="absolute top-2 left-2 sm:top-3 sm:left-3 w-2 h-2 sm:w-3 sm:h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1 h-0.5 sm:w-1.5 sm:h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1 sm:w-0.5 sm:h-1.5 bg-foreground/30 absolute"></div></div>
+            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 w-2 h-2 sm:w-3 sm:h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1 h-0.5 sm:w-1.5 sm:h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1 sm:w-0.5 sm:h-1.5 bg-foreground/30 absolute"></div></div>
+            <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 w-2 h-2 sm:w-3 sm:h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1 h-0.5 sm:w-1.5 sm:h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1 sm:w-0.5 sm:h-1.5 bg-foreground/30 absolute"></div></div>
+            <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 w-2 h-2 sm:w-3 sm:h-3 bg-muted rounded-full flex items-center justify-center shadow-inner"><div className="w-1 h-0.5 sm:w-1.5 sm:h-0.5 bg-foreground/30"></div><div className="w-0.5 h-1 sm:w-0.5 sm:h-1.5 bg-foreground/30 absolute"></div></div>
 
             {/* Inner plate */}
             <div className="w-full h-full bg-background rounded-md border border-border shadow-inner flex flex-col items-center justify-center relative overflow-hidden">
                 {/* Scale */}
-                <div className="absolute w-1/2 h-full flex flex-col justify-around left-2">
-                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-muted-foreground/50"></div>)}
+                <div className="absolute w-1/2 h-full flex flex-col justify-around left-1 sm:left-2">
+                    {[...Array(6)].map((_, i) => <div key={i} className="w-2 sm:w-4 h-0.5 bg-muted-foreground/50"></div>)}
                 </div>
-                 <div className="absolute w-1/2 h-full flex flex-col justify-around right-2 items-end">
-                    {[...Array(6)].map((_, i) => <div key={i} className="w-4 h-0.5 bg-muted-foreground/50"></div>)}
+                 <div className="absolute w-1/2 h-full flex flex-col justify-around right-1 sm:right-2 items-end">
+                    {[...Array(6)].map((_, i) => <div key={i} className="w-2 sm:w-4 h-0.5 bg-muted-foreground/50"></div>)}
                 </div>
 
                 {/* Pendulum */}
                 <div 
-                    className="absolute w-2 h-4/5 bg-primary/70 origin-bottom"
+                    className="absolute w-1.5 sm:w-2 h-4/5 bg-primary/70 origin-bottom"
                     style={{
-                        animation: isPlaying ? `swing ${pendulumDuration}s ease-in-out infinite alternate` : 'none',
+                        transform: `rotate(${rotation}deg)`,
+                        transition: 'transform 50ms linear'
                     }}
                 >
-                    <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-8 h-4 bg-primary rounded-sm shadow-md"></div>
+                    <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-6 sm:w-8 h-3 sm:h-4 bg-primary rounded-sm shadow-md"></div>
                 </div>
             </div>
-            <style jsx>{`
-                @keyframes swing {
-                    from { transform: rotate(-25deg); }
-                    to { transform: rotate(25deg); }
-                }
-            `}</style>
         </div>
     );
 };
@@ -310,7 +304,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [sessionCompleted, setSessionCompleted] = useState(false);
   
   const [isMounted, setIsMounted] = useState(false);
-  const radius = 160;
+  const [radius, setRadius] = useState(160);
 
   const [dialogMessage, setDialogMessage] = useState("Prepárate para poner a prueba tu afinación. Elige una dificultad para empezar.");
   const [progress, setProgress] = useState<ProgressState>({ "Fácil": {}, "Medio": {}, "Difícil": {} });
@@ -334,27 +328,32 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [rhythmBpm, setRhythmBpm] = useState(100);
   const [activeRhythmHit, setActiveRhythmHit] = useState<'clap' | 'kick' | null>(null);
   const [showFailureDuck, setShowFailureDuck] = useState(false);
-  const [animationClass, setAnimationClass] = useState('');
-  const duckPrevPositionRef = useRef<'kick' | 'clap' | null>(null);
   
   const [showEasyWinVideo, setShowEasyWinVideo] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const [isGuidePlaying, setIsGuidePlaying] = useState(false);
+  const [metronomeRotation, setMetronomeRotation] = useState(0);
 
-  // Rhythm engine state
   const rhythmAudioContextRef = useRef<AudioContext | null>(null);
   const rhythmAnimationRef = useRef<number | null>(null);
-  const [isPlayingMetronome, setIsPlayingMetronome] = useState(false);
-  const [isRhythmPaused, setIsRhythmPaused] = useState(false);
+  const nextNoteTimeRef = useRef(0);
+  const lookahead = 25.0; // ms
+  const scheduleAheadTime = 0.1; // s
+
+  const rhythmBpmRef = useRef(rhythmBpm);
+  const isGuidePlayingRef = useRef(isGuidePlaying);
   
   // Audio refs
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
 
-  // Rhythm engine refs
-  const isPlayingMetronomeRef = useRef(isPlayingMetronome);
-  const rhythmPhaseRef = useRef(rhythmPhase);
-  const rhythmStartTimeRef = useRef(rhythmStartTime);
-  const nextNoteTimeRef = useRef(0);
+
+  useEffect(() => {
+    rhythmBpmRef.current = rhythmBpm;
+    isGuidePlayingRef.current = isGuidePlaying;
+  }, [rhythmBpm, isGuidePlaying]);
+
 
   useEffect(() => {
     try {
@@ -368,6 +367,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     } catch (error) {
         console.error("Failed to load progress from localStorage", error);
     }
+    
+    function handleResize() {
+        if (window.innerWidth < 640) {
+            setRadius(120);
+        } else {
+            setRadius(160);
+        }
+    }
+    
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
     setIsMounted(true);
 
     return () => {
@@ -377,6 +388,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         if (rhythmAudioContextRef.current && rhythmAudioContextRef.current.state !== 'closed') {
             rhythmAudioContextRef.current.close();
         }
+        window.removeEventListener('resize', handleResize);
     }
   }, [vocalRangeKey]);
 
@@ -628,114 +640,113 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   }, []);
   
   const stopAllRhythm = useCallback(() => {
-    setIsPlayingMetronome(false);
     if (rhythmAnimationRef.current) {
         cancelAnimationFrame(rhythmAnimationRef.current);
         rhythmAnimationRef.current = null;
     }
-    setAnimationClass('');
-    duckPrevPositionRef.current = null;
+    setRhythmPhase('idle');
   }, []);
 
-  const startRhythmPlayback = useCallback(() => {
-      const audioContext = getPlaybackAudioContext();
-      if (!audioContext) {
-          console.error("Audio context not available for rhythm playback");
-          return;
+  const startRhythmEngine = useCallback(() => {
+    const audioContext = getPlaybackAudioContext();
+    if (!audioContext) {
+      console.error("Audio context not available for rhythm engine");
+      return;
+    }
+  
+    const patternLookup = new Map<number, 'clap' | 'kick'>();
+    rhythmPattern.forEach(hit => {
+      const roundedTime = Math.round(hit.time / 10) * 10;
+      patternLookup.set(roundedTime, hit.instrument);
+    });
+
+    const guidePlaybackDuration = (rhythmPattern[rhythmPattern.length - 1]?.time || 0) + 1000;
+  
+    const scheduleNotes = () => {
+      const audioCtx = rhythmAudioContextRef.current;
+      if (!audioCtx) return;
+  
+      while (nextNoteTimeRef.current < audioCtx.currentTime + scheduleAheadTime) {
+        const currentEngineTimeMs = (nextNoteTimeRef.current * 1000) - rhythmStartTime;
+  
+        // Play tick for metronome
+        playRhythmSound('tick', nextNoteTimeRef.current);
+
+        // Play guide if active
+        if (isGuidePlayingRef.current) {
+            const roundedTime = Math.round(currentEngineTimeMs / 10) * 10;
+            const hit = patternLookup.get(roundedTime);
+            if (hit) {
+                playRhythmSound(hit, nextNoteTimeRef.current);
+            }
+        }
+  
+        // Advance note time
+        const secondsPerBeat = 60.0 / rhythmBpmRef.current;
+        nextNoteTimeRef.current += secondsPerBeat;
       }
-      
-      const patternLookup = new Map<number, 'clap' | 'kick'>();
-      rhythmPattern.forEach(hit => {
-          const roundedTime = Math.round(hit.time / 10) * 10;
-          patternLookup.set(roundedTime, hit.instrument);
-      });
+    };
+  
+    const tick = () => {
+        if (rhythmPhaseRef.current === 'idle') {
+            setMetronomeRotation(0);
+            return;
+        }
 
-      const tick = () => {
-          if (!isPlayingMetronomeRef.current || isRhythmPaused) {
-              rhythmAnimationRef.current = requestAnimationFrame(tick);
-              return;
-          }
-          
-          const audioCtx = rhythmAudioContextRef.current;
-          if (!audioCtx) return;
+        const audioCtx = rhythmAudioContextRef.current;
+        if (!audioCtx) {
+            rhythmAnimationRef.current = requestAnimationFrame(tick);
+            return;
+        }
+        
+        // --- Scheduler ---
+        scheduleNotes();
 
-          const beatDurationMs = (60 / rhythmBpm) * 1000;
-          const currentTime = audioCtx.currentTime * 1000;
-          const rhythmEngineStartTime = rhythmStartTimeRef.current;
-
-          // Schedule notes
-          while (nextNoteTimeRef.current < audioCtx.currentTime + 0.1) {
-              const currentPatternTimeMs = (nextNoteTimeRef.current * 1000) - rhythmEngineStartTime;
-              
-              const roundedTime = Math.round(currentPatternTimeMs / 10) * 10;
-              const hit = patternLookup.get(roundedTime);
-              let soundToPlay: 'tick' | 'clap' | 'kick' = 'tick';
-              
-              if (hit) {
-                soundToPlay = hit;
-              }
-
-              playRhythmSound(soundToPlay, nextNoteTimeRef.current);
-              
-              if (hit) {
-                const timeUntilNote = (nextNoteTimeRef.current - audioCtx.currentTime) * 1000;
-                setTimeout(() => {
-                    if (!isPlayingMetronomeRef.current) return;
-                    const prevPos = duckPrevPositionRef.current;
-                    const newPos = hit as 'clap' | 'kick';
-                    let animClass = '';
-                    if (prevPos === null || prevPos === newPos) animClass = newPos === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap';
-                    else animClass = newPos === 'kick' ? 'animate-jump-clap-to-kick' : 'animate-jump-kick-to-clap';
-                    setAnimationClass(animClass);
-                    duckPrevPositionRef.current = newPos;
-                }, timeUntilNote);
-              }
-              
-              nextNoteTimeRef.current += beatDurationMs / 1000;
-          }
-
-          rhythmAnimationRef.current = requestAnimationFrame(tick);
+        // --- Animation ---
+        const secondsPerBeat = 60.0 / rhythmBpmRef.current;
+        const beatsSinceStart = (audioCtx.currentTime * 1000 - rhythmStartTime) / (secondsPerBeat * 1000);
+        const progressIntoBeat = beatsSinceStart % 1.0;
+        const swing = Math.sin(progressIntoBeat * 2 * Math.PI - (Math.PI / 2)) * -1; // -1 to 1
+        const maxRotation = 25; // degrees
+        setMetronomeRotation(swing * maxRotation);
+    
+        rhythmAnimationRef.current = requestAnimationFrame(tick);
       };
       
-      isPlayingMetronomeRef.current = true;
-      
-      const startTime = audioContext.currentTime + 0.1;
-      rhythmStartTimeRef.current = startTime * 1000;
-      nextNoteTimeRef.current = startTime;
+    tick();
 
-      setIsRhythmPaused(false);
-      setIsPlayingMetronome(true);
-      
-      if (rhythmAnimationRef.current) cancelAnimationFrame(rhythmAnimationRef.current);
-      rhythmAnimationRef.current = requestAnimationFrame(tick);
-
-      const patternDuration = (rhythmPattern[rhythmPattern.length - 1]?.time || 0) + 2000;
-      const timeoutId = setTimeout(() => {
-        setRhythmPhase(current => {
-            if (current === 'playback') {
-                setUserRhythmTaps([]);
-                const audioCtx = getPlaybackAudioContext();
-                if (audioCtx) {
-                    setRhythmStartTime(audioCtx.currentTime * 1000); // Reset for user
-                }
-                return 'playing';
-            }
-            return current;
-        });
-      }, patternDuration);
-
-      return () => clearTimeout(timeoutId);
-
-  }, [rhythmBpm, rhythmPattern, getPlaybackAudioContext, playRhythmSound, isRhythmPaused]);
+    if (isGuidePlayingRef.current) {
+        setTimeout(() => {
+            setIsGuidePlaying(false);
+            setRhythmPhase('playing');
+        }, guidePlaybackDuration);
+    }
+  }, [rhythmPattern, getPlaybackAudioContext, playRhythmSound, rhythmStartTime]);
   
+  useEffect(() => {
+    rhythmPhaseRef.current = rhythmPhase;
+    if (rhythmPhase !== 'idle' && !rhythmAnimationRef.current) {
+        startRhythmEngine();
+    } else if (rhythmPhase === 'idle' && rhythmAnimationRef.current) {
+        cancelAnimationFrame(rhythmAnimationRef.current);
+        rhythmAnimationRef.current = null;
+    }
+  }, [rhythmPhase, startRhythmEngine]);
+
+
   const handleToggleRhythmPlayback = () => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
     
-    if (isPlayingMetronome) {
+    if (rhythmPhase !== 'idle') {
         stopAllRhythm();
+        setIsGuidePlaying(false);
     } else {
         setRhythmPhase('playback');
+        setIsGuidePlaying(true);
+        const startTime = audioContext.currentTime + 0.1;
+        setRhythmStartTime(startTime * 1000);
+        nextNoteTimeRef.current = startTime;
     }
   };
 
@@ -744,26 +755,15 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setShowFailureDuck(false);
     setUserRhythmTaps([]);
     setRhythmScore(0);
-    setRhythmPhase('playback'); 
+    setRhythmPhase('idle');
+    handleToggleRhythmPlayback();
   };
   
   useEffect(() => {
     return () => stopAllRhythm();
   }, [stopAllRhythm]);
 
-  useEffect(() => {
-    isPlayingMetronomeRef.current = isPlayingMetronome;
-    rhythmPhaseRef.current = rhythmPhase;
-  }, [isPlayingMetronome, rhythmPhase]);
 
-  useEffect(() => {
-      if (gameMode === 'rhythm-challenge' && rhythmPhase === 'playback') {
-        const autoPlayTimeout = setTimeout(() => {
-            startRhythmPlayback();
-        }, 100);
-        return () => clearTimeout(autoPlayTimeout);
-      }
-  }, [gameMode, rhythmPhase, startRhythmPlayback]);
   
   useEffect(() => {
     if (simonPhase !== 'playback' || simonSequence.length === 0) return;
@@ -1002,8 +1002,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     setRhythmPhase('idle');
     setRhythmScore(0);
     setUserRhythmTaps([]);
-    setAnimationClass('');
-    duckPrevPositionRef.current = null;
     setShowFailureDuck(false);
 
 
@@ -1034,6 +1032,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         setRhythmBpm(bpm);
         setRhythmPattern(rhythmPatterns[patternKey] || []);
         if (isDetecting) stop();
+        handleToggleRhythmPlayback(); // Autostart rhythm
     } else if (newGameMode === "simon-says" || newGameMode === "melody-challenge") {
       let sequence: NoteInfo[] = [];
       const poolByMidi = new Map<number, NoteInfo>(notePool.map(n => [n.midi, n]));
@@ -1259,45 +1258,44 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     const renderRhythmGame = () => {
         const isResultsPhase = rhythmPhase === 'results' || showFailureDuck;
         
-        let buttonText = "Escuchar";
+        let buttonText = "Escuchar Guía";
         let buttonIcon = <Play className="mr-2" />;
 
         if (isResultsPhase) {
             buttonText = "Reintentar";
             buttonIcon = <RefreshCw className="mr-2" />;
-        } else if (isPlayingMetronome) {
+        } else if (rhythmPhase !== 'idle') {
             buttonText = "Detener";
             buttonIcon = <Square className="mr-2" />;
         }
 
         return (
             <div className="flex flex-col items-center justify-start gap-0 w-full h-full text-foreground">
-                <Metronome bpm={rhythmBpm} isPlaying={isPlayingMetronome} />
+                <Metronome bpm={rhythmBpm} rotation={metronomeRotation} />
         
                 <div className="text-center mt-2">
-                    <p className="text-4xl font-bold">{rhythmBpm}</p>
-                    <p className="text-lg text-muted-foreground -mt-1">BPM</p>
+                    <p className="text-3xl sm:text-4xl font-bold">{rhythmBpm}</p>
+                    <p className="text-md sm:text-lg text-muted-foreground -mt-1">BPM</p>
                 </div>
                 
                 <div className="w-full flex justify-center items-center gap-2 mt-2">
                     <Button
                         onClick={isResultsPhase ? handleRhythmRetry : handleToggleRhythmPlayback}
                         variant="secondary"
-                        className="w-32"
+                        className="w-36 sm:w-40"
                     >
                         {buttonIcon}
                         {buttonText}
                     </Button>
                 </div>
 
-                <div className="w-full flex-grow flex items-center justify-around px-4 relative h-40 mt-4">
-                    <RhythmDuck animationClass={animationClass} />
+                <div className="w-full flex-grow flex items-center justify-around px-2 sm:px-4 relative h-32 sm:h-40 mt-4">
                     
                     <button
                         onClick={() => handleRhythmTap('kick')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
@@ -1309,7 +1307,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                         onClick={() => handleRhythmTap('clap')}
                         disabled={rhythmPhase !== 'playing'}
                         className={cn(
-                            "w-32 h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
+                            "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex items-center justify-center",
                             "bg-red-600/80 border-4 border-red-800/80",
                             "active:scale-95 active:bg-red-500",
                             rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
@@ -1327,9 +1325,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (sessionCompleted && !showLevelCompleteDialog && !showFailureDuck) {
         return (
             <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
-                <Trophy className="w-20 h-20 text-accent" />
-                <p className="text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
-                <p className="text-muted-foreground">¡Nivel completado!</p>
+                <Trophy className="w-16 h-16 sm:w-20 sm:h-20 text-accent" />
+                <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">¡Felicidades!</p>
+                <p className="text-muted-foreground text-sm sm:text-base">¡Nivel completado!</p>
             </div>
         );
     }
@@ -1338,8 +1336,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-center text-foreground gap-4">
                 <MockingDuck />
-                <div className="text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</div>
-                <p className="text-muted-foreground">¡Casi! Necesitas 75% para ganar.</p>
+                <div className="text-xl sm:text-2xl font-bold">Precisión: {rhythmScore.toFixed(0)}%</div>
+                <p className="text-muted-foreground text-sm sm:text-base">¡Casi! Necesitas 75% para ganar.</p>
                 <Button onClick={handleRhythmRetry} className="mt-4">Reintentar</Button>
             </div>
         );
@@ -1348,17 +1346,17 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (gameMode === 'simon-says' || gameMode === 'melody-challenge') {
         if (simonPhase === 'playback') {
             return (
-                <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in">
-                    <p className="text-2xl font-bold text-foreground">{gameMode === 'melody-challenge' ? "Canta la Melodía" : "Memoriza"}</p>
-                    <p className="text-muted-foreground">Escucha la secuencia...</p>
+                <div className="flex flex-col items-center justify-center gap-1 sm:gap-2 text-center animate-in fade-in">
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{gameMode === 'melody-challenge' ? "Canta la Melodía" : "Memoriza"}</p>
+                    <p className="text-muted-foreground text-sm sm:text-base">Escucha la secuencia...</p>
                 </div>
             )
         }
         if (lastCompletedNoteFullName) {
             return (
                 <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
-                    <CheckCircle2 className="w-20 h-20 text-primary" />
-                    <p className="text-3xl font-bold text-foreground mt-2">¡Correcto!</p>
+                    <CheckCircle2 className="w-16 h-16 sm:w-20 sm:h-20 text-primary" />
+                    <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">¡Correcto!</p>
                 </div>
             );
         }
@@ -1369,16 +1367,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
             return (
                 <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
-                    <p className="text-2xl text-primary font-bold">Nota {playerSimonIndex + 1} de {simonSequence.length}</p>
-                    <p className="text-md text-muted-foreground -mt-1">Canta la nota</p>
+                    <p className="text-xl sm:text-2xl text-primary font-bold">Nota {playerSimonIndex + 1} de {simonSequence.length}</p>
+                    <p className="text-sm sm:text-md text-muted-foreground -mt-1">Canta la nota</p>
                     <div className="w-4/5 pt-2">
-                        <Progress value={challengeProgress} className="h-3" />
+                        <Progress value={challengeProgress} className="h-2 sm:h-3" />
                     </div>
-                    <div className="h-16 mt-2 flex flex-col items-center justify-center">
-                        <div className={cn("text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
+                    <div className="h-12 sm:h-16 mt-1 sm:mt-2 flex flex-col items-center justify-center">
+                        <div className={cn("text-3xl sm:text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
                             {isDetecting ? (note.name ? `${note.name}${note.octave}` : "--") : ""}
                         </div>
-                        <p className={cn("font-mono text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
+                        <p className={cn("font-mono text-md sm:text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
                             {isDetecting ? (centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono") : ""}
                         </p>
                     </div>
@@ -1390,8 +1388,8 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (lastCompletedNoteFullName) {
         return (
             <div className="flex flex-col items-center justify-center gap-2 text-center animate-in fade-in zoom-in-95">
-                <CheckCircle2 className="w-20 h-20 text-primary" />
-                <p className="text-3xl font-bold text-foreground mt-2">{completionPhrase}</p>
+                <CheckCircle2 className="w-16 h-16 sm:w-20 sm:h-20 text-primary" />
+                <p className="text-2xl sm:text-3xl font-bold text-foreground mt-2">{completionPhrase}</p>
             </div>
         );
     }
@@ -1401,16 +1399,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         const challengeProgress = (inTuneTime / challengeDuration) * 100;
         return (
             <div className="flex flex-col items-center justify-center gap-1 w-full text-center">
-                <p className="text-5xl font-bold text-primary">{activeNote.fullName}</p>
-                <p className="text-md text-muted-foreground -mt-1">Canta la nota</p>
+                <p className="text-4xl sm:text-5xl font-bold text-primary">{activeNote.fullName}</p>
+                <p className="text-sm sm:text-md text-muted-foreground -mt-1">Canta la nota</p>
                 <div className="w-4/5 pt-2">
-                    <Progress value={challengeProgress} className="h-3" />
+                    <Progress value={challengeProgress} className="h-2 sm:h-3" />
                 </div>
-                <div className="h-16 mt-2 flex flex-col items-center justify-center">
-                   <div className={cn("text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
+                <div className="h-12 sm:h-16 mt-1 sm:mt-2 flex flex-col items-center justify-center">
+                   <div className={cn("text-3xl sm:text-4xl font-bold transition-colors duration-300", isInTune ? "text-accent" : "text-foreground/70")}>
                         {isDetecting ? (note.name ? `${note.name}${note.octave}` : "--") : ""}
                     </div>
-                    <p className={cn("font-mono text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
+                    <p className={cn("font-mono text-md sm:text-lg", isInTune ? "text-accent" : "text-muted-foreground")}>
                          {isDetecting ? (centsOff !== 0 ? `${smoothedCentsOff.toFixed(0)} cents` : "En tono") : ""}
                     </p>
                 </div>
@@ -1420,18 +1418,18 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     if (isPaused) {
          return (
             <div className="text-center p-4">
-                <MicOff className="w-24 h-24 text-muted-foreground/30 mx-auto" />
-                <p className="text-muted-foreground mt-2">En pausa</p>
+                <MicOff className="w-16 h-16 sm:w-24 sm:h-24 text-muted-foreground/30 mx-auto" />
+                <p className="text-muted-foreground mt-2 text-sm sm:text-base">En pausa</p>
             </div>
         );
     }
     
     return (
       <div className="text-center p-4">
-          <p className="text-2xl font-bold text-foreground">
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
               {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? "¡Tu Turno!" : (gameMode === 'interval' ? 'Canta el Arpegio' : 'Selecciona una nota')}
           </p>
-          <p className="text-base text-muted-foreground mt-2">
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
               {(gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase === 'singing' ? `Canta la secuencia de ${simonSequence.length} notas` : (gameMode === 'interval' ? 'Sigue la secuencia de notas' : "Haz clic en un círculo para empezar")}
           </p>
       </div>
@@ -1440,9 +1438,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const notesToDisplay = (gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase !== 'idle' && simonSequence.length > 0 ? simonSequence : challengeNotes;
   const isLargeChallenge = notesToDisplay.length > 25;
-  const buttonSize = `w-[72px] h-[72px] text-base`;
-  const noteNameSize = `text-2xl`;
-  const octaveSize = `text-sm`;
+  const buttonSize = `w-[60px] h-[60px] sm:w-[72px] sm:h-[72px] text-base`;
+  const noteNameSize = `text-xl sm:text-2xl`;
+  const octaveSize = `text-xs sm:text-sm`;
   
   if (!isMounted) {
     return <TunerSkeleton />;
@@ -1496,19 +1494,19 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   }
 
   return (
-    <div className="flex flex-col w-full max-w-md mx-auto p-4">
+    <div className="flex flex-col w-full max-w-md mx-auto h-screen p-2 sm:p-4">
       {/* Header */}
-      <header className="flex-shrink-0 mb-4">
+      <header className="flex-shrink-0 mb-2 sm:mb-4">
         <div className="w-full flex items-center justify-between">
-            <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-2">
-                <ArrowLeft className="mr-2 h-4 w-4" />
+            <Button onClick={handleBackButtonClick} variant="ghost" className="text-sm h-auto p-1 sm:p-2">
+                <ArrowLeft className="mr-1 sm:mr-2 h-4 w-4" />
                 Volver
             </Button>
-            <div className="text-center text-foreground font-semibold text-lg flex-grow">
+            <div className="text-center text-foreground font-semibold text-sm sm:text-lg flex-grow leading-tight">
                 <p>
                     Dificultad: <span className="font-bold text-primary">{getDifficultyTitle()}</span>
                 </p>
-                {gameMode !== 'rhythm-challenge' && <p className="text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
+                {gameMode !== 'rhythm-challenge' && <p className="text-xs sm:text-base text-muted-foreground">Progreso: {completedNotes.size} / {gameMode === 'simon-says' || gameMode === 'melody-challenge' ? simonSequence.length : challengeNotes.length}</p>}
             </div>
             <ThemeToggle />
         </div>
@@ -1524,7 +1522,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                 }
             </div>
         ) : (
-            <div id="tuner-container" className="relative w-full flex items-center justify-center my-8" style={{ minHeight: `${radius * 2 + 80}px`}}>
+            <div id="tuner-container" className="relative w-full flex items-center justify-center flex-grow" style={{ minHeight: `${radius * 2 + 40}px`}}>
                 {notesToDisplay.length > 0 ? (
                     notesToDisplay.map((n, index) => {
                         const angle = (index / notesToDisplay.length) * 2 * Math.PI - (Math.PI / 2);
@@ -1558,7 +1556,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                     <div className="text-muted-foreground">Cargando desafío...</div>
                 )}
             
-                <Card className="absolute w-[220px] h-[220px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                <Card className="absolute w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
                     <CardContent className="p-2 flex items-center justify-center">
                         {renderCentralContent()}
                     </CardContent>
@@ -1568,11 +1566,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </main>
 
       {/* Footer */}
-      <footer className="flex-shrink-0 mb-4">
+      <footer className="flex-shrink-0 mt-auto mb-2 sm:mb-4">
         <div className="flex flex-col items-center gap-2">
           {gameMode !== 'rhythm-challenge' && (
               <>
-                  <Button onClick={handleToggleListening} size="lg" className="rounded-full w-56 h-16 text-xl shadow-lg">
+                  <Button onClick={handleToggleListening} size="lg" className="rounded-full w-48 sm:w-56 h-14 sm:h-16 text-lg sm:text-xl shadow-lg">
                       {isDetecting ? <MicOff className="mr-3" /> : <Mic className="mr-3" />}
                       {isDetecting ? "Pausar" : "Empezar"}
                   </Button>
@@ -1605,7 +1603,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
         }
         setShowDifficultyDialog(isOpen);
       }}>
-          <AlertDialogContent className="max-w-md">
+          <AlertDialogContent className="max-w-xs sm:max-w-md">
               <AlertDialogHeader>
                   {selectedDifficulty && (
                       <Button variant="ghost" size="sm" className="absolute top-3 left-3 px-2 h-auto" onClick={() => setSelectedDifficulty(null)}>
@@ -1613,16 +1611,16 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                           Atrás
                       </Button>
                   )}
-                  <AlertDialogTitle className="text-2xl text-center pt-8 sm:pt-0">
+                  <AlertDialogTitle className="text-xl sm:text-2xl text-center pt-8 sm:pt-0">
                       {selectedDifficulty ? `Dificultad ${selectedDifficulty}` : 'Elige una dificultad'}
                   </AlertDialogTitle>
-                  <AlertDialogDescription className="text-base text-center">
+                  <AlertDialogDescription className="text-sm sm:text-base text-center">
                       {selectedDifficulty ? 'Selecciona un nivel para comenzar.' : dialogMessage}
                   </AlertDialogDescription>
               </AlertDialogHeader>
-              <div className="pt-4">
+              <div className="pt-2 sm:pt-4">
                   {selectedDifficulty ? (
-                      <div className="grid grid-cols-4 gap-4">
+                      <div className="grid grid-cols-4 gap-2 sm:gap-4">
                           {Array.from({ length: difficultySettings[selectedDifficulty].levelCount }, (_, i) => i + 1).map(level => {
                               const isCompleted = progress[selectedDifficulty]?.[level];
                               
@@ -1635,27 +1633,27 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                               let modeIndicator: React.ReactNode = null;
                               if (selectedDifficulty === 'Fácil') {
                                 if (level > 6) {
-                                    modeIndicator = <Drum className="w-4 h-4 text-blue-500" />;
+                                    modeIndicator = <Drum className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />;
                                 } else if (level === 4 || level === 6) {
-                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                    modeIndicator = <Music className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />;
                                 }
                               } else if (selectedDifficulty === 'Medio') {
                                   if (level > 12) {
-                                      modeIndicator = <Drum className="w-4 h-4 text-blue-500" />;
+                                      modeIndicator = <Drum className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />;
                                   } else if (level === 6) {
-                                      modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                      modeIndicator = <Music className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />;
                                   } else {
-                                      modeIndicator = <Music className="w-4 h-4" />;
+                                      modeIndicator = <Music className="w-3 h-3 sm:w-4 sm:h-4" />;
                                   }
                               } else if (selectedDifficulty === 'Difícil') {
                                 if (level > 12) {
-                                    modeIndicator = <Drum className="w-4 h-4 text-blue-500" />;
+                                    modeIndicator = <Drum className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />;
                                 } else if (level === 1 || level === 12) {
-                                    modeIndicator = <Brain className="w-4 h-4" />;
+                                    modeIndicator = <Brain className="w-3 h-3 sm:w-4 smh-4" />;
                                 } else if (level === 9) {
-                                    modeIndicator = <Music className="w-4 h-4 text-green-500" />;
+                                    modeIndicator = <Music className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" />;
                                 } else if ((level - 2) % 3 === 1) { // Arpeggio
-                                    modeIndicator = <Music className="w-4 h-4" />;
+                                    modeIndicator = <Music className="w-3 h-3 sm:w-4 sm:h-4" />;
                                 }
                               }
 
@@ -1665,12 +1663,12 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                                       variant={isCompleted ? "default" : "secondary"}
                                       disabled={isLocked}
                                       onClick={() => startLevel(selectedDifficulty, level)}
-                                      className="h-20 text-xl font-bold flex flex-col gap-1 aspect-square relative"
+                                      className="h-16 sm:h-20 text-lg sm:text-xl font-bold flex flex-col gap-1 aspect-square relative"
                                   >
                                       {isLocked ? (
-                                          <Lock className="w-8 h-8"/>
+                                          <Lock className="w-6 h-6 sm:w-8 sm:h-8"/>
                                       ) : isCompleted ? (
-                                          <Star className="w-8 h-8 text-accent fill-accent"/>
+                                          <Star className="w-6 h-6 sm:w-8 sm:h-8 text-accent fill-accent"/>
                                       ) : (
                                           <span>{level}</span>
                                       )}
@@ -1684,11 +1682,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
                           })}
                       </div>
                   ) : (
-                      <div className="flex flex-col gap-4 pt-4">
-                          <Button onClick={startWarmup} variant="secondary" size="lg" className="h-20 text-lg">Calentamiento</Button>
-                          <Button onClick={() => setSelectedDifficulty("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black h-20 text-lg">Fácil</Button>
-                          <Button onClick={() => setSelectedDifficulty("Medio")} size="lg" className="h-20 text-lg">Medio</Button>
-                          <Button onClick={() => setSelectedDifficulty("Difícil")} variant="destructive" size="lg" className="h-20 text-lg">Difícil</Button>
+                      <div className="flex flex-col gap-3 sm:gap-4 pt-4">
+                          <Button onClick={startWarmup} variant="secondary" size="lg" className="h-16 sm:h-20 text-lg">Calentamiento</Button>
+                          <Button onClick={() => setSelectedDifficulty("Fácil")} variant="accent" size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black h-16 sm:h-20 text-lg">Fácil</Button>
+                          <Button onClick={() => setSelectedDifficulty("Medio")} size="lg" className="h-16 sm:h-20 text-lg">Medio</Button>
+                          <Button onClick={() => setSelectedDifficulty("Difícil")} variant="destructive" size="lg" className="h-16 sm:h-20 text-lg">Difícil</Button>
                       </div>
                   )}
               </div>
@@ -1696,19 +1694,19 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
       </AlertDialog>
 
       <AlertDialog open={showLevelCompleteDialog}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-w-xs sm:max-w-sm">
               <AlertDialogHeader>
-                  <AlertDialogTitle className="text-2xl">
+                  <AlertDialogTitle className="text-xl sm:text-2xl">
                     {difficulty !== 'Calentamiento' && currentLevel < difficultySettings[difficulty as ChallengeDifficulty].levelCount
                         ? `¡Nivel ${currentLevel} Completado!`
                         : `¡Dificultad ${difficulty} Completada!`
                     }
                   </AlertDialogTitle>
-                   <AlertDialogDescription className="text-base">
-                      ¡Excelente trabajo! Has desbloqueado el siguiente nivel.
+                   <AlertDialogDescription className="text-sm sm:text-base">
+                      {`¡Excelente trabajo! Has desbloqueado el siguiente nivel.`}
                   </AlertDialogDescription>
                    {gameMode === 'rhythm-challenge' && rhythmScore >= 75 && (
-                      <div className="text-lg font-bold text-center text-foreground pt-2">
+                      <div className="text-md sm:text-lg font-bold text-center text-foreground pt-2">
                           Precisión: {rhythmScore.toFixed(0)}%
                       </div>
                   )}
