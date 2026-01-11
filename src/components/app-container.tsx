@@ -101,23 +101,23 @@ export function AppContainer() {
 
       <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-xs sm:max-w-sm animate-in fade-in-50 duration-500">
         <Card className="bg-card/50 border-2 border-transparent">
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl font-semibold text-center">¿Cómo te sientes mejor al cantar?</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <Button onClick={() => setPitchPreference('grave')} variant={pitchPreference === 'grave' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Cómodo en graves</Button>
-            <Button onClick={() => setPitchPreference('agudo')} variant={pitchPreference === 'agudo' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Cómodo en agudos</Button>
-          </CardContent>
+            <CardHeader>
+                <CardTitle className="text-lg sm:text-xl font-semibold text-center">¿Cuál es tu tipo de voz?</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3">
+                <Button onClick={() => setGender('masculino')} variant={gender === 'masculino' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Masculina</Button>
+                <Button onClick={() => setGender('femenino')} variant={gender === 'femenino' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Femenina</Button>
+            </CardContent>
         </Card>
 
         <Card className="bg-card/50 border-2 border-transparent">
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl font-semibold text-center">¿Cuál es tu tipo de voz?</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <Button onClick={() => setGender('masculino')} variant={gender === 'masculino' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Masculina</Button>
-            <Button onClick={() => setGender('femenino')} variant={gender === 'femenino' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Femenina</Button>
-          </CardContent>
+            <CardHeader>
+                <CardTitle className="text-lg sm:text-xl font-semibold text-center">¿Cómo te sientes mejor al cantar?</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3">
+                <Button onClick={() => setPitchPreference('grave')} variant={pitchPreference === 'grave' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Cómodo en graves</Button>
+                <Button onClick={() => setPitchPreference('agudo')} variant={pitchPreference === 'agudo' ? 'default' : 'secondary'} size="lg" className="h-14 text-sm sm:h-16 sm:text-base">Cómodo en agudos</Button>
+            </CardContent>
         </Card>
       </div>
     </main>
