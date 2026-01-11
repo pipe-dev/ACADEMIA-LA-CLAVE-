@@ -93,8 +93,8 @@ export function AppContainer() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-4">
-      <div className="text-center mb-6 sm:mb-8">
+    <main className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-4">
+      <div className="text-center mt-16 mb-12 sm:mt-24 sm:mb-16">
         <h1 className="text-3xl sm:text-4xl font-bold text-foreground">Bienvenido a Vocal Studio</h1>
         <p className="text-muted-foreground mt-2 sm:mt-3 max-w-md sm:max-w-xl text-md sm:text-lg">Para comenzar, ayúdanos a entender tu voz para personalizar tu experiencia.</p>
       </div>
