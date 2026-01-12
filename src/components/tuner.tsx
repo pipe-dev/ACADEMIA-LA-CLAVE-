@@ -101,21 +101,17 @@ const rhythmPatterns: Record<number, { time: number; instrument: 'clap' | 'kick'
         { time: 3692, instrument: 'clap' },
     ],
     // Medio (Levels 13-16)
-    13: [ // 140 BPM
-        { time: 0, instrument: 'kick' }, { time: 428, instrument: 'kick' }, { time: 857, instrument: 'clap' }, { time: 1285, instrument: 'kick' },
-        { time: 1714, instrument: 'kick' }, { time: 2142, instrument: 'clap' }, { time: 2571, instrument: 'kick' }, { time: 3000, instrument: 'clap' },
+    13: [ // 140 BPM - Basic Rock
+        { time: 0, instrument: 'kick' }, { time: 857, instrument: 'clap' }, { time: 1714, instrument: 'kick' }, { time: 2571, instrument: 'clap' },
     ],
     14: [ // 150 BPM
-        { time: 0, instrument: 'kick' }, { time: 400, instrument: 'clap' }, { time: 800, instrument: 'kick' }, { time: 1000, instrument: 'kick' },
-        { time: 1200, instrument: 'clap' }, { time: 2000, instrument: 'kick' }, { time: 2800, instrument: 'clap' },
+        { time: 0, instrument: 'kick' }, { time: 400, instrument: 'kick' }, { time: 800, instrument: 'clap' }, { time: 1600, instrument: 'kick' }, { time: 2400, instrument: 'clap' },
     ],
     15: [ // 160 BPM
-        { time: 0, instrument: 'kick' }, { time: 375, instrument: 'kick' }, { time: 750, instrument: 'clap' }, { time: 1125, instrument: 'kick' },
-        { time: 1500, instrument: 'clap' }, { time: 1875, instrument: 'clap' }, { time: 2250, instrument: 'kick' },
+        { time: 0, instrument: 'kick' }, { time: 750, instrument: 'clap' }, { time: 1125, instrument: 'kick' }, { time: 1500, instrument: 'kick' }, { time: 1875, instrument: 'clap' },
     ],
     16: [ // 170 BPM - Funk
-        { time: 0, instrument: 'kick' }, { time: 705, instrument: 'clap' }, { time: 1058, instrument: 'kick' }, { time: 1411, instrument: 'kick' },
-        { time: 1764, instrument: 'clap' }, { time: 2470, instrument: 'clap' },
+        { time: 0, instrument: 'kick' }, { time: 705, instrument: 'clap' }, { time: 1411, instrument: 'kick' }, { time: 1764, instrument: 'kick' }, { time: 2470, instrument: 'clap' },
     ],
     // Dificil (Levels 17-20)
     17: [ // 180 BPM - Rock
@@ -232,12 +228,12 @@ function TunerSkeleton() {
             <Skeleton className="h-6 w-32 rounded-md" />
         </div>
 
-        <div className="relative w-[340px] h-[340px] flex items-center justify-center">
+        <div className="relative w-[240px] h-[240px] sm:w-[320px] sm:h-[320px] flex items-center justify-center">
             <Skeleton className="absolute w-full h-full rounded-full" />
-            <Skeleton className="w-[180px] h-[180px] rounded-full" />
+            <Skeleton className="w-[140px] h-[140px] sm:w-[180px] sm:h-[180px] rounded-full" />
         </div>
         
-        <Skeleton className="h-16 w-56 rounded-full" />
+        <Skeleton className="h-14 w-48 sm:h-16 sm:w-56 rounded-full" />
       </div>
     );
   }
@@ -566,17 +562,17 @@ const playGuide = useCallback(() => {
     stopAllRhythm();
     setIsGuidePlaying(true);
     setRhythmPhase('playback');
-    setDuckAnimation('animate-jump-hop-kick');
+    setDuckAnimation('animate-duck-bounce');
 
     rhythmPattern.forEach(hit => {
         const timeout = setTimeout(() => {
             playRhythmSound(hit.instrument, audioContext.currentTime);
-            setDuckAnimation(hit.instrument === 'kick' ? 'animate-jump-hop-kick' : 'animate-jump-hop-clap');
+            setDuckAnimation(hit.instrument === 'kick' ? 'animate-jump-kick-to-clap' : 'animate-jump-clap-to-kick');
         }, hit.time);
         rhythmTimeoutsRef.current.push(timeout);
     });
 
-    const totalDuration = rhythmPattern[rhythmPattern.length - 1].time + 500;
+    const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 500 : 500;
     const endTimeout = setTimeout(() => {
         setIsGuidePlaying(false);
         setRhythmPhase('playing');
@@ -862,24 +858,10 @@ const playGuide = useCallback(() => {
             13: 140, 14: 150, 15: 160, 16: 170, // Medio
             17: 180, 18: 190, 19: 200, 20: 210, // Dificil
         };
-        const patternMap: Record<number, number> = {
-            13: 13, 14: 14, 15: 15, 16: 16, // Medio
-            17: 17, 18: 18, 19: 19, 20: 20, // Dificil
-        };
+        
+        const patternKey = level; // Direct mapping for all rhythm levels
 
-        let bpm, patternKey;
-        if (diff === 'Fácil') {
-            bpm = bpmMap[level] || 100;
-            patternKey = level;
-        } else if (diff === 'Medio') {
-            bpm = bpmMap[level] || 140;
-            patternKey = patternMap[level] || 13;
-        } else { // Dificil
-             bpm = bpmMap[level] || 180;
-             patternKey = patternMap[level] || 17;
-        }
-
-        setRhythmBpm(bpm);
+        setRhythmBpm(bpmMap[patternKey] || 100);
         setRhythmPattern(rhythmPatterns[patternKey] || []);
         if (isDetecting) stop();
         setTimeout(playGuide, 500);
@@ -1070,7 +1052,9 @@ const playGuide = useCallback(() => {
       const newTaps = [...userRhythmTaps, { time: tapTime, instrument }];
       setUserRhythmTaps(newTaps);
       
-      if (newTaps.length >= rhythmPattern.length) {
+      const rhythmPatternExists = rhythmPattern && rhythmPattern.length > 0;
+
+      if (rhythmPatternExists && newTaps.length >= rhythmPattern.length) {
           stopAllRhythm();
           setRhythmPhase('results');
           const finalScore = evaluateRhythm(newTaps);
@@ -1101,7 +1085,7 @@ const playGuide = useCallback(() => {
                         {isPlaybackPhase ? "¡Escucha y mira!" : (rhythmPhase === 'playing' ? "¡Tu turno!" : "Resultados")}
                     </p>
                     <p className="text-sm sm:text-base text-muted-foreground">
-                        {isPlaybackPhase ? "Memoriza la secuencia del pato." : "Replica la secuencia que viste."}
+                        {isPlaybackPhase ? "Memoriza la secuencia del pato." : (rhythmPhase === 'playing' ? "Replica la secuencia que viste." : "¡Buen intento!")}
                     </p>
                 </div>
                 
@@ -1267,7 +1251,6 @@ const playGuide = useCallback(() => {
   };
 
   const notesToDisplay = (gameMode === 'simon-says' || gameMode === 'melody-challenge') && simonPhase !== 'idle' && simonSequence.length > 0 ? simonSequence : challengeNotes;
-  const isLargeChallenge = notesToDisplay.length > 25;
   const buttonSize = `w-[60px] h-[60px] sm:w-[72px] sm:h-[72px] text-base`;
   const noteNameSize = `text-xl sm:text-2xl`;
   const octaveSize = `text-xs sm:text-sm`;
@@ -1386,7 +1369,7 @@ const playGuide = useCallback(() => {
                     <div className="text-muted-foreground">Cargando desafío...</div>
                 )}
             
-                <Card className="absolute w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
+                <Card className="absolute w-[140px] h-[140px] sm:w-[220px] sm:h-[220px] rounded-full shadow-2xl border-2 border-primary/20 flex items-center justify-center bg-transparent" style={{background: 'radial-gradient(circle, hsl(var(--card)) 0%, hsl(var(--background)) 100%)'}}>
                     <CardContent className="p-2 flex items-center justify-center">
                         {renderCentralContent()}
                     </CardContent>
@@ -1562,6 +1545,8 @@ const playGuide = useCallback(() => {
     </div>
   );
 }
+    
+
     
 
     
