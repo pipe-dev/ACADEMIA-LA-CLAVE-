@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square, Pause, HandClap, Foot } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square, Pause, Hand, Footprints } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -1117,7 +1117,7 @@ const playGuide = useCallback(() => {
                         )}
                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     >
-                        <Foot size={32}/>
+                        <Footprints size={32}/>
                         Kick
                     </Button>
                     <Button
@@ -1131,7 +1131,7 @@ const playGuide = useCallback(() => {
                         )}
                         style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     >
-                        <HandClap size={32}/>
+                        <Hand size={32}/>
                         Clap
                     </Button>
                 </div>
@@ -1562,6 +1562,10 @@ const playGuide = useCallback(() => {
     </div>
   );
 }
+    
+
+    
+
     
 
     
