@@ -58,47 +58,31 @@ const rhythmPatterns: Record<number, { time: number; instrument: 'clap' | 'kick'
     7: [ // 80 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
         { time: 1500, instrument: 'clap' },
-        { time: 3000, instrument: 'kick' },
-        { time: 4500, instrument: 'clap' },
     ],
     8: [ // 90 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
         { time: 666, instrument: 'kick' },
         { time: 1333, instrument: 'clap' },
-        { time: 2666, instrument: 'kick' },
-        { time: 3333, instrument: 'kick' },
-        { time: 4000, instrument: 'clap' },
     ],
     9: [ // 100 BPM, 2 bars 4/4
-        { time: 0, instrument: 'kick' }, // Beat 1
-        { time: 1200, instrument: 'clap' }, // Beat 3
-        { time: 2400, instrument: 'kick' }, // Beat 1 (compás 2)
-        { time: 3600, instrument: 'clap' }, // Beat 3 (compás 2)
+        { time: 0, instrument: 'kick' }, 
+        { time: 1200, instrument: 'clap' }, 
     ],
     10: [ // 110 BPM, 2 bars 4/4
-        { time: 0, instrument: 'kick' }, // Beat 1
-        { time: 1091, instrument: 'clap' }, // Beat 3
-        { time: 2182, instrument: 'kick' }, // Beat 1 (compás 2)
-        { time: 3273, instrument: 'clap' }, // Beat 3 (compás 2)
+        { time: 0, instrument: 'kick' },
+        { time: 1091, instrument: 'clap' }, 
     ],
      11: [ // 120 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
         { time: 500, instrument: 'clap' },
         { time: 1000, instrument: 'kick' },
         { time: 1500, instrument: 'clap' },
-        { time: 2000, instrument: 'kick' },
-        { time: 2500, instrument: 'clap' },
-        { time: 3000, instrument: 'kick' },
-        { time: 3500, instrument: 'clap' },
     ],
      12: [ // 130 BPM, 2 bars 4/4
         { time: 0, instrument: 'kick' },
         { time: 461, instrument: 'kick' },
         { time: 923, instrument: 'clap' },
         { time: 1846, instrument: 'kick' },
-        { time: 2307, instrument: 'clap' },
-        { time: 3230, instrument: 'kick' },
-        { time: 3692, instrument: 'clap' },
     ],
     // Medio (Levels 13-16)
     13: [ // 140 BPM - Basic Rock
@@ -543,7 +527,6 @@ const playRhythmSound = useCallback((instrument: 'clap' | 'kick', time: number) 
 const stopAllRhythm = useCallback(() => {
     rhythmTimeoutsRef.current.forEach(clearTimeout);
     rhythmTimeoutsRef.current = [];
-    setRhythmPhase('idle');
 }, []);
 
 const startRhythmSession = useCallback((bpm: number, guidePattern: { time: number; instrument: 'clap' | 'kick' }[]) => {
@@ -554,28 +537,31 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
     setRhythmPhase('guide');
 
     const beatDurationSeconds = 60.0 / bpm;
-    const guideDurationBeats = 8; // 2 bars of 4/4
-    const guideDurationMs = guideDurationBeats * beatDurationSeconds * 1000;
-    const startTime = audioContext.currentTime + 0.5; // Start in 0.5s
+    const guideBars = 2;
+    const playBars = 2; // Assume user takes 2 bars to play
+    const bufferBars = 2; // Just in case
+    const totalBars = guideBars + playBars + bufferBars;
+    const totalBeats = totalBars * 4;
 
-    // Schedule Metronome Ticks for Guide + User Turn
-    // Let's schedule 4 bars total (2 for guide, 2 for user)
-    const totalBeats = guideDurationBeats * 2; 
+    const guideDurationMs = guideBars * 4 * beatDurationSeconds * 1000;
+    const startTime = audioContext.currentTime + 0.5; // Start everything in 0.5s to be safe
+
+    // 1. Schedule Metronome Ticks for the whole duration
     for (let beat = 0; beat < totalBeats; beat++) {
         playMetronomeTick(startTime + beat * beatDurationSeconds);
     }
 
-    // Schedule Guide Sounds
+    // 2. Schedule Guide Sounds
     guidePattern.forEach(hit => {
         playRhythmSound(hit.instrument, startTime + hit.time / 1000);
     });
 
-    // Schedule phase transition to 'playing'
+    // 3. Schedule phase transition to 'playing' with NO DELAY
     const transitionTimeout = setTimeout(() => {
         setRhythmPhase('playing');
         setRhythmStartTime(performance.now());
         setUserRhythmTaps([]);
-    }, guideDurationMs + 500); // 0.5s buffer after guide
+    }, guideDurationMs + 500); // The +500 is because everything starts 500ms in the future.
 
     rhythmTimeoutsRef.current.push(transitionTimeout);
 
@@ -1054,7 +1040,6 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
       setUserRhythmTaps(newTaps);
       
       if (rhythmPattern && rhythmPattern.length > 0 && newTaps.length >= rhythmPattern.length) {
-          stopAllRhythm();
           setRhythmPhase('results');
           const finalScore = evaluateRhythm(newTaps);
           setRhythmScore(finalScore);
