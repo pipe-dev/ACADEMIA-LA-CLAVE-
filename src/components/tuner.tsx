@@ -199,27 +199,6 @@ const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
     "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0], // 12 tuning, 4 rhythm
 };
 
-const RhythmDuck = ({ animationClass }: { animationClass: string }) => {
-    const [key, setKey] = useState(0);
-    
-    useEffect(() => {
-        setKey(prev => prev + 1);
-    }, [animationClass]);
-
-    return (
-        <div key={key} className={cn("w-20 h-20", animationClass)}>
-             <Image 
-                src="/duck.png" 
-                alt="Rhythm Duck" 
-                width={80} 
-                height={80}
-                className={"w-full h-full"}
-                style={{ imageRendering: 'pixelated' }}
-            />
-        </div>
-    )
-}
-
 function TunerSkeleton() {
     return (
       <div className="flex flex-col items-center gap-8 w-full animate-pulse">
@@ -282,24 +261,21 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [isPaused, setIsPaused] = useState(false);
   const [repeatCount, setRepeatCount] = useState(0);
 
+  // Rhythm Game State
   const [rhythmPattern, setRhythmPattern] = useState<{ time: number; instrument: 'clap' | 'kick' }[]>([]);
-  const [rhythmPhase, setRhythmPhase] = useState<'idle' | 'playback' | 'playing' | 'results'>('idle');
+  const [rhythmPhase, setRhythmPhase] = useState<'idle' | 'guide' | 'playing' | 'results'>('idle');
   const [userRhythmTaps, setUserRhythmTaps] = useState<{ time: number; instrument: 'clap' | 'kick' }[]>([]);
   const [rhythmStartTime, setRhythmStartTime] = useState(0);
   const [rhythmScore, setRhythmScore] = useState(0);
   const [rhythmBpm, setRhythmBpm] = useState(100);
-  const [duckAnimation, setDuckAnimation] = useState('');
   const [showFailureMessage, setShowFailureMessage] = useState(false);
+  const rhythmTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
   
   const [showEasyWinVideo, setShowEasyWinVideo] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  
-  const [isGuidePlaying, setIsGuidePlaying] = useState(false);
 
-  const rhythmAudioContextRef = useRef<AudioContext | null>(null);
-  const rhythmTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
-  
   // Audio refs
+  const audioContextRef = useRef<AudioContext | null>(null);
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
 
@@ -331,11 +307,11 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
 
   const getPlaybackAudioContext = useCallback(() => {
     if (typeof window === 'undefined') return null;
-    let context = rhythmAudioContextRef.current;
+    let context = audioContextRef.current;
     if (!context || context.state === 'closed') {
         try {
             context = new (window.AudioContext || (window as any).webkitAudioContext)();
-            rhythmAudioContextRef.current = context;
+            audioContextRef.current = context;
         } catch (e) {
             console.error("Could not create playback AudioContext", e);
             toast({ variant: "destructive", title: "Error de Audio", description: `No se pudo inicializar el motor de audio. ${e instanceof Error ? e.message : ''}` });
@@ -512,6 +488,23 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     });
   }, [getPlaybackAudioContext]);
 
+const playMetronomeTick = useCallback((time: number) => {
+    const audioContext = getPlaybackAudioContext();
+    if (!audioContext) return;
+
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1000, time);
+    gain.gain.setValueAtTime(0.1, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+    osc.connect(gain).connect(audioContext.destination);
+    osc.start(time);
+    osc.stop(time + 0.05);
+}, [getPlaybackAudioContext]);
+
+
 const playRhythmSound = useCallback((instrument: 'clap' | 'kick', time: number) => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
@@ -551,42 +544,42 @@ const stopAllRhythm = useCallback(() => {
     rhythmTimeoutsRef.current.forEach(clearTimeout);
     rhythmTimeoutsRef.current = [];
     setRhythmPhase('idle');
-    setIsGuidePlaying(false);
 }, []);
 
-const playGuide = useCallback(() => {
+const startRhythmSession = useCallback((bpm: number, guidePattern: { time: number; instrument: 'clap' | 'kick' }[]) => {
     const audioContext = getPlaybackAudioContext();
-    if (!audioContext || rhythmPattern.length === 0) return;
+    if (!audioContext) return;
 
     stopAllRhythm();
-    setIsGuidePlaying(true);
-    setRhythmPhase('playback');
-    setDuckAnimation('animate-duck-bounce');
+    setRhythmPhase('guide');
 
-    // Use Web Audio API's clock for precision
-    const guideStartTime = audioContext.currentTime + 0.5; // Start after bounce animation
+    const beatDurationSeconds = 60.0 / bpm;
+    const guideDurationBeats = 8; // 2 bars of 4/4
+    const guideDurationMs = guideDurationBeats * beatDurationSeconds * 1000;
+    const startTime = audioContext.currentTime + 0.5; // Start in 0.5s
 
-    rhythmPattern.forEach(hit => {
-        // Schedule precise audio
-        playRhythmSound(hit.instrument, guideStartTime + hit.time / 1000);
+    // Schedule Metronome Ticks for Guide + User Turn
+    // Let's schedule 4 bars total (2 for guide, 2 for user)
+    const totalBeats = guideDurationBeats * 2; 
+    for (let beat = 0; beat < totalBeats; beat++) {
+        playMetronomeTick(startTime + beat * beatDurationSeconds);
+    }
 
-        // Schedule visual animation to sync with audio
-        const animationTimeout = setTimeout(() => {
-            setDuckAnimation(hit.instrument === 'kick' ? 'animate-rhythm-kick' : 'animate-rhythm-clap');
-        }, (guideStartTime - audioContext.currentTime) * 1000 + hit.time);
-        rhythmTimeoutsRef.current.push(animationTimeout);
+    // Schedule Guide Sounds
+    guidePattern.forEach(hit => {
+        playRhythmSound(hit.instrument, startTime + hit.time / 1000);
     });
 
-    const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 500 : 500;
-    const endTimeout = setTimeout(() => {
-        setIsGuidePlaying(false);
+    // Schedule phase transition to 'playing'
+    const transitionTimeout = setTimeout(() => {
         setRhythmPhase('playing');
-        setDuckAnimation('');
         setRhythmStartTime(performance.now());
         setUserRhythmTaps([]);
-    }, (guideStartTime - audioContext.currentTime) * 1000 + totalDuration);
-    rhythmTimeoutsRef.current.push(endTimeout);
-}, [rhythmPattern, getPlaybackAudioContext, playRhythmSound, stopAllRhythm]);
+    }, guideDurationMs + 500); // 0.5s buffer after guide
+
+    rhythmTimeoutsRef.current.push(transitionTimeout);
+
+}, [getPlaybackAudioContext, playMetronomeTick, playRhythmSound, stopAllRhythm]);
 
   
   useEffect(() => {
@@ -856,7 +849,6 @@ const playGuide = useCallback(() => {
     setUserRhythmTaps([]);
 
     if (newGameMode === "rhythm-challenge") {
-        getPlaybackAudioContext();
         const bpmMap: Record<number, number> = { 
             7: 80, 8: 90, 9: 100, 10: 110, 11: 120, 12: 130, // Fácil
             13: 140, 14: 150, 15: 160, 16: 170, // Medio
@@ -864,11 +856,12 @@ const playGuide = useCallback(() => {
         };
         
         const patternKey = level; // Direct mapping for all rhythm levels
-
-        setRhythmBpm(bpmMap[patternKey] || 100);
-        setRhythmPattern(rhythmPatterns[patternKey] || []);
+        const bpm = bpmMap[patternKey] || 100;
+        const pattern = rhythmPatterns[patternKey] || [];
+        setRhythmBpm(bpm);
+        setRhythmPattern(pattern);
         if (isDetecting) stop();
-        setTimeout(playGuide, 500);
+        startRhythmSession(bpm, pattern);
 
     } else if (newGameMode === "simon-says" || newGameMode === "melody-challenge") {
       let sequence: NoteInfo[] = [];
@@ -939,7 +932,7 @@ const playGuide = useCallback(() => {
       setSimonPhase("idle");
       if (!isDetecting) start();
     }
-  }, [isMounted, notePool, stopAllRhythm, playGuide, gender, isDetecting, start, stop, playNote]);
+  }, [isMounted, notePool, stopAllRhythm, gender, isDetecting, start, stop, playNote, startRhythmSession]);
 
 
   const startWarmup = useCallback(() => {
@@ -1012,31 +1005,37 @@ const playGuide = useCallback(() => {
     onGoBack();
   }
 
-  const evaluateRhythm = useCallback((taps: { time: number; instrument: 'clap' | 'kick' }[]) => {
-    if (!rhythmPattern || taps.length === 0) return 0;
+ const evaluateRhythm = useCallback((taps: { time: number; instrument: 'clap' | 'kick' }[]) => {
+    if (!rhythmPattern || rhythmPattern.length === 0) return 0;
 
-    const timeTolerance = 250; // ms
+    const timeTolerance = 250; // ms - how close the user's tap must be to the actual beat
     let correctHits = 0;
     
-    const userHits = [...taps];
-    const patternHits = [...rhythmPattern];
+    const userTaps = [...taps];
+    
+    // For each hit in the guide pattern
+    rhythmPattern.forEach(patternHit => {
+        let bestMatchIndex = -1;
+        let smallestTimeDiff = Infinity;
 
-    for(let i=0; i<patternHits.length; i++) {
-        const patternHit = patternHits[i];
-        let foundMatch = false;
-        for(let j=0; j<userHits.length; j++) {
-            const userHit = userHits[j];
-            if(patternHit.instrument === userHit.instrument) {
-                const timeDiff = Math.abs(patternHit.time - userHit.time);
-                if (timeDiff <= timeTolerance) {
-                    correctHits++;
-                    userHits.splice(j, 1);
-                    foundMatch = true;
-                    break;
+        // Find the user's tap that is the closest match
+        for (let i = 0; i < userTaps.length; i++) {
+            const userTap = userTaps[i];
+            if (userTap.instrument === patternHit.instrument) {
+                const timeDiff = Math.abs(userTap.time - patternHit.time);
+                if (timeDiff < smallestTimeDiff) {
+                    smallestTimeDiff = timeDiff;
+                    bestMatchIndex = i;
                 }
             }
         }
-    }
+
+        // If a close enough match is found, count it and remove it from being matched again
+        if (bestMatchIndex !== -1 && smallestTimeDiff <= timeTolerance) {
+            correctHits++;
+            userTaps.splice(bestMatchIndex, 1); // Remove the matched tap
+        }
+    });
 
     const score = (correctHits / rhythmPattern.length) * 100;
     return score;
@@ -1051,14 +1050,10 @@ const playGuide = useCallback(() => {
           playRhythmSound(instrument, audioContext.currentTime);
       }
       
-      setDuckAnimation(instrument === 'kick' ? 'animate-rhythm-kick' : 'animate-rhythm-clap');
-
       const newTaps = [...userRhythmTaps, { time: tapTime, instrument }];
       setUserRhythmTaps(newTaps);
       
-      const rhythmPatternExists = rhythmPattern && rhythmPattern.length > 0;
-
-      if (rhythmPatternExists && newTaps.length >= rhythmPattern.length) {
+      if (rhythmPattern && rhythmPattern.length > 0 && newTaps.length >= rhythmPattern.length) {
           stopAllRhythm();
           setRhythmPhase('results');
           const finalScore = evaluateRhythm(newTaps);
@@ -1076,48 +1071,47 @@ const playGuide = useCallback(() => {
   };
   
     const renderRhythmGame = () => {
-        const isPlaybackPhase = rhythmPhase === 'playback' || isGuidePlaying;
+        const phaseTextMap = {
+            'idle': 'Cargando nivel...',
+            'guide': '¡Escucha la guía!',
+            'playing': '¡Tu turno! Sigue el ritmo.',
+            'results': 'Resultados',
+        };
 
         return (
-            <div className="flex flex-col items-center justify-start gap-2 w-full h-full text-foreground">
-                <div className="relative w-full h-24 mb-4 flex items-center justify-center">
-                    <RhythmDuck animationClass={duckAnimation} />
-                </div>
-                
+            <div className="flex flex-col items-center justify-start gap-8 w-full h-full text-foreground pt-16">
                 <div className="text-center">
                     <p className="text-lg sm:text-xl font-bold">
-                        {isPlaybackPhase ? "¡Escucha y mira!" : (rhythmPhase === 'playing' ? "¡Tu turno!" : "Resultados")}
+                        {phaseTextMap[rhythmPhase]}
                     </p>
                     <p className="text-sm sm:text-base text-muted-foreground">
-                        {isPlaybackPhase ? "Memoriza la secuencia del pato." : (rhythmPhase === 'playing' ? "Replica la secuencia que viste." : "¡Buen intento!")}
+                        BPM: {rhythmBpm}
                     </p>
                 </div>
                 
-                <div className="w-full flex-grow flex items-center justify-around px-2 sm:px-4 relative h-32 sm:h-40 mt-4">
+                <div className="w-full flex-grow flex items-center justify-around px-2 sm:px-4">
                     <Button
                         onClick={() => handleRhythmTap('kick')}
-                        disabled={isPlaybackPhase || rhythmPhase !== 'playing'}
+                        disabled={rhythmPhase !== 'playing'}
                         className={cn(
                             "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex flex-col items-center justify-center gap-1",
                             "bg-blue-600/80 border-4 border-blue-800/80",
                             "active:scale-95 active:bg-blue-500",
-                            (isPlaybackPhase || rhythmPhase !== 'playing') && "opacity-50 cursor-not-allowed",
+                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
                         )}
-                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     >
                         <Footprints size={32}/>
                         Kick
                     </Button>
                     <Button
                         onClick={() => handleRhythmTap('clap')}
-                        disabled={isPlaybackPhase || rhythmPhase !== 'playing'}
+                        disabled={rhythmPhase !== 'playing'}
                         className={cn(
                             "w-28 h-28 sm:w-32 sm:h-32 rounded-full text-white font-bold shadow-lg transition-all duration-150 flex flex-col items-center justify-center gap-1",
                             "bg-red-600/80 border-4 border-red-800/80",
                             "active:scale-95 active:bg-red-500",
-                            (isPlaybackPhase || rhythmPhase !== 'playing') && "opacity-50 cursor-not-allowed",
+                            rhythmPhase !== 'playing' && "opacity-50 cursor-not-allowed",
                         )}
-                        style={{boxShadow: '0 5px 15px rgba(0,0,0,0.5), inset 0 -8px 0 rgba(0,0,0,0.3)'}}
                     >
                         <Hand size={32}/>
                         Clap
@@ -1125,8 +1119,8 @@ const playGuide = useCallback(() => {
                 </div>
 
                 <div className="h-10 mt-4">
-                  {rhythmPhase === 'playing' && (
-                    <Button variant="outline" onClick={playGuide}>
+                  {(rhythmPhase === 'playing' || rhythmPhase === 'results') && (
+                    <Button variant="outline" onClick={() => startRhythmSession(rhythmBpm, rhythmPattern)}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Repetir Guía
                     </Button>
