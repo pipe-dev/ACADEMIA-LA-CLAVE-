@@ -207,7 +207,7 @@ const RhythmDuck = ({ animationClass }: { animationClass: string }) => {
     }, [animationClass]);
 
     return (
-        <div key={key} className={cn("w-20 h-20 absolute", animationClass)}>
+        <div key={key} className={cn("w-20 h-20", animationClass)}>
              <Image 
                 src="/duck.png" 
                 alt="Rhythm Duck" 
@@ -302,7 +302,6 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   // Audio refs
   const audioBufferCache = useRef(new Map<string, AudioBuffer>());
   const activeSoundSourceRef = useRef<{ source: AudioScheduledSourceNode, gainNode?: GainNode } | null>(null);
-  const rhythmPhaseRef = useRef(rhythmPhase);
 
 
   useEffect(() => {
@@ -564,12 +563,18 @@ const playGuide = useCallback(() => {
     setRhythmPhase('playback');
     setDuckAnimation('animate-duck-bounce');
 
+    // Use Web Audio API's clock for precision
+    const guideStartTime = audioContext.currentTime + 0.5; // Start after bounce animation
+
     rhythmPattern.forEach(hit => {
-        const timeout = setTimeout(() => {
-            playRhythmSound(hit.instrument, audioContext.currentTime);
-            setDuckAnimation(hit.instrument === 'kick' ? 'animate-jump-kick-to-clap' : 'animate-jump-clap-to-kick');
-        }, hit.time);
-        rhythmTimeoutsRef.current.push(timeout);
+        // Schedule precise audio
+        playRhythmSound(hit.instrument, guideStartTime + hit.time / 1000);
+
+        // Schedule visual animation to sync with audio
+        const animationTimeout = setTimeout(() => {
+            setDuckAnimation(hit.instrument === 'kick' ? 'animate-rhythm-kick' : 'animate-rhythm-clap');
+        }, (guideStartTime - audioContext.currentTime) * 1000 + hit.time);
+        rhythmTimeoutsRef.current.push(animationTimeout);
     });
 
     const totalDuration = rhythmPattern.length > 0 ? rhythmPattern[rhythmPattern.length - 1].time + 500 : 500;
@@ -579,9 +584,8 @@ const playGuide = useCallback(() => {
         setDuckAnimation('');
         setRhythmStartTime(performance.now());
         setUserRhythmTaps([]);
-    }, totalDuration);
+    }, (guideStartTime - audioContext.currentTime) * 1000 + totalDuration);
     rhythmTimeoutsRef.current.push(endTimeout);
-
 }, [rhythmPattern, getPlaybackAudioContext, playRhythmSound, stopAllRhythm]);
 
   
@@ -1047,7 +1051,7 @@ const playGuide = useCallback(() => {
           playRhythmSound(instrument, audioContext.currentTime);
       }
       
-      setDuckAnimation(instrument === 'kick' ? 'animate-jump-kick-to-clap' : 'animate-jump-clap-to-kick');
+      setDuckAnimation(instrument === 'kick' ? 'animate-rhythm-kick' : 'animate-rhythm-clap');
 
       const newTaps = [...userRhythmTaps, { time: tapTime, instrument }];
       setUserRhythmTaps(newTaps);
