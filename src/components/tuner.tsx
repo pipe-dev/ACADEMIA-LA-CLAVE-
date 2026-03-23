@@ -549,34 +549,42 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
 
     stopAllRhythmAndAudio();
     setRhythmPhase('guide');
+    setUserRhythmTaps([]);
+    setRhythmScore(0);
+    setShowFailureMessage(false);
 
-    const beatDurationSeconds = 60.0 / bpm;
+    const beatDuration_s = 60.0 / bpm;
     const guideBars = 2;
-    const playBars = 2; // Assume user takes 2 bars to play
-    const totalDurationSeconds = (guideBars + playBars) * 4 * beatDurationSeconds;
+    const playBars = 2; // User gets 2 bars to play
+    const totalBars = guideBars + playBars;
+    
+    const guideDuration_s = guideBars * 4 * beatDuration_s;
+    const totalDuration_s = totalBars * 4 * beatDuration_s;
+    
+    // Use audioContext.currentTime as the single source of truth for timing
+    const audioStartTime_s = audioContext.currentTime + 0.1; // Start everything in a moment to be safe
+    const playPhaseStartTime_s = audioStartTime_s + guideDuration_s;
 
-    const guideDurationMs = guideBars * 4 * beatDurationSeconds * 1000;
-    const startTime = audioContext.currentTime + 0.5; // Start everything in 0.5s to be safe
+    // Set the *precise* start time for the playing phase (in milliseconds)
+    setRhythmStartTime(playPhaseStartTime_s * 1000);
 
     // 1. Schedule Metronome Ticks for the whole duration
-    for (let i = 0; i < totalDurationSeconds / beatDurationSeconds; i++) {
-        const tickTime = startTime + i * beatDurationSeconds;
+    for (let i = 0; i < totalBars * 4; i++) {
+        const tickTime = audioStartTime_s + i * beatDuration_s;
         const tickNode = playMetronomeTick(tickTime);
         if (tickNode) activeAudioNodesRef.current.push(tickNode);
     }
 
     // 2. Schedule Guide Sounds
     guidePattern.forEach(hit => {
-        const guideNode = playRhythmSound(hit.instrument, startTime + hit.time / 1000);
+        const guideNode = playRhythmSound(hit.instrument, audioStartTime_s + hit.time / 1000);
         if (guideNode) activeAudioNodesRef.current.push(guideNode);
     });
 
-    // 3. Schedule phase transition to 'playing'
+    // 3. Schedule UI phase transition to 'playing' using a less-critical setTimeout
     const transitionTimeout = setTimeout(() => {
         setRhythmPhase('playing');
-        setRhythmStartTime(performance.now());
-        setUserRhythmTaps([]);
-    }, guideDurationMs + 500); // The +500 is because everything starts 500ms in the future.
+    }, (guideDuration_s + 0.1) * 1000); 
 
     rhythmTimeoutsRef.current.push(transitionTimeout);
 
@@ -1050,15 +1058,21 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
 }, [rhythmPattern]);
 
   const handleRhythmTap = (instrument: 'clap' | 'kick') => {
-      if (rhythmPhase !== 'playing') return;
-
-      const tapTime = performance.now() - rhythmStartTime;
       const audioContext = getPlaybackAudioContext();
-      if(audioContext) {
-          playRhythmSound(instrument, audioContext.currentTime);
+      if (rhythmPhase !== 'playing' || !audioContext) return;
+
+      // The time of the tap relative to the start of the audio context
+      const tapTime_ms = audioContext.currentTime * 1000;
+      
+      // The relative time of the tap from when the playing phase was scheduled to start
+      const relativeTapTime_ms = tapTime_ms - rhythmStartTime;
+      
+      const tapNode = playRhythmSound(instrument, audioContext.currentTime);
+      if (tapNode) {
+          activeAudioNodesRef.current.push(tapNode);
       }
       
-      const newTaps = [...userRhythmTaps, { time: tapTime, instrument }];
+      const newTaps = [...userRhythmTaps, { time: relativeTapTime_ms, instrument }];
       setUserRhythmTaps(newTaps);
       
       if (rhythmPattern && rhythmPattern.length > 0 && newTaps.length >= rhythmPattern.length) {
@@ -1557,3 +1571,4 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
     
 
     
+
