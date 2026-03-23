@@ -174,13 +174,13 @@ const difficultySettings = {
   "Calentamiento": { exerciseCount: 12 },
   "Fácil": { levelCount: 12 },
   "Medio": { levelCount: 16 },
-  "Difícil": { levelCount: 16 },
+  "Difícil": { levelCount: 20 },
 };
 
 const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
     "Fácil":   [3, 4, 4, 5, 5, 6, 0, 0, 0, 0, 0, 0], // 6 tuning, 6 rhythm
     "Medio":   [4, 5, 5, 6, 6, 6, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0], // 12 tuning, 4 rhythm
-    "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0], // 12 tuning, 4 rhythm
+    "Difícil": [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0], // 12 tuning, 8 rhythm
 };
 
 function TunerSkeleton() {
@@ -254,6 +254,7 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
   const [rhythmBpm, setRhythmBpm] = useState(100);
   const [showFailureMessage, setShowFailureMessage] = useState(false);
   const rhythmTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const activeAudioNodesRef = useRef<AudioScheduledSourceNode[]>([]);
   
   const [showEasyWinVideo, setShowEasyWinVideo] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -472,9 +473,9 @@ export function Tuner({ notePool, gender, vocalRangeKey, onGoBack }: { notePool:
     });
   }, [getPlaybackAudioContext]);
 
-const playMetronomeTick = useCallback((time: number) => {
+const playMetronomeTick = useCallback((time: number): AudioScheduledSourceNode | null => {
     const audioContext = getPlaybackAudioContext();
-    if (!audioContext) return;
+    if (!audioContext) return null;
 
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -486,12 +487,13 @@ const playMetronomeTick = useCallback((time: number) => {
     osc.connect(gain).connect(audioContext.destination);
     osc.start(time);
     osc.stop(time + 0.05);
+    return osc;
 }, [getPlaybackAudioContext]);
 
 
-const playRhythmSound = useCallback((instrument: 'clap' | 'kick', time: number) => {
+const playRhythmSound = useCallback((instrument: 'clap' | 'kick', time: number): AudioScheduledSourceNode | null => {
     const audioContext = getPlaybackAudioContext();
-    if (!audioContext) return;
+    if (!audioContext) return null;
 
     if (instrument === 'clap') {
         const noise = audioContext.createBufferSource();
@@ -509,6 +511,7 @@ const playRhythmSound = useCallback((instrument: 'clap' | 'kick', time: number) 
         noise.connect(noiseEnvelope).connect(audioContext.destination);
         noise.start(time);
         noise.stop(time + 0.2);
+        return noise;
     } else if (instrument === 'kick') {
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
@@ -521,42 +524,54 @@ const playRhythmSound = useCallback((instrument: 'clap' | 'kick', time: number) 
         osc.connect(gain).connect(audioContext.destination);
         osc.start(time);
         osc.stop(time + 0.1);
+        return osc;
     }
+    return null;
 }, [getPlaybackAudioContext]);
 
-const stopAllRhythm = useCallback(() => {
+const stopAllRhythmAndAudio = useCallback(() => {
     rhythmTimeoutsRef.current.forEach(clearTimeout);
     rhythmTimeoutsRef.current = [];
+
+    activeAudioNodesRef.current.forEach(source => {
+        try {
+          source.stop(0);
+        } catch (e) {
+            // Node might have already stopped, which is fine.
+        }
+    });
+    activeAudioNodesRef.current = [];
 }, []);
 
 const startRhythmSession = useCallback((bpm: number, guidePattern: { time: number; instrument: 'clap' | 'kick' }[]) => {
     const audioContext = getPlaybackAudioContext();
     if (!audioContext) return;
 
-    stopAllRhythm();
+    stopAllRhythmAndAudio();
     setRhythmPhase('guide');
 
     const beatDurationSeconds = 60.0 / bpm;
     const guideBars = 2;
     const playBars = 2; // Assume user takes 2 bars to play
-    const bufferBars = 2; // Just in case
-    const totalBars = guideBars + playBars + bufferBars;
-    const totalBeats = totalBars * 4;
+    const totalDurationSeconds = (guideBars + playBars) * 4 * beatDurationSeconds;
 
     const guideDurationMs = guideBars * 4 * beatDurationSeconds * 1000;
     const startTime = audioContext.currentTime + 0.5; // Start everything in 0.5s to be safe
 
     // 1. Schedule Metronome Ticks for the whole duration
-    for (let beat = 0; beat < totalBeats; beat++) {
-        playMetronomeTick(startTime + beat * beatDurationSeconds);
+    for (let i = 0; i < totalDurationSeconds / beatDurationSeconds; i++) {
+        const tickTime = startTime + i * beatDurationSeconds;
+        const tickNode = playMetronomeTick(tickTime);
+        if (tickNode) activeAudioNodesRef.current.push(tickNode);
     }
 
     // 2. Schedule Guide Sounds
     guidePattern.forEach(hit => {
-        playRhythmSound(hit.instrument, startTime + hit.time / 1000);
+        const guideNode = playRhythmSound(hit.instrument, startTime + hit.time / 1000);
+        if (guideNode) activeAudioNodesRef.current.push(guideNode);
     });
 
-    // 3. Schedule phase transition to 'playing' with NO DELAY
+    // 3. Schedule phase transition to 'playing'
     const transitionTimeout = setTimeout(() => {
         setRhythmPhase('playing');
         setRhythmStartTime(performance.now());
@@ -565,7 +580,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
 
     rhythmTimeoutsRef.current.push(transitionTimeout);
 
-}, [getPlaybackAudioContext, playMetronomeTick, playRhythmSound, stopAllRhythm]);
+}, [getPlaybackAudioContext, playMetronomeTick, playRhythmSound, stopAllRhythmAndAudio]);
 
   
   useEffect(() => {
@@ -640,145 +655,152 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
     handleResize();
 
     return () => {
-        stopAllRhythm();
+        stopAllRhythmAndAudio();
         window.removeEventListener('resize', handleResize);
     }
-  }, [vocalRangeKey, stopAllRhythm]);
+  }, [vocalRangeKey, stopAllRhythmAndAudio]);
 
   const tolerance = activeNote && activeNote.midi < 49 ? 30 : 18; // G2 is 43, C3 is 48. Up to C3 is grave.
 
   useEffect(() => {
-    if (gameMode !== 'simon-says' && gameMode !== 'melody-challenge' && gameMode !== 'rhythm-challenge') { // Standard and Interval logic
-        if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted || isPaused) {
-          setInTuneTime(0);
-          inTuneSinceRef.current = null;
-          return;
-        }
+    let animationFrameId: number;
 
-        const isCorrectNote = note.name === activeNote.name && note.octave === activeNote.octave;
-        const isTolerablyInTune = Math.abs(smoothedCentsOff) < tolerance;
-
-        if (isCorrectNote && isTolerablyInTune) {
-          if (inTuneSinceRef.current === null) {
-            inTuneSinceRef.current = Date.now();
-          }
-          const sustainedTime = Date.now() - inTuneSinceRef.current;
-          setInTuneTime(sustainedTime);
-
-          if (sustainedTime >= challengeDuration) {
-            playCompletionSound();
-            const randomPhrase = completionPhrases[Math.floor(Math.random() * completionPhrases.length)];
-            setCompletionPhrase(randomPhrase);
-            
-            setCompletedNotes(prev => new Set(prev).add(activeNote.fullName));
-            setLastCompletedNoteFullName(activeNote.fullName);
-            
-            setInTuneTime(0);
-            inTuneSinceRef.current = null;
-            
-            if (completedNotes.size + 1 >= challengeNotes.length) {
-              setSessionCompleted(true);
-              playAllCompletedSound();
-              if (difficulty === 'Calentamiento') {
-                setIsInitialWarmupCompleted(true);
-                setDialogMessage("¡Excelente trabajo! Has completado el calentamiento. ¿Quieres practicar un poco más o empezar un desafío?");
-                setTimeout(() => {
-                  setSelectedDifficulty(null);
-                  setShowDifficultyDialog(true);
-                }, 1500);
-              } else {
-                markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
-                setTimeout(() => setShowLevelCompleteDialog(true), 1500);
-              }
-            } else {
-              setTimeout(() => {
-                setLastCompletedNoteFullName(null);
-                if (gameMode === 'interval') {
-                    const currentIndex = challengeNotes.findIndex(n => n.fullName === activeNote.fullName);
-                    const nextNote = challengeNotes[currentIndex + 1];
-                    if (nextNote) {
-                        setActiveNote(nextNote);
-                        playNote(nextNote);
-                    } else {
-                        setActiveNote(null);
-                    }
-                } else {
-                    setActiveNote(null);
-                }
-              }, 1200);
-            }
-          }
-        } else {
-          setInTuneTime(0);
-          inTuneSinceRef.current = null;
-        }
-    } else if (gameMode === 'simon-says' || gameMode === 'melody-challenge') { // Simon Says & Melody Logic
-        if (!isDetecting || sessionCompleted || simonPhase !== 'singing' || lastCompletedNoteFullName || isPaused) {
-            setInTuneTime(0);
-            inTuneSinceRef.current = null;
-            return;
-        }
-        const targetNote = simonSequence[playerSimonIndex];
-        if (!targetNote) return;
-
-        const simonTolerance = targetNote.midi < 49 ? 30 : 18;
-
-        const isCorrectNote = note.name === targetNote.name && note.octave === targetNote.octave;
-        const isTolerablyInTune = Math.abs(smoothedCentsOff) < simonTolerance;
-
-        if (isCorrectNote && isTolerablyInTune) {
-            if (inTuneSinceRef.current === null) {
-                inTuneSinceRef.current = Date.now();
-            }
-            const sustainedTime = Date.now() - inTuneSinceRef.current;
-            setInTuneTime(sustainedTime);
-
-            if (sustainedTime >= challengeDuration) {
-                const isMelodyChallenge = gameMode === 'melody-challenge';
-                if (!isMelodyChallenge) {
-                  playCompletionSound();
-                }
-                
-                const uniqueKey = `${targetNote.fullName}-${playerSimonIndex}`;
-                setCompletedNotes(prev => new Set(prev).add(uniqueKey));
-
-                if (!isMelodyChallenge) {
-                    setLastCompletedNoteFullName(uniqueKey);
-                }
-                
-                const nextIndex = playerSimonIndex + 1;
-
-                if (nextIndex >= simonSequence.length) {
-                    setSessionCompleted(true);
-                    playAllCompletedSound();
-                    markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
-                    setTimeout(() => setShowLevelCompleteDialog(true), 1500);
-                } else {
-                    const nextStep = () => {
-                        setPlayerSimonIndex(nextIndex);
-                        setLastCompletedNoteFullName(null);
-                    };
-
-                    if (isMelodyChallenge) {
-                        nextStep();
-                    } else {
-                        setTimeout(nextStep, 1200);
-                    }
-                }
+    const update = () => {
+        if (gameMode !== 'simon-says' && gameMode !== 'melody-challenge' && gameMode !== 'rhythm-challenge') { // Standard and Interval logic
+            if (!isDetecting || !activeNote || lastCompletedNoteFullName || sessionCompleted || isPaused) {
                 setInTuneTime(0);
                 inTuneSinceRef.current = null;
+            } else {
+                const isCorrectNote = note.name === activeNote.name && note.octave === activeNote.octave;
+                const isTolerablyInTune = Math.abs(smoothedCentsOff) < tolerance;
+
+                if (isCorrectNote && isTolerablyInTune) {
+                    if (inTuneSinceRef.current === null) {
+                        inTuneSinceRef.current = Date.now();
+                    }
+                    const sustainedTime = Date.now() - inTuneSinceRef.current;
+                    setInTuneTime(sustainedTime);
+
+                    if (sustainedTime >= challengeDuration) {
+                        playCompletionSound();
+                        const randomPhrase = completionPhrases[Math.floor(Math.random() * completionPhrases.length)];
+                        setCompletionPhrase(randomPhrase);
+                        
+                        setCompletedNotes(prev => new Set(prev).add(activeNote.fullName));
+                        setLastCompletedNoteFullName(activeNote.fullName);
+                        
+                        setInTuneTime(0);
+                        inTuneSinceRef.current = null;
+                        
+                        if (completedNotes.size + 1 >= challengeNotes.length) {
+                            setSessionCompleted(true);
+                            playAllCompletedSound();
+                            if (difficulty === 'Calentamiento') {
+                                setIsInitialWarmupCompleted(true);
+                                setDialogMessage("¡Excelente trabajo! Has completado el calentamiento. ¿Quieres practicar un poco más o empezar un desafío?");
+                                setTimeout(() => {
+                                    setSelectedDifficulty(null);
+                                    setShowDifficultyDialog(true);
+                                }, 1500);
+                            } else {
+                                markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
+                                setTimeout(() => setShowLevelCompleteDialog(true), 1500);
+                            }
+                        } else {
+                            setTimeout(() => {
+                                setLastCompletedNoteFullName(null);
+                                if (gameMode === 'interval') {
+                                    const currentIndex = challengeNotes.findIndex(n => n.fullName === activeNote.fullName);
+                                    const nextNote = challengeNotes[currentIndex + 1];
+                                    if (nextNote) {
+                                        setActiveNote(nextNote);
+                                        playNote(nextNote);
+                                    } else {
+                                        setActiveNote(null);
+                                    }
+                                } else {
+                                    setActiveNote(null);
+                                }
+                            }, 1200);
+                        }
+                    }
+                } else {
+                    setInTuneTime(0);
+                    inTuneSinceRef.current = null;
+                }
             }
-        } else {
-            setInTuneTime(0);
-            inTuneSinceRef.current = null;
+        } else if (gameMode === 'simon-says' || gameMode === 'melody-challenge') { // Simon Says & Melody Logic
+            if (!isDetecting || sessionCompleted || simonPhase !== 'singing' || lastCompletedNoteFullName || isPaused) {
+                setInTuneTime(0);
+                inTuneSinceRef.current = null;
+            } else {
+                const targetNote = simonSequence[playerSimonIndex];
+                if (!targetNote) return;
+
+                const simonTolerance = targetNote.midi < 49 ? 30 : 18;
+                const isCorrectNote = note.name === targetNote.name && note.octave === targetNote.octave;
+                const isTolerablyInTune = Math.abs(smoothedCentsOff) < simonTolerance;
+
+                if (isCorrectNote && isTolerablyInTune) {
+                    if (inTuneSinceRef.current === null) {
+                        inTuneSinceRef.current = Date.now();
+                    }
+                    const sustainedTime = Date.now() - inTuneSinceRef.current;
+                    setInTuneTime(sustainedTime);
+
+                    if (sustainedTime >= challengeDuration) {
+                        const isMelodyChallenge = gameMode === 'melody-challenge';
+                        if (!isMelodyChallenge) {
+                            playCompletionSound();
+                        }
+                        
+                        const uniqueKey = `${targetNote.fullName}-${playerSimonIndex}`;
+                        setCompletedNotes(prev => new Set(prev).add(uniqueKey));
+
+                        if (!isMelodyChallenge) {
+                            setLastCompletedNoteFullName(uniqueKey);
+                        }
+                        
+                        const nextIndex = playerSimonIndex + 1;
+
+                        if (nextIndex >= simonSequence.length) {
+                            setSessionCompleted(true);
+                            playAllCompletedSound();
+                            markLevelAsComplete(difficulty as ChallengeDifficulty, currentLevel);
+                            setTimeout(() => setShowLevelCompleteDialog(true), 1500);
+                        } else {
+                            const nextStep = () => {
+                                setPlayerSimonIndex(nextIndex);
+                                setLastCompletedNoteFullName(null);
+                            };
+
+                            if (isMelodyChallenge) {
+                                nextStep();
+                            } else {
+                                setTimeout(nextStep, 1200);
+                            }
+                        }
+                        setInTuneTime(0);
+                        inTuneSinceRef.current = null;
+                    }
+                } else {
+                    setInTuneTime(0);
+                    inTuneSinceRef.current = null;
+                }
+            }
         }
-    }
+        animationFrameId = requestAnimationFrame(update);
+    };
+
+    animationFrameId = requestAnimationFrame(update);
+
+    return () => cancelAnimationFrame(animationFrameId);
   }, [note.name, note.octave, smoothedCentsOff, isDetecting, activeNote, lastCompletedNoteFullName, sessionCompleted, completedNotes, challengeNotes.length, challengeDuration, difficulty, playCompletionSound, playAllCompletedSound, markLevelAsComplete, currentLevel, tolerance, gameMode, simonPhase, playerSimonIndex, simonSequence, isPaused, challengeNotes, playNote]);
 
   const startLevel = useCallback((diff: ChallengeDifficulty, level: number) => {
     if (!isMounted || notePool.length === 0) return;
 
-    stopAllRhythm();
+    stopAllRhythmAndAudio();
     let newGameMode: "standard" | "interval" | "simon-says" | "melody-challenge" | "rhythm-challenge" = "standard";
 
     if (diff === 'Fácil') {
@@ -918,11 +940,11 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
       setSimonPhase("idle");
       if (!isDetecting) start();
     }
-  }, [isMounted, notePool, stopAllRhythm, gender, isDetecting, start, stop, playNote, startRhythmSession]);
+  }, [isMounted, notePool, stopAllRhythmAndAudio, gender, isDetecting, start, stop, playNote, startRhythmSession]);
 
 
   const startWarmup = useCallback(() => {
-    stopAllRhythm();
+    stopAllRhythmAndAudio();
     setDifficulty("Calentamiento");
     setCurrentLevel(1);
     setGameMode('standard');
@@ -948,7 +970,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
     if (!isDetecting) {
       start();
     }
-  }, [isDetecting, start, notePool, stopAllRhythm]);
+  }, [isDetecting, start, notePool, stopAllRhythmAndAudio]);
 
   const handleSeeLevels = () => {
     setShowLevelCompleteDialog(false);
@@ -987,7 +1009,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
 
   const handleBackButtonClick = () => {
     stop();
-    stopAllRhythm();
+    stopAllRhythmAndAudio();
     onGoBack();
   }
 
@@ -1104,7 +1126,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
                 </div>
 
                 <div className="h-10 mt-4">
-                  {(rhythmPhase === 'playing' || rhythmPhase === 'results') && (
+                  {(rhythmPhase === 'playing' || rhythmPhase === 'results' || rhythmPhase === 'guide') && (
                     <Button variant="outline" onClick={() => startRhythmSession(rhythmBpm, rhythmPattern)}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Repetir Guía
@@ -1375,7 +1397,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
                           stop();
                           setIsPaused(true);
                       }
-                      stopAllRhythm();
+                      stopAllRhythmAndAudio();
                       setSelectedDifficulty(null);
                       setShowDifficultyDialog(true);
                     }}>Elegir Nivel</Button>
