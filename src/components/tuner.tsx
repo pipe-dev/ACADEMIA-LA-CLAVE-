@@ -1437,11 +1437,7 @@ const playGuide = useCallback(() => {
                           {Array.from({ length: difficultySettings[selectedDifficulty].levelCount }, (_, i) => i + 1).map(level => {
                               const isCompleted = progress[selectedDifficulty]?.[level];
                               
-                              let isLocked = false;
-                              if (level > 1) {
-                                  const previousLevel = level - 1;
-                                  isLocked = !progress[selectedDifficulty]?.[previousLevel];
-                              }
+                              const isLocked = false; // All levels unlocked for review
                               
                               let modeIndicator: React.ReactNode = null;
                               if (selectedDifficulty === 'Fácil') {
