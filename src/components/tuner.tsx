@@ -558,51 +558,66 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
     const playBars = 2;
     const totalBars = guideBars + playBars;
     
-    const guideDuration_s = guideBars * 4 * beatDuration_s;
+    const guideDuration_ms = guideBars * 4 * beatDuration_s * 1000;
     
     const audioStartTime_s = audioContext.currentTime + 0.1;
-    const playPhaseStartTime_s = audioStartTime_s + guideDuration_s;
+    const playPhaseStartTime_s = audioStartTime_s + guideDuration_ms / 1000;
 
     rhythmStartTimeRef.current = playPhaseStartTime_s * 1000;
 
+    // Schedule metronome for the whole duration
     for (let i = 0; i < totalBars * 4; i++) {
         const tickTime = audioStartTime_s + i * beatDuration_s;
         const tickNode = playMetronomeTick(tickTime);
         if (tickNode) activeAudioNodesRef.current.push(tickNode);
     }
-
+    
+    // Schedule guide sounds
     guidePattern.forEach(hit => {
         const guideNode = playRhythmSound(hit.instrument, audioStartTime_s + hit.time / 1000);
         if (guideNode) activeAudioNodesRef.current.push(guideNode);
     });
 
+    // Schedule transition to 'playing' phase
+    const transitionTimeout = setTimeout(() => {
+        setRhythmPhase('playing');
+    }, guideDuration_ms + 100); // Add a small buffer
+
+    rhythmTimeoutsRef.current.push(transitionTimeout);
+
 }, [getPlaybackAudioContext, playMetronomeTick, playRhythmSound, stopAllRhythmAndAudio]);
 
   useEffect(() => {
-    if (rhythmPhase !== 'guide') return;
-
     let animationFrameId: number;
 
     const checkTime = () => {
+        if (rhythmPhase !== 'guide') return;
+        
         const audioContext = audioContextRef.current;
         if (!audioContext) { 
             animationFrameId = requestAnimationFrame(checkTime);
             return;
         }
 
-        if (audioContext.currentTime * 1000 >= rhythmStartTimeRef.current) {
+        const guideDuration_ms = (60.0 / rhythmBpm) * 8 * 1000;
+        const playStartTime = rhythmStartTimeRef.current;
+        const now = audioContext.currentTime * 1000;
+        
+        if (now >= playStartTime) {
             setRhythmPhase('playing');
         } else {
             animationFrameId = requestAnimationFrame(checkTime);
         }
     };
 
-    animationFrameId = requestAnimationFrame(checkTime);
+    if (rhythmPhase === 'guide') {
+        animationFrameId = requestAnimationFrame(checkTime);
+    }
 
     return () => {
         cancelAnimationFrame(animationFrameId);
     };
-  }, [rhythmPhase]);
+  }, [rhythmPhase, rhythmBpm]);
   
   useEffect(() => {
     if (simonPhase !== 'playback' || simonSequence.length === 0) return;
@@ -1582,5 +1597,6 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
     
 
     
+
 
 
