@@ -107,6 +107,7 @@ export const usePitchDetection = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameId = useRef<number | null>(null);
   const isSilent = useRef(true);
+  const lastStateUpdateTime = useRef<number>(0);
 
   const start = useCallback(async () => {
     try {
@@ -134,6 +135,7 @@ export const usePitchDetection = () => {
         
         isSilent.current = true;
         smoothedCentsRef.current = 0;
+        lastStateUpdateTime.current = 0;
         setSmoothedCentsOff(0);
         setIsDetecting(true);
       } else {
@@ -172,7 +174,7 @@ export const usePitchDetection = () => {
     smoothedCentsRef.current = 0;
   }, []);
 
-  const updatePitch = useCallback(() => {
+  const updatePitch = useCallback((timestamp: number) => {
     if (!analyserRef.current || !audioContextRef.current) {
       animationFrameId.current = requestAnimationFrame(updatePitch);
       return;
@@ -184,29 +186,35 @@ export const usePitchDetection = () => {
   
     if (pitch !== -1 && pitch < 2000) {
       isSilent.current = false;
-      setFrequency(pitch);
       const detectedNote = noteFromPitch(pitch);
-  
-      setNote(prevNote => {
-        if (detectedNote.name !== prevNote.name || detectedNote.octave !== prevNote.octave) {
-          return detectedNote;
-        }
-        return prevNote;
-      });
-  
       const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
-      setCentsOff(currentCents);
-  
+      
       const SMOOTHING_FACTOR = 0.25;
       smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
-      setSmoothedCentsOff(smoothedCentsRef.current);
+      
+      // THROTTLE: Only hit React State every ~40ms (25 FPS cap)
+      if (timestamp - lastStateUpdateTime.current > 40) {
+        lastStateUpdateTime.current = timestamp;
+        
+        setFrequency(pitch);
+        setNote(prevNote => {
+            if (detectedNote.name !== prevNote.name || detectedNote.octave !== prevNote.octave) {
+            return detectedNote;
+            }
+            return prevNote;
+        });
+        setCentsOff(currentCents);
+        setSmoothedCentsOff(smoothedCentsRef.current);
+      }
     } else {
       if (!isSilent.current) {
         isSilent.current = true;
+        smoothedCentsRef.current = 0;
+        lastStateUpdateTime.current = timestamp;
+        
         setFrequency(0);
         setNote(EMPTY_NOTE);
         setCentsOff(0);
-        smoothedCentsRef.current = 0;
         setSmoothedCentsOff(0);
       }
     }

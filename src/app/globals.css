@@ -96,6 +96,96 @@
     --ring: 351 31% 57%;
   }
 
+  /* ======= REWARD SKIN: SAPPHIRE ======= */
+  .theme-sapphire {
+    --background: 215 50% 95%;
+    --foreground: 215 30% 15%;
+    --card: 215 50% 99%;
+    --card-foreground: 215 30% 15%;
+    --popover: 215 50% 99%;
+    --popover-foreground: 215 30% 15%;
+    --primary: 215 80% 55%;
+    --primary-foreground: 215 50% 98%;
+    --secondary: 215 30% 90%;
+    --secondary-foreground: 215 30% 15%;
+    --muted: 215 30% 94%;
+    --muted-foreground: 215 20% 40%;
+    --accent: 190 90% 50%;
+    --accent-foreground: 215 50% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 30% 86%;
+    --input: 215 30% 86%;
+    --ring: 215 80% 55%;
+  }
+
+  .dark.theme-sapphire {
+    --background: 215 35% 8%;
+    --foreground: 215 30% 96%;
+    --card: 215 30% 13%;
+    --card-foreground: 215 30% 96%;
+    --popover: 215 35% 8%;
+    --popover-foreground: 215 30% 96%;
+    --primary: 215 80% 55%;
+    --primary-foreground: 215 50% 98%;
+    --secondary: 215 20% 18%;
+    --secondary-foreground: 215 30% 98%;
+    --muted: 215 20% 18%;
+    --muted-foreground: 215 25% 75%;
+    --accent: 190 90% 50%;
+    --accent-foreground: 215 50% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 20% 22%;
+    --input: 215 20% 22%;
+    --ring: 215 80% 55%;
+  }
+
+  /* ======= REWARD SKIN: GALAXY ======= */
+  .theme-galaxy {
+    --background: 270 35% 95%;
+    --foreground: 270 25% 15%;
+    --card: 270 35% 99%;
+    --card-foreground: 270 25% 15%;
+    --popover: 270 35% 99%;
+    --popover-foreground: 270 25% 15%;
+    --primary: 270 70% 55%;
+    --primary-foreground: 270 40% 98%;
+    --secondary: 270 20% 90%;
+    --secondary-foreground: 270 25% 15%;
+    --muted: 270 20% 94%;
+    --muted-foreground: 270 15% 45%;
+    --accent: 320 80% 60%;
+    --accent-foreground: 270 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 270 20% 86%;
+    --input: 270 20% 86%;
+    --ring: 270 70% 55%;
+  }
+
+  .dark.theme-galaxy {
+    --background: 270 30% 7%;
+    --foreground: 270 20% 96%;
+    --card: 270 25% 12%;
+    --card-foreground: 270 20% 96%;
+    --popover: 270 30% 7%;
+    --popover-foreground: 270 20% 96%;
+    --primary: 270 70% 55%;
+    --primary-foreground: 270 40% 98%;
+    --secondary: 270 15% 18%;
+    --secondary-foreground: 270 20% 98%;
+    --muted: 270 15% 18%;
+    --muted-foreground: 270 15% 75%;
+    --accent: 320 80% 60%;
+    --accent-foreground: 270 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 270 15% 22%;
+    --input: 270 15% 22%;
+    --ring: 270 70% 55%;
+  }
+
   .dark .toast-accent {
       --background: 240 10% 98%;
       --foreground: 240 10% 10%;
@@ -163,11 +253,182 @@
 
 }
 
+/* ======= AVATAR AURA ANIMATIONS ======= */
+@keyframes aura-pulse {
+  0%, 100% { box-shadow: 0 0 6px 2px var(--aura-color); }
+  50% { box-shadow: 0 0 14px 5px var(--aura-color); }
+}
+
+@keyframes aura-rotate {
+  from { filter: hue-rotate(0deg) drop-shadow(0 0 6px var(--aura-color)); }
+  to   { filter: hue-rotate(360deg) drop-shadow(0 0 10px var(--aura-color)); }
+}
+
+.aura-bronze {
+  --aura-color: rgba(205, 163, 65, 0.7);
+  border: 3px solid rgb(205, 163, 65);
+  animation: aura-pulse 2s ease-in-out infinite;
+}
+
+.aura-fire {
+  --aura-color: rgba(239, 68, 68, 0.7);
+  border: 3px solid rgb(249, 115, 22);
+  background: linear-gradient(135deg, rgba(249,115,22,0.15), rgba(239,68,68,0.15));
+  animation: aura-pulse 1.2s ease-in-out infinite;
+}
+
+.aura-lightning {
+  --aura-color: rgba(250, 204, 21, 0.7);
+  border: 3px solid rgb(250, 204, 21);
+  animation: aura-pulse 0.8s ease-in-out infinite;
+}
+
+.aura-cosmic {
+  --aura-color: rgba(139, 92, 246, 0.7);
+  border: 3px solid rgb(139, 92, 246);
+  animation: aura-rotate 4s linear infinite, aura-pulse 2s ease-in-out infinite;
+}
+
+.aura-divine {
+  --aura-color: rgba(255, 255, 255, 0.8);
+  border: 3px solid rgba(255, 215, 0, 0.9);
+  box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.4), 0 0 30px 8px rgba(255, 255, 255, 0.2);
+  animation: aura-pulse 1.5s ease-in-out infinite;
+}
+
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-80px) scale(0.8);
+  }
+}
+
+.animate-float-up {
+  animation: float-up 0.85s ease-out forwards;
+}
+
+/* =========================================
+   DYNAMIC AURORA BACKGROUND
+   ========================================= */
+
+@keyframes aurora-wave-1 {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.6; }
+  33% { transform: scale(1.1) translate(20px, -20px); opacity: 0.8; }
+  66% { transform: scale(0.95) translate(-10px, 15px); opacity: 0.7; }
+}
+
+@keyframes aurora-wave-2 {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.5; }
+  50% { transform: scale(1.15) translate(-25px, 20px); opacity: 0.7; }
+}
+
+.aurora-bg {
+  position: relative;
+  overflow: hidden;
+  transition: background-color 1s ease-in-out;
+  /* Darken the background slightly so colors pop */
+  background-color: hsl(var(--background) / 0.95);
+}
+
+.aurora-bg::before, 
+.aurora-bg::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -20%;
+  right: -20%;
+  bottom: -20%;
+  z-index: -1;
+  filter: blur(80px);
+  transition: background 1.5s ease-in-out, opacity 1.5s ease;
+  pointer-events: none;
+}
+
+.aurora-bg::before {
+  background: radial-gradient(circle at 30% 30%, var(--aurora-color-1, transparent) 0%, transparent 60%);
+  animation: aurora-wave-1 12s ease-in-out infinite alternate;
+}
+
+.aurora-bg::after {
+  background: radial-gradient(circle at 70% 70%, var(--aurora-color-2, transparent) 0%, transparent 50%);
+  animation: aurora-wave-2 15s ease-in-out infinite alternate;
+}
+
+/* State colors */
+.aurora-idle {
+  --aurora-color-1: hsla(var(--primary) / 0.2);
+  --aurora-color-2: hsla(var(--accent) / 0.15);
+}
+
+.aurora-in-tune {
+  --aurora-color-1: rgba(34, 197, 94, 0.45); /* Emerald Green */
+  --aurora-color-2: rgba(16, 185, 129, 0.35); /* Green */
+}
+
+.aurora-flat {
+  --aurora-color-1: rgba(239, 68, 68, 0.35); /* Red */
+  --aurora-color-2: rgba(245, 158, 11, 0.25); /* Orange */
+}
+
+.aurora-sharp {
+  --aurora-color-1: rgba(245, 158, 11, 0.25);
+  --aurora-color-2: rgba(239, 68, 68, 0.35);
+}
+
+.aurora-close {
+  --aurora-color-1: rgba(234, 179, 8, 0.35); /* Yellow */
+  --aurora-color-2: rgba(250, 204, 21, 0.25);
+}
+
+@keyframes thanos-snap {
+  0% {
+    opacity: 1;
+    filter: blur(0) contrast(100%) sepia(0%);
+    transform: translateY(0) scale(1);
+    letter-spacing: normal;
+  }
+  30% {
+    opacity: 0.8;
+    filter: blur(2px) contrast(150%) sepia(20%);
+    transform: translateY(-2px) scale(0.99);
+    letter-spacing: 2px;
+  }
+  100% {
+    opacity: 0;
+    filter: blur(20px) contrast(200%) sepia(50%) grayscale(50%);
+    transform: translateY(-30px) scale(0.9) skewX(2deg);
+    letter-spacing: 15px;
+    visibility: hidden;
+  }
+}
+.animate-thanos-snap {
+  animation: thanos-snap 4s cubic-bezier(0.5, 0, 0.5, 1) forwards !important;
 }
