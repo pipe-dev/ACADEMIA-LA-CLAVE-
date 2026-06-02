@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useStreak } from '@/hooks/use-streak';
 import { getVocalHistory, dbLoad, type VocalRecord } from '@/lib/db';
 import { PushReminderCard } from '@/components/push-reminder-card';
+import { lessons } from '@/lib/course-data';
 
 type ChallengeDifficulty = 'Fácil' | 'Medio' | 'Difícil' | 'Maestro';
 type ProgressState = Record<ChallengeDifficulty, Record<number, number>>;
@@ -111,6 +112,14 @@ export function computeStats(progress: ProgressState): Stats {
 export function ProgressDashboard({ vocalRangeKey, onClose }: { vocalRangeKey: string; onClose: () => void }) {
   const [progress, setProgress] = useState<ProgressState>({ 'Fácil': {}, 'Medio': {}, 'Difícil': {}, 'Maestro': {} });
 
+  const [academyProgress, setAcademyProgress] = useState<Record<number, boolean[]>>({});
+
+  useEffect(() => {
+    dbLoad<Record<number, boolean[]>>('afinapp_completed_exercises').then(saved => {
+      if (saved) setAcademyProgress(saved);
+    }).catch(console.error);
+  }, []);
+
   useEffect(() => {
     dbLoad<Record<string, Record<string, number | boolean>>>(vocalRangeKey).then(parsed => {
       if (parsed && parsed['Fácil'] && parsed['Medio'] && parsed['Difícil']) {
@@ -203,6 +212,43 @@ export function ProgressDashboard({ vocalRangeKey, onClose }: { vocalRangeKey: s
             <p className="text-[10px] sm:text-xs text-muted-foreground text-center mt-1">{overallProgress}% completado</p>
           </div>
         </div>
+
+        {/* Academy Course Card */}
+        {(() => {
+          let completedExercisesCount = 0;
+          let fullyCompletedClassesCount = 0;
+          
+          Object.values(academyProgress).forEach(arr => {
+            const completedCount = arr.filter(Boolean).length;
+            completedExercisesCount += completedCount;
+            if (completedCount === 3) {
+              fullyCompletedClassesCount += 1;
+            }
+          });
+
+          const totalCourseExercises = lessons.reduce((sum, l) => sum + l.exercises.length, 0);
+          const academyPct = totalCourseExercises > 0
+            ? Math.round((completedExercisesCount / totalCourseExercises) * 100)
+            : 0;
+          return (
+            <Card className="overflow-hidden bg-gradient-to-r from-purple-500/10 to-indigo-500/5 border border-purple-500/20 p-3.5 rounded-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
+                  <span className="font-bold text-sm">Academia de Canto (Curso)</span>
+                </div>
+                <span className="text-xs text-muted-foreground font-semibold">
+                  {completedExercisesCount}/{totalCourseExercises} Ejercicios
+                </span>
+              </div>
+              <Progress value={academyPct} className="h-1.5 mb-1.5" />
+              <div className="flex justify-between items-center text-[9px] text-muted-foreground font-medium px-0.5">
+                <span>{fullyCompletedClassesCount}/{lessons.length} Clases completadas</span>
+                <span>{academyPct}% de ejercicios</span>
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Per-Difficulty Cards */}
         {diffConfigs.map(({ key, label, color, dotColor, completed, stars }) => {

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Tuner, type NoteInfo } from '@/components/tuner';
-import { Onboarding } from '@/components/onboarding';
+// Onboarding import removed
 import { VocalRangeAssessor } from '@/components/vocal-range-assessor';
 import { DailyQuestsWidget } from '@/components/daily-quests-widget';
 import { useDailyQuests } from '@/hooks/use-daily-quests';
@@ -14,7 +14,10 @@ import { UserProfileDialog } from '@/components/user-profile-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Mic, BarChart3 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { AcademyCourse } from '@/components/academy-course';
+import { ProgressDashboard } from '@/components/progress-dashboard';
 
 const noteStrings = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
 
@@ -40,10 +43,11 @@ export function AppContainer() {
   const [notePool, setNotePool] = useState<NoteInfo[] | null>(null);
   const [vocalRangeKey, setVocalRangeKey] = useState<string>('');
   
+  const [activeTab, setActiveTab] = useState<'academy' | 'tuner' | 'progress'>('academy');
   const [showVocalAssessor, setShowVocalAssessor] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   
-  const [setupStep, setSetupStep] = useState<'range' | 'profile' | 'onboarding' | 'ready'>('range');
+  const [setupStep, setSetupStep] = useState<'range' | 'profile' | 'ready'>('range');
   const [showProfileDialog, setShowProfileDialog] = useState(false);
 
   useEffect(() => {
@@ -52,8 +56,7 @@ export function AppContainer() {
     Promise.all([
       dbLoad<'masculino' | 'femenino'>('afinapp_user_gender'),
       dbLoad<'grave' | 'medio' | 'agudo'>('afinapp_user_pitch'),
-      dbLoad<boolean>('afinapp_onboarding_done'),
-    ]).then(([savedGender, savedPitch, onboardingDone]) => {
+    ]).then(([savedGender, savedPitch]) => {
       
       if (savedGender) setGender(savedGender);
       if (savedPitch) setPitchPreference(savedPitch);
@@ -63,8 +66,6 @@ export function AppContainer() {
       } else if (!isProfileSet) {
          setSetupStep('profile');
          setShowProfileDialog(true);
-      } else if (!onboardingDone) {
-         setSetupStep('onboarding');
       } else {
          setSetupStep('ready');
       }
@@ -82,7 +83,7 @@ export function AppContainer() {
 
   // Compute note pool when range is known
   useEffect(() => {
-    if (pitchPreference && gender && (setupStep === 'ready' || setupStep === 'onboarding' || setupStep === 'range' || setupStep === 'profile')) {
+    if (pitchPreference && gender && (setupStep === 'ready' || setupStep === 'range' || setupStep === 'profile')) {
       let startMidi: number, endMidi: number;
       const key = `vocalStudioProgress_${gender}_${pitchPreference}`;
       setVocalRangeKey(key);
@@ -122,7 +123,7 @@ export function AppContainer() {
         setSetupStep('profile');
         setShowProfileDialog(true);
       } else {
-        setSetupStep('onboarding');
+        setSetupStep('ready');
       }
     }
   };
@@ -141,11 +142,6 @@ export function AppContainer() {
 
   const handleProfileComplete = () => {
      setShowProfileDialog(false);
-     setSetupStep('onboarding');
-  };
-
-  const handleOnboardingComplete = () => {
-     dbSave('afinapp_onboarding_done', true);
      setSetupStep('ready');
   };
 
@@ -169,19 +165,80 @@ export function AppContainer() {
     );
   }
 
-  if (setupStep === 'onboarding') {
-    return (
-      <main className="w-full h-full bg-background text-foreground">
-        <Onboarding onComplete={handleOnboardingComplete} />
-      </main>
-    );
-  }
+  // Onboarding render removed
 
   if (setupStep === 'ready' && notePool && gender && vocalRangeKey) {
     return (
-      <main className="w-full h-full bg-background text-foreground">
-         <Tuner notePool={notePool} gender={gender} vocalRangeKey={vocalRangeKey} onGoBack={handleResetRange} onOpenVocalAssessor={() => setShowVocalAssessor(true)} />
-      </main>
+      <div className="flex flex-col h-[100dvh] bg-background overflow-hidden relative pb-[env(safe-area-inset-bottom)]">
+        {/* Main Tab Screen Area */}
+        <div className="flex-grow overflow-hidden relative">
+          {activeTab === 'academy' && (
+            <AcademyCourse 
+              onGoBack={handleResetRange} 
+              notePool={notePool}
+              gender={gender}
+              vocalRangeKey={vocalRangeKey}
+            />
+          )}
+          {activeTab === 'tuner' && (
+            <Tuner 
+              notePool={notePool} 
+              gender={gender} 
+              vocalRangeKey={vocalRangeKey} 
+              onGoBack={handleResetRange} 
+              onOpenVocalAssessor={() => setShowVocalAssessor(true)} 
+            />
+          )}
+          {activeTab === 'progress' && (
+            <ProgressDashboard 
+              vocalRangeKey={vocalRangeKey} 
+              onClose={() => setActiveTab('academy')} 
+            />
+          )}
+        </div>
+
+        {/* Global Bottom Navigation Bar (Glassmorphic) */}
+        <nav className="shrink-0 bg-card/60 backdrop-blur-md border-t border-border/40 px-6 py-2.5 flex justify-around items-center relative z-40 shadow-xl">
+          <button
+            onClick={() => setActiveTab('academy')}
+            className={cn(
+              "flex flex-col items-center gap-1.5 py-1 px-3 rounded-2xl transition-all duration-300 outline-none select-none",
+              activeTab === 'academy' 
+                ? "text-primary scale-105 font-black bg-primary/10" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <GraduationCap className="w-5 h-5" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Academia</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('tuner')}
+            className={cn(
+              "flex flex-col items-center gap-1.5 py-1 px-3 rounded-2xl transition-all duration-300 outline-none select-none",
+              activeTab === 'tuner' 
+                ? "text-primary scale-105 font-black bg-primary/10" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Mic className="w-5 h-5" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Afinador</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('progress')}
+            className={cn(
+              "flex flex-col items-center gap-1.5 py-1 px-3 rounded-2xl transition-all duration-300 outline-none select-none",
+              activeTab === 'progress' 
+                ? "text-primary scale-105 font-black bg-primary/10" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <BarChart3 className="w-5 h-5" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Progreso</span>
+          </button>
+        </nav>
+      </div>
     );
   }
 

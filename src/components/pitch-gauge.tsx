@@ -12,8 +12,8 @@ interface PitchGaugeProps {
 export const PitchGauge = memo(function PitchGauge({ centsOff, isActive, size = 140 }: PitchGaugeProps) {
   const clampedCents = Math.max(-50, Math.min(50, centsOff));
   const absCents = Math.abs(clampedCents);
-  const isInTune = absCents < 8;
-  const isClose = absCents < 20;
+  const isInTune = absCents < 25;
+  const isClose = absCents < 40;
 
   // SVG dimensions
   const w = size;
@@ -39,11 +39,11 @@ export const PitchGauge = memo(function PitchGauge({ centsOff, isActive, size = 
   // Arc segments (in degrees from -80 to +80)
   // Red(-80 to -35), Yellow(-35 to -12), Green(-12 to +12), Yellow(+12 to +35), Red(+35 to +80)
   const zones = [
-    { start: -80, end: -35, color: '#ef4444' },
-    { start: -35, end: -12, color: '#f59e0b' },
-    { start: -12, end: 12,  color: '#22c55e' },
-    { start: 12,  end: 35,  color: '#f59e0b' },
-    { start: 35,  end: 80,  color: '#ef4444' },
+    { start: -80, end: -56, color: '#ef4444' },
+    { start: -56, end: -40, color: '#f59e0b' },
+    { start: -40, end: 40,  color: '#22c55e' },
+    { start: 40,  end: 56,  color: '#f59e0b' },
+    { start: 56,  end: 80,  color: '#ef4444' },
   ];
 
   const arcPath = (startDeg: number, endDeg: number, r: number) => {

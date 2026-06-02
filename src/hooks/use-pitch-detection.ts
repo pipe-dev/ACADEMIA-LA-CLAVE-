@@ -97,6 +97,7 @@ export const usePitchDetection = () => {
   const [frequency, setFrequency] = useState(0);
   const [centsOff, setCentsOff] = useState(0);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [rms, setRms] = useState(0);
 
   const smoothedCentsRef = useRef(0);
   const [smoothedCentsOff, setSmoothedCentsOff] = useState(0);
@@ -137,6 +138,7 @@ export const usePitchDetection = () => {
         smoothedCentsRef.current = 0;
         lastStateUpdateTime.current = 0;
         setSmoothedCentsOff(0);
+        setRms(0);
         setIsDetecting(true);
       } else {
         throw new Error("getUserMedia not supported on your browser!");
@@ -171,6 +173,7 @@ export const usePitchDetection = () => {
     setNote(EMPTY_NOTE);
     setCentsOff(0);
     setSmoothedCentsOff(0);
+    setRms(0);
     smoothedCentsRef.current = 0;
   }, []);
 
@@ -182,19 +185,29 @@ export const usePitchDetection = () => {
   
     const dataArray = new Float32Array(analyserRef.current.fftSize);
     analyserRef.current.getFloatTimeDomainData(dataArray);
+    
+    // Calculate RMS volume level
+    let rmsVal = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const val = dataArray[i];
+      rmsVal += val * val;
+    }
+    rmsVal = Math.sqrt(rmsVal / dataArray.length);
+
     const pitch = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
   
-    if (pitch !== -1 && pitch < 2000) {
-      isSilent.current = false;
-      const detectedNote = noteFromPitch(pitch);
-      const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
-      
-      const SMOOTHING_FACTOR = 0.25;
-      smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
-      
-      // THROTTLE: Only hit React State every ~40ms (25 FPS cap)
-      if (timestamp - lastStateUpdateTime.current > 40) {
-        lastStateUpdateTime.current = timestamp;
+    // THROTTLE: Only hit React State every ~40ms (25 FPS cap)
+    if (timestamp - lastStateUpdateTime.current > 40) {
+      lastStateUpdateTime.current = timestamp;
+      setRms(rmsVal);
+
+      if (pitch !== -1 && pitch < 2000) {
+        isSilent.current = false;
+        const detectedNote = noteFromPitch(pitch);
+        const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
+        
+        const SMOOTHING_FACTOR = 0.25;
+        smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
         
         setFrequency(pitch);
         setNote(prevNote => {
@@ -205,17 +218,16 @@ export const usePitchDetection = () => {
         });
         setCentsOff(currentCents);
         setSmoothedCentsOff(smoothedCentsRef.current);
-      }
-    } else {
-      if (!isSilent.current) {
-        isSilent.current = true;
-        smoothedCentsRef.current = 0;
-        lastStateUpdateTime.current = timestamp;
-        
-        setFrequency(0);
-        setNote(EMPTY_NOTE);
-        setCentsOff(0);
-        setSmoothedCentsOff(0);
+      } else {
+        if (!isSilent.current) {
+          isSilent.current = true;
+          smoothedCentsRef.current = 0;
+          
+          setFrequency(0);
+          setNote(EMPTY_NOTE);
+          setCentsOff(0);
+          setSmoothedCentsOff(0);
+        }
       }
     }
   
@@ -236,5 +248,5 @@ export const usePitchDetection = () => {
   }, [isDetecting, updatePitch]);
 
 
-  return { note, frequency, centsOff, smoothedCentsOff, isDetecting, start, stop };
+  return { note, frequency, centsOff, smoothedCentsOff, isDetecting, rms, start, stop };
 };

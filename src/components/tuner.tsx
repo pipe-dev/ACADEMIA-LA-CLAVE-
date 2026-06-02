@@ -66,7 +66,7 @@ export type NoteInfo = {
 const noteStrings = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
 const americanNoteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
+export const generateChallenge = (count: number, pool: NoteInfo[]): NoteInfo[] => {
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, Math.min(count, pool.length));
     return selected.sort((a, b) => a.frequency - b.frequency);
