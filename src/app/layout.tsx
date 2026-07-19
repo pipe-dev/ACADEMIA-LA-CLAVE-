@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
+import { VocalProvider } from '@/components/vocal-provider';
 
 export const metadata: Metadata = {
   title: 'AfinApp',
@@ -34,7 +35,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <VocalProvider>
+            {children}
+          </VocalProvider>
           <Toaster />
         </ThemeProvider>
         <script

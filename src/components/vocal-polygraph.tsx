@@ -196,9 +196,10 @@ export function VocalPolygraph({ direction, duration, onComplete, title }: Vocal
     // Initial draw to show the baseline
     draw();
     return () => {
+      stop();
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     }
-  }, [draw]);
+  }, [draw, stop]);
 
   return (
     <div className="flex flex-col items-center justify-center space-y-6 w-full animate-in fade-in zoom-in-95 duration-500">

@@ -172,10 +172,13 @@ export function VocalRangeAssessor({ onClose }: { onClose: () => void }) {
     };
 
     animationFrameId = requestAnimationFrame(evaluate);
-    return () => cancelAnimationFrame(animationFrameId);
+    return () => {
+      stop();
+      cancelAnimationFrame(animationFrameId);
+    };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [note.name, note.octave, smoothedCentsOff, isDetecting, phase, currentTarget]);
+  }, [note.name, note.octave, smoothedCentsOff, isDetecting, phase, currentTarget, stop]);
 
   const saveResult = (type: ResultType) => {
     tapSuccess();

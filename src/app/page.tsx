@@ -1,5 +1,5 @@
-import { AppContainer } from '@/components/app-container';
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return <AppContainer />;
+  redirect('/clases');
 }

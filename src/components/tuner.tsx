@@ -1130,10 +1130,11 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
     handleResize();
 
     return () => {
+        stop();
         stopAllRhythmAndAudio();
         window.removeEventListener('resize', handleResize);
     }
-  }, [vocalRangeKey, stopAllRhythmAndAudio]);
+  }, [vocalRangeKey, stopAllRhythmAndAudio, stop]);
 
   const tolerance = difficulty === 'Maestro'
     ? 10 // Ultra-tight tolerance for Maestro mode
