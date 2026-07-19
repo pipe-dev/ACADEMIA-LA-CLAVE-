@@ -10,7 +10,7 @@ import { UserProfileDialog } from '@/components/user-profile-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Mic, BarChart3 } from 'lucide-react';
+import { GraduationCap, Mic, BarChart3, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -170,6 +170,22 @@ export function VocalProvider({ children }: { children: ReactNode }) {
      router.push('/');
   };
 
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (response.ok) {
+        toast({
+          title: 'Sesión Cerrada',
+          description: 'Has salido de la academia.',
+        });
+        router.push('/login');
+        router.refresh();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   if (isInitializing || !profileLoaded) {
     return <main className="flex min-h-screen bg-background" />;
   }
@@ -300,6 +316,14 @@ export function VocalProvider({ children }: { children: ReactNode }) {
             <BarChart3 className="w-5 h-5" />
             <span className="text-[10px] uppercase font-bold tracking-wider">Progreso</span>
           </Link>
+
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center gap-1.5 py-1 px-3 rounded-2xl transition-all duration-300 outline-none select-none text-muted-foreground hover:text-red-400"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Salir</span>
+          </button>
         </nav>
       </div>
     </VocalContext.Provider>
