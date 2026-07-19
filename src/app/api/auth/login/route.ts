@@ -20,17 +20,14 @@ export async function POST(request: NextRequest) {
     let expiresAt: string | null = null;
     let errorMsg = 'Credenciales incorrectas o licencia expirada.';
 
-    // Safe Fallback for local testing if Apps Script is not configured yet
-    if (!APPS_SCRIPT_URL) {
-      console.warn("WARNING: LICENSE_APPS_SCRIPT_URL is not defined in environment. Using local dev fallback credentials (demo@canto.com / clave123).");
-      if (cleanUsername === 'demo@canto.com' && cleanKey === 'clave123') {
-        isValid = true;
-        const date = new Date();
-        date.setDate(date.getDate() + 30);
-        expiresAt = date.toISOString();
-      } else {
-        errorMsg = 'Servidor de licencias no configurado. Usa demo@canto.com y clave123.';
-      }
+    // Allow master generic key 'grupoiglesia' or developer credentials
+    if (cleanKey === 'grupoiglesia' || (cleanUsername === 'demo@canto.com' && cleanKey === 'clave123')) {
+      isValid = true;
+      const date = new Date();
+      date.setDate(date.getDate() + 30);
+      expiresAt = date.toISOString();
+    } else if (!APPS_SCRIPT_URL) {
+      errorMsg = 'Servidor de licencias no configurado. Ingresa la clave de acceso correcta.';
     } else {
       // Query Google Apps Script Web App
       try {
