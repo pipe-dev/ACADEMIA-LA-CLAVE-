@@ -4,10 +4,10 @@ export const runtime = 'edge';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get('q');
+  const query = (searchParams.get('q') || "").trim();
 
   if (!query) {
-    return NextResponse.json({ error: "Missing query" }, { status: 400 });
+    return NextResponse.json({ error: "Missing or empty query" }, { status: 400 });
   }
 
   try {

@@ -57,7 +57,7 @@ export function SyncedLyrics({ lyrics, currentTime }: SyncedLyricsProps) {
             key={idx}
             initial={false}
             animate={{
-              opacity: isActive ? 1 : 0.3,
+              opacity: isActive ? 1 : 0.5,
               scale: isActive ? 1.05 : 1
             }}
             transition={{ duration: 0.3 }}

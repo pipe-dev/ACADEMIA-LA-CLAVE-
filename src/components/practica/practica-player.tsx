@@ -28,7 +28,7 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   
   const [melodyData, setMelodyData] = useState<any[]>([]);
   const [isLoadingMelody, setIsLoadingMelody] = useState(true);
-  const [melodyError, setMelodyError] = useState<string | null>(null);
+  const [playerError, setPlayerError] = useState<string | null>(null);
 
   const { note, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
   
@@ -57,7 +57,6 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   useEffect(() => {
     const fetchMelodyData = async () => {
       setIsLoadingMelody(true);
-      setMelodyError(null);
       try {
         const cacheRes = await fetch(`/api/karaoke-melody?videoId=${videoId}`);
         if (cacheRes.ok) {
@@ -149,6 +148,9 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
             e.target.playVideo();
             start();
           }}
+          onError={() => {
+            setPlayerError("Esta canción no permite reproducción insertada. Elige otra canción.");
+          }}
           onEnd={() => setIsFinished(true)}
           opts={{ playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1 } }}
         />
@@ -165,7 +167,14 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
       </div>
 
       <div className="h-[40%] relative z-10 flex flex-col">
-        {!isReady || isSyncing || isLoadingMelody ? (
+        {playerError ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+            <p className="text-red-400 font-semibold text-lg">{playerError}</p>
+            <Button onClick={onClose} variant="outline" className="rounded-full">
+              Volver al catálogo
+            </Button>
+          </div>
+        ) : !isReady || isSyncing || isLoadingMelody ? (
           <div className="flex-1 flex flex-col items-center justify-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-muted-foreground animate-pulse text-center">Cargando canción...</p>

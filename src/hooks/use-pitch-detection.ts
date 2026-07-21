@@ -46,47 +46,41 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
     return -1;
   }
 
-  let c = new Float32Array(SIZE);
-  for (let i = 0; i < SIZE; i++) {
-    let sum = 0;
-    for (let j = 0; j < SIZE - i; j++) {
-      sum += buf[j] * buf[j + i];
-    }
-    c[i] = sum;
-  }
+  // Restrict lag bounds to human vocal range (~60 Hz to ~1000 Hz)
+  const minLag = Math.floor(sampleRate / 1000); // ~44 samples at 44.1kHz
+  const maxLag = Math.min(SIZE - 2, Math.ceil(sampleRate / 60)); // ~735 samples at 44.1kHz
 
-  let d = 0;
-  while (d < c.length -1 && c[d] > c[d + 1]) {
-    d++;
-  }
-
+  let bestLag = -1;
   let maxval = -1;
-  let maxpos = -1;
-  for (let i = d; i < SIZE; i++) {
-    if (c[i] > maxval) {
-      maxval = c[i];
-      maxpos = i;
+
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let sum = 0;
+    for (let j = 0; j < SIZE - lag; j++) {
+      sum += buf[j] * buf[j + lag];
+    }
+    if (sum > maxval) {
+      maxval = sum;
+      bestLag = lag;
     }
   }
 
-  if (maxpos === -1) {
+  if (bestLag === -1 || bestLag <= minLag || bestLag >= maxLag) {
     return -1;
   }
-  
-  let T0 = maxpos;
-  const x1 = c[T0 - 1];
-  const x2 = c[T0];
-  const x3 = c[T0 + 1];
+
+  // Parabolic interpolation for fine frequency resolution
+  const x1 = buf[bestLag - 1];
+  const x2 = buf[bestLag];
+  const x3 = buf[bestLag + 1];
   const a = (x1 + x3 - 2 * x2) / 2;
   const b = (x3 - x1) / 2;
-  if (a) {
+  
+  let T0 = bestLag;
+  if (a !== 0) {
     T0 = T0 - b / (2 * a);
   }
 
-  if (T0 === 0) {
-    return -1;
-  }
-
+  if (T0 === 0) return -1;
   return sampleRate / T0;
 };
 
@@ -110,6 +104,8 @@ export const usePitchDetection = () => {
   const isSilent = useRef(true);
   const lastStateUpdateTime = useRef<number>(0);
 
+  const bufferRef = useRef<Float32Array | null>(null);
+
   const start = useCallback(async () => {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -123,7 +119,7 @@ export const usePitchDetection = () => {
         audioContextRef.current = context;
 
         analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.fftSize = 4096;
+        analyserRef.current.fftSize = 2048; // Reduced fftSize for mobile performance
 
         const source = audioContextRef.current.createMediaStreamSource(stream);
         
@@ -148,8 +144,8 @@ export const usePitchDetection = () => {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       toast({
         variant: "destructive",
-        title: "Microphone Access Denied",
-        description: `Please allow microphone access in your browser settings. Error: ${errorMessage}`,
+        title: "Acceso al Micrófono Denegado",
+        description: `Por favor permite el acceso al micrófono en la configuración de tu navegador.`,
       });
       setIsDetecting(false);
     }
@@ -182,24 +178,30 @@ export const usePitchDetection = () => {
       animationFrameId.current = requestAnimationFrame(updatePitch);
       return;
     }
-  
-    const dataArray = new Float32Array(analyserRef.current.fftSize);
-    analyserRef.current.getFloatTimeDomainData(dataArray);
-    
-    // Calculate RMS volume level
-    let rmsVal = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const val = dataArray[i];
-      rmsVal += val * val;
-    }
-    rmsVal = Math.sqrt(rmsVal / dataArray.length);
 
-    const pitch = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
-  
-    // THROTTLE: Only hit React State every ~40ms (25 FPS cap)
+    // THROTTLE: Only process DSP every ~40ms (25 FPS cap) to save CPU
     if (timestamp - lastStateUpdateTime.current > 40) {
       lastStateUpdateTime.current = timestamp;
+
+      const fftSize = analyserRef.current.fftSize;
+      if (!bufferRef.current || bufferRef.current.length !== fftSize) {
+        bufferRef.current = new Float32Array(fftSize);
+      }
+      
+      analyserRef.current.getFloatTimeDomainData(bufferRef.current);
+      const dataArray = bufferRef.current;
+      
+      // Calculate RMS volume level
+      let rmsVal = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const val = dataArray[i];
+        rmsVal += val * val;
+      }
+      rmsVal = Math.sqrt(rmsVal / dataArray.length);
+
       setRms(rmsVal);
+
+      const pitch = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
 
       if (pitch !== -1 && pitch < 2000) {
         isSilent.current = false;
@@ -244,8 +246,9 @@ export const usePitchDetection = () => {
             cancelAnimationFrame(animationFrameId.current);
             animationFrameId.current = null;
         }
+        stop();
     }
-  }, [isDetecting, updatePitch]);
+  }, [isDetecting, updatePitch, stop]);
 
 
   return { note, frequency, centsOff, smoothedCentsOff, isDetecting, rms, start, stop };

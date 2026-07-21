@@ -107,7 +107,13 @@ export function PracticaSearch({ onTrackSelected }: PracticaSearchProps) {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {!isLoading && !error && videos.length === 0 && (
+        <div className="p-8 text-center text-muted-foreground bg-card/30 rounded-2xl border border-border/50 max-w-md mx-auto">
+          No se encontraron canciones. Intenta con otra búsqueda.
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" role="region" aria-label="Resultados de búsqueda">
         <AnimatePresence>
           {videos.map((video) => (
             <motion.div
@@ -116,8 +122,17 @@ export function PracticaSearch({ onTrackSelected }: PracticaSearchProps) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="group relative flex flex-col gap-3 rounded-2xl bg-card border border-border/50 hover:border-primary/50 overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all p-3"
+              role="button"
+              tabIndex={0}
+              aria-label={`Seleccionar canción: ${video.title}`}
+              className="group relative flex flex-col gap-3 rounded-2xl bg-card border border-border/50 hover:border-primary/50 overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               onClick={() => handleSelect(video)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelect(video);
+                }
+              }}
             >
               <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-muted">
                 <img src={video.thumbnail} alt={video.title} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
