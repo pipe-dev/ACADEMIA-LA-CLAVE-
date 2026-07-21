@@ -60,11 +60,13 @@ Using the `userPitch` prop, draw a glowing line (like a laser) that moves up and
 **Interfaces:**
 - Consumes: `PolygraphCanvas`, `PlayerControls`, `SyncedLyrics`.
 
-- [ ] **Step 1: Implement the Flexbox Layout**
+- [ ] **Step 1: Implement the Flexbox Layout & Aesthetics**
 Rewrite the main return statement of `practica-player.tsx` to be a strict `flex-col h-full`.
-- Top: 40% height `div` containing `<PolygraphCanvas />`.
-- Middle: 40% height `div` containing `<SyncedLyrics />`.
-- Bottom: 20% height `div` containing `<PlayerControls />`.
+- **Background**: Apply the login page gradient (`bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950`).
+- **Top Zone**: 40% height `div` containing `<PolygraphCanvas />`.
+- **Middle Zone**: 40% height `div` containing `<SyncedLyrics />`.
+  - *Lyrics Styling*: Use large, bold typography (e.g., text-4xl, font-black). Apply 30% opacity to inactive lines, and 100% opacity + 5% scale to the active line. Use CSS transforms (`scale()`, `opacity`) for transitions to maintain 2017 hardware compatibility.
+- **Bottom Zone**: 20% height `div` containing `<PlayerControls />`.
 
 - [ ] **Step 2: Connect state to Canvas**
 Pass the `currentTime` and `usePitchDetection` values down to the `<PolygraphCanvas />`.

@@ -58,11 +58,10 @@ export function SyncedLyrics({ lyrics, currentTime }: SyncedLyricsProps) {
             initial={false}
             animate={{
               opacity: isActive ? 1 : 0.3,
-              scale: isActive ? 1.05 : 1,
-              color: isActive ? "hsl(var(--primary))" : "hsl(var(--foreground))"
+              scale: isActive ? 1.05 : 1
             }}
             transition={{ duration: 0.3 }}
-            className={`text-4xl font-black tracking-tight transition-all duration-300 ${isActive ? 'drop-shadow-[0_0_15px_rgba(var(--primary),0.5)]' : ''}`}
+            className={`text-4xl font-black tracking-tight ${isActive ? 'text-primary' : 'text-foreground'}`}
           >
             {line.text}
           </motion.div>

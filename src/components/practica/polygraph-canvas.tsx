@@ -15,19 +15,21 @@ interface PolygraphCanvasProps {
   currentTime: number;
   userPitch: UserPitch;
   mockMelodyData?: NoteData[];
+  isDetecting?: boolean;
 }
 
 export function PolygraphCanvas({
   currentTime,
   userPitch,
   mockMelodyData = [],
+  isDetecting,
 }: PolygraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const propsRef = useRef({ currentTime, userPitch, mockMelodyData });
+  const propsRef = useRef({ currentTime, userPitch, mockMelodyData, isDetecting });
 
   useEffect(() => {
-    propsRef.current = { currentTime, userPitch, mockMelodyData };
-  }, [currentTime, userPitch, mockMelodyData]);
+    propsRef.current = { currentTime, userPitch, mockMelodyData, isDetecting };
+  }, [currentTime, userPitch, mockMelodyData, isDetecting]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

@@ -103,6 +103,7 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
       player.pauseVideo();
     } else {
       player.playVideo();
+      if (!isDetecting) start();
     }
   };
 
@@ -144,6 +145,7 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
           currentTime={currentTime + syncOffset} 
           userPitch={userPitch} 
           mockMelodyData={[]} 
+          isDetecting={isDetecting}
         />
       </div>
 
