@@ -1,4 +1,3 @@
 demucs
-basic-pitch
 librosa==0.10.1
-tensorflow
+numpy
