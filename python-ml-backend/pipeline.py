@@ -11,47 +11,41 @@ def extract_video_id(url):
     match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
     return match.group(1) if match else None
 
-def download_via_cobalt(url, temp_dir):
+def download_via_piped(video_id, temp_dir):
     """
-    Usa la API pública de Cobalt.tools para extraer el audio como MP3 directamente,
-    evadiendo las restricciones de YouTube.
+    Usa la API pública de Piped para extraer el audio directamente.
     """
-    cobalt_api = "https://api.cobalt.tools/api/json"
+    instances = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.tokhmi.xyz",
+        "https://pipedapi.smnz.de",
+        "https://api.piped.projectsegfau.lt"
+    ]
     
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        # Cobalt public instance requires Origin and Referer
-        "Origin": "https://cobalt.tools",
-        "Referer": "https://cobalt.tools/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
-    
-    payload = {
-        "url": url,
-        "isAudioOnly": True,
-        "aFormat": "mp3"
-    }
-    
-    try:
-        res = requests.post(cobalt_api, json=payload, headers=headers, timeout=20)
-        res.raise_for_status()
-        data = res.json()
-        
-        if data.get("status") in ["redirect", "stream"]:
-            download_url = data.get("url")
-            audio_res = requests.get(download_url, headers={"User-Agent": headers["User-Agent"]}, timeout=30)
-            audio_res.raise_for_status()
+    for instance in instances:
+        try:
+            api_url = f"{instance}/streams/{video_id}"
+            res = requests.get(api_url, timeout=15)
+            if res.status_code == 200:
+                data = res.json()
+                audio_streams = data.get("audioStreams", [])
+                
+                if audio_streams:
+                    # Sort by bitrate descending
+                    audio_streams.sort(key=lambda x: int(x.get('bitrate', 0)), reverse=True)
+                    audio_url = audio_streams[0].get('url')
+                    
+                    audio_res = requests.get(audio_url, timeout=30)
+                    audio_res.raise_for_status()
+                    
+                    raw_audio_path = os.path.join(temp_dir, 'source_audio.m4a')
+                    with open(raw_audio_path, 'wb') as f:
+                        f.write(audio_res.content)
+                    return raw_audio_path
+        except Exception:
+            continue
             
-            raw_audio_path = os.path.join(temp_dir, 'source_audio.mp3')
-            with open(raw_audio_path, 'wb') as f:
-                f.write(audio_res.content)
-            return raw_audio_path
-        else:
-            raise Exception(f"Cobalt error: {data.get('text', 'Unknown status')}")
-            
-    except Exception as e:
-        raise Exception(f"Fallo en el mercenario (Cobalt API): {str(e)}")
+    raise Exception("Todos los mercenarios (Piped API) fallaron.")
 
 def process_youtube_url(url: str):
     """
@@ -66,9 +60,12 @@ def process_youtube_url(url: str):
             audio_stream = yt.streams.get_audio_only()
             raw_audio_path = audio_stream.download(output_path=temp_dir, filename='source_audio.mp4')
         except Exception as e:
-            print("Pytubefix falló, usando Cobalt Fallback (Mercenario):", str(e))
-            # Intento 2: Cobalt API Fallback
-            raw_audio_path = download_via_cobalt(url, temp_dir)
+            print("Pytubefix falló, usando Piped API Fallback (Mercenario):", str(e))
+            # Intento 2: Piped API Fallback
+            video_id = extract_video_id(url)
+            if not video_id:
+                raise Exception("URL de YouTube inválida.")
+            raw_audio_path = download_via_piped(video_id, temp_dir)
             
         if not raw_audio_path:
             raise Exception("No se pudo descargar el audio.")
