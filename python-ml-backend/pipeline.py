@@ -42,18 +42,19 @@ def process_audio_file(audio_file_path: str):
             raise Exception("Demucs no pudo separar las voces.")
 
         # 3. Extraer pitch con librosa.pyin (pura matemática, 0 dependencias extra)
-        y, sr = librosa.load(vocals_path, sr=22050, mono=True)
+        # Optimizamos velocidad bajando el sample rate a 11025 (Nyquist = 5512 Hz, sobra para voz humana)
+        y, sr = librosa.load(vocals_path, sr=11025, mono=True)
         
         f0, voiced_flag, voiced_probs = librosa.pyin(
             y, 
             fmin=librosa.note_to_hz('C2'),   # ~65 Hz
             fmax=librosa.note_to_hz('C6'),   # ~1047 Hz
             sr=sr,
-            frame_length=2048,
-            hop_length=512
+            frame_length=1024,
+            hop_length=256
         )
         
-        times = librosa.times_like(f0, sr=sr, hop_length=512)
+        times = librosa.times_like(f0, sr=sr, hop_length=256)
         
         # 4. Convertir frames de f0 a eventos de notas MIDI
         notes = _frames_to_notes(f0, voiced_flag, voiced_probs, times)

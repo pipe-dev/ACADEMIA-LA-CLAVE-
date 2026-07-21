@@ -2,7 +2,7 @@ import gradio as gr
 import spaces
 from pipeline import process_audio_file
 
-@spaces.GPU(duration=60)
+@spaces.GPU(duration=120)
 def extract_melody(audio_file):
     """
     Recibe un archivo de audio subido por el usuario (desde el navegador).
