@@ -11,41 +11,27 @@ def extract_video_id(url):
     match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
     return match.group(1) if match else None
 
-def download_via_piped(video_id, temp_dir):
+import yt_dlp
+
+def download_via_ytdlp(url, temp_dir):
     """
-    Usa la API pública de Piped para extraer el audio directamente.
+    Usa yt-dlp para descargar el audio, que es más resistente a bloqueos.
     """
-    instances = [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.tokhmi.xyz",
-        "https://pipedapi.smnz.de",
-        "https://api.piped.projectsegfau.lt"
-    ]
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': os.path.join(temp_dir, 'source_audio.%(ext)s'),
+        'quiet': True,
+        'no_warnings': True,
+        'extract_audio': True
+    }
     
-    for instance in instances:
-        try:
-            api_url = f"{instance}/streams/{video_id}"
-            res = requests.get(api_url, timeout=15)
-            if res.status_code == 200:
-                data = res.json()
-                audio_streams = data.get("audioStreams", [])
-                
-                if audio_streams:
-                    # Sort by bitrate descending
-                    audio_streams.sort(key=lambda x: int(x.get('bitrate', 0)), reverse=True)
-                    audio_url = audio_streams[0].get('url')
-                    
-                    audio_res = requests.get(audio_url, timeout=30)
-                    audio_res.raise_for_status()
-                    
-                    raw_audio_path = os.path.join(temp_dir, 'source_audio.m4a')
-                    with open(raw_audio_path, 'wb') as f:
-                        f.write(audio_res.content)
-                    return raw_audio_path
-        except Exception:
-            continue
-            
-    raise Exception("Todos los mercenarios (Piped API) fallaron.")
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(url, download=True)
+            ext = info_dict.get('ext', 'webm')
+            return os.path.join(temp_dir, f'source_audio.{ext}')
+    except Exception as e:
+        raise Exception(f"yt-dlp falló: {str(e)}")
 
 def process_youtube_url(url: str):
     """
@@ -60,12 +46,9 @@ def process_youtube_url(url: str):
             audio_stream = yt.streams.get_audio_only()
             raw_audio_path = audio_stream.download(output_path=temp_dir, filename='source_audio.mp4')
         except Exception as e:
-            print("Pytubefix falló, usando Piped API Fallback (Mercenario):", str(e))
-            # Intento 2: Piped API Fallback
-            video_id = extract_video_id(url)
-            if not video_id:
-                raise Exception("URL de YouTube inválida.")
-            raw_audio_path = download_via_piped(video_id, temp_dir)
+            print("Pytubefix falló, usando yt-dlp Fallback:", str(e))
+            # Intento 2: yt-dlp Fallback
+            raw_audio_path = download_via_ytdlp(url, temp_dir)
             
         if not raw_audio_path:
             raise Exception("No se pudo descargar el audio.")
