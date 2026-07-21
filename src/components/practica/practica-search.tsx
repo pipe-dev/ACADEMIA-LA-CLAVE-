@@ -59,11 +59,11 @@ export function PracticaSearch({ onTrackSelected }: PracticaSearchProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
-    searchYoutube(query + " karaoke");
+    searchYoutube(query);
   };
 
   useEffect(() => {
-    searchYoutube("karaoke éxitos en español");
+    searchYoutube("éxitos en español");
   }, []);
 
   const handleSelect = (video: YoutubeVideo) => {
