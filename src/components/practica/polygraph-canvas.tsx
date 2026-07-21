@@ -23,6 +23,11 @@ export function PolygraphCanvas({
   mockMelodyData = [],
 }: PolygraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const propsRef = useRef({ currentTime, userPitch, mockMelodyData });
+
+  useEffect(() => {
+    propsRef.current = { currentTime, userPitch, mockMelodyData };
+  }, [currentTime, userPitch, mockMelodyData]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -30,14 +35,28 @@ export function PolygraphCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationFrameId: number;
-
-    const render = () => {
-      const rect = canvas.getBoundingClientRect();
-      if (canvas.width !== rect.width || canvas.height !== rect.height) {
-        canvas.width = rect.width;
-        canvas.height = rect.height;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === canvas) {
+          canvas.width = entry.contentRect.width;
+          canvas.height = entry.contentRect.height;
+        }
       }
+    });
+    resizeObserver.observe(canvas);
+
+    let animationFrameId: number;
+    let lastRenderTime = 0;
+    const fpsInterval = 1000 / 30; // 33.33ms
+
+    const render = (time: number) => {
+      animationFrameId = requestAnimationFrame(render);
+      
+      const elapsed = time - lastRenderTime;
+      if (elapsed < fpsInterval) {
+        return;
+      }
+      lastRenderTime = time - (elapsed % fpsInterval);
 
       const width = canvas.width;
       const height = canvas.height;
@@ -45,6 +64,7 @@ export function PolygraphCanvas({
       // Clear canvas
       ctx.clearRect(0, 0, width, height);
 
+      const { currentTime, userPitch, mockMelodyData } = propsRef.current;
       const pixelsPerSecond = 100;
       const centerX = width / 2;
       const centerY = height / 2;
@@ -86,16 +106,15 @@ export function PolygraphCanvas({
         ctx.fill();
         ctx.shadowBlur = 0;
       }
-
-      animationFrameId = requestAnimationFrame(render);
     };
 
-    render();
+    animationFrameId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      resizeObserver.disconnect();
     };
-  }, [currentTime, userPitch, mockMelodyData]);
+  }, []);
 
   return (
     <canvas 
