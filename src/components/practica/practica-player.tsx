@@ -98,24 +98,24 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   };
 
   const togglePlay = () => {
-    if (audioIsReady) {
-      audioTogglePlay();
-      if (!audioIsPlaying && !isDetecting) start();
-    } else if (player) {
-      // Fallback
-      player.getPlayerState() === 1 ? player.pauseVideo() : player.playVideo();
-      if (!isDetecting) start();
+    if (player) {
+      if (player.getPlayerState() === 1) {
+        player.pauseVideo();
+      } else {
+        player.playVideo();
+        if (!isDetecting) start();
+      }
     }
   };
   
   const handleVolumeChange = (val: number) => {
     setVocalVolume(val);
-    audioSetVocalVolume(val);
+    if (player) player.setVolume(val * 100);
   };
 
-  const isReady = audioStarted ? audioIsReady : Boolean(player);
-  const isPlaying = audioStarted ? audioIsPlaying : (player?.getPlayerState() === 1);
-  const currentTime = audioStarted && !audioError ? audioTime : (player ? player.getCurrentTime() : 0);
+  const isReady = Boolean(player);
+  const isPlaying = player ? player.getPlayerState() === 1 : false;
+  const currentTime = player ? player.getCurrentTime() : 0;
 
   const handleScore = (points: number) => {
     setScore(s => s + points);
@@ -142,7 +142,13 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
       <div className="absolute top-0 right-0 opacity-0 pointer-events-none w-1 h-1 overflow-hidden z-0">
         <YouTube
           videoId={videoId}
-          onReady={(e: any) => { setPlayer(e.target); e.target.mute(); }} // Muted Fallback/Timer
+          onReady={(e: any) => { 
+            setPlayer(e.target); 
+            e.target.unMute();
+            e.target.setVolume(100);
+            e.target.playVideo();
+            start();
+          }}
           onEnd={() => setIsFinished(true)}
           opts={{ playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1 } }}
         />
@@ -159,18 +165,10 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
       </div>
 
       <div className="h-[40%] relative z-10 flex flex-col">
-        {!audioStarted ? (
-          <div className="flex-1 flex flex-col items-center justify-center space-y-4">
-            <Button onClick={handleStartAudio} size="lg" className="rounded-full px-8 py-6 bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-500/20">
-              <PlayCircle className="mr-2 h-6 w-6" />
-              Cargar Audio Inteligente
-            </Button>
-            <p className="text-white/50 text-sm max-w-sm text-center">Iniciaremos el motor de audio para habilitar el control de voz (requiere interacción).</p>
-          </div>
-        ) : !isReady || isSyncing || isLoadingMelody ? (
+        {!isReady || isSyncing || isLoadingMelody ? (
           <div className="flex-1 flex flex-col items-center justify-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground animate-pulse text-center">Cargando...</p>
+            <p className="text-muted-foreground animate-pulse text-center">Cargando canción...</p>
           </div>
         ) : track.parsedLyrics && track.parsedLyrics.length > 0 ? (
           <SyncedLyrics lyrics={track.parsedLyrics} currentTime={currentTime + syncOffset} />

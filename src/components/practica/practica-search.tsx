@@ -63,7 +63,7 @@ export function PracticaSearch({ onTrackSelected }: PracticaSearchProps) {
   };
 
   useEffect(() => {
-    searchYoutube("éxitos en español");
+    searchYoutube("Luis Miguel La Incondicional");
   }, []);
 
   const handleSelect = (video: YoutubeVideo) => {
