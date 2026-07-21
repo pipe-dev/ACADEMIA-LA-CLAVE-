@@ -138,7 +138,8 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
         </div>
       </div>
 
-      <div className="absolute top-0 right-0 opacity-0 pointer-events-none w-1 h-1 overflow-hidden z-0">
+      {/* Hidden YouTube iFrame Player */}
+      <div className="absolute top-0 left-0 w-px h-px opacity-0 pointer-events-none overflow-hidden z-0">
         <YouTube
           videoId={videoId}
           onReady={(e: any) => { 
@@ -156,7 +157,8 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
         />
       </div>
 
-      <div className="h-[40%] relative z-10 pt-20 px-6">
+      {/* Zone 1: Pitch Polygraph Canvas */}
+      <div className="flex-1 min-h-[160px] relative z-10 pt-20 px-6 flex flex-col justify-center">
         <PolygraphCanvas 
           currentTime={currentTime + syncOffset} 
           userPitch={{ note: note.name ? `${note.name}${note.octave}` : null, centsOff: smoothedCentsOff }} 
@@ -166,7 +168,8 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
         />
       </div>
 
-      <div className="h-[40%] relative z-10 flex flex-col">
+      {/* Zone 2: Synced Lyrics */}
+      <div className="flex-1 min-h-[180px] relative z-10 flex flex-col justify-center overflow-hidden">
         {playerError ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
             <p className="text-red-400 font-semibold text-lg">{playerError}</p>
@@ -182,27 +185,30 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
         ) : track.parsedLyrics && track.parsedLyrics.length > 0 ? (
           <SyncedLyrics lyrics={track.parsedLyrics} currentTime={currentTime + syncOffset} />
         ) : track.plainLyrics ? (
-          <div className="flex-1 overflow-y-auto px-8 pb-32 pt-8 text-center flex flex-col items-center mask-image-fade" style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)' }}>
+          <div className="flex-1 overflow-y-auto px-8 pb-8 pt-4 text-center flex flex-col items-center mask-image-fade" style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)' }}>
             <p className="text-xl leading-[2.5] text-white/80 whitespace-pre-wrap font-medium max-w-2xl text-center">
               {track.plainLyrics}
             </p>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-white/50 text-lg">Letra no disponible</p>
+            <p className="text-white/50 text-lg">Letra no disponible para esta canción</p>
           </div>
         )}
       </div>
 
-      <PlayerControls 
-        isPlaying={isPlaying} 
-        isReady={isReady} 
-        syncOffset={syncOffset}
-        vocalVolume={vocalVolume}
-        onTogglePlay={togglePlay} 
-        onAdjustOffset={adjustOffset}
-        onVolumeChange={handleVolumeChange}
-      />
+      {/* Zone 3: Player Controls */}
+      <div className="relative z-30 flex-none bg-slate-950/90 border-t border-white/10">
+        <PlayerControls 
+          isPlaying={isPlaying} 
+          isReady={isReady} 
+          syncOffset={syncOffset}
+          vocalVolume={vocalVolume}
+          onTogglePlay={togglePlay} 
+          onAdjustOffset={adjustOffset}
+          onVolumeChange={handleVolumeChange}
+        />
+      </div>
 
       {isFinished && (
         <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">

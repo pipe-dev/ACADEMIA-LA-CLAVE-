@@ -24,7 +24,7 @@ export function PlayerControls({
   onVolumeChange,
 }: PlayerControlsProps) {
   return (
-    <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-black/90 to-transparent z-50 flex flex-col items-center justify-end pb-4 space-y-4">
+    <div className="w-full px-6 py-4 flex flex-col items-center justify-center space-y-3">
       
       {/* Vocal Volume Slider */}
       <div className="flex items-center space-x-3 w-64 bg-black/50 px-4 py-2 rounded-full border border-white/10">
