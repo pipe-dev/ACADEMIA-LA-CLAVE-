@@ -33,7 +33,7 @@ export default function PracticaPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] h-[calc(100dvh-4rem)] bg-background flex flex-col relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-background flex flex-col relative overflow-y-auto">
       <AnimatePresence mode="wait">
         {isFetchingLyrics ? (
           <motion.div
@@ -63,7 +63,7 @@ export default function PracticaPage() {
             key="player"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex-1 flex flex-col h-full overflow-hidden"
+            className="flex-1 flex flex-col min-h-[550px] overflow-y-auto"
           >
             <PracticaPlayer
               track={selectedTrack.track}
