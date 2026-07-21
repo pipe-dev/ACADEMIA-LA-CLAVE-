@@ -57,14 +57,100 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   useEffect(() => {
     const fetchMelodyData = async () => {
       setIsLoadingMelody(true);
+      setMelodyError(null);
       try {
-        const res = await fetch(`/api/karaoke-melody?videoId=${videoId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.notes)) setMelodyData(data.notes);
-        } else setMelodyError("Error de IA.");
-      } catch (e) { setMelodyError("Error de Red."); } 
-      finally { setIsLoadingMelody(false); }
+        // Paso 1: Intentar caché (Google Sheets)
+        const cacheRes = await fetch(`/api/karaoke-melody?videoId=${videoId}`);
+        if (cacheRes.ok) {
+          const cacheData = await cacheRes.json();
+          if (cacheData && Array.isArray(cacheData.notes) && cacheData.notes.length > 0) {
+            setMelodyData(cacheData.notes);
+            setIsLoadingMelody(false);
+            return; // ¡Cache hit! No necesitamos IA.
+          }
+        }
+
+        // Paso 2: No hay caché → "Caballo de Troya"
+        // 2a. Pedir URL de audio a Cobalt (proxy ligero, ~1KB)
+        const cobaltRes = await fetch('/api/cobalt-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoId }),
+        });
+        
+        if (!cobaltRes.ok) {
+          setMelodyError("No se pudo obtener el audio.");
+          setIsLoadingMelody(false);
+          return;
+        }
+        
+        const { url: audioUrl } = await cobaltRes.json();
+        if (!audioUrl) {
+          setMelodyError("Cobalt no devolvió URL.");
+          setIsLoadingMelody(false);
+          return;
+        }
+
+        // 2b. Descargar audio directamente en el navegador (~3MB, NO pasa por Vercel)
+        const audioRes = await fetch(audioUrl);
+        if (!audioRes.ok) {
+          setMelodyError("Error descargando audio.");
+          setIsLoadingMelody(false);
+          return;
+        }
+        const audioBlob = await audioRes.blob();
+
+        // 2c. Subir audio directamente a Hugging Face Gradio API (~3MB, NO pasa por Vercel)
+        const HF_SPACE = "https://daniel555-afinapp-melodia.hf.space";
+        const formData = new FormData();
+        formData.append('files', audioBlob, 'audio.mp3');
+        
+        // Gradio file upload endpoint
+        const uploadRes = await fetch(`${HF_SPACE}/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!uploadRes.ok) {
+          setMelodyError("Error subiendo a IA.");
+          setIsLoadingMelody(false);
+          return;
+        }
+        
+        const uploadedFiles = await uploadRes.json();
+        const filePath = uploadedFiles[0]; // Gradio returns array of paths
+
+        // 2d. Llamar al endpoint de predicción de Gradio
+        const predictRes = await fetch(`${HF_SPACE}/api/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            data: [{ path: filePath, orig_name: 'audio.mp3', size: audioBlob.size, mime_type: 'audio/mpeg' }],
+          }),
+        });
+
+        if (!predictRes.ok) {
+          setMelodyError("Error procesando con IA.");
+          setIsLoadingMelody(false);
+          return;
+        }
+
+        const predictData = await predictRes.json();
+        const result = predictData?.data?.[0];
+        
+        if (result && Array.isArray(result.notes)) {
+          setMelodyData(result.notes);
+        } else if (result?.error) {
+          setMelodyError(result.error);
+        } else {
+          setMelodyError("Respuesta inesperada de IA.");
+        }
+      } catch (e) { 
+        console.error("Error en flujo de melodía:", e);
+        setMelodyError("Error de Red."); 
+      } finally { 
+        setIsLoadingMelody(false); 
+      }
     };
     fetchMelodyData();
   }, [videoId]);
