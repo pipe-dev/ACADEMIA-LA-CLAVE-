@@ -270,14 +270,14 @@ export function VocalProvider({ children }: { children: ReactNode }) {
       handleResetRange,
       setShowVocalAssessor
     }}>
-      <div className="flex flex-col min-h-[100dvh] bg-background overflow-y-auto relative pb-[env(safe-area-inset-bottom)]">
+      <div className="flex flex-col min-h-[100dvh] bg-background relative pb-20">
         {/* Main Route Screen Area */}
-        <div className="flex-grow overflow-y-auto relative">
+        <div className="flex-grow overflow-y-auto relative pb-20">
           {children}
         </div>
 
-        {/* Global Bottom Navigation Bar (Sticky Glassmorphic) */}
-        <nav className="sticky bottom-0 shrink-0 bg-card/90 backdrop-blur-md border-t border-border/40 px-6 py-2.5 flex justify-around items-center z-50 shadow-2xl">
+        {/* Global Bottom Navigation Bar (Fixed Glassmorphic) */}
+        <nav className="fixed bottom-0 inset-x-0 bg-card/95 backdrop-blur-lg border-t border-border/40 px-6 py-2.5 flex justify-around items-center z-[100] shadow-2xl">
           <Link
             href="/clases"
             className={cn(
