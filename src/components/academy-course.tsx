@@ -924,11 +924,11 @@ export function AcademyCourse({ onGoBack, notePool, gender, vocalRangeKey }: Aca
   const isIntroductoryClass = selectedLesson && selectedLesson.exercises.length === 0;
 
   return (
-    <div className="flex h-[100dvh] flex-col sm:flex-row bg-background text-foreground overflow-hidden">
+    <div className="flex min-h-[100dvh] pb-24 flex-col sm:flex-row bg-background text-foreground overflow-y-auto">
       
       {/* Sidebar: Lesson List */}
       <div className={cn(
-        "w-full sm:w-80 md:w-96 flex flex-col border-r border-border/40 bg-card/10 shrink-0 h-full overflow-hidden transition-all duration-300",
+        "w-full sm:w-80 md:w-96 flex flex-col border-r border-border/40 bg-card/10 shrink-0 min-h-full overflow-y-auto pb-12 transition-all duration-300",
         selectedLesson && "hidden sm:flex" // Hide list on mobile when playing a class
       )}>
         
@@ -1067,7 +1067,7 @@ export function AcademyCourse({ onGoBack, notePool, gender, vocalRangeKey }: Aca
 
       {/* Main Panel: Video Player & Breathing Widget */}
       <div className={cn(
-        "flex-grow flex flex-col h-full overflow-hidden bg-background relative",
+        "flex-grow flex flex-col min-h-full overflow-y-auto pb-24 bg-background relative",
         !selectedLesson && "hidden sm:flex" // Hide main panel on mobile if no class selected
       )}>
         

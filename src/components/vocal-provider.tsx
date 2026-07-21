@@ -10,7 +10,7 @@ import { UserProfileDialog } from '@/components/user-profile-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Mic, BarChart3, LogOut } from 'lucide-react';
+import { GraduationCap, Mic, Music, BarChart3, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -258,6 +258,7 @@ export function VocalProvider({ children }: { children: ReactNode }) {
 
   const isAcademyActive = pathname === '/' || pathname === '/clases';
   const isTunerActive = pathname === '/afinador';
+  const isPracticaActive = pathname === '/practica';
   const isProgressActive = pathname === '/progreso';
 
   return (
@@ -302,6 +303,19 @@ export function VocalProvider({ children }: { children: ReactNode }) {
           >
             <Mic className="w-5 h-5" />
             <span className="text-[10px] uppercase font-bold tracking-wider">Afinador</span>
+          </Link>
+
+          <Link
+            href="/practica"
+            className={cn(
+              "flex flex-col items-center gap-1.5 py-1 px-3 rounded-2xl transition-all duration-300 outline-none select-none",
+              isPracticaActive 
+                ? "text-primary scale-105 font-black bg-primary/10" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Music className="w-5 h-5" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Práctica</span>
           </Link>
 
           <Link

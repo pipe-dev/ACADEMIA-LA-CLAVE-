@@ -2430,7 +2430,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
   const isPlayingChallenge = (challengeNotes.length > 0 || simonSequence.length > 0 || gameMode === 'rhythm-challenge') && !sessionCompleted;
 
   return (
-    <div className={cn("flex flex-col w-full h-[100dvh] overflow-hidden aurora-bg transition-colors duration-700 relative select-none touch-none theme-transition", auroraClass)}>
+    <div className={cn("flex flex-col w-full min-h-[100dvh] overflow-y-auto pb-24 aurora-bg transition-colors duration-700 relative select-none touch-none theme-transition", auroraClass)}>
       <StreakRewards isOpen={showStreakRewards} onClose={() => setShowStreakRewards(false)} currentStreak={streak} onOpenInventory={() => setShowInventoryDialog(true)} />
       <UserProfileDialog isOpen={showProfileDialog} onClose={() => setShowProfileDialog(false)} />
       <InventoryDialog isOpen={showInventoryDialog} onClose={() => setShowInventoryDialog(false)} />
@@ -2489,7 +2489,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
       </header>
       
       {/* Main Content */}
-      <main className="flex-grow flex flex-col items-center overflow-hidden min-h-0">
+      <main className="flex-grow flex flex-col items-center overflow-y-auto pb-12 min-h-0">
         {freePlayMode ? (
           <div className="flex flex-col w-full h-full items-center justify-center gap-4 p-4">
             <h2 className="text-lg sm:text-xl font-bold text-foreground">Práctica Libre</h2>
