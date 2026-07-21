@@ -57,12 +57,12 @@ export function SyncedLyrics({ lyrics, currentTime }: SyncedLyricsProps) {
             key={idx}
             initial={false}
             animate={{
-              opacity: isActive ? 1 : isPast ? 0.3 : 0.5,
-              scale: isActive ? 1.1 : 1,
+              opacity: isActive ? 1 : 0.3,
+              scale: isActive ? 1.05 : 1,
               color: isActive ? "hsl(var(--primary))" : "hsl(var(--foreground))"
             }}
             transition={{ duration: 0.3 }}
-            className={`text-3xl md:text-5xl font-bold tracking-tight transition-all duration-300 ${isActive ? 'drop-shadow-[0_0_15px_rgba(var(--primary),0.5)]' : ''}`}
+            className={`text-4xl font-black tracking-tight transition-all duration-300 ${isActive ? 'drop-shadow-[0_0_15px_rgba(var(--primary),0.5)]' : ''}`}
           >
             {line.text}
           </motion.div>

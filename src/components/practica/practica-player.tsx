@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import YouTube, { YouTubeEvent, YouTubePlayer } from "react-youtube";
 import { TrackLyrics } from "@/lib/fetch-lyrics";
 import { SyncedLyrics } from "./synced-lyrics";
-import { PitchOverlay } from "./pitch-overlay";
+import { PolygraphCanvas } from "./polygraph-canvas";
+import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { Button } from "@/components/ui/button";
 import { X, Loader2 } from "lucide-react";
 import { PlayerControls } from "./player-controls";
@@ -22,6 +23,17 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   const [currentTime, setCurrentTime] = useState(0);
   const [syncOffset, setSyncOffset] = useState(0); // in seconds
   const [isSyncing, setIsSyncing] = useState(true);
+
+  const { note, smoothedCentsOff, isDetecting, start, stop } = usePitchDetection();
+
+  useEffect(() => {
+    return () => stop();
+  }, [stop]);
+
+  const userPitch = {
+    note: note.name ? `${note.name}${note.octave}` : null,
+    centsOff: smoothedCentsOff,
+  };
 
   // 1. Cargar la Memoria Colectiva (Crowdsourcing)
   useEffect(() => {
@@ -95,14 +107,14 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   };
 
   return (
-    <div className="relative flex flex-col h-full bg-black/95">
+    <div className="relative flex flex-col h-full bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950">
       {/* Top Header */}
-      <div className="absolute top-0 inset-x-0 h-20 bg-gradient-to-b from-black/80 to-transparent z-50 flex items-center justify-between px-6">
+      <div className="absolute top-0 inset-x-0 h-20 bg-gradient-to-b from-black/80 to-transparent z-50 flex items-center justify-between px-6 pointer-events-none">
         <div>
           <h3 className="text-xl font-bold text-white drop-shadow-md">{track.trackName}</h3>
           <p className="text-white/70">{track.artistName}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 rounded-full">
+        <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 rounded-full pointer-events-auto">
           <X className="h-6 w-6" />
         </Button>
       </div>
@@ -126,8 +138,17 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
         />
       </div>
 
-      {/* Main Lyrics Area */}
-      <div className="flex-1 flex flex-col relative z-10 pt-20 pb-24">
+      {/* Top Zone: 40% height */}
+      <div className="h-[40%] relative z-10 pt-20 px-6">
+        <PolygraphCanvas 
+          currentTime={currentTime + syncOffset} 
+          userPitch={userPitch} 
+          mockMelodyData={[]} 
+        />
+      </div>
+
+      {/* Middle Zone: 40% height */}
+      <div className="h-[40%] relative z-10 flex flex-col">
         {!isReady || isSyncing ? (
           <div className="flex-1 flex flex-col items-center justify-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -138,17 +159,16 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
         )}
       </div>
 
-      {/* Live Pitch Overlay */}
-      <PitchOverlay />
-
-      {/* Bottom Controls */}
-      <PlayerControls
-        isPlaying={isPlaying}
-        isReady={isReady}
-        syncOffset={syncOffset}
-        onTogglePlay={togglePlay}
-        onAdjustOffset={adjustOffset}
-      />
+      {/* Bottom Zone: 20% height */}
+      <div className="h-[20%] relative z-10">
+        <PlayerControls
+          isPlaying={isPlaying}
+          isReady={isReady}
+          syncOffset={syncOffset}
+          onTogglePlay={togglePlay}
+          onAdjustOffset={adjustOffset}
+        />
+      </div>
     </div>
   );
 }
