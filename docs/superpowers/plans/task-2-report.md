@@ -19,3 +19,10 @@ DONE
 ## Concerns / Notes
 - The vertical mapping of notes is currently basic (all centered except user pitch offset). If the melody notes need accurate musical pitches rendered vertically in a future version, we would need to map the note names (e.g. C4, D4) to Y offsets to match the grid. For now, it provides a solid foundation for horizontal scrolling and visual feedback based on the task description constraints.
 - Pitch offset rendering sets `yOffset = -userPitch.centsOff` (negative offsets map downward and positive upward, so negative cents map to positive Y space relative to canvas top).
+
+## Fix Report
+- Replaced `canvas.getBoundingClientRect()` inside the render loop with a `ResizeObserver` setup in the `useEffect`.
+- Removed `[currentTime, userPitch, mockMelodyData]` from the loop `useEffect` dependency array. We now store these props in a `propsRef` (using a separate `useEffect`) and read them from the ref during the render loop.
+- Capped `requestAnimationFrame` to exactly 30 fps by tracking `elapsed` time and only rendering when `>= 33.3ms` has passed since the last render.
+- Rebuilt with `npx tsc --noEmit` to verify type safety.
+- Committed changes as `9f7ad62`.

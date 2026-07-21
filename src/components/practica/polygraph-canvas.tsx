@@ -97,14 +97,10 @@ export function PolygraphCanvas({
         ctx.arc(centerX, userY, 6, 0, 2 * Math.PI);
         if (userPitch.centsOff >= -20 && userPitch.centsOff <= 20) {
           ctx.fillStyle = '#22c55e'; // green-500
-          ctx.shadowColor = '#22c55e';
         } else {
           ctx.fillStyle = '#ef4444'; // red-500
-          ctx.shadowColor = '#ef4444';
         }
-        ctx.shadowBlur = 10;
         ctx.fill();
-        ctx.shadowBlur = 0;
       }
     };
 
