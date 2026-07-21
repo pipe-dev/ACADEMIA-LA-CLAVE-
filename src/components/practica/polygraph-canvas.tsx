@@ -16,6 +16,7 @@ interface PolygraphCanvasProps {
   userPitch: UserPitch;
   mockMelodyData?: NoteData[];
   isDetecting?: boolean;
+  onScore?: (points: number) => void;
 }
 
 export function PolygraphCanvas({
@@ -23,13 +24,17 @@ export function PolygraphCanvas({
   userPitch,
   mockMelodyData = [],
   isDetecting,
+  onScore,
 }: PolygraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const propsRef = useRef({ currentTime, userPitch, mockMelodyData, isDetecting });
+  const propsRef = useRef({ currentTime, userPitch, mockMelodyData, isDetecting, onScore });
+  const floatingTextsRef = useRef<{ id: number; x: number; y: number; text: string; color: string; createdAt: number }[]>([]);
+  const lastScoreTimeRef = useRef<number>(0);
+  const textIdCounter = useRef(0);
 
   useEffect(() => {
-    propsRef.current = { currentTime, userPitch, mockMelodyData, isDetecting };
-  }, [currentTime, userPitch, mockMelodyData, isDetecting]);
+    propsRef.current = { currentTime, userPitch, mockMelodyData, isDetecting, onScore };
+  }, [currentTime, userPitch, mockMelodyData, isDetecting, onScore]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,7 +108,7 @@ export function PolygraphCanvas({
       let userY = 0;
       let arcRadius = 0;
 
-      const { currentTime, userPitch, mockMelodyData } = propsRef.current;
+      const { currentTime, userPitch, mockMelodyData, onScore } = propsRef.current;
       scaledPixelsPerSecond = 100 * dpr;
       scaledNoteHeight = (20 * dpr) | 0;
       scaledHalfNoteHeight = (10 * dpr) | 0;
@@ -150,6 +155,55 @@ export function PolygraphCanvas({
         ctx.arc(centerX, userY, arcRadius, 0, PI2);
         ctx.fillStyle = `rgb(${color})`;
         ctx.fill();
+
+        // Collision detection and scoring
+        const currentNote = mockMelodyData.find(n => currentTime >= n.start && currentTime <= n.end);
+        if (currentNote && Math.abs(userPitch.centsOff) <= 50) {
+          const now = performance.now();
+          if (now - lastScoreTimeRef.current > 200) {
+            lastScoreTimeRef.current = now;
+            const points = 10;
+            if (onScore) {
+              onScore(points);
+            }
+            
+            const isPerfect = Math.abs(userPitch.centsOff) <= 20;
+            floatingTextsRef.current.push({
+              id: textIdCounter.current++,
+              x: centerX + (Math.random() * 40 - 20) * dpr,
+              y: userY - (20 * dpr),
+              text: isPerfect ? "¡Perfecto!" : `+${points}`,
+              color: isPerfect ? "34, 197, 94" : "56, 189, 248",
+              createdAt: now
+            });
+          }
+        }
+      }
+
+      // Draw floating texts
+      const currentPerfTime = performance.now();
+      for (let j = floatingTextsRef.current.length - 1; j >= 0; j--) {
+        const ft = floatingTextsRef.current[j];
+        const age = currentPerfTime - ft.createdAt;
+        if (age > 1000) {
+          floatingTextsRef.current.splice(j, 1);
+          continue;
+        }
+        
+        const alpha = 1 - (age / 1000);
+        const currentY = ft.y - (age / 1000) * (50 * dpr);
+        
+        ctx.save();
+        ctx.font = `bold ${18 * dpr}px sans-serif`;
+        ctx.textAlign = 'center';
+        
+        ctx.strokeStyle = `rgba(0, 0, 0, ${alpha * 0.8})`;
+        ctx.lineWidth = 3 * dpr;
+        ctx.strokeText(ft.text, ft.x, currentY);
+        
+        ctx.fillStyle = `rgba(${ft.color}, ${alpha})`;
+        ctx.fillText(ft.text, ft.x, currentY);
+        ctx.restore();
       }
     };
 

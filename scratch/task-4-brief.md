@@ -1,3 +1,18 @@
+### Task 4: Integrate Hook into `practica-player.tsx`
+
+**Files:**
+- Modify: `src/components/practica/practica-player.tsx:1-200`
+
+**Interfaces:**
+- Consumes: `useVocalRemover`, Updated `PlayerControls`
+- Produces: Playable component with volume control
+
+**Global Constraints & Design Philosophy:**
+- *CRITICAL:* The code must be incredibly lightweight and optimized for 2016-2017 hardware (Nintendo 64 / Rareware philosophy). No unnecessary re-renders, strict memory management, and efficient use of Web Audio API hardware acceleration.
+
+- [ ] **Step 1: Write minimal implementation**
+
+```tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -23,8 +38,6 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   const [isSyncing, setIsSyncing] = useState(true);
   const [vocalVolume, setVocalVolume] = useState(1.0);
   const [audioStarted, setAudioStarted] = useState(false);
-  const [score, setScore] = useState(0);
-  const [isFinished, setIsFinished] = useState(false);
   
   const [melodyData, setMelodyData] = useState<any[]>([]);
   const [isLoadingMelody, setIsLoadingMelody] = useState(true);
@@ -106,10 +119,6 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
   const isPlaying = audioStarted ? audioIsPlaying : (player?.getPlayerState() === 1);
   const currentTime = audioStarted && !audioError ? audioTime : (player ? player.getCurrentTime() : 0);
 
-  const handleScore = (points: number) => {
-    setScore(s => s + points);
-  };
-
   return (
     <div className="relative flex flex-col h-full bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950">
       <div className="absolute top-0 inset-x-0 h-20 bg-gradient-to-b from-black/80 to-transparent z-50 flex items-center justify-between px-6 pointer-events-none">
@@ -117,22 +126,15 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
           <h3 className="text-xl font-bold text-white drop-shadow-md">{track.trackName}</h3>
           <p className="text-white/70">{track.artistName}</p>
         </div>
-        <div className="flex items-center gap-6 pointer-events-auto">
-          <div className="text-right">
-            <p className="text-sm font-semibold text-white/70 uppercase tracking-widest">Score</p>
-            <p className="text-3xl font-black text-emerald-400 drop-shadow-lg">{score.toLocaleString()}</p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 rounded-full">
-            <X className="h-6 w-6" />
-          </Button>
-        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20 rounded-full pointer-events-auto">
+          <X className="h-6 w-6" />
+        </Button>
       </div>
 
       <div className="absolute top-0 right-0 opacity-0 pointer-events-none w-1 h-1 overflow-hidden z-0">
         <YouTube
           videoId={videoId}
-          onReady={(e: any) => { setPlayer(e.target); e.target.mute(); }} // Muted Fallback/Timer
-          onEnd={() => setIsFinished(true)}
+          onReady={(e) => { setPlayer(e.target); e.target.mute(); }} // Muted Fallback/Timer
           opts={{ playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1 } }}
         />
       </div>
@@ -143,7 +145,6 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
           userPitch={{ note: note.name ? `${note.name}${note.octave}` : null, centsOff: smoothedCentsOff }} 
           mockMelodyData={melodyData} 
           isDetecting={isDetecting}
-          onScore={handleScore}
         />
       </div>
 
@@ -161,18 +162,8 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-muted-foreground animate-pulse text-center">Cargando...</p>
           </div>
-        ) : track.parsedLyrics && track.parsedLyrics.length > 0 ? (
-          <SyncedLyrics lyrics={track.parsedLyrics} currentTime={currentTime + syncOffset} />
-        ) : track.plainLyrics ? (
-          <div className="flex-1 overflow-y-auto px-8 pb-32 pt-8 text-center flex flex-col items-center mask-image-fade" style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)' }}>
-            <p className="text-xl leading-[2.5] text-white/80 whitespace-pre-wrap font-medium max-w-2xl text-center">
-              {track.plainLyrics}
-            </p>
-          </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-white/50 text-lg">Letra no disponible</p>
-          </div>
+          <SyncedLyrics track={track} currentTime={currentTime + syncOffset} />
         )}
       </div>
 
@@ -185,21 +176,14 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
         onAdjustOffset={adjustOffset}
         onVolumeChange={handleVolumeChange}
       />
-
-      {isFinished && (
-        <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-emerald-900 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl flex flex-col items-center">
-            <h2 className="text-3xl font-black text-white mb-2">¡Completado!</h2>
-            <p className="text-slate-400 mb-6">Esta es tu puntuación final</p>
-            <div className="text-7xl font-black text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)] mb-8">
-              {score.toLocaleString()}
-            </div>
-            <Button size="lg" onClick={onClose} className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-full font-bold">
-              Volver al inicio
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/components/practica/practica-player.tsx
+git commit -m "feat(player): integrate Web Audio vocal remover and fallback"
+```
