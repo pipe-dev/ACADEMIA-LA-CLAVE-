@@ -1,4 +1,4 @@
 demucs
-basic-pitch==0.3.0
+basic-pitch
 librosa==0.10.1
 tensorflow

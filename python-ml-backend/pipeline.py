@@ -3,7 +3,11 @@ import subprocess
 import tempfile
 import shutil
 from basic_pitch.inference import predict
-from basic_pitch import ICASSP_2022_MODEL_PATH
+
+try:
+    from basic_pitch import ICASSP_2022_MODEL_PATH
+except ImportError:
+    ICASSP_2022_MODEL_PATH = None  # Newer versions don't need explicit model path
 
 
 def process_audio_file(audio_file_path: str):
@@ -43,9 +47,12 @@ def process_audio_file(audio_file_path: str):
             raise Exception("Demucs no pudo separar las voces.")
 
         # 3. Extraer pitch con basic-pitch
+        predict_args = [vocals_path]
+        if ICASSP_2022_MODEL_PATH is not None:
+            predict_args.append(ICASSP_2022_MODEL_PATH)
+        
         model_output, midi_data, note_events = predict(
-            vocals_path,
-            ICASSP_2022_MODEL_PATH,
+            *predict_args,
             onset_threshold=0.5,
             frame_threshold=0.3,
             minimum_note_length=100,
