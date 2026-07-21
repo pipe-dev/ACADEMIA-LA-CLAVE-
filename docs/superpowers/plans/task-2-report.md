@@ -26,3 +26,6 @@ DONE
 - Capped `requestAnimationFrame` to exactly 30 fps by tracking `elapsed` time and only rendering when `>= 33.3ms` has passed since the last render.
 - Rebuilt with `npx tsc --noEmit` to verify type safety.
 - Committed changes as `9f7ad62`.
+- **Low-end Device Optimization**: Removed `shadowBlur` and `shadowColor` properties from the canvas drawing logic to avoid heavy composite operations and prevent frame drops on older hardware. Committed as `6e0ed68`.
+- **2017 Compatibility & Extreme Performance Optimization**: Replaced `ctx.roundRect` with `ctx.fillRect()` and added a fallback for `ResizeObserver` using `window.addEventListener('resize')`. Applied `window.devicePixelRatio` scaling. Implemented classic 64-bit console performance optimizations: replaced floating point math with integer math (bitwise `| 0`), completely removed object allocations in the render loop by caching primitive variables, and removed `ctx.scale` in favor of manual scaled integer math. Committed as `cbe3b6eafbac3a871dc81d044f6be91b92b549c9`.
+- **Reviewer Fixes**: Reimplemented the glow effect using performant overlapping semi-transparent circles instead of `shadowBlur`. Fixed `ResizeObserver` layout thrashing by reading `entries[0].contentRect`. Un-hoisted primitive variables back into the `render` function loop, since V8 does not heap-allocate local primitives.

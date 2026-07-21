@@ -10,8 +10,8 @@
 
 ## Global Constraints
 - Use Tailwind CSS for styling.
-- Canvas must requestAnimationFrame for smooth 60fps scrolling, not setInterval.
-- The UI must look premium and dark-themed.
+- Optimize for 2016-2017 hardware (e.g. Redmi) by using web performance best practices: use hardware-accelerated animations (`transform`, `opacity`), avoid animating layout/paint properties, and maintain a 30fps cap for canvas loops.
+- The UI MUST be highly beautified, premium, and dynamic, achieving this through performant techniques (CSS variables, solid color harmonies, pre-rendered assets) rather than expensive runtime filters like `backdrop-blur`.
 
 ---
 

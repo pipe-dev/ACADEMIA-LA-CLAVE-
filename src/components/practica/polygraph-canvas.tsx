@@ -43,11 +43,16 @@ export function PolygraphCanvas({
     let centerX = 0;
     let centerY = 0;
 
-    const onResize = () => {
+    const onResize = (rect?: DOMRectReadOnly | Event) => {
       dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      canvasWidth = (rect.width * dpr) | 0;
-      canvasHeight = (rect.height * dpr) | 0;
+      let targetRect: DOMRect | DOMRectReadOnly;
+      if (!rect || rect instanceof Event) {
+        targetRect = canvas.getBoundingClientRect();
+      } else {
+        targetRect = rect;
+      }
+      canvasWidth = (targetRect.width * dpr) | 0;
+      canvasHeight = (targetRect.height * dpr) | 0;
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
       centerX = (canvasWidth / 2) | 0;
@@ -55,8 +60,8 @@ export function PolygraphCanvas({
     };
 
     if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => {
-        onResize();
+      resizeObserver = new ResizeObserver((entries) => {
+        onResize(entries[0].contentRect);
       });
       resizeObserver.observe(canvas);
     } else {
@@ -69,22 +74,6 @@ export function PolygraphCanvas({
     const fpsInterval = 1000 / 30; // 33.33ms
     const PI2 = 2 * Math.PI;
 
-    // Pre-allocate variables outside loop to avoid GC
-    let i = 0;
-    let len = 0;
-    let noteStart = 0;
-    let noteEnd = 0;
-    let startX = 0;
-    let endX = 0;
-    let noteWidth = 0;
-    let scaledPixelsPerSecond = 0;
-    let scaledNoteHeight = 0;
-    let scaledHalfNoteHeight = 0;
-    let noteY = 0;
-    let yOffset = 0;
-    let userY = 0;
-    let arcRadius = 0;
-    
     const render = (time: number) => {
       animationFrameId = requestAnimationFrame(render);
       
@@ -96,6 +85,21 @@ export function PolygraphCanvas({
 
       // Clear canvas
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      let i = 0;
+      let len = 0;
+      let noteStart = 0;
+      let noteEnd = 0;
+      let startX = 0;
+      let endX = 0;
+      let noteWidth = 0;
+      let scaledPixelsPerSecond = 0;
+      let scaledNoteHeight = 0;
+      let scaledHalfNoteHeight = 0;
+      let noteY = 0;
+      let yOffset = 0;
+      let userY = 0;
+      let arcRadius = 0;
 
       const { currentTime, userPitch, mockMelodyData } = propsRef.current;
       scaledPixelsPerSecond = 100 * dpr;
@@ -130,12 +134,19 @@ export function PolygraphCanvas({
         arcRadius = (6 * dpr) | 0;
 
         ctx.beginPath();
+        ctx.arc(centerX, userY, arcRadius * 2.5, 0, PI2);
+        const color = (userPitch.centsOff >= -20 && userPitch.centsOff <= 20) ? '34, 197, 94' : '239, 68, 68';
+        ctx.fillStyle = `rgba(${color}, 0.2)`;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(centerX, userY, arcRadius * 1.5, 0, PI2);
+        ctx.fillStyle = `rgba(${color}, 0.4)`;
+        ctx.fill();
+
+        ctx.beginPath();
         ctx.arc(centerX, userY, arcRadius, 0, PI2);
-        if (userPitch.centsOff >= -20 && userPitch.centsOff <= 20) {
-          ctx.fillStyle = '#22c55e';
-        } else {
-          ctx.fillStyle = '#ef4444';
-        }
+        ctx.fillStyle = `rgb(${color})`;
         ctx.fill();
       }
     };
