@@ -17,7 +17,18 @@ export interface TrackLyrics {
 
 export async function fetchLyrics(query: string): Promise<TrackLyrics | null> {
   try {
-    const response = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`);
+    const cacheKey = `lyrics_cache_${query}`;
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+           return JSON.parse(cached);
+        } catch(e) {}
+      }
+    }
+
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const response = await fetch(`${baseUrl}/api/lyrics?q=${encodeURIComponent(query)}`);
     if (!response.ok) return null;
 
     const data = await response.json();
@@ -28,10 +39,16 @@ export async function fetchLyrics(query: string): Promise<TrackLyrics | null> {
 
     const parsedLyrics = bestMatch.syncedLyrics ? parseSyncedLyrics(bestMatch.syncedLyrics) : [];
 
-    return {
+    const result = {
       ...bestMatch,
       parsedLyrics,
     };
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(cacheKey, JSON.stringify(result));
+    }
+
+    return result;
   } catch (error) {
     console.error("Error fetching lyrics:", error);
     return null;

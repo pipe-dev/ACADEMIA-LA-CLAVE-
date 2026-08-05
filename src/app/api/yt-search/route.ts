@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'edge';
+// Bypass local SSL issues on some Windows machines/antiviruses
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,7 +12,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    const finalQuery = query.toLowerCase().includes("letra") || query.toLowerCase().includes("lyrics") || query.toLowerCase().includes("audio") ? query : `${query} letra`;
+    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(finalQuery)}`;
     
     const response = await fetch(searchUrl, {
       headers: {

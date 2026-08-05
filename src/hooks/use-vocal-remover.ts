@@ -5,6 +5,7 @@ export function useVocalRemover(videoId: string) {
   const [isReady, setIsReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isFinished, setIsFinished] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -13,26 +14,7 @@ export function useVocalRemover(videoId: string) {
 
   const initAudio = async () => {
     try {
-      const instances = ["https://yewtu.be", "https://vid.puffyan.us", "https://invidious.flokinet.to"];
-      let audioUrl = null;
-      
-      for (const instance of instances) {
-        try {
-          const res = await fetch(`${instance}/api/v1/videos/${videoId}`);
-          if (res.ok) {
-            const data = await res.json();
-            const formats = data.adaptiveFormats || [];
-            const audioFormats = formats.filter((f: any) => f.type?.startsWith('audio/'));
-            if (audioFormats.length > 0) {
-              audioFormats.sort((a: any, b: any) => parseInt(b.bitrate || '0') - parseInt(a.bitrate || '0'));
-              audioUrl = audioFormats[0].url;
-              break;
-            }
-          }
-        } catch (e) { continue; }
-      }
-
-      if (!audioUrl) throw new Error("Could not fetch audio from proxies");
+      const audioUrl = `/api/yt-audio?videoId=${videoId}`;
 
       const audio = new Audio();
       audio.crossOrigin = "anonymous";
@@ -80,6 +62,10 @@ export function useVocalRemover(videoId: string) {
       audio.addEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
       audio.addEventListener('play', () => setIsPlaying(true));
       audio.addEventListener('pause', () => setIsPlaying(false));
+      audio.addEventListener('ended', () => { setIsPlaying(false); setIsFinished(true); });
+      audio.addEventListener('error', (e) => {
+        setError('Error al cargar la pista de audio. Es posible que el servidor proxy de YouTube esté temporalmente bloqueado.');
+      });
       
       audio.load();
     } catch (e) {
@@ -117,5 +103,5 @@ export function useVocalRemover(videoId: string) {
     };
   }, []);
 
-  return { initAudio, togglePlay, setVocalVolume, isPlaying, isReady, currentTime, error, setTime };
+  return { initAudio, togglePlay, setVocalVolume, isPlaying, isReady, currentTime, error, setTime, isFinished };
 }

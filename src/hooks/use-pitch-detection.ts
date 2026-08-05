@@ -42,6 +42,8 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   }
   rms = Math.sqrt(rms / SIZE);
 
+  // Ignorar ruido de fondo (Silence threshold)
+  // Bajar un poco el umbral para detectar susurros o voces suaves
   if (rms < 0.01) {
     return -1;
   }
@@ -50,18 +52,38 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   const minLag = Math.floor(sampleRate / 1000); // ~44 samples at 44.1kHz
   const maxLag = Math.min(SIZE - 2, Math.ceil(sampleRate / 60)); // ~735 samples at 44.1kHz
 
-  let bestLag = -1;
   let maxval = -1;
+  let maxLagIndex = -1;
+  
+  // Guardar los resultados para buscar picos locales
+  const c = new Float32Array(maxLag + 1);
 
   for (let lag = minLag; lag <= maxLag; lag++) {
     let sum = 0;
     for (let j = 0; j < SIZE - lag; j++) {
       sum += buf[j] * buf[j + lag];
     }
+    c[lag] = sum;
     if (sum > maxval) {
       maxval = sum;
-      bestLag = lag;
+      maxLagIndex = lag;
     }
+  }
+
+  // Truco heurístico: en vez del máximo absoluto, buscar el PRIMER pico local
+  // que sea lo suficientemente fuerte (> 90% del máximo).
+  // Esto elimina el "octave error" (detectar un armónico en vez de la voz real).
+  let bestLag = -1;
+  const threshold = maxval * 0.9;
+  for (let lag = minLag + 1; lag < maxLag; lag++) {
+    if (c[lag] > threshold && c[lag] > c[lag - 1] && c[lag] > c[lag + 1]) {
+      bestLag = lag;
+      break;
+    }
+  }
+
+  if (bestLag === -1) {
+    bestLag = maxLagIndex;
   }
 
   if (bestLag === -1 || bestLag <= minLag || bestLag >= maxLag) {
@@ -69,15 +91,18 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   }
 
   // Parabolic interpolation for fine frequency resolution
-  const x1 = buf[bestLag - 1];
-  const x2 = buf[bestLag];
-  const x3 = buf[bestLag + 1];
+  const x1 = c[bestLag - 1];
+  const x2 = c[bestLag];
+  const x3 = c[bestLag + 1];
   const a = (x1 + x3 - 2 * x2) / 2;
   const b = (x3 - x1) / 2;
   
   let T0 = bestLag;
   if (a !== 0) {
-    T0 = T0 - b / (2 * a);
+    const shift = -b / (2 * a);
+    if (shift >= -1 && shift <= 1) {
+      T0 = T0 + shift;
+    }
   }
 
   if (T0 === 0) return -1;
@@ -95,6 +120,11 @@ export const usePitchDetection = () => {
 
   const smoothedCentsRef = useRef(0);
   const [smoothedCentsOff, setSmoothedCentsOff] = useState(0);
+
+  // Grabación de Voz Local (RAM)
+  const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -130,6 +160,31 @@ export const usePitchDetection = () => {
 
         source.connect(lowpassFilter).connect(analyserRef.current);
         
+        // Setup MediaRecorder for RAM Audio Recording
+        if (audioBlobUrl) {
+          URL.revokeObjectURL(audioBlobUrl);
+          setAudioBlobUrl(null);
+        }
+        audioChunksRef.current = [];
+        const mediaRecorder = new MediaRecorder(stream, {
+           mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+        });
+        
+        mediaRecorder.ondataavailable = (e) => {
+           if (e.data.size > 0) {
+              audioChunksRef.current.push(e.data);
+           }
+        };
+        
+        mediaRecorder.onstop = () => {
+           const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+           const url = URL.createObjectURL(blob);
+           setAudioBlobUrl(url);
+        };
+        
+        mediaRecorder.start(1000); // chunk every 1 second
+        mediaRecorderRef.current = mediaRecorder;
+        
         isSilent.current = true;
         smoothedCentsRef.current = 0;
         lastStateUpdateTime.current = 0;
@@ -156,6 +211,12 @@ export const usePitchDetection = () => {
         cancelAnimationFrame(animationFrameId.current);
         animationFrameId.current = null;
     }
+    
+    // Stop MediaRecorder first so onstop fires and builds the Blob
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+    }
+    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -164,6 +225,7 @@ export const usePitchDetection = () => {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    
     setIsDetecting(false);
     setFrequency(0);
     setNote(EMPTY_NOTE);
@@ -172,6 +234,14 @@ export const usePitchDetection = () => {
     setRms(0);
     smoothedCentsRef.current = 0;
   }, []);
+  
+  const clearAudio = useCallback(() => {
+     if (audioBlobUrl) {
+         URL.revokeObjectURL(audioBlobUrl);
+         setAudioBlobUrl(null);
+         audioChunksRef.current = [];
+     }
+  }, [audioBlobUrl]);
 
   const updatePitch = useCallback((timestamp: number) => {
     if (!analyserRef.current || !audioContextRef.current) {
@@ -246,10 +316,16 @@ export const usePitchDetection = () => {
             cancelAnimationFrame(animationFrameId.current);
             animationFrameId.current = null;
         }
-        stop();
     }
-  }, [isDetecting, updatePitch, stop]);
+  }, [isDetecting, updatePitch]);
+
+  // Clean up mic only on unmount
+  useEffect(() => {
+    return () => {
+      stop();
+    };
+  }, [stop]);
 
 
-  return { note, frequency, centsOff, smoothedCentsOff, isDetecting, rms, start, stop };
+  return { note, frequency, centsOff, smoothedCentsOff, isDetecting, rms, start, stop, audioBlobUrl, clearAudio };
 };

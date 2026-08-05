@@ -10,7 +10,7 @@ import { UserProfileDialog } from '@/components/user-profile-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Mic, Music, BarChart3, LogOut } from 'lucide-react';
+import { GraduationCap, Mic, BarChart3, LogOut, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -36,6 +36,8 @@ interface VocalContextType {
   setupStep: 'range' | 'profile' | 'ready';
   handleResetRange: () => void;
   setShowVocalAssessor: (val: boolean) => void;
+  isNavbarHidden: boolean;
+  setIsNavbarHidden: (val: boolean) => void;
 }
 
 const VocalContext = createContext<VocalContextType | undefined>(undefined);
@@ -57,6 +59,7 @@ export function VocalProvider({ children }: { children: ReactNode }) {
   
   const [pitchPreference, setPitchPreference] = useState<'grave' | 'medio' | 'agudo' | null>(null);
   const [gender, setGender] = useState<'masculino' | 'femenino' | null>(null);
+  const [isNavbarHidden, setIsNavbarHidden] = useState(false);
   
   const [notePool, setNotePool] = useState<NoteInfo[] | null>(null);
   const [vocalRangeKey, setVocalRangeKey] = useState<string>('');
@@ -269,16 +272,22 @@ export function VocalProvider({ children }: { children: ReactNode }) {
       vocalRangeKey,
       setupStep,
       handleResetRange,
-      setShowVocalAssessor
+      setShowVocalAssessor,
+      isNavbarHidden,
+      setIsNavbarHidden
     }}>
-      <div className="flex flex-col min-h-[100dvh] bg-background relative pb-20">
+      <div className="flex flex-col h-[100dvh] bg-background relative overflow-hidden">
         {/* Main Route Screen Area */}
-        <div className="flex-grow overflow-y-auto relative pb-20">
+        <div className={cn(
+          "flex-1 flex flex-col relative overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+          !isNavbarHidden && "pb-[calc(72px+env(safe-area-inset-bottom))]"
+        )}>
           {children}
         </div>
 
         {/* Global Bottom Navigation Bar (Fixed Glassmorphic) */}
-        <nav className="fixed bottom-0 inset-x-0 bg-card/95 backdrop-blur-lg border-t border-border/40 px-6 py-2.5 flex justify-around items-center z-[100] shadow-2xl">
+        {!isNavbarHidden && (
+          <nav className="fixed bottom-0 inset-x-0 bg-card/95 backdrop-blur-lg border-t border-border/40 px-6 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] flex justify-around items-center z-[100] shadow-2xl">
           <Link
             href="/clases"
             className={cn(
@@ -339,6 +348,7 @@ export function VocalProvider({ children }: { children: ReactNode }) {
             <span className="text-[10px] uppercase font-bold tracking-wider">Salir</span>
           </button>
         </nav>
+        )}
       </div>
     </VocalContext.Provider>
   );

@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useStreak } from '@/hooks/use-streak';
-import { getVocalHistory, dbLoad, type VocalRecord } from '@/lib/db';
+import { getVocalHistory, getKaraokeHistory, dbLoad, type VocalRecord, type KaraokeScore } from '@/lib/db';
 import { PushReminderCard } from '@/components/push-reminder-card';
 import { lessons } from '@/lib/course-data';
 
@@ -136,9 +136,11 @@ export function ProgressDashboard({ vocalRangeKey, onClose }: { vocalRangeKey: s
 
   const streak = useStreak();
   const [vocalHistory, setVocalHistory] = useState<VocalRecord[]>([]);
+  const [karaokeHistory, setKaraokeHistory] = useState<KaraokeScore[]>([]);
 
   useEffect(() => {
     getVocalHistory().then(records => setVocalHistory(records.sort((a,b) => a.date - b.date))).catch(console.error);
+    getKaraokeHistory().then(records => setKaraokeHistory(records.sort((a,b) => b.date - a.date))).catch(console.error);
   }, []);
 
   const handleShare = async () => {
@@ -173,7 +175,7 @@ export function ProgressDashboard({ vocalRangeKey, onClose }: { vocalRangeKey: s
   ];
 
   return (
-    <div className="flex flex-col w-full max-w-md mx-auto h-full h-[100dvh] overflow-y-auto">
+    <div className="flex flex-col w-full max-w-md mx-auto flex-1 pb-4">
       {/* Header */}
       <header className="flex-shrink-0 p-3 sm:p-4 sticky top-0 bg-background/80 backdrop-blur-md z-10">
         <div className="flex items-center">
@@ -304,6 +306,38 @@ export function ProgressDashboard({ vocalRangeKey, onClose }: { vocalRangeKey: s
 
         {/* Push Reminder */}
         <PushReminderCard />
+
+        {/* Karaoke History */}
+        {karaokeHistory.length > 0 && (
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <h2 className="font-black text-base sm:text-lg flex items-center gap-2">
+                <Mic className="w-5 h-5 text-indigo-500" /> Historial de Escenario
+              </h2>
+              <span className="text-xs sm:text-sm text-muted-foreground font-bold">{karaokeHistory.length} canciones</span>
+            </div>
+            
+            <div className="space-y-2">
+              {karaokeHistory.slice(0, 5).map((rec, idx) => {
+                const dateStr = new Date(rec.date).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+                return (
+                  <Card key={rec.id || idx} className="overflow-hidden bg-gradient-to-r from-slate-900 to-slate-800 border border-indigo-900/50">
+                    <CardContent className="p-3 sm:p-4 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-foreground text-sm line-clamp-1">{rec.trackName}</span>
+                        <span className="text-xs text-muted-foreground line-clamp-1">{rec.artistName} • {dateStr}</span>
+                      </div>
+                      <div className="flex flex-col items-end shrink-0 ml-3">
+                        <span className="font-black text-indigo-400 text-base">{rec.score.toLocaleString()}</span>
+                        <MiniStars count={rec.stars} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Vocal History Timeline */}
         {vocalHistory.length > 0 && (

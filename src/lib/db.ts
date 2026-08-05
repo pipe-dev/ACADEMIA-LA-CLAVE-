@@ -3,6 +3,7 @@ export const DB_VERSION = 2;
 
 const STORES = {
   VOCAL_HISTORY: 'vocal_history',
+  KARAOKE_HISTORY: 'karaoke_history',
   KEY_VALUE: 'key_value',
 } as const;
 
@@ -15,6 +16,16 @@ export interface VocalRecord {
   highestName: string;
   passaggi: number[];
   coloratura: string | null;
+}
+
+export interface KaraokeScore {
+  id?: number;
+  videoId: string;
+  trackName: string;
+  artistName: string;
+  score: number;
+  stars: number;
+  date: number;
 }
 
 // ─── Core IndexedDB ───
@@ -32,6 +43,9 @@ export const initDB = (): Promise<IDBDatabase> => {
       const db = (e.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORES.VOCAL_HISTORY)) {
         db.createObjectStore(STORES.VOCAL_HISTORY, { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains(STORES.KARAOKE_HISTORY)) {
+        db.createObjectStore(STORES.KARAOKE_HISTORY, { keyPath: 'id', autoIncrement: true });
       }
       if (!db.objectStoreNames.contains(STORES.KEY_VALUE)) {
         db.createObjectStore(STORES.KEY_VALUE, { keyPath: 'key' });
@@ -100,6 +114,34 @@ export const getVocalHistory = async (): Promise<VocalRecord[]> => {
     return await new Promise<VocalRecord[]>((resolve, reject) => {
       const tx = db.transaction(STORES.VOCAL_HISTORY, 'readonly');
       const store = tx.objectStore(STORES.VOCAL_HISTORY);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return [];
+  }
+};
+
+// ─── Karaoke History (auto-increment store) ───
+
+export const saveKaraokeScore = async (score: KaraokeScore): Promise<number> => {
+  const db = await initDB();
+  return new Promise<number>((resolve, reject) => {
+    const tx = db.transaction(STORES.KARAOKE_HISTORY, 'readwrite');
+    const store = tx.objectStore(STORES.KARAOKE_HISTORY);
+    const request = store.put(score);
+    request.onsuccess = () => resolve(request.result as number);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const getKaraokeHistory = async (): Promise<KaraokeScore[]> => {
+  try {
+    const db = await initDB();
+    return await new Promise<KaraokeScore[]>((resolve, reject) => {
+      const tx = db.transaction(STORES.KARAOKE_HISTORY, 'readonly');
+      const store = tx.objectStore(STORES.KARAOKE_HISTORY);
       const request = store.getAll();
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);

@@ -21,7 +21,7 @@ export function PitchOverlay() {
           variant="ghost" 
           size="icon"
           onClick={() => isDetecting ? stop() : start()}
-          className={`rounded-full transition-colors ${isDetecting ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+          className={`rounded-full transition-colors ${isDetecting ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/50'}`}
         >
           {isDetecting ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
         </Button>

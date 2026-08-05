@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PracticaSearch } from "@/components/practica/practica-search";
 import { PracticaPlayer } from "@/components/practica/practica-player";
 import { TrackLyrics, fetchLyrics } from "@/lib/fetch-lyrics";
+import { useVocalContext } from "@/components/vocal-provider";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
 export default function PracticaPage() {
   const [selectedTrack, setSelectedTrack] = useState<{track: TrackLyrics, videoId: string} | null>(null);
   const [isFetchingLyrics, setIsFetchingLyrics] = useState(false);
+  const { setIsNavbarHidden } = useVocalContext();
+
+  useEffect(() => {
+    setIsNavbarHidden(selectedTrack !== null);
+    return () => setIsNavbarHidden(false);
+  }, [selectedTrack, setIsNavbarHidden]);
 
   const handleTrackSelected = async (title: string, videoId: string) => {
     setIsFetchingLyrics(true);
@@ -33,7 +40,7 @@ export default function PracticaPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col relative overflow-y-auto">
+    <div className="flex-1 bg-background flex flex-col relative">
       <AnimatePresence mode="wait">
         {isFetchingLyrics ? (
           <motion.div
@@ -52,7 +59,7 @@ export default function PracticaPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20, filter: "blur(10px)" }}
-            className="flex-1 flex flex-col overflow-y-auto"
+            className="flex-1 flex flex-col"
           >
             <PracticaSearch 
               onTrackSelected={handleTrackSelected} 
@@ -63,7 +70,7 @@ export default function PracticaPage() {
             key="player"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex-1 flex flex-col min-h-[550px] overflow-y-auto"
+            className="flex-1 flex flex-col min-h-[550px]"
           >
             <PracticaPlayer
               track={selectedTrack.track}

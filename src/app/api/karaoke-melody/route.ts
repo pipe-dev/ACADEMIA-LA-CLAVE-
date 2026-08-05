@@ -31,3 +31,39 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ error: "API no configurada" }, { status: 500 });
 }
+
+export async function POST(request: Request) {
+  if (!APPS_SCRIPT_URL) {
+    return NextResponse.json({ error: "API no configurada" }, { status: 500 });
+  }
+
+  try {
+    const body = await request.json();
+    const { videoId, notes } = body;
+
+    if (!videoId || !notes) {
+      return NextResponse.json({ error: "Faltan datos (videoId o notes)" }, { status: 400 });
+    }
+
+    const payload = {
+      action: 'saveMelody',
+      videoId,
+      notes,
+    };
+
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return NextResponse.json(data);
+    } else {
+      return NextResponse.json({ error: "Error guardando melodía en Apps Script" }, { status: res.status });
+    }
+  } catch (e) {
+    console.error("Error guardando melodía en Google Sheets:", e);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+  }
+}

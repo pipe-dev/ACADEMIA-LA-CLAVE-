@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square, Pause, Hand, Footprints, ArrowRight, BarChart3, Flame, Menu, Moon, Sun, Mic2, Share2, Heart, Crown, Download } from "lucide-react";
+import { Mic, MicOff, CheckCircle2, Trophy, Lock, Star, ArrowLeft, RefreshCw, Brain, Music, Drum, Play, Square, Pause, Hand, Footprints, ArrowRight, BarChart3, Flame, Menu, Moon, Sun, Mic2, Share2, Heart, Crown, Download, X, Bell } from "lucide-react";
 import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { useHaptic } from "@/hooks/use-haptic";
 import { useStreak } from "@/hooks/use-streak";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { requestNotificationPermission } from "@/lib/firebase";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -320,6 +321,17 @@ const UserMenu = ({ align, isProfileSet, avatar, MenuIcon, lives, maxLives, dail
             <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="rounded-xl py-2 cursor-pointer transition-colors focus:bg-primary/10">
                 {theme === 'dark' ? <Sun className="mr-2 h-4 w-4 text-orange-400" /> : <Moon className="mr-2 h-4 w-4 text-slate-500" />}
                 <span className="font-medium">Modo {theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={async () => {
+                try {
+                    const { lote } = await requestNotificationPermission();
+                    alert(`¡Notificaciones activadas con éxito! Asignado al lote de envío: ${lote}`);
+                } catch (e: any) {
+                    alert(`Error al activar notificaciones: ${e.message}`);
+                }
+            }} className="rounded-xl py-2 cursor-pointer transition-colors focus:bg-primary/10">
+                <Bell className="mr-2 h-4 w-4 text-yellow-500" />
+                <span className="font-medium">Activar Notificaciones</span>
             </DropdownMenuItem>
             {isInstallable && (
                 <DropdownMenuItem onClick={promptInstall} className="rounded-xl py-2 cursor-pointer transition-colors focus:bg-green-500/20 text-green-500 font-bold bg-green-500/10 mt-1 justify-center">
@@ -1818,8 +1830,18 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
   };
 
   const handleNoteClick = (noteToActivate: NoteInfo) => {
-    if (completedNotes.has(noteToActivate.fullName) || lastCompletedNoteFullName || !isDetecting || gameMode === 'simon-says' || gameMode === 'melody-challenge' || isPaused || gameMode === 'interval') return;
-    setActiveNote(noteToActivate);
+    if (gameMode === 'simon-says' || gameMode === 'melody-challenge') {
+      handleRepeatSequence();
+      return;
+    }
+    
+    if (lastCompletedNoteFullName || !isDetecting || isPaused) return;
+    
+    // Solo cambiar la nota activa si NO es modo intervalo (en intervalo la nota activa la maneja el flujo)
+    // Pero en ambos modos podemos reproducir el sonido para que sirva de ayuda.
+    if (gameMode !== 'interval') {
+      setActiveNote(noteToActivate);
+    }
     playNote(noteToActivate);
   };
 
@@ -2430,7 +2452,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
   const isPlayingChallenge = (challengeNotes.length > 0 || simonSequence.length > 0 || gameMode === 'rhythm-challenge') && !sessionCompleted;
 
   return (
-    <div className={cn("flex flex-col w-full min-h-[100dvh] overflow-y-auto pb-24 aurora-bg transition-colors duration-700 relative select-none touch-none theme-transition", auroraClass)}>
+    <div className={cn("flex flex-col flex-1 w-full overflow-hidden aurora-bg transition-colors duration-700 relative select-none touch-none theme-transition", auroraClass)}>
       <StreakRewards isOpen={showStreakRewards} onClose={() => setShowStreakRewards(false)} currentStreak={streak} onOpenInventory={() => setShowInventoryDialog(true)} />
       <UserProfileDialog isOpen={showProfileDialog} onClose={() => setShowProfileDialog(false)} />
       <InventoryDialog isOpen={showInventoryDialog} onClose={() => setShowInventoryDialog(false)} />
@@ -2489,7 +2511,7 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
       </header>
       
       {/* Main Content */}
-      <main className="flex-grow flex flex-col items-center overflow-y-auto pb-12 min-h-0">
+      <main className="flex-grow flex flex-col items-center overflow-hidden min-h-0">
         {freePlayMode ? (
           <div className="flex flex-col w-full h-full items-center justify-center gap-4 p-4">
             <h2 className="text-lg sm:text-xl font-bold text-foreground">Práctica Libre</h2>
@@ -2626,6 +2648,18 @@ const startRhythmSession = useCallback((bpm: number, guidePattern: { time: numbe
                           Atrás
                       </Button>
                   )}
+                  <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute top-3 right-3 h-8 w-8 rounded-full text-muted-foreground hover:bg-accent/10" 
+                      onClick={() => {
+                          setSelectedDifficulty(null);
+                          setShowDifficultyDialog(false);
+                      }}
+                  >
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Cerrar</span>
+                  </Button>
                   <AlertDialogTitle className="text-xl sm:text-2xl text-center pt-8 sm:pt-0">
                       {selectedDifficulty ? `Modo ${selectedDifficulty}` : 'Elige un modo'}
                   </AlertDialogTitle>

@@ -10,7 +10,8 @@ interface PitchGaugeProps {
 }
 
 export const PitchGauge = memo(function PitchGauge({ centsOff, isActive, size = 140 }: PitchGaugeProps) {
-  const clampedCents = Math.max(-50, Math.min(50, centsOff));
+  const safeCents = isNaN(centsOff) ? 0 : centsOff;
+  const clampedCents = Math.max(-50, Math.min(50, safeCents));
   const absCents = Math.abs(clampedCents);
   const isInTune = absCents < 25;
   const isClose = absCents < 40;
