@@ -1,5 +1,11 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function Home() {
-  redirect('/clases');
+import dynamic from 'next/dynamic';
+
+const MainApp = dynamic(() => import('@/components/MainApp'), {
+  ssr: false,
+});
+
+export default function Page() {
+  return <MainApp />;
 }

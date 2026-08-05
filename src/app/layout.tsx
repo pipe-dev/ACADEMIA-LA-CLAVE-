@@ -1,9 +1,5 @@
 import type {Metadata} from 'next';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { ThemeProvider } from '@/components/theme-provider';
-import { VocalProvider } from '@/components/vocal-provider';
-
 export const metadata: Metadata = {
   title: 'AfinApp',
   description: 'A voice tuner for the 12 musical notes.',
@@ -26,20 +22,15 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></link>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
       </head>
       <body className="font-body antialiased" suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <VocalProvider>
-            {children}
-          </VocalProvider>
-          <Toaster />
-        </ThemeProvider>
+          <div className="flex flex-col min-h-screen bg-[#f8f9ff] dark:bg-[#0b1c30]">
+            <main className="flex-1 overflow-x-hidden relative">
+              {children}
+            </main>
+          </div>
         <script
           dangerouslySetInnerHTML={{
             __html: `
