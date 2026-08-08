@@ -118,7 +118,7 @@ export default function App() {
 
   // Load persisted units
   const [units, setUnits] = useState<Unit[]>(() => {
-    const saved = localStorage.getItem('laclave_units_v2');
+    const saved = localStorage.getItem('laclave_units_v8');
     if (saved) {
       try { return JSON.parse(saved); } catch {}
     }
@@ -137,7 +137,16 @@ export default function App() {
       if (!target) return;
       const interactiveEl = target.closest('button, [role="button"], .btn-3d, .press-effect, .tactile-btn-primary, .tactile-btn-success, .tactile-btn-warning');
       if (interactiveEl) {
+        const isLockedEl = interactiveEl.getAttribute('data-locked') === 'true' ||
+                           interactiveEl.classList.contains('node-locked') ||
+                           interactiveEl.classList.contains('cursor-not-allowed') ||
+                           interactiveEl.hasAttribute('disabled');
+
         audioService.vibrate(14);
+        if (isLockedEl) {
+          return;
+        }
+
         if (interactiveEl.classList.contains('tactile-btn-success') || interactiveEl.classList.contains('btn-3d')) {
           audioService.playSoftDing();
         } else {
@@ -332,7 +341,7 @@ export default function App() {
   }, [userStats]);
 
   useEffect(() => {
-    localStorage.setItem('laclave_units_v2', JSON.stringify(units));
+    localStorage.setItem('laclave_units_v8', JSON.stringify(units));
   }, [units]);
 
   useEffect(() => {
@@ -344,6 +353,11 @@ export default function App() {
     // Find node and unit titles
     const targetNode = units.flatMap(u => u.nodes).find(n => n.id === nodeId);
     const targetUnit = units.find(u => u.nodes.some(n => n.id === nodeId));
+
+    // Prevent duplicate rewards if already completed
+    if (targetNode?.status === 'completed') {
+      return;
+    }
 
     const newLessonEntry: CompletedLessonEntry = {
       id: `${nodeId}-${Date.now()}`,
@@ -419,8 +433,19 @@ export default function App() {
         });
       }
 
+      // Read saved vocal range from localStorage if available
+      let savedVocalClassification = null;
+      let savedVocalRangeData = null;
+      try {
+        savedVocalClassification = localStorage.getItem('laclave_vocal_range_classification');
+        const savedRange = localStorage.getItem('laclave_vocal_range_saved');
+        if (savedRange) savedVocalRangeData = JSON.parse(savedRange);
+      } catch {}
+
       return {
         ...updatedStats,
+        ...(savedVocalClassification ? { vocalRange: savedVocalClassification } : {}),
+        ...(savedVocalRangeData ? { vocalRangeData: savedVocalRangeData } : {}),
         badges: newBadges
       };
     });
@@ -453,6 +478,21 @@ export default function App() {
           };
         }
         return q;
+      })
+    );
+  };
+
+  const handleUnlockNextUnit = () => {
+    localStorage.setItem('laclave_unit_1_celebrated', 'true');
+    setUnits((prevUnits) =>
+      prevUnits.map((u) => {
+        if (u.id === 2) {
+          return {
+            ...u,
+            nodes: u.nodes.map((n, idx) => (idx === 0 ? { ...n, status: 'current' as const } : n))
+          };
+        }
+        return u;
       })
     );
   };
@@ -629,7 +669,7 @@ export default function App() {
 
 
       {/* Main Content Body */}
-      <main className="flex-1 w-full max-w-lg mx-auto overflow-x-hidden relative px-4 pb-32 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-2">
+      <main className="flex-1 w-full max-w-lg mx-auto overflow-x-hidden relative px-4 pb-32 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-20 pt-[calc(4.5rem+env(safe-area-inset-top))]">
         <AnimatePresence mode="wait" custom={tabDirection}>
           <motion.div
             key={activeTab}
@@ -720,8 +760,10 @@ export default function App() {
       {selectedNode && (
         <LessonModal
           node={selectedNode}
+          userStats={userStats}
           onClose={() => setSelectedNode(null)}
           onCompleteNode={handleCompleteNode}
+          onUnlockNextUnit={handleUnlockNextUnit}
         />
       )}
 
