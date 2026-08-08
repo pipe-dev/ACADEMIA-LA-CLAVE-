@@ -18,6 +18,7 @@ import { StoreModal } from './StoreModal';
 import { SettingsModal } from './SettingsModal';
 import { StreakFlameView } from './StreakFlameView';
 
+import { UnitCompletionScreen } from './UnitCompletionScreen';
 import { InstallPwaModal } from './InstallPwaModal';
 import { ZenOverlay } from './ZenOverlay';
 import { YouTubeAmbientPlayer } from './YouTubeAmbientPlayer';
@@ -242,6 +243,7 @@ export default function App() {
   const [isStoreOpen, setIsStoreOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showZenOverlay, setShowZenOverlay] = useState<boolean>(false);
+  const [replayUnitCelebration, setReplayUnitCelebration] = useState<boolean>(false);
 
   const handleStreakIgniteComplete = (newStreak: number) => {
     try {
@@ -703,6 +705,7 @@ export default function App() {
                 units={units}
                 onSelectNode={(node) => setSelectedNode(node)}
                 onOpenVoiceEval={() => setIsVoiceEvalOpen(true)}
+                onReplayUnitCelebration={() => setReplayUnitCelebration(true)}
               />
             )}
 
@@ -833,12 +836,16 @@ export default function App() {
         onFinished={() => setShowZenOverlay(false)}
       />
 
-      {/* Daily Vocal Tip Splash Screen */}
-      <AnimatePresence>
-        {showSplash && (
-          <SplashScreen onFinish={() => setShowSplash(false)} />
-        )}
-      </AnimatePresence>
+      {/* Fullscreen Unit Completion Celebration Overlay (Replay) */}
+      {replayUnitCelebration && (
+        <UnitCompletionScreen
+          unitId={1}
+          unitTitle="Fisiología y Registro Vocal"
+          vocalRangeClassification={userStats.vocalRange || 'Barítono'}
+          onClose={() => setReplayUnitCelebration(false)}
+          onUnlockNextUnit={handleUnlockNextUnit}
+        />
+      )}
     </div>
   );
 }

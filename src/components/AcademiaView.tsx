@@ -11,13 +11,15 @@ interface AcademiaViewProps {
   units: Unit[];
   onSelectNode: (node: LessonNode) => void;
   onOpenVoiceEval: () => void;
+  onReplayUnitCelebration?: () => void;
 }
 
 export const AcademiaView: React.FC<AcademiaViewProps> = ({
   userStats,
   units,
   onSelectNode,
-  onOpenVoiceEval
+  onOpenVoiceEval,
+  onReplayUnitCelebration
 }) => {
   // Read saved vocal range from userStats or localStorage
   const activeVocalRange = userStats.vocalRange || userStats.vocalRangeData?.classification || (() => {
@@ -88,31 +90,58 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
     setCurrentMsgIndex((prev) => (prev + 1) % subtextMessages.length);
   };
 
-  const handleNodeClick = (node: LessonNode, event?: React.MouseEvent<HTMLButtonElement>) => {
-    audioService.playClickSound();
-    audioService.vibrate(18);
+  const handleUnitHeaderClick = (isPrimary: boolean) => {
+    if (!isPrimary) {
+      audioService.vibrate(18);
+      audioService.playFrequency(180, 0.2);
+    }
+  };
 
+  const handleNodeClick = (node: LessonNode, event?: React.MouseEvent<HTMLButtonElement>) => {
     if (node.status === 'locked') {
+      audioService.vibrate(18);
       audioService.playFrequency(180, 0.2);
       return;
     }
 
-    // Trigger soft confetti explosion over the node
-    if (event) {
+    audioService.playClickSound();
+    audioService.vibrate(18);
+
+    // Trigger soft confetti explosion over the node (only if it's not already completed)
+    if (event && node.status !== 'completed') {
       const rect = event.currentTarget.getBoundingClientRect();
       const x = (rect.left + rect.width / 2) / window.innerWidth;
       const y = (rect.top + rect.height / 2) / window.innerHeight;
 
-      confetti({
-        particleCount: node.status === 'completed' ? 40 : 25,
-        spread: 60,
-        startVelocity: 22,
-        ticks: 200,
-        origin: { x, y },
-        colors: node.status === 'completed' 
-          ? ['#10b981', '#34d399', '#059669', '#f59e0b', '#fbbf24']
-          : ['#4648d4', '#818cf8', '#6366f1', '#6cf8bb', '#38bdf8']
-      });
+      const colors = ['#4648d4', '#818cf8', '#6366f1', '#6cf8bb', '#38bdf8', '#ffffff'];
+
+      // Cinematic Two-burst confetti
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 80,
+          startVelocity: 30,
+          ticks: 300,
+          gravity: 0.8,
+          scalar: 1.2,
+          origin: { x, y },
+          colors
+        });
+      } catch (e) {}
+      setTimeout(() => {
+        try {
+          confetti({
+            particleCount: 20,
+            spread: 120,
+            startVelocity: 45,
+            ticks: 200,
+            gravity: 1.2,
+            scalar: 0.8,
+            origin: { x, y },
+            colors
+          });
+        } catch (e) {}
+      }, 150);
     }
 
     onSelectNode(node);
@@ -124,10 +153,13 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
       <section id="tour-academia-welcome" className="mb-2">
         <div
           onClick={handleNextMessage}
-          className="bg-white dark:bg-[#102034] p-5 sm:p-6 rounded-3xl shadow-[0px_4px_20px_0px_rgba(0,0,0,0.08)] border border-slate-100 dark:border-[#1b2b3f] relative overflow-hidden transition-all cursor-pointer active:scale-[0.99] select-none h-[112px] flex flex-col justify-center"
+          className="bg-[#ffffff] dark:bg-[#102034] backdrop-blur-2xl p-5 sm:p-6 rounded-3xl shadow-[0px_8px_32px_0px_rgba(0,0,0,0.05)] border border-white/80 dark:border-white/10 relative overflow-hidden transition-all cursor-pointer hover:shadow-[0px_12px_40px_0px_rgba(70,72,212,0.15)] active:scale-[0.98] select-none h-[112px] flex flex-col justify-center group"
         >
+          {/* Subtle gradient orb behind the card */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
           <div className="relative z-10 space-y-1 max-w-[85%]">
-            <h2 className="font-heading font-bold text-lg sm:text-xl text-[#4648d4] dark:text-[#c0c1ff] shrink-0">
+            <h2 className="font-heading font-black text-lg sm:text-xl bg-gradient-to-r from-[#4648d4] to-indigo-400 dark:from-indigo-300 dark:to-[#c0c1ff] bg-clip-text text-transparent shrink-0">
               ¡Hola, {userStats.name}!
             </h2>
             <div className="h-10 flex items-center overflow-hidden">
@@ -158,7 +190,7 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
         {(() => {
           let globalNodeIdx = 0;
 
-          return units.map((unit) => {
+          return units.map((unit, index) => {
             const isPrimaryUnit = unit.id === 1;
 
             // Pre-calculate node coordinates for this unit with a pronounced serpentine S-path
@@ -173,23 +205,81 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
             return (
               <div key={unit.id} className="w-full space-y-8">
                 {/* Unit Header Banner */}
-                <div 
-                  className={`px-6 py-4 rounded-2xl shadow-md transition-colors ${
-                    isPrimaryUnit 
-                      ? 'bg-[#4648d4] text-white shadow-[0px_4px_0px_0px_rgba(47,46,190,1)]' 
-                      : 'bg-[#dce9ff] dark:bg-[#102034] text-[#0b1c30] dark:text-[#d3e4fe] border border-slate-200/80 dark:border-[#1b2b3f] shadow-[0px_4px_0px_0px_rgba(118,117,134,0.3)]'
-                  }`}
-                >
-                  <h3 className={`font-heading font-bold text-lg ${isPrimaryUnit ? 'text-white' : 'text-[#0b1c30] dark:text-[#d3e4fe]'}`}>
-                    {unit.title}
-                  </h3>
-                  <p className={`text-xs mt-0.5 font-medium ${isPrimaryUnit ? 'text-indigo-100' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {unit.subtitle}
-                  </p>
+                <div className="w-full p-1 sm:p-[5px] rounded-full bg-[#f1f5f9] dark:bg-[#0f172a] shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.2),_inset_0_-2px_4px_rgba(255,255,255,1)] dark:shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.7)] border border-slate-200 dark:border-slate-800">
+                  <div className="w-full p-1.5 flex flex-col items-center justify-center rounded-full bg-[#e2e8f0] dark:bg-[#090d16] shadow-[inset_0_16px_20px_-4px_rgba(15,23,42,0.35),_inset_0_-2px_4px_rgba(255,255,255,0.8)] dark:shadow-[inset_0_16px_20px_-4px_rgba(0,0,0,0.8),_inset_0_-2px_4px_rgba(255,255,255,0.05)] border border-slate-300/40 dark:border-slate-900">
+                    
+                    {/* Tarjeta Incrustada */}
+                    <div 
+                      data-locked={!isPrimaryUnit ? 'true' : undefined}
+                      onClick={() => handleUnitHeaderClick(isPrimaryUnit)}
+                      className={`w-full flex items-center justify-center px-5 py-3.5 rounded-full transition-all duration-75 relative border border-transparent btn-3d ${
+                      isPrimaryUnit 
+                        ? "bg-[#4648d4] text-white shadow-[0px_4px_0px_0px_rgba(30,30,120,1)] active:translate-y-[2px] active:shadow-[0px_2px_0px_0px_rgba(30,30,120,1)] group cursor-pointer"
+                        : "bg-[#dce9ff] dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-[0px_4px_0px_0px_rgba(118,117,134,0.3)] cursor-pointer active:translate-y-[2px] active:shadow-[0px_1px_0px_0px_rgba(118,117,134,0.3)]"
+                    }`}>
+                      <div className="flex flex-col items-center text-center gap-0.5">
+                        <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest drop-shadow-sm leading-tight ${
+                          isPrimaryUnit ? "text-indigo-200" : "text-slate-400 dark:text-slate-500"
+                        }`}>
+                          Unidad {index + 1}
+                        </span>
+                        <span className={`text-lg sm:text-xl font-black leading-tight ${
+                          isPrimaryUnit ? "text-white drop-shadow-md" : "text-slate-400 dark:text-slate-500"
+                        }`}>
+                          {unit.title.replace(/^Unidad\s+\d+:\s*/i, '')}
+                        </span>
+
+                        {isPrimaryUnit && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              audioService.playClickSound();
+                              if (onReplayUnitCelebration) {
+                                onReplayUnitCelebration();
+                              }
+                            }}
+                            className="mt-2 px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300 text-amber-300 text-[11px] font-extrabold flex items-center justify-center gap-1.5 shadow-md press-effect cursor-pointer"
+                            title="Revivir Celebración Épica de Unidad"
+                          >
+                            <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                            <span>REVIVIR CELEBRACIÓN ÉPICA</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
 
                 {/* Path Nodes Container */}
-                <div className="relative flex flex-col items-center gap-12 pb-6">
+                <div className="relative flex flex-col items-center gap-12 pb-6 pt-4">
+                  
+                  {/* SVG Organic Path */}
+                  <div className="absolute inset-0 flex justify-center pointer-events-none z-0">
+                    <svg 
+                      width="300" 
+                      height={nodePositions.length * 130} 
+                      className="text-slate-200 dark:text-slate-800/60 drop-shadow-sm"
+                    >
+                      <path
+                        d={nodePositions.reduce((acc, { xOffset }, i) => {
+                          const x = 150 + xOffset;
+                          const y = i * 128 + 40;
+                          if (i === 0) return `M ${x} ${y}`;
+                          const prevX = 150 + nodePositions[i-1].xOffset;
+                          const prevY = (i - 1) * 128 + 40;
+                          const midY = (prevY + y) / 2;
+                          return `${acc} C ${prevX} ${midY}, ${x} ${midY}, ${x} ${y}`;
+                        }, '')}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="18"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+
                   {/* Render Nodes */}
                   {nodePositions.map(({ node, xOffset }) => {
                     const isCompleted = node.status === 'completed';
@@ -209,36 +299,31 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
                         {/* Circular Node Button */}
                         <motion.button
                           onClick={(e) => handleNodeClick(node, e)}
-                          disabled={isLocked}
-                          whileHover={!isLocked ? { scale: 1.1, rotate: isCurrent ? 3 : 0 } : undefined}
-                          whileTap={!isLocked ? { scale: 0.92 } : undefined}
-                          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                          className={`rounded-full flex items-center justify-center btn-3d cursor-pointer transition-all ${
-                            isCurrent ? 'w-24 h-24 bg-[#4648d4] text-white shadow-[0px_6px_0px_0px_rgba(47,46,190,1)] active-glow' : 'w-20 h-20'
-                          } ${
-                            isCompleted
-                              ? 'bg-[#006c49] text-white shadow-[0px_4px_0px_0px_rgba(0,108,73,1)]'
+                          data-locked={isLocked ? 'true' : undefined}
+                          whileHover={{ scale: isCurrent ? 1.08 : 1.04, rotate: isCurrent ? 5 : 0 }}
+                          whileTap={{ scale: 0.92, y: 2 }}
+                          transition={{ type: 'spring', stiffness: 800, damping: 12, mass: 0.5 }}
+                          className={`flex items-center justify-center transition-all relative overflow-hidden ${
+                            isExam
+                              ? `rounded-[50%] transition-colors w-[84px] h-[72px] bg-gradient-to-b from-[#ffe55c] via-[#f59e0b] to-[#92400e] text-white shadow-[0px_6px_0px_0px_rgba(100,45,10,1),0px_10px_15px_0px_rgba(245,158,11,0.5),inset_0px_4px_6px_rgba(255,255,255,0.8),inset_0px_-4px_6px_rgba(0,0,0,0.5)] ring-2 ring-amber-300/40 cursor-pointer active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(100,45,10,1)] ${isLocked ? 'opacity-90' : ''}`
+                              : isLocked
+                              ? 'rounded-full btn-3d w-20 h-20 bg-[#dce9ff] dark:bg-slate-800 text-slate-400 dark:text-slate-500 shadow-[0px_4px_0px_0px_rgba(118,117,134,0.3)] cursor-pointer active:translate-y-1 active:shadow-[0px_1px_0px_0px_rgba(118,117,134,0.3)]'
                               : isCurrent
-                              ? ''
-                              : isExam
-                              ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 shadow-[0px_4px_0px_0px_rgba(130,81,0,0.5)] border border-amber-300 dark:border-amber-700'
-                              : 'bg-[#dce9ff] dark:bg-slate-800 text-slate-400 dark:text-slate-500 shadow-[0px_4px_0px_0px_rgba(118,117,134,0.3)] cursor-not-allowed'
+                              ? 'rounded-[50%] cursor-pointer transition-colors w-[104px] h-[86px] bg-gradient-to-t from-[#8f91ff] via-[#4648d4] to-[#1e1f7a] text-white shadow-[0px_16px_0px_0px_rgba(30,30,120,1),0px_24px_30px_0px_rgba(70,72,212,0.6),inset_0px_12px_15px_rgba(0,0,0,0.7),inset_0px_-6px_10px_rgba(255,255,255,0.8)] ring-2 ring-indigo-300 -translate-y-3 active:translate-y-0 active:shadow-[0px_4px_0px_0px_rgba(30,30,120,1),0px_8px_12px_0px_rgba(70,72,212,0.4),inset_0px_12px_15px_rgba(0,0,0,0.7),inset_0px_-6px_10px_rgba(255,255,255,0.8)]'
+                              : isCompleted
+                              ? 'rounded-[50%] cursor-pointer transition-colors w-[84px] h-[72px] bg-gradient-to-b from-[#00eb9c] via-[#00b077] to-[#005a3d] text-white shadow-[0px_6px_0px_0px_rgba(0,60,40,1),0px_10px_15px_0px_rgba(0,108,73,0.5),inset_0px_4px_6px_rgba(255,255,255,0.8),inset_0px_-4px_6px_rgba(0,0,0,0.5)] ring-2 ring-[#00d08a]/30 active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(0,60,40,1),0px_4px_8px_0px_rgba(0,108,73,0.3),inset_0px_4px_6px_rgba(255,255,255,0.8),inset_0px_-4px_6px_rgba(0,0,0,0.5)]'
+                              : 'rounded-[50%] cursor-pointer transition-colors w-[84px] h-[72px] bg-white/40 dark:bg-[#102034]/40 backdrop-blur-md text-slate-400 dark:text-slate-500 shadow-[inset_0px_2px_4px_rgba(255,255,255,0.3),inset_0px_-2px_4px_rgba(0,0,0,0.1)] border border-white/60 dark:border-white/10'
                           }`}
                         >
+                          {/* Pseudo-element for extra top glass sheen */}
+                          {(!isLocked || isExam) && (
+                            <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent opacity-50 rounded-full h-1/2" />
+                          )}
                           {isCompleted && <Check className="w-8 h-8 stroke-[3]" />}
                           {isCurrent && (node.iconName === 'Wind' ? <Wind className="w-9 h-9 stroke-[2.5]" /> : <Sparkles className="w-9 h-9" />)}
-                          {isLocked && <Lock className="w-7 h-7" />}
+                          {isLocked && !isExam && <Lock className="w-7 h-7" />}
                           {isExam && <Trophy className="w-8 h-8 text-amber-800 dark:text-amber-300" />}
                         </motion.button>
-
-                        {/* Node Label Underneath */}
-                        {(!isLocked || isExam) && (
-                          <div className={`absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap font-heading font-bold text-xs ${
-                            isCompleted ? 'text-[#006c49] dark:text-emerald-400' : isCurrent ? 'text-[#4648d4] dark:text-[#c0c1ff]' : 'text-amber-800 dark:text-amber-300'
-                          }`}>
-                            {node.title}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -256,10 +341,10 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
             audioService.playClickSound();
             onOpenVoiceEval();
           }}
-          whileHover={{ scale: 1.06, y: -2 }}
+          whileHover={{ scale: 1.04, y: -2 }}
           whileTap={{ scale: 0.94 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          className="flex items-center gap-2 bg-[#6063ee] dark:bg-[#4648d4] text-white px-6 py-4 rounded-full shadow-[0px_6px_0px_0px_rgba(47,46,190,1)] active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(47,46,190,1)] transition-all group cursor-pointer border border-white/20"
+          transition={{ type: 'spring', stiffness: 800, damping: 12, mass: 0.5 }}
+          className="flex items-center gap-2 bg-[#6063EE] text-white px-6 py-4 rounded-full shadow-[0px_6px_0px_0px_rgba(30,30,120,1),0px_12px_20px_0px_rgba(47,46,190,0.6),inset_0px_4px_6px_rgba(255,255,255,0.7),inset_0px_-4px_6px_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(30,30,120,1),0px_6px_10px_0px_rgba(47,46,190,0.4),inset_0px_2px_4px_rgba(255,255,255,0.5),inset_0px_-2px_4px_rgba(0,0,0,0.3)] transition-colors duration-75 group cursor-pointer relative overflow-hidden"
         >
           <Mic className="w-6 h-6 font-bold group-hover:rotate-12 transition-transform animate-pulse" />
           <span className="font-bold font-heading text-sm">Evaluar mi voz</span>
