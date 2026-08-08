@@ -71,14 +71,14 @@ class AudioService {
       const gain = this.ctx.createGain();
 
       osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(1046.5, now); // C6 bell tone
+      osc1.frequency.setValueAtTime(523.25, now); // Warm C5 tone
       
       osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(2093.0, now); // Bright C7 harmonic
+      osc2.frequency.setValueAtTime(783.99, now); // Soft G5 harmonic (quint)
 
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.18, now + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
 
       osc1.connect(gain);
       osc2.connect(gain);
@@ -86,8 +86,8 @@ class AudioService {
 
       osc1.start(now);
       osc2.start(now);
-      osc1.stop(now + 0.35);
-      osc2.stop(now + 0.35);
+      osc1.stop(now + 0.22);
+      osc2.stop(now + 0.22);
     } catch {
       // Ignore
     }
@@ -160,6 +160,267 @@ class AudioService {
    */
   public vibrateInTune() {
     this.vibrate([12]);
+  }
+
+  /**
+   * Differentiated subtle haptic vibration when holding pitch in tune
+   */
+  public vibrateHold() {
+    this.vibrate(10);
+  }
+
+  /**
+   * Triumphant 3-star epic fanfare & melody with Web Audio API synthesis
+   */
+  public play3StarFanfare() {
+    this.vibrate([40, 40, 50, 50, 80, 50, 150]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+
+      // 1. Ascending Brass/Vocal Fanfare Melody: G4 -> C5 -> E5 -> G5 -> C6 -> E6 -> Grand Chord!
+      const melodyNotes = [
+        { freq: 392.00, timeOffset: 0.00, duration: 0.18 }, // G4
+        { freq: 523.25, timeOffset: 0.16, duration: 0.18 }, // C5
+        { freq: 659.25, timeOffset: 0.32, duration: 0.18 }, // E5
+        { freq: 783.99, timeOffset: 0.48, duration: 0.22 }, // G5
+        { freq: 1046.50, timeOffset: 0.70, duration: 0.35 }, // C6
+        { freq: 1318.51, timeOffset: 0.95, duration: 0.45 }, // E6
+        { freq: 1567.98, timeOffset: 1.20, duration: 1.40 }, // G6 Grand Peak!
+      ];
+
+      melodyNotes.forEach(note => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'triangle'; // Rich brass/vocal timbre
+        osc.frequency.setValueAtTime(note.freq, now + note.timeOffset);
+
+        gain.gain.setValueAtTime(0, now + note.timeOffset);
+        gain.gain.linearRampToValueAtTime(0.35, now + note.timeOffset + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + note.timeOffset + note.duration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now + note.timeOffset);
+        osc.stop(now + note.timeOffset + note.duration);
+      });
+
+      // 2. Grand Victory Harmony Chord at 1.2s (C5 + E5 + G5 + C6 + E6)
+      const chordFreqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+      chordFreqs.forEach(freq => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + 1.20);
+
+        gain.gain.setValueAtTime(0, now + 1.20);
+        gain.gain.linearRampToValueAtTime(0.2, now + 1.25);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 2.50);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now + 1.20);
+        osc.stop(now + 2.50);
+      });
+
+      // 3. Sparkling Harp/Glockenspiel Glisten Effect (rapid high sparkles)
+      const sparkleNotes = [1567.98, 1760.00, 1975.53, 2093.00, 2349.32, 2637.02];
+      sparkleNotes.forEach((freq, idx) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + 1.40 + idx * 0.08);
+
+        gain.gain.setValueAtTime(0, now + 1.40 + idx * 0.08);
+        gain.gain.linearRampToValueAtTime(0.12, now + 1.40 + idx * 0.08 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.40 + idx * 0.08 + 0.25);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now + 1.40 + idx * 0.08);
+        osc.stop(now + 1.40 + idx * 0.08 + 0.25);
+      });
+
+      // 4. Sub-Bass Triumph Impact (130.81Hz - C3)
+      const bassOsc = this.ctx.createOscillator();
+      const bassGain = this.ctx.createGain();
+      bassOsc.type = 'sine';
+      bassOsc.frequency.setValueAtTime(130.81, now + 1.20);
+
+      bassGain.gain.setValueAtTime(0, now + 1.20);
+      bassGain.gain.linearRampToValueAtTime(0.4, now + 1.22);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 2.40);
+
+      bassOsc.connect(bassGain);
+      bassGain.connect(this.ctx.destination);
+
+      bassOsc.start(now + 1.20);
+      bassOsc.stop(now + 2.40);
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Star 1 Arpeggio Note: C5 (523.25Hz) hopeful ascending base
+   */
+  public playStar1ArpeggioNote() {
+    this.vibrate(20);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      this.playFrequency(523.25, 0.35); // C5
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Star 2 Arpeggio Note: E5 -> G5 (659Hz -> 784Hz) ascending harmony step
+   */
+  public playStar2ArpeggioNote() {
+    this.vibrate([25, 30, 35]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      this.playFrequency(659.25, 0.30); // E5
+      setTimeout(() => {
+        this.playFrequency(783.99, 0.35); // G5
+      }, 140);
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Cheerful 2-star chime
+   */
+  public play2StarChime() {
+    this.playStar2ArpeggioNote();
+  }
+
+  /**
+   * Sad defeat song for 1 or 0 stars (melancholic minor-key slide down + wobble)
+   */
+  public playSadDefeatSound() {
+    this.vibrate([150, 100, 200, 100, 300]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+
+      // Tragic descending minor notes: E4 -> C4 -> A3 -> F3 -> Low Defeat Slide
+      const sadNotes = [
+        { freq: 329.63, timeOffset: 0.00, duration: 0.28 }, // E4
+        { freq: 261.63, timeOffset: 0.25, duration: 0.28 }, // C4
+        { freq: 220.00, timeOffset: 0.50, duration: 0.32 }, // A3
+        { freq: 174.61, timeOffset: 0.80, duration: 0.40 }, // F3
+      ];
+
+      sadNotes.forEach(note => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(note.freq, now + note.timeOffset);
+
+        gain.gain.setValueAtTime(0, now + note.timeOffset);
+        gain.gain.linearRampToValueAtTime(0.25, now + note.timeOffset + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + note.timeOffset + note.duration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now + note.timeOffset);
+        osc.stop(now + note.timeOffset + note.duration);
+      });
+
+      // Low Sad Trombone/Cello Pitch Slide (220Hz sliding down to 130.81Hz)
+      const slideOsc = this.ctx.createOscillator();
+      const slideGain = this.ctx.createGain();
+      slideOsc.type = 'sawtooth';
+      slideOsc.frequency.setValueAtTime(220.00, now + 1.15); // A3
+      slideOsc.frequency.exponentialRampToValueAtTime(130.81, now + 2.10); // Low C3 defeat slide
+
+      slideGain.gain.setValueAtTime(0, now + 1.15);
+      slideGain.gain.linearRampToValueAtTime(0.3, now + 1.20);
+      slideGain.gain.exponentialRampToValueAtTime(0.001, now + 2.20);
+
+      slideOsc.connect(slideGain);
+      slideGain.connect(this.ctx.destination);
+
+      slideOsc.start(now + 1.15);
+      slideOsc.stop(now + 2.20);
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Cartoon comedy "Sad Trombone / Wa-Wa-Wa-Waaah" mockery sound for 0 stars
+   */
+  public playMockeryWawawaSound() {
+    this.vibrate([100, 80, 100, 80, 100, 80, 400]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      // Classic cartoon "wa-wa-wa-waaah" pitch sequence: D4 -> C#4 -> C4 -> B3 sliding to D3
+      const notes = [
+        { freq: 293.66, timeOffset: 0.00, duration: 0.28 }, // D4 "Wa"
+        { freq: 277.18, timeOffset: 0.32, duration: 0.28 }, // C#4 "Wa"
+        { freq: 261.63, timeOffset: 0.64, duration: 0.28 }, // C4 "Wa"
+      ];
+
+      notes.forEach(note => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(note.freq, now + note.timeOffset);
+
+        // Add funny pitch bend wobble to each "Wa"
+        osc.frequency.linearRampToValueAtTime(note.freq - 12, now + note.timeOffset + note.duration);
+
+        gain.gain.setValueAtTime(0, now + note.timeOffset);
+        gain.gain.linearRampToValueAtTime(0.3, now + note.timeOffset + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + note.timeOffset + note.duration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now + note.timeOffset);
+        osc.stop(now + note.timeOffset + note.duration);
+      });
+
+      // The final long downward "Waaaaaah..." slide (B3 246.94Hz -> D3 146.83Hz)
+      const slideOsc = this.ctx.createOscillator();
+      const slideGain = this.ctx.createGain();
+      slideOsc.type = 'sawtooth';
+      slideOsc.frequency.setValueAtTime(246.94, now + 0.98); // B3
+      slideOsc.frequency.exponentialRampToValueAtTime(146.83, now + 2.20); // D3 low mockery slide
+
+      slideGain.gain.setValueAtTime(0, now + 0.98);
+      slideGain.gain.linearRampToValueAtTime(0.35, now + 1.05);
+      slideGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.30);
+
+      slideOsc.connect(slideGain);
+      slideGain.connect(this.ctx.destination);
+
+      slideOsc.start(now + 0.98);
+      slideOsc.stop(now + 2.30);
+    } catch {
+      // Ignore
+    }
+  }
+
+  public playRetrySound() {
+    this.playSadDefeatSound();
   }
 
   /**
@@ -1022,6 +1283,108 @@ class AudioService {
 
   public isAmbientNaturePlaying(): boolean {
     return this.isAmbientOn;
+  }
+
+  /**
+   * Synthesis method for Orb Hold Charge pitch riser
+   */
+  public playOrbeChargeRiser(progress: number) {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      const startFreq = 220 + progress * 440; // 220Hz to 660Hz
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+
+      gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 0.1);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(this.ctx.currentTime);
+      osc.stop(this.ctx.currentTime + 0.12);
+    } catch {}
+  }
+
+  /**
+   * Synthesis method for Unit Victory Fanfare
+   */
+  public playUnitVictoryFanfare() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 chord
+      notes.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.12);
+
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.12 + 1.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(this.ctx.currentTime + idx * 0.12);
+        osc.stop(this.ctx.currentTime + idx * 0.12 + 1.3);
+      });
+    } catch {}
+  }
+
+  /**
+   * Rapid XP Counter Tick Sound
+   */
+  public playXpTickSound() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+      gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(this.ctx.currentTime);
+      osc.stop(this.ctx.currentTime + 0.04);
+    } catch {}
+  }
+
+  /**
+   * Majestic Badge Unlock Chime
+   */
+  public playBadgeUnlockChime() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const notes = [587.33, 880, 1174.66]; // D5, A5, D6
+      notes.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.08);
+
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime + idx * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.08 + 1.5);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(this.ctx.currentTime + idx * 0.08);
+        osc.stop(this.ctx.currentTime + idx * 0.08 + 1.6);
+      });
+    } catch {}
   }
 }
 
