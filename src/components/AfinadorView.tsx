@@ -924,213 +924,211 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             </div>
           </div>
 
-          {/* ─── Mode Specific Control Section ─── */}
-          {tunerMode === 'libre' ? (
-            /* Reference Note Selector DO - SI */
-            <div id="tour-tuner-reference" className="bg-white dark:bg-[#102034] rounded-3xl p-3.5 sm:p-4 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 sm:space-y-3.5">
-              <div className="flex items-center justify-between pb-1 sm:pb-1.5">
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-heading font-black text-xs sm:text-[13px] text-slate-800 dark:text-white leading-tight">Teclado Vocal</span>
-                  <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                    Toca una tecla para escuchar su tono de referencia
-                  </span>
-                </div>
-                <span className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-500 dark:text-indigo-400 font-semibold shrink-0">
-                  Octava {selectedNote.octave}
+          {/* ─── Standard Unified Teclado Vocal (Modo Libre + Niveles) ─── */}
+          <div id="tour-tuner-reference" className="bg-white dark:bg-[#102034] rounded-3xl p-3.5 sm:p-4 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 sm:space-y-3.5">
+            <div className="flex items-center justify-between pb-1 sm:pb-1.5">
+              <div className="flex flex-col gap-0.5">
+                <span className="font-heading font-black text-xs sm:text-[13px] text-slate-800 dark:text-white leading-tight">
+                  Teclado Vocal
+                </span>
+                <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                  {tunerMode === 'libre'
+                    ? 'Toca una tecla para escuchar su tono de referencia'
+                    : 'Notas del nivel iluminadas • Toca una tecla para escuchar su tono'}
                 </span>
               </div>
+              <span className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-500 dark:text-indigo-400 font-semibold shrink-0">
+                Octava {selectedNote.octave}
+              </span>
+            </div>
 
-              {/* 🎹 Piano Touch Strip (7 Natural White Keys + 5 Sharp Black Keys) */}
-              <div className="relative w-full max-w-sm mx-auto select-none pt-1 pb-1">
-                {/* 7 White Keys Container */}
-                <div className="flex gap-1 sm:gap-1.5 w-full h-20 sm:h-22">
-                  {naturalNotes.map((note) => {
-                    const isSelected = selectedNote.name === note.name;
-                    return (
-                      <motion.button
-                        key={note.name}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => handleSelectNote(note)}
-                        className={`flex-1 h-full rounded-b-xl sm:rounded-b-2xl transition-all cursor-pointer flex flex-col justify-end items-center pb-1.5 relative border ${
-                          isSelected
-                            ? 'bg-gradient-to-b from-indigo-500 to-indigo-600 text-white border-indigo-600 shadow-[0_4px_0_0_#312e81] ring-2 ring-indigo-400/80 z-0'
-                            : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420]'
-                        }`}
-                        title={`Tocar ${note.displayName} (${note.frequency} Hz)`}
-                      >
-                        <span className="font-heading font-black text-xs sm:text-sm leading-none">
-                          {note.name}
-                        </span>
-                        <span className={`text-[10px] font-bold mt-0.5 leading-none ${
-                          isSelected ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-500'
-                        }`}>
-                          {note.letter}{note.octave}
-                        </span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
+            {/* 🎹 Piano Touch Strip (7 Natural White Keys + 5 Sharp Black Keys) */}
+            <div className="relative w-full max-w-sm mx-auto select-none pt-1 pb-1">
+              {/* 7 White Keys Container */}
+              <div className="flex gap-1 sm:gap-1.5 w-full h-20 sm:h-22">
+                {naturalNotes.map((note) => {
+                  const isLevelMode = tunerMode === 'niveles';
+                  const isInChallenge = isLevelMode && challengeNotes.some(cn => cn.name.toUpperCase() === note.name.toUpperCase());
+                  const isCurrentTarget = isLevelMode
+                    ? activeTargetNote.name.toUpperCase() === note.name.toUpperCase()
+                    : selectedNote.name === note.name;
+                  const isCompleted = isLevelMode && challengeNotes.some((cn, idx) =>
+                    completedChallengeNotes.has(idx) &&
+                    cn.name.toUpperCase() === note.name.toUpperCase() &&
+                    idx < challengeIndex
+                  );
+                  const isUnused = isLevelMode && !isInChallenge;
 
-                {/* 5 Black Keys (Overlapping) */}
-                {blackKeyPositions.map(({ note, left }) => {
-                  if (!note) return null;
-                  const isSelected = selectedNote.name === note.name;
                   return (
                     <motion.button
                       key={note.name}
-                      whileTap={{ scale: 0.93 }}
-                      onClick={() => handleSelectNote(note)}
-                      style={{ left }}
-                      className={`absolute top-1 z-10 -translate-x-1/2 w-[10.5%] sm:w-[11%] h-12 sm:h-13 rounded-b-lg sm:rounded-b-xl transition-all cursor-pointer flex flex-col justify-end items-center pb-1 border ${
-                        isSelected
-                          ? 'bg-gradient-to-b from-violet-500 to-purple-700 text-white border-violet-400 shadow-[0_3px_0_0_#3b0764] ring-2 ring-violet-300 scale-105 z-20'
-                          : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617]'
+                      whileTap={!isUnused ? { scale: 0.96 } : undefined}
+                      onClick={() => {
+                        if (isUnused) return;
+                        handleSelectNote(note);
+                      }}
+                      disabled={isUnused}
+                      className={`flex-1 h-full rounded-b-xl sm:rounded-b-2xl transition-all flex flex-col justify-end items-center pb-1.5 relative border ${
+                        isUnused
+                          ? 'bg-slate-100/60 dark:bg-[#0c1624]/50 text-slate-400/50 dark:text-slate-600/50 border-slate-200/30 dark:border-slate-800/30 shadow-none cursor-not-allowed opacity-35 grayscale'
+                          : isCurrentTarget
+                          ? 'bg-gradient-to-b from-indigo-500 to-indigo-600 text-white border-indigo-600 shadow-[0_4px_0_0_#312e81] ring-2 ring-indigo-400/80 z-0 cursor-pointer animate-pulse'
+                          : isCompleted
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/80 shadow-[0_4px_0_0_#059669] dark:shadow-[0_4px_0_0_#064e3b] cursor-pointer'
+                          : isInChallenge
+                          ? 'bg-white dark:bg-[#152336] text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-indigo-200/90 dark:border-indigo-800/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] ring-1 ring-indigo-400/30 cursor-pointer'
+                          : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
                       }`}
-                      title={`Tocar ${note.displayName} (${note.frequency} Hz)`}
+                      title={isUnused ? `${note.displayName} (no se usa en este nivel)` : `Tocar ${note.displayName} (${note.frequency} Hz)`}
                     >
-                      <span className="font-heading font-black text-[9px] sm:text-[10px] text-white leading-none drop-shadow-xs">
+                      {/* Top Indicator for Level Challenge (Check or Active Dot) */}
+                      {isLevelMode && !isUnused && (
+                        <div className="absolute top-1 inset-x-0 flex justify-center">
+                          {isCompleted ? (
+                            <span className="text-[8px] font-black text-emerald-500 leading-none">✓</span>
+                          ) : isCurrentTarget ? (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                          ) : (
+                            <span className="w-1 h-1 rounded-full bg-indigo-400/70" />
+                          )}
+                        </div>
+                      )}
+
+                      <span className="font-heading font-black text-xs sm:text-sm leading-none">
                         {note.name}
                       </span>
-                      <span className={`text-[8px] sm:text-[9px] font-bold mt-0.5 leading-none ${
-                        isSelected ? 'text-violet-200' : 'text-slate-400'
+                      <span className={`text-[10px] font-bold mt-0.5 leading-none ${
+                        isCurrentTarget
+                          ? 'text-indigo-100'
+                          : isCompleted
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : isUnused
+                          ? 'text-slate-300 dark:text-slate-700'
+                          : 'text-slate-400 dark:text-slate-500'
                       }`}>
-                        {note.letter}
+                        {note.letter}{note.octave}
                       </span>
                     </motion.button>
                   );
                 })}
               </div>
 
-              {/* Controls Group: Mode Selector + Mic Button */}
-              <div className="pt-2 sm:pt-2.5 space-y-2">
-                {/* Difficulty / Mode Selector Pill - Slim & Discrete */}
-                <div className="bg-[#eff4ff]/80 dark:bg-[#0b1828]/80 p-0.5 rounded-full flex items-center justify-between border border-slate-200/70 dark:border-slate-800 max-w-[310px] mx-auto w-full">
-                  {(['facil', 'medio', 'dificil'] as const).map(d => {
-                    const targetDiff: Difficulty = d === 'facil' ? 'Fácil' : d === 'medio' ? 'Medio' : 'Difícil';
-                    const hzText = d === 'facil' ? '±15Hz' : d === 'medio' ? '±8Hz' : '±4Hz';
-                    return (
-                      <button
-                        key={d}
-                        onClick={() => {
-                          audioService.playClickSound();
-                          setDifficulty(d);
-                          setSelectedDifficulty(targetDiff);
-                          setIsLevelSelectOpen(true);
-                        }}
-                        className={`flex-1 py-0.5 px-1.5 text-[10px] font-bold rounded-full transition-all cursor-pointer capitalize flex items-center justify-center gap-1 leading-normal ${
-                          difficulty === d
-                            ? 'bg-white dark:bg-[#102034] text-[#2c2abc] dark:text-[#c0c1ff] shadow-2xs border border-slate-200/80 dark:border-slate-700'
-                            : 'text-slate-500 dark:text-[#a0a5ba] hover:text-slate-800 dark:hover:text-white'
-                        }`}
-                        title={`Ver niveles en modo ${targetDiff}`}
-                      >
-                        <span>{targetDiff}</span>
-                        <span className="text-[8.5px] opacity-60 font-normal">({hzText})</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* 5 Black Keys (Overlapping) */}
+              {blackKeyPositions.map(({ note, left }) => {
+                if (!note) return null;
+                const isLevelMode = tunerMode === 'niveles';
+                const isInChallenge = isLevelMode && challengeNotes.some(cn => cn.name.toUpperCase() === note.name.toUpperCase());
+                const isCurrentTarget = isLevelMode
+                  ? activeTargetNote.name.toUpperCase() === note.name.toUpperCase()
+                  : selectedNote.name === note.name;
+                const isCompleted = isLevelMode && challengeNotes.some((cn, idx) =>
+                  completedChallengeNotes.has(idx) &&
+                  cn.name.toUpperCase() === note.name.toUpperCase() &&
+                  idx < challengeIndex
+                );
+                const isUnused = isLevelMode && !isInChallenge;
 
-                {/* Toggle Mic Button - Small, compact & centered (Pyramid: Pequeño -> Mediano -> Grande) */}
-                <div className="flex justify-center">
-                  <button
-                    onClick={toggleTuning}
-                    className={`w-full max-w-[210px] sm:max-w-[220px] py-1.5 sm:py-2 px-4 rounded-full font-heading font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
-                      isTuningActive
-                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_2px_0_0_#991b1b]'
-                        : 'tactile-btn-primary'
+                return (
+                  <motion.button
+                    key={note.name}
+                    whileTap={!isUnused ? { scale: 0.93 } : undefined}
+                    onClick={() => {
+                      if (isUnused) return;
+                      handleSelectNote(note);
+                    }}
+                    disabled={isUnused}
+                    style={{ left }}
+                    className={`absolute top-1 z-10 -translate-x-1/2 w-[10.5%] sm:w-[11%] h-12 sm:h-13 rounded-b-lg sm:rounded-b-xl transition-all flex flex-col justify-end items-center pb-1 border ${
+                      isUnused
+                        ? 'bg-slate-800/30 dark:bg-[#070d18]/40 text-slate-600/40 dark:text-slate-700/40 border-transparent shadow-none cursor-not-allowed opacity-30 grayscale'
+                        : isCurrentTarget
+                        ? 'bg-gradient-to-b from-violet-500 to-purple-700 text-white border-violet-400 shadow-[0_3px_0_0_#3b0764] ring-2 ring-violet-300 scale-105 z-20 cursor-pointer animate-pulse'
+                        : isCompleted
+                        ? 'bg-emerald-800 dark:bg-emerald-900 text-emerald-100 border-emerald-600 shadow-[0_3px_0_0_#064e3b] z-10 cursor-pointer'
+                        : isInChallenge
+                        ? 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-purple-400/70 shadow-[0_3px_0_0_#020617] ring-1 ring-violet-400/40 cursor-pointer'
+                        : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
                     }`}
+                    title={isUnused ? `${note.displayName} (no se usa en este nivel)` : `Tocar ${note.displayName} (${note.frequency} Hz)`}
                   >
-                    {isTuningActive ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                    <span>{isTuningActive ? 'Pausar Micrófono' : 'Activar Micrófono'}</span>
-                  </button>
-                </div>
-              </div>
+                    {/* Top Indicator for Level Challenge (Check or Active Dot) */}
+                    {isLevelMode && !isUnused && (
+                      <div className="absolute top-0.5 inset-x-0 flex justify-center">
+                        {isCompleted ? (
+                          <span className="text-[7.5px] font-black text-emerald-400 leading-none">✓</span>
+                        ) : isCurrentTarget ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-200 animate-ping" />
+                        ) : (
+                          <span className="w-1 h-1 rounded-full bg-violet-400/80" />
+                        )}
+                      </div>
+                    )}
+
+                    <span className="font-heading font-black text-[9px] sm:text-[10px] text-white leading-none drop-shadow-xs">
+                      {note.name}
+                    </span>
+                    <span className={`text-[8px] sm:text-[9px] font-bold mt-0.5 leading-none ${
+                      isCurrentTarget
+                        ? 'text-violet-200'
+                        : isCompleted
+                        ? 'text-emerald-300'
+                        : isUnused
+                        ? 'text-slate-600'
+                        : 'text-slate-400'
+                    }`}>
+                      {note.letter}
+                    </span>
+                  </motion.button>
+                );
+              })}
             </div>
-          ) : (
-            /* Challenge Notes Strip for Levels Mode */
-            <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Notas a cantar en este nivel:
-                </span>
-                <button
-                  onClick={() => {
-                    const curr = challengeNotes[challengeIndex];
-                    if (curr) voicePlayback.playVoiceNote(curr, gender, 1.6);
-                  }}
-                  className="flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Escuchar Nota</span>
-                </button>
-              </div>
 
-              {/* Horizontal notes strip */}
-              <div className="flex items-center gap-2.5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
-                {challengeNotes.map((cn, idx) => {
-                  const isDone = completedChallengeNotes.has(idx);
-                  const isCurrent = challengeIndex === idx;
-
+            {/* Controls Group: Mode Selector + Mic Button */}
+            <div className="pt-2 sm:pt-2.5 space-y-2">
+              {/* Difficulty / Mode Selector Pill - Slim & Discrete */}
+              <div className="bg-[#eff4ff]/80 dark:bg-[#0b1828]/80 p-0.5 rounded-full flex items-center justify-between border border-slate-200/70 dark:border-slate-800 max-w-[310px] mx-auto w-full">
+                {(['facil', 'medio', 'dificil'] as const).map(d => {
+                  const targetDiff: Difficulty = d === 'facil' ? 'Fácil' : d === 'medio' ? 'Medio' : 'Difícil';
+                  const hzText = d === 'facil' ? '±15Hz' : d === 'medio' ? '±8Hz' : '±4Hz';
                   return (
-                    <motion.button
-                      key={idx}
-                      whileTap={{ scale: 0.94 }}
+                    <button
+                      key={d}
                       onClick={() => {
-                        setChallengeIndex(idx);
-                        voicePlayback.playVoiceNote(cn, gender, 1.5);
+                        audioService.playClickSound();
+                        setDifficulty(d);
+                        setSelectedDifficulty(targetDiff);
+                        setIsLevelSelectOpen(true);
                       }}
-                      className={`p-3 rounded-2xl border flex flex-col items-center justify-center min-w-[64px] min-h-[64px] transition-all cursor-pointer ${
-                        isDone
-                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-xs'
-                          : isCurrent
-                          ? 'bg-indigo-600 text-white border-indigo-700 ring-4 ring-indigo-300 dark:ring-indigo-500 scale-105 shadow-md'
-                          : 'bg-slate-50 dark:bg-[#0b1828] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800'
+                      className={`flex-1 py-0.5 px-1.5 text-[10px] font-bold rounded-full transition-all cursor-pointer capitalize flex items-center justify-center gap-1 leading-normal ${
+                        difficulty === d
+                          ? 'bg-white dark:bg-[#102034] text-[#2c2abc] dark:text-[#c0c1ff] shadow-2xs border border-slate-200/80 dark:border-slate-700'
+                          : 'text-slate-500 dark:text-[#a0a5ba] hover:text-slate-800 dark:hover:text-white'
                       }`}
+                      title={`Ver niveles en modo ${targetDiff}`}
                     >
-                      <span className="font-heading font-black text-sm">{cn.name}</span>
-                      <span className="text-[10px] font-semibold opacity-80">{cn.octave ? `Oct ${cn.octave}` : `${cn.frequency}Hz`}</span>
-                    </motion.button>
+                      <span>{targetDiff}</span>
+                      <span className="text-[8.5px] opacity-60 font-normal">({hzText})</span>
+                    </button>
                   );
                 })}
               </div>
 
-              {/* Action Buttons in Level Mode */}
-              <div className="flex gap-2.5 pt-1">
+              {/* Toggle Mic Button - Small, compact & centered (Pyramid: Pequeño -> Mediano -> Grande) */}
+              <div className="flex justify-center">
                 <button
                   onClick={toggleTuning}
-                  className={`flex-1 py-3 rounded-2xl font-heading font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  className={`w-full max-w-[210px] sm:max-w-[220px] py-1.5 sm:py-2 px-4 rounded-full font-heading font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
                     isTuningActive
-                      ? 'bg-red-600 text-white shadow-[0_4px_0_0_#991b1b]'
+                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_2px_0_0_#991b1b]'
                       : 'tactile-btn-primary'
                   }`}
                 >
-                  {isTuningActive ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                  <span>{isTuningActive ? 'Pausar' : 'Activar Micrófono'}</span>
-                </button>
-
-                <button
-                  onClick={() => setIsLevelSelectOpen(true)}
-                  className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  Niveles
-                </button>
-
-                <button
-                  onClick={() => {
-                    audioService.playClickSound();
-                    audioService.stopMicrophone();
-                    setIsTuningActive(false);
-                    setTunerMode('libre');
-                  }}
-                  className="px-3.5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  title="Salir a Modo Libre"
-                >
-                  Salir
+                  {isTuningActive ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                  <span>{isTuningActive ? 'Pausar Micrófono' : 'Activar Micrófono'}</span>
                 </button>
               </div>
             </div>
-          )}
+          </div>
 
           {/* ─── Pitch Stability Chart ─── */}
           <PitchStabilityChart
