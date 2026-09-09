@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Drum, Play, RotateCcw, CheckCircle2, AlertCircle, ArrowLeft, Music2 } from 'lucide-react';
+import { Drum, Play, RotateCcw, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { voicePlayback } from '../utils/voicePlaybackService';
 import { audioService } from '../utils/audioService';
 
@@ -256,91 +256,28 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
           )}
         </div>
 
-        {/* Main Jump Arena: Full-scale Parabolic Flight & Landing Pads */}
-        <div className="relative w-full h-52 sm:h-56 flex items-center justify-center overflow-visible my-auto">
-          {/* Parabolic Light Arc Track (SVG Guide) */}
-          <svg
-            className="absolute inset-x-0 bottom-6 w-full h-40 pointer-events-none overflow-visible"
-            viewBox="0 0 320 160"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <linearGradient id="rhythmArcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-                <stop offset="50%" stopColor="#818cf8" stopOpacity="0.75" />
-                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.4" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M 60 145 Q 160 20 260 145"
-              fill="none"
-              stroke="url(#rhythmArcGradient)"
-              strokeWidth="2.5"
-              strokeDasharray="6 6"
-              className="opacity-75"
-            />
-          </svg>
-
-          {/* Left Neon Landing Pad (BOMBO) */}
-          <div className="absolute bottom-2 -translate-x-25 sm:-translate-x-28 flex flex-col items-center pointer-events-none z-10">
-            <div
-              className={`w-20 h-7 rounded-full border-2 transition-all duration-150 flex items-center justify-center backdrop-blur-xs ${
-                sphereTarget === 'kick' || activeButton === 'kick'
-                  ? 'border-blue-500 bg-blue-500/30 shadow-[0_0_25px_rgba(59,130,246,0.85)] scale-110'
-                  : 'border-blue-400/50 bg-blue-400/15 dark:bg-blue-950/40'
-              }`}
-            >
-              <span className="text-[10px] font-heading font-black tracking-wider text-blue-600 dark:text-blue-300">
-                BOMBO
-              </span>
-            </div>
-          </div>
-
-          {/* Right Neon Landing Pad (PALMAS) */}
-          <div className="absolute bottom-2 translate-x-25 sm:translate-x-28 flex flex-col items-center pointer-events-none z-10">
-            <div
-              className={`w-20 h-7 rounded-full border-2 transition-all duration-150 flex items-center justify-center backdrop-blur-xs ${
-                sphereTarget === 'clap' || activeButton === 'clap'
-                  ? 'border-rose-500 bg-rose-500/30 shadow-[0_0_25px_rgba(244,63,94,0.85)] scale-110'
-                  : 'border-rose-400/50 bg-rose-400/15 dark:bg-rose-950/40'
-              }`}
-            >
-              <span className="text-[10px] font-heading font-black tracking-wider text-rose-600 dark:text-rose-300">
-                PALMAS
-              </span>
-            </div>
-          </div>
-
-          {/* Center Resting Dot */}
-          <div className="absolute bottom-3.5 flex flex-col items-center pointer-events-none z-10">
-            <div
-              className={`w-10 h-3 rounded-full transition-all duration-150 ${
-                sphereTarget === 'center'
-                  ? 'bg-indigo-500/40 shadow-[0_0_12px_rgba(99,102,241,0.5)]'
-                  : 'bg-slate-300/30 dark:bg-slate-700/30'
-              }`}
-            />
-          </div>
-
+        {/* Main Jump Arena: Minimalist Clean Stage with Direct Plunge to Buttons */}
+        <div className="relative w-full h-56 sm:h-64 flex items-center justify-center overflow-visible my-auto">
           {/* Moving Ground Shadow */}
           <motion.div
             animate={{
-              x: sphereTarget === 'kick' ? -100 : sphereTarget === 'clap' ? 100 : 0,
-              scale: isSquashing ? 1.45 : 0.9,
-              opacity: isSquashing ? 0.75 : 0.35
+              x: sphereTarget === 'kick' ? -105 : sphereTarget === 'clap' ? 105 : 0,
+              y: sphereTarget === 'center' ? 25 : 75,
+              scale: isSquashing ? 1.45 : 0.85,
+              opacity: isSquashing ? 0.65 : 0.2
             }}
             transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-            className="absolute bottom-2 w-18 h-4 bg-slate-900/35 dark:bg-black/60 rounded-full blur-xs pointer-events-none z-10"
+            className="absolute bottom-6 w-18 h-4 bg-slate-900/30 dark:bg-black/60 rounded-full blur-xs pointer-events-none z-10"
           />
 
-          {/* Expanding Impact Micro-Ripple */}
+          {/* Expanding Impact Micro-Ripple near bottom edge */}
           {impactEffect && (
             <motion.div
               key={`ripple-${Date.now()}`}
               initial={{ scale: 0.5, opacity: 1 }}
               animate={{ scale: 2.5, opacity: 0 }}
               transition={{ duration: 0.38, ease: 'easeOut' }}
-              className={`absolute bottom-1 w-20 h-7 rounded-full border-2 pointer-events-none z-10 ${
+              className={`absolute bottom-4 w-20 h-7 rounded-full border-2 pointer-events-none z-10 ${
                 impactEffect === 'kick'
                   ? 'border-blue-400 bg-blue-400/25 shadow-[0_0_22px_rgba(59,130,246,0.7)]'
                   : 'border-rose-400 bg-rose-400/25 shadow-[0_0_22px_rgba(244,63,94,0.7)]'
@@ -348,17 +285,21 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
               style={{
                 left:
                   sphereTarget === 'kick'
-                    ? 'calc(50% - 100px - 40px)'
-                    : 'calc(50% + 100px - 40px)'
+                    ? 'calc(50% - 105px - 40px)'
+                    : 'calc(50% + 105px - 40px)'
               }}
             />
           )}
 
-          {/* Full-Size Purple Sphere (w-20 h-20 / 80px) with Sinusoidal Vault & Squash/Stretch */}
+          {/* Pure Full-Size Purple Sphere Plunging Towards Bottom Buttons */}
           <motion.div
             animate={{
-              x: sphereTarget === 'kick' ? -100 : sphereTarget === 'clap' ? 100 : 0,
-              y: isCelebrating ? [0, -65, 0, -30, 0] : isSquashing ? 6 : [0, -85, 0],
+              x: sphereTarget === 'kick' ? -105 : sphereTarget === 'clap' ? 105 : 0,
+              y: isCelebrating
+                ? [0, -65, 0, -30, 0]
+                : sphereTarget === 'center'
+                ? (isSquashing ? -5 : -25)
+                : (isSquashing ? 68 : [ -40, 5, 62 ]),
               scaleX: isSquashing ? 1.35 : isCelebrating ? 1.08 : [0.92, 1.04, 1],
               scaleY: isSquashing ? 0.7 : isCelebrating ? 1.08 : [1.18, 0.96, 1],
               rotate: isCelebrating ? [0, 360] : 0
@@ -372,16 +313,14 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
               scaleY: { duration: 0.22 },
               rotate: isCelebrating ? { duration: 1.2, repeat: Infinity, ease: 'linear' } : undefined
             }}
-            className={`w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] via-[#4648d4] to-[#2c2abc] flex items-center justify-center text-white shadow-[0_12px_28px_rgba(70,72,212,0.5)] border-t-2 border-white/40 relative z-20 cursor-default transition-all duration-150 ${
+            className={`w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] via-[#4648d4] to-[#2c2abc] shadow-[0_12px_28px_rgba(70,72,212,0.5)] border-t-2 border-white/40 relative z-20 cursor-default transition-all duration-150 ${
               impactEffect === 'kick'
                 ? 'ring-4 ring-blue-400 shadow-[0_0_35px_rgba(37,99,235,0.9)]'
                 : impactEffect === 'clap'
                 ? 'ring-4 ring-rose-400 shadow-[0_0_35px_rgba(225,29,72,0.9)]'
                 : 'ring-2 ring-indigo-300/40'
             }`}
-          >
-            <Music2 className="w-9 h-9 text-white drop-shadow-sm" />
-          </motion.div>
+          />
         </div>
 
         {/* Floating Feedback & Combo Counter */}
