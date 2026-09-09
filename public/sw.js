@@ -1,4 +1,4 @@
-const CACHE_NAME = 'afinapp-v2';
+const CACHE_NAME = 'afinapp-v6';
 const PRECACHE_URLS = [
   '/',
   '/Duck Win.mp4',
@@ -15,7 +15,8 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      // Wipe ALL caches to destroy old Vite remnants
+      Promise.all(keys.map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -25,11 +26,9 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // For navigation requests (HTML pages), use Network-first, falling back to cache
+  // For navigation requests, always go to network (bypassing old Vite cache)
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
-    );
+    event.respondWith(fetch(request));
     return;
   }
 
