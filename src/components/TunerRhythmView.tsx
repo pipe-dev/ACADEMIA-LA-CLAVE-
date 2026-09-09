@@ -27,16 +27,18 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
   const [combo, setCombo] = useState<number>(0);
   const [activeButton, setActiveButton] = useState<'kick' | 'clap' | null>(null);
 
-  // Purple sphere bounce & impact states
+  // Purple sphere bounce, jump & squash deformation states
   const [sphereTarget, setSphereTarget] = useState<'center' | 'kick' | 'clap'>('center');
-  const [impactEffect, setImpactEffect] = useState<'kick' | 'clap' | null>(null);
+  const [isAirborne, setIsAirborne] = useState<boolean>(false);
   const [isSquashing, setIsSquashing] = useState<boolean>(false);
+  const [impactEffect, setImpactEffect] = useState<'kick' | 'clap' | null>(null);
   const [isCelebrating, setIsCelebrating] = useState<boolean>(false);
 
   const floatingIdRef = useRef(0);
   const patternStartTimeRef = useRef(0);
   const userTapsRef = useRef<{ time: number; instrument: 'clap' | 'kick' }[]>([]);
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const jumpTimersRef = useRef<NodeJS.Timeout[]>([]);
 
   const addFloating = (text: string, color: string, side: 'left' | 'right') => {
     const id = ++floatingIdRef.current;
@@ -46,45 +48,76 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
     }, 900);
   };
 
+  // Coordinated physical jump: High airborne parabolic flight -> Slam landing & Squash deformation -> Elastic recovery
+  const triggerBallJump = useCallback((target: 'center' | 'kick' | 'clap', flightMs = 240) => {
+    jumpTimersRef.current.forEach(clearTimeout);
+    jumpTimersRef.current = [];
+
+    // 1. Takeoff & Launch: rises high (-115px) and stretches vertically
+    setSphereTarget(target);
+    setIsAirborne(true);
+    setIsSquashing(false);
+    setImpactEffect(null);
+
+    // 2. Landing: Ball plunges to the floor and squashes flat (scaleX: 1.55, scaleY: 0.50)
+    const tImpact = setTimeout(() => {
+      setIsAirborne(false);
+      setIsSquashing(true);
+      if (target !== 'center') {
+        setImpactEffect(target);
+      }
+    }, flightMs);
+    jumpTimersRef.current.push(tImpact);
+
+    // 3. Recovery: Rebounds elastically back to normal round shape
+    const tRecover = setTimeout(() => {
+      setIsSquashing(false);
+      setImpactEffect(null);
+    }, flightMs + 180);
+    jumpTimersRef.current.push(tRecover);
+  }, []);
+
   const startGuidePhase = useCallback(() => {
     timeoutsRef.current.forEach(clearTimeout);
     timeoutsRef.current = [];
+    jumpTimersRef.current.forEach(clearTimeout);
+    jumpTimersRef.current = [];
+
     setPhase('guide');
     setCombo(0);
     setFloatingTexts([]);
     userTapsRef.current = [];
     setSphereTarget('center');
-    setImpactEffect(null);
+    setIsAirborne(false);
     setIsSquashing(false);
+    setImpactEffect(null);
     setIsCelebrating(false);
 
     const beatMs = (60 / bpm) * 1000;
     const patternDuration = pattern.length > 0 ? pattern[pattern.length - 1].time + beatMs * 2 : 3000;
 
-    // Play metronome ticks for 2 count-in bars (4 beats) with micro center bounce
+    // Play metronome ticks for 2 count-in bars (4 beats) with pronounced center hops
     const countInTicks = 4;
     for (let i = 0; i < countInTicks; i++) {
       const t = setTimeout(() => {
         voicePlayback.playMetronomeTick();
-        setSphereTarget('center');
-        setIsSquashing(true);
-        setTimeout(() => setIsSquashing(false), 120);
+        triggerBallJump('center', 160);
       }, i * beatMs);
       timeoutsRef.current.push(t);
     }
 
     const startPatternTime = countInTicks * beatMs;
-    const leapLeadMs = Math.min(220, Math.round(beatMs * 0.55));
+    const leapLeadMs = Math.min(240, Math.round(beatMs * 0.55));
 
-    // Schedule pattern guide sounds, parabolic leaps and impact animations
+    // Schedule pattern guide sounds: leap launches ahead, lands and squashes exactly on beat
     pattern.forEach(hit => {
-      // 1. Launch leap in parabola ahead of the beat
+      // 1. Launch high airborne leap ahead of the beat
       const leapTimer = setTimeout(() => {
-        setSphereTarget(hit.instrument);
+        triggerBallJump(hit.instrument, leapLeadMs);
       }, Math.max(0, startPatternTime + hit.time - leapLeadMs));
       timeoutsRef.current.push(leapTimer);
 
-      // 2. Landing impact, sound, squash and color flash exactly on beat
+      // 2. Audio hit synchronized with landing
       const hitTimer = setTimeout(() => {
         if (hit.instrument === 'kick') {
           voicePlayback.playKick();
@@ -93,13 +126,7 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
           voicePlayback.playClap();
           setActiveButton('clap');
         }
-        setIsSquashing(true);
-        setImpactEffect(hit.instrument);
-        setTimeout(() => {
-          setActiveButton(null);
-          setIsSquashing(false);
-          setImpactEffect(null);
-        }, 140);
+        setTimeout(() => setActiveButton(null), 140);
       }, startPatternTime + hit.time);
       timeoutsRef.current.push(hitTimer);
     });
@@ -108,17 +135,18 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
     const endGuideTime = startPatternTime + patternDuration;
     const transitionTimer = setTimeout(() => {
       setPhase('playing');
-      setSphereTarget('center');
+      triggerBallJump('center', 200);
       patternStartTimeRef.current = Date.now();
       audioService.playSoftDing();
     }, endGuideTime);
     timeoutsRef.current.push(transitionTimer);
-  }, [bpm, pattern]);
+  }, [bpm, pattern, triggerBallJump]);
 
   useEffect(() => {
     startGuidePhase();
     return () => {
       timeoutsRef.current.forEach(clearTimeout);
+      jumpTimersRef.current.forEach(clearTimeout);
     };
   }, [startGuidePhase]);
 
@@ -127,7 +155,7 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
     if (taps.length === 0) {
       setScore(0);
       setPhase('results');
-      setSphereTarget('center');
+      triggerBallJump('center', 200);
       return;
     }
 
@@ -144,7 +172,7 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
     const finalScore = Math.min(100, Math.round((correctHits / pattern.length) * 100));
     setScore(finalScore);
     setPhase('results');
-    setSphereTarget('center');
+    triggerBallJump('center', 200);
 
     if (finalScore >= 80) {
       setIsCelebrating(true);
@@ -155,14 +183,8 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
   const handleTap = (instrument: 'kick' | 'clap') => {
     if (phase !== 'playing') return;
 
-    // Trigger instant parabolic leap & squash impact on user tap
-    setSphereTarget(instrument);
-    setIsSquashing(true);
-    setImpactEffect(instrument);
-    setTimeout(() => {
-      setIsSquashing(false);
-      setImpactEffect(null);
-    }, 140);
+    // Trigger instant high leap and floor squash towards tapped button
+    triggerBallJump(instrument, 200);
 
     const tapTime = Date.now() - patternStartTimeRef.current;
     userTapsRef.current.push({ time: tapTime, instrument });
@@ -262,12 +284,16 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
           <motion.div
             animate={{
               x: sphereTarget === 'kick' ? -105 : sphereTarget === 'clap' ? 105 : 0,
-              y: sphereTarget === 'center' ? 25 : 75,
-              scale: isSquashing ? 1.45 : 0.85,
-              opacity: isSquashing ? 0.65 : 0.2
+              y: isSquashing ? 84 : 80,
+              scale: isAirborne ? 0.45 : isSquashing ? 1.65 : 0.9,
+              opacity: isAirborne ? 0.12 : isSquashing ? 0.85 : 0.35
             }}
-            transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-            className="absolute bottom-6 w-18 h-4 bg-slate-900/30 dark:bg-black/60 rounded-full blur-xs pointer-events-none z-10"
+            transition={{
+              x: { type: 'spring', stiffness: 320, damping: 25 },
+              scale: { duration: 0.16 },
+              opacity: { duration: 0.16 }
+            }}
+            className="absolute bottom-6 w-18 h-4 bg-slate-900/40 dark:bg-black/70 rounded-full blur-xs pointer-events-none z-10"
           />
 
           {/* Expanding Impact Micro-Ripple near bottom edge */}
@@ -275,12 +301,12 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
             <motion.div
               key={`ripple-${Date.now()}`}
               initial={{ scale: 0.5, opacity: 1 }}
-              animate={{ scale: 2.5, opacity: 0 }}
+              animate={{ scale: 2.6, opacity: 0 }}
               transition={{ duration: 0.38, ease: 'easeOut' }}
               className={`absolute bottom-4 w-20 h-7 rounded-full border-2 pointer-events-none z-10 ${
                 impactEffect === 'kick'
-                  ? 'border-blue-400 bg-blue-400/25 shadow-[0_0_22px_rgba(59,130,246,0.7)]'
-                  : 'border-rose-400 bg-rose-400/25 shadow-[0_0_22px_rgba(244,63,94,0.7)]'
+                  ? 'border-blue-400 bg-blue-400/30 shadow-[0_0_24px_rgba(59,130,246,0.8)]'
+                  : 'border-rose-400 bg-rose-400/30 shadow-[0_0_24px_rgba(244,63,94,0.8)]'
               }`}
               style={{
                 left:
@@ -291,33 +317,49 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
             />
           )}
 
-          {/* Pure Full-Size Purple Sphere Plunging Towards Bottom Buttons */}
+          {/* Pure Full-Size Purple Sphere: Pronounced High Leap + Dramatic Ground Squash Deformation */}
           <motion.div
             animate={{
               x: sphereTarget === 'kick' ? -105 : sphereTarget === 'clap' ? 105 : 0,
               y: isCelebrating
-                ? [0, -65, 0, -30, 0]
+                ? [0, -75, 0, -35, 0]
+                : isAirborne
+                ? -118 // High airborne leap!
+                : isSquashing
+                ? 78 // Deep against the ground on landing!
                 : sphereTarget === 'center'
-                ? (isSquashing ? -5 : -25)
-                : (isSquashing ? 68 : [ -40, 5, 62 ]),
-              scaleX: isSquashing ? 1.35 : isCelebrating ? 1.08 : [0.92, 1.04, 1],
-              scaleY: isSquashing ? 0.7 : isCelebrating ? 1.08 : [1.18, 0.96, 1],
+                ? -20
+                : 70,
+              scaleX: isSquashing
+                ? 1.55 // Pronounced squash: 55% wider!
+                : isAirborne
+                ? 0.76 // Pronounced stretch in flight: thinner
+                : 1,
+              scaleY: isSquashing
+                ? 0.48 // Pronounced squash: compressed to half height!
+                : isAirborne
+                ? 1.34 // Pronounced stretch in flight: 34% taller!
+                : 1,
               rotate: isCelebrating ? [0, 360] : 0
             }}
             transition={{
-              x: { type: 'spring', stiffness: 360, damping: 27 },
+              x: { type: 'spring', stiffness: 320, damping: 25 },
               y: isCelebrating
                 ? { duration: 0.85, repeat: Infinity, ease: 'easeInOut' }
-                : { duration: 0.3, ease: [0.33, 1, 0.68, 1] },
-              scaleX: { duration: 0.22 },
-              scaleY: { duration: 0.22 },
+                : isAirborne
+                ? { duration: 0.22, ease: [0.15, 0.85, 0.35, 1.2] } // Punchy launch up
+                : isSquashing
+                ? { duration: 0.12, ease: 'easeIn' } // Heavy slam into floor squash
+                : { type: 'spring', stiffness: 340, damping: 20 }, // Smooth recovery
+              scaleX: { duration: 0.14, ease: 'easeOut' },
+              scaleY: { duration: 0.14, ease: 'easeOut' },
               rotate: isCelebrating ? { duration: 1.2, repeat: Infinity, ease: 'linear' } : undefined
             }}
             className={`w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] via-[#4648d4] to-[#2c2abc] shadow-[0_12px_28px_rgba(70,72,212,0.5)] border-t-2 border-white/40 relative z-20 cursor-default transition-all duration-150 ${
               impactEffect === 'kick'
-                ? 'ring-4 ring-blue-400 shadow-[0_0_35px_rgba(37,99,235,0.9)]'
+                ? 'ring-4 ring-blue-400 shadow-[0_0_35px_rgba(37,99,235,0.95)]'
                 : impactEffect === 'clap'
-                ? 'ring-4 ring-rose-400 shadow-[0_0_35px_rgba(225,29,72,0.9)]'
+                ? 'ring-4 ring-rose-400 shadow-[0_0_35px_rgba(225,29,72,0.95)]'
                 : 'ring-2 ring-indigo-300/40'
             }`}
           />
