@@ -225,175 +225,235 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
         </div>
       </div>
 
-      {/* Stage Visualizer */}
-      <div className="relative min-h-[170px] rounded-2xl bg-[#e9f0ff] dark:bg-[#0b1828] border border-blue-100 dark:border-slate-800 flex flex-col items-center justify-center p-4 overflow-hidden shadow-inner">
-        {/* Dynamic Purple Bouncing Sphere Stage */}
-        <div className="relative w-full h-28 flex items-center justify-center overflow-visible mb-1">
-          {/* Floor Guide Path (Subtle arc track indicator) */}
-          <div className="absolute bottom-2 inset-x-12 h-0.5 border-b border-dashed border-indigo-200/50 dark:border-indigo-800/40 pointer-events-none" />
+      {/* Stage Visualizer: Spacious Arcade Arena */}
+      <div className="relative min-h-[310px] sm:min-h-[350px] rounded-3xl bg-[#e9f0ff] dark:bg-[#0b1828] border border-blue-100 dark:border-slate-800 flex flex-col items-center justify-between p-4 sm:p-5 overflow-hidden shadow-inner">
+        {/* Technical Grid Background */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1b2b3f15_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f15_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1b2b3f_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f_1px,transparent_1px)] bg-[size:24px_24px] opacity-60 pointer-events-none" />
 
-          {/* Left / Right Target Ground Markers */}
-          <div
-            className={`absolute bottom-1 -translate-x-20 w-8 h-2 rounded-full transition-all duration-200 pointer-events-none ${
-              sphereTarget === 'kick'
-                ? 'bg-blue-400/50 scale-125 blur-2xs'
-                : 'bg-slate-300/30 dark:bg-slate-700/30'
-            }`}
-          />
-          <div
-            className={`absolute bottom-1 translate-x-20 w-8 h-2 rounded-full transition-all duration-200 pointer-events-none ${
-              sphereTarget === 'clap'
-                ? 'bg-rose-400/50 scale-125 blur-2xs'
-                : 'bg-slate-300/30 dark:bg-slate-700/30'
-            }`}
-          />
-
-          {/* Ground shadow that moves horizontally with the sphere */}
-          <motion.div
-            animate={{
-              x: sphereTarget === 'kick' ? -80 : sphereTarget === 'clap' ? 80 : 0,
-              scale: isSquashing ? 1.35 : 0.85,
-              opacity: isSquashing ? 0.65 : 0.3
-            }}
-            transition={{ type: 'spring', stiffness: 350, damping: 26 }}
-            className="absolute bottom-1 w-12 h-3 bg-slate-900/25 dark:bg-black/50 rounded-full blur-xs pointer-events-none"
-          />
-
-          {/* Impact Micro-Ripple */}
-          {impactEffect && (
-            <motion.div
-              key={`ripple-${Date.now()}`}
-              initial={{ scale: 0.6, opacity: 0.95 }}
-              animate={{ scale: 2.1, opacity: 0 }}
-              transition={{ duration: 0.38, ease: 'easeOut' }}
-              className={`absolute bottom-0 w-14 h-4 rounded-full border-2 pointer-events-none ${
-                impactEffect === 'kick'
-                  ? 'border-blue-400 bg-blue-400/20'
-                  : 'border-rose-400 bg-rose-400/20'
-              }`}
-              style={{
-                left:
-                  sphereTarget === 'kick'
-                    ? 'calc(50% - 80px - 28px)'
-                    : 'calc(50% + 80px - 28px)'
-              }}
-            />
-          )}
-
-          {/* Purple Sphere with Sinusoidal Parabolic Trajectory + Squash/Stretch */}
-          <motion.div
-            animate={{
-              x: sphereTarget === 'kick' ? -80 : sphereTarget === 'clap' ? 80 : 0,
-              y: isCelebrating ? [0, -50, 0, -25, 0] : isSquashing ? 4 : [0, -48, 0],
-              scaleX: isSquashing ? 1.3 : isCelebrating ? 1.05 : [0.92, 1.05, 1],
-              scaleY: isSquashing ? 0.72 : isCelebrating ? 1.05 : [1.18, 0.95, 1],
-              rotate: isCelebrating ? [0, 360] : 0
-            }}
-            transition={{
-              x: { type: 'spring', stiffness: 380, damping: 27 },
-              y: isCelebrating
-                ? { duration: 0.9, repeat: Infinity, ease: 'easeInOut' }
-                : { duration: 0.28, ease: [0.33, 1, 0.68, 1] },
-              scaleX: { duration: 0.22 },
-              scaleY: { duration: 0.22 },
-              rotate: isCelebrating ? { duration: 1.2, repeat: Infinity, ease: 'linear' } : undefined
-            }}
-            className={`w-14 h-14 rounded-full bg-gradient-to-br from-[#6366f1] via-[#4648d4] to-[#2c2abc] flex items-center justify-center text-white shadow-[0_8px_20px_rgba(70,72,212,0.45)] border-t border-white/35 relative z-20 cursor-default transition-all duration-150 ${
-              impactEffect === 'kick'
-                ? 'ring-4 ring-blue-400 shadow-[0_0_25px_rgba(37,99,235,0.85)]'
-                : impactEffect === 'clap'
-                ? 'ring-4 ring-rose-400 shadow-[0_0_25px_rgba(225,29,72,0.85)]'
-                : 'ring-2 ring-indigo-300/30'
-            }`}
-          >
-            <Music2 className="w-6 h-6 text-white/90 drop-shadow-xs" />
-          </motion.div>
-        </div>
-
-        {/* Phase Status Banner */}
-        <div className="text-center space-y-1">
+        {/* Phase Status Banner at the Top */}
+        <div className="relative z-10 w-full flex items-center justify-center pt-1">
           {phase === 'guide' && (
-            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-heading font-extrabold text-sm">
-              <Drum className="w-4 h-4 animate-bounce" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 dark:bg-slate-900/90 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-heading font-extrabold text-xs shadow-xs backdrop-blur-xs">
+              <Drum className="w-4 h-4 animate-bounce text-indigo-500" />
               <span>Escucha la guía con atención...</span>
             </div>
           )}
           {phase === 'playing' && (
-            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-heading font-extrabold text-sm animate-pulse">
-              <Play className="w-4 h-4" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-heading font-extrabold text-xs shadow-xs backdrop-blur-xs animate-pulse">
+              <Play className="w-4 h-4 text-emerald-500" />
               <span>¡Ahora tú! Sigue el ritmo</span>
             </div>
           )}
           {phase === 'results' && (
-            <div className="space-y-1">
-              <div className="text-base font-heading font-black text-slate-900 dark:text-white">
+            <div className="space-y-1 text-center bg-white/95 dark:bg-slate-900/95 px-6 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm backdrop-blur-xs">
+              <div className="text-lg font-heading font-black text-slate-900 dark:text-white">
                 Precisión: {score}%
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {score >= 80 ? '¡Excelente compás! Aprobado' : 'Necesitas al menos 80% para aprobar'}
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {score >= 80 ? '¡Excelente compás! Nivel Aprobado' : 'Necesitas al menos 80% para aprobar'}
               </p>
             </div>
           )}
         </div>
 
-        {/* Floating texts */}
+        {/* Main Jump Arena: Full-scale Parabolic Flight & Landing Pads */}
+        <div className="relative w-full h-52 sm:h-56 flex items-center justify-center overflow-visible my-auto">
+          {/* Parabolic Light Arc Track (SVG Guide) */}
+          <svg
+            className="absolute inset-x-0 bottom-6 w-full h-40 pointer-events-none overflow-visible"
+            viewBox="0 0 320 160"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="rhythmArcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
+                <stop offset="50%" stopColor="#818cf8" stopOpacity="0.75" />
+                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.4" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M 60 145 Q 160 20 260 145"
+              fill="none"
+              stroke="url(#rhythmArcGradient)"
+              strokeWidth="2.5"
+              strokeDasharray="6 6"
+              className="opacity-75"
+            />
+          </svg>
+
+          {/* Left Neon Landing Pad (BOMBO) */}
+          <div className="absolute bottom-2 -translate-x-25 sm:-translate-x-28 flex flex-col items-center pointer-events-none z-10">
+            <div
+              className={`w-20 h-7 rounded-full border-2 transition-all duration-150 flex items-center justify-center backdrop-blur-xs ${
+                sphereTarget === 'kick' || activeButton === 'kick'
+                  ? 'border-blue-500 bg-blue-500/30 shadow-[0_0_25px_rgba(59,130,246,0.85)] scale-110'
+                  : 'border-blue-400/50 bg-blue-400/15 dark:bg-blue-950/40'
+              }`}
+            >
+              <span className="text-[10px] font-heading font-black tracking-wider text-blue-600 dark:text-blue-300">
+                BOMBO
+              </span>
+            </div>
+          </div>
+
+          {/* Right Neon Landing Pad (PALMAS) */}
+          <div className="absolute bottom-2 translate-x-25 sm:translate-x-28 flex flex-col items-center pointer-events-none z-10">
+            <div
+              className={`w-20 h-7 rounded-full border-2 transition-all duration-150 flex items-center justify-center backdrop-blur-xs ${
+                sphereTarget === 'clap' || activeButton === 'clap'
+                  ? 'border-rose-500 bg-rose-500/30 shadow-[0_0_25px_rgba(244,63,94,0.85)] scale-110'
+                  : 'border-rose-400/50 bg-rose-400/15 dark:bg-rose-950/40'
+              }`}
+            >
+              <span className="text-[10px] font-heading font-black tracking-wider text-rose-600 dark:text-rose-300">
+                PALMAS
+              </span>
+            </div>
+          </div>
+
+          {/* Center Resting Dot */}
+          <div className="absolute bottom-3.5 flex flex-col items-center pointer-events-none z-10">
+            <div
+              className={`w-10 h-3 rounded-full transition-all duration-150 ${
+                sphereTarget === 'center'
+                  ? 'bg-indigo-500/40 shadow-[0_0_12px_rgba(99,102,241,0.5)]'
+                  : 'bg-slate-300/30 dark:bg-slate-700/30'
+              }`}
+            />
+          </div>
+
+          {/* Moving Ground Shadow */}
+          <motion.div
+            animate={{
+              x: sphereTarget === 'kick' ? -100 : sphereTarget === 'clap' ? 100 : 0,
+              scale: isSquashing ? 1.45 : 0.9,
+              opacity: isSquashing ? 0.75 : 0.35
+            }}
+            transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+            className="absolute bottom-2 w-18 h-4 bg-slate-900/35 dark:bg-black/60 rounded-full blur-xs pointer-events-none z-10"
+          />
+
+          {/* Expanding Impact Micro-Ripple */}
+          {impactEffect && (
+            <motion.div
+              key={`ripple-${Date.now()}`}
+              initial={{ scale: 0.5, opacity: 1 }}
+              animate={{ scale: 2.5, opacity: 0 }}
+              transition={{ duration: 0.38, ease: 'easeOut' }}
+              className={`absolute bottom-1 w-20 h-7 rounded-full border-2 pointer-events-none z-10 ${
+                impactEffect === 'kick'
+                  ? 'border-blue-400 bg-blue-400/25 shadow-[0_0_22px_rgba(59,130,246,0.7)]'
+                  : 'border-rose-400 bg-rose-400/25 shadow-[0_0_22px_rgba(244,63,94,0.7)]'
+              }`}
+              style={{
+                left:
+                  sphereTarget === 'kick'
+                    ? 'calc(50% - 100px - 40px)'
+                    : 'calc(50% + 100px - 40px)'
+              }}
+            />
+          )}
+
+          {/* Full-Size Purple Sphere (w-20 h-20 / 80px) with Sinusoidal Vault & Squash/Stretch */}
+          <motion.div
+            animate={{
+              x: sphereTarget === 'kick' ? -100 : sphereTarget === 'clap' ? 100 : 0,
+              y: isCelebrating ? [0, -65, 0, -30, 0] : isSquashing ? 6 : [0, -85, 0],
+              scaleX: isSquashing ? 1.35 : isCelebrating ? 1.08 : [0.92, 1.04, 1],
+              scaleY: isSquashing ? 0.7 : isCelebrating ? 1.08 : [1.18, 0.96, 1],
+              rotate: isCelebrating ? [0, 360] : 0
+            }}
+            transition={{
+              x: { type: 'spring', stiffness: 360, damping: 27 },
+              y: isCelebrating
+                ? { duration: 0.85, repeat: Infinity, ease: 'easeInOut' }
+                : { duration: 0.3, ease: [0.33, 1, 0.68, 1] },
+              scaleX: { duration: 0.22 },
+              scaleY: { duration: 0.22 },
+              rotate: isCelebrating ? { duration: 1.2, repeat: Infinity, ease: 'linear' } : undefined
+            }}
+            className={`w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] via-[#4648d4] to-[#2c2abc] flex items-center justify-center text-white shadow-[0_12px_28px_rgba(70,72,212,0.5)] border-t-2 border-white/40 relative z-20 cursor-default transition-all duration-150 ${
+              impactEffect === 'kick'
+                ? 'ring-4 ring-blue-400 shadow-[0_0_35px_rgba(37,99,235,0.9)]'
+                : impactEffect === 'clap'
+                ? 'ring-4 ring-rose-400 shadow-[0_0_35px_rgba(225,29,72,0.9)]'
+                : 'ring-2 ring-indigo-300/40'
+            }`}
+          >
+            <Music2 className="w-9 h-9 text-white drop-shadow-sm" />
+          </motion.div>
+        </div>
+
+        {/* Floating Feedback & Combo Counter */}
         {floatingTexts.map(f => (
           <motion.div
             key={f.id}
             initial={{ opacity: 1, y: 0, scale: 0.8 }}
-            animate={{ opacity: 0, y: -35, scale: 1.1 }}
+            animate={{ opacity: 0, y: -45, scale: 1.15 }}
             transition={{ duration: 0.8 }}
-            className={`absolute top-4 ${f.side === 'left' ? 'left-6' : 'right-6'} font-heading font-black text-base drop-shadow-md ${f.color}`}
+            className={`absolute top-14 ${
+              f.side === 'left' ? 'left-8 sm:left-12' : 'right-8 sm:right-12'
+            } font-heading font-black text-lg drop-shadow-md z-30 ${f.color}`}
           >
             {f.text}
           </motion.div>
         ))}
 
         {combo >= 2 && (
-          <div className="absolute bottom-2 text-xs font-heading font-black text-amber-500 animate-bounce">
+          <div className="relative z-10 text-sm font-heading font-black text-amber-500 animate-bounce pb-0.5">
             ⚡ Combo x{combo}
           </div>
         )}
       </div>
 
-      {/* Control Buttons */}
+      {/* Control Buttons: 3D Tactile Arcade Triggers */}
       {phase !== 'results' ? (
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-2 gap-3.5 pt-2">
           <motion.button
             whileTap={{ scale: 0.94 }}
             disabled={phase !== 'playing'}
             onClick={() => handleTap('kick')}
-            className={`py-5 px-4 rounded-2xl font-heading font-extrabold text-white text-base shadow-[0_5px_0_0_#1d4ed8] active:translate-y-1 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+            className={`py-6 px-4 rounded-2xl font-heading font-black text-white text-lg tracking-wide shadow-[0_6px_0_0_#1d4ed8] active:translate-y-1.5 active:shadow-[0_1px_0_0_#1d4ed8] transition-all cursor-pointer flex flex-col items-center justify-center gap-1 relative overflow-hidden ${
               phase === 'playing'
-                ? 'bg-blue-600 hover:bg-blue-500'
-                : 'bg-blue-400/60 cursor-not-allowed opacity-60'
+                ? 'bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500'
+                : 'bg-blue-400/50 cursor-not-allowed opacity-60'
             }`}
           >
-            <span>BOMBO (Kick)</span>
-            <span className="text-[10px] font-normal opacity-80">Tecla ← o A</span>
+            <div className="flex items-center gap-2">
+              <span>BOMBO</span>
+              <span className="text-xs font-normal opacity-85 px-2 py-0.5 rounded-md bg-black/20">
+                Kick
+              </span>
+            </div>
+            <span className="text-[11px] font-medium opacity-80">Tecla ← o A</span>
           </motion.button>
 
           <motion.button
             whileTap={{ scale: 0.94 }}
             disabled={phase !== 'playing'}
             onClick={() => handleTap('clap')}
-            className={`py-5 px-4 rounded-2xl font-heading font-extrabold text-white text-base shadow-[0_5px_0_0_#b91c1c] active:translate-y-1 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+            className={`py-6 px-4 rounded-2xl font-heading font-black text-white text-lg tracking-wide shadow-[0_6px_0_0_#b91c1c] active:translate-y-1.5 active:shadow-[0_1px_0_0_#b91c1c] transition-all cursor-pointer flex flex-col items-center justify-center gap-1 relative overflow-hidden ${
               phase === 'playing'
-                ? 'bg-rose-600 hover:bg-rose-500'
-                : 'bg-rose-400/60 cursor-not-allowed opacity-60'
+                ? 'bg-gradient-to-b from-rose-500 to-rose-600 hover:from-rose-400 hover:to-rose-500'
+                : 'bg-rose-400/50 cursor-not-allowed opacity-60'
             }`}
           >
-            <span>PALMAS (Clap)</span>
-            <span className="text-[10px] font-normal opacity-80">Tecla → o D</span>
+            <div className="flex items-center gap-2">
+              <span>PALMAS</span>
+              <span className="text-xs font-normal opacity-85 px-2 py-0.5 rounded-md bg-black/20">
+                Clap
+              </span>
+            </div>
+            <span className="text-[11px] font-medium opacity-80">Tecla → o D</span>
           </motion.button>
         </div>
       ) : (
-        <div className="flex gap-2 pt-1">
+        <div className="flex gap-2 pt-2">
           <button
             onClick={startGuidePhase}
-            className="flex-1 py-3.5 rounded-2xl font-heading font-extrabold text-sm text-white bg-[#4648d4] shadow-[0_4px_0_0_#2c2abc] hover:translate-y-0.5 active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="flex-1 py-4 rounded-2xl font-heading font-extrabold text-base text-white bg-[#4648d4] shadow-[0_5px_0_0_#2c2abc] hover:translate-y-0.5 active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-5 h-5" />
             <span>Reintentar Ritmo</span>
           </button>
         </div>

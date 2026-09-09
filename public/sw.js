@@ -1,4 +1,4 @@
-const CACHE_NAME = 'afinapp-v6';
+const CACHE_NAME = 'afinapp-v7';
 const PRECACHE_URLS = [
   '/',
   '/Duck Win.mp4',
