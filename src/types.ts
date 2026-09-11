@@ -32,6 +32,9 @@ export interface UserStats {
   streak: number;
   lives: number;
   maxLives: number;
+  lastLifeLostAt?: number | null;
+  lifePurchaseCount?: number;
+  hasUsedCourtesySong?: boolean;
   level: number;
   levelTitle: string;
   xp: number;
@@ -69,6 +72,9 @@ export interface LessonNode {
   instructions?: string;
   audioPitchTarget?: number; // target frequency in Hz for pitch quiz
   isDownloaded?: boolean;
+  youtubeId?: string;
+  duration?: string;
+  loopCount?: number;
 }
 
 export interface Unit {
