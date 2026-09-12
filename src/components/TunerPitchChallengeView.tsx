@@ -6,10 +6,7 @@ import {
   Mic,
   Volume2,
   Sparkles,
-  CheckCircle2,
-  Trophy,
-  Heart,
-  Zap
+  CheckCircle2
 } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import {
@@ -55,9 +52,8 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
   const [isPitchMatched, setIsPitchMatched] = useState<boolean>(false);
   const [tuningStatusMsg, setTuningStatusMsg] = useState<string>('Escuchando voz...');
 
-  // Tug-of-War Precision Bar State
-  const [tugOfWarProgress, setTugOfWarProgress] = useState<number>(50);
-  const tugOfWarRef = useRef<number>(50);
+  // Track sustained in-tune hold (~650ms to validate note cleanly without penalty bars)
+  const inTuneSinceRef = useRef<number | null>(null);
   const lastStateUpdateRef = useRef<number>(0);
   const lastVibeTimeRef = useRef<number>(0);
 
@@ -161,11 +157,10 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
             audioService.vibrateSuccess();
           }
 
-          // Push Tug-of-War towards 100%
-          tugOfWarRef.current = Math.min(100, tugOfWarRef.current + 3.0);
-          setTugOfWarProgress(tugOfWarRef.current);
-
-          if (tugOfWarRef.current >= 100) {
+          if (!inTuneSinceRef.current) {
+            inTuneSinceRef.current = nowTime;
+          } else if (nowTime - inTuneSinceRef.current >= 650) {
+            inTuneSinceRef.current = null;
             // Note completed!
             audioService.playSoftDing();
             audioService.vibrateSuccess();
@@ -176,8 +171,6 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
 
             if (currIdx + 1 < allNotes.length) {
               setChallengeIndex(currIdx + 1);
-              tugOfWarRef.current = 50;
-              setTugOfWarProgress(50);
             } else {
               // Level victory!
               audioService.playSuccessBellSound();
@@ -189,16 +182,15 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
             }
           }
         } else {
+          inTuneSinceRef.current = null;
           if (pitchHz < currTarget.frequency) {
             setTuningStatusMsg('Muy grueso ↑ Sube el tono');
           } else {
             setTuningStatusMsg('Muy delgado ↓ Baja el tono');
           }
-          // Gentle drop on off-pitch, clamp to 15%
-          tugOfWarRef.current = Math.max(15, tugOfWarRef.current - 1.1);
-          setTugOfWarProgress(tugOfWarRef.current);
         }
       } else {
+        inTuneSinceRef.current = null;
         setDetectedPitch(null);
         setIsPitchMatched(false);
         setTuningStatusMsg('Escuchando voz...');
@@ -239,8 +231,8 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* ─── Tuner Visualizer Card (Exact Replica of AfinadorView) ─── */}
+    <div className="space-y-3 sm:space-y-3.5">
+      {/* ─── Tuner Visualizer Card (Exact Replica of AfinadorView without Defeat Bar) ─── */}
       <div className={`rounded-3xl p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3.5 transition-colors border ${
         zenMode
           ? 'bg-[#1f2125] border-[#2e3138]'
@@ -295,7 +287,7 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
                   }`}
                   title="Activar micrófono para afinar"
                 >
-                  <Mic className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'}`} />
+                  <Mic className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'} animate-pulse`} />
                   <span>Activar</span>
                 </button>
               )}
@@ -328,55 +320,6 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
                 {detectedPitch ? `${detectedPitch} Hz` : 'Canta ahora...'}
               </span>
             )}
-          </div>
-        </div>
-
-        {/* Tug-of-War Precision Bar */}
-        <div className={`p-3 rounded-2xl border space-y-2 ${
-          zenMode
-            ? 'bg-[#22252a] border-[#2e3138]'
-            : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800'
-        }`}>
-          <div className="flex items-center justify-between text-xs font-bold">
-            <div className="flex items-center gap-1.5 text-rose-500 font-heading">
-              <Heart className="w-3.5 h-3.5 fill-rose-500" />
-              <span>Derrota</span>
-            </div>
-            <span className="text-[11px] font-mono font-black text-slate-600 dark:text-slate-300">
-              {Math.round(tugOfWarProgress)}%
-            </span>
-            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-heading">
-              <Trophy className="w-3.5 h-3.5" />
-              <span>Victoria</span>
-            </div>
-          </div>
-
-          {/* Bar track */}
-          <div className="relative h-3 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-            {/* Center 50% neutral marker */}
-            <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-slate-400 dark:bg-slate-500 z-10 opacity-70" />
-            {/* Progress fill */}
-            <div
-              className={`h-full transition-all duration-100 ${
-                tugOfWarProgress > 50
-                  ? 'bg-gradient-to-r from-amber-400 to-emerald-500'
-                  : 'bg-gradient-to-r from-rose-500 to-amber-400'
-              }`}
-              style={{ width: `${Math.max(0, Math.min(100, tugOfWarProgress))}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 dark:text-slate-400">
-            <span>
-              {isPitchMatched
-                ? '¡Afinando! Empujando a la victoria...'
-                : pitchDiff !== null
-                ? '¡Desafinado! Corrige o retrocedes'
-                : 'Silencio (Barra congelada)'}
-            </span>
-            <span className="font-semibold">
-              {tugOfWarProgress <= 25 ? '¡PELIGRO CRÍTICO!' : tugOfWarProgress >= 75 ? '¡Casi completado!' : 'En equilibrio'}
-            </span>
           </div>
         </div>
 
