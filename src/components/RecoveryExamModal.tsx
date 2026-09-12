@@ -1,30 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { UserStats } from '../types';
 import { audioService } from '../utils/audioService';
-import { voicePlayback, generateUserNotePool, NoteInfo } from '../utils/voicePlaybackService';
+import { generateUserNotePool, NoteInfo } from '../utils/voicePlaybackService';
 import {
-  Difficulty,
   ChallengeDifficulty,
-  difficultyLevels,
   rhythmPatterns,
   generateChallenge,
   melodies
 } from '../data/tunerLevelsData';
 import { VOCAL_THEORY_QUESTIONS, TheoryQuestion } from '../data/academyData';
-import { usePitchDetection } from '../hooks/use-pitch-detection';
+import { TunerPitchChallengeView } from './TunerPitchChallengeView';
 import { TunerRhythmView } from './TunerRhythmView';
 import {
   X,
   Heart,
   Zap,
-  CheckCircle2,
-  Volume2,
-  Mic,
-  MicOff,
   ArrowRight,
   RotateCcw
 } from 'lucide-react';
@@ -141,14 +134,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
-  // 7-Step Plan with levels 4, 5, and 6 of Modo Fácil in the 3 pitch moments:
-  // Paso 1: Modo Fácil - Nivel 4 (Melodía Estrellita)
-  // Paso 2: Pregunta Teórica
-  // Paso 3: Modo Fácil - Nivel 5 (Escala de 5 Notas)
-  // Paso 4: Pregunta Teórica
-  // Paso 5: Modo Fácil - Nivel 6 (Melodía Mary Had A Lamb)
-  // Paso 6: Pregunta Teórica
-  // Paso 7: Coordinación Rítmica Final
+  // 7-Step Plan using levels 4, 5, and 6 of Modo Fácil in the 3 pitch moments
   const stepsPlan: StepConfig[] = useMemo(() => [
     { id: 1, type: 'pitch', title: 'Modo Fácil • Nivel 4 (Estrellita)' },
     { id: 2, type: 'question', title: 'Pregunta de Solfeo' },
@@ -201,94 +187,10 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
 
   const currentStep = stepsPlan[currentStepIndex];
 
-  // ─── Pitch Challenge Sub-State ─────────────────────────────────────
-  const { isDetecting, frequency, rms, start, stop } = usePitchDetection();
+  // Active pitch challenge based on step index
   const activePitchChallenge: PitchChallenge =
     currentStepIndex === 0 ? examContent.pitch1 :
     currentStepIndex === 2 ? examContent.pitch2 : examContent.pitch3;
-
-  const [pitchNoteIndex, setPitchNoteIndex] = useState<number>(0);
-  const [completedPitchNotes, setCompletedPitchNotes] = useState<Set<number>>(new Set());
-  const [tugOfWarProgress, setTugOfWarProgress] = useState<number>(50);
-  const [pitchStatusMsg, setPitchStatusMsg] = useState<string>('Canta en el micrófono para afinar');
-  const [isNoteMatched, setIsNoteMatched] = useState<boolean>(false);
-
-  const activeTargetNote = activePitchChallenge.notes[pitchNoteIndex] || activePitchChallenge.notes[0];
-
-  // Reset pitch progress on step change
-  useEffect(() => {
-    setPitchNoteIndex(0);
-    setCompletedPitchNotes(new Set());
-    setTugOfWarProgress(50);
-    setIsNoteMatched(false);
-    setPitchStatusMsg('Canta en el micrófono para afinar');
-  }, [currentStepIndex]);
-
-  // Turn on/off mic based on current step
-  useEffect(() => {
-    if (currentStep.type === 'pitch' && !isDetecting && !isCompleted) {
-      start();
-    } else if (currentStep.type !== 'pitch' && isDetecting) {
-      stop();
-    }
-    return () => {
-      stop();
-    };
-  }, [currentStep.type, isCompleted, isDetecting, start, stop]);
-
-  // Pitch matching loop with Tug-of-War bar
-  useEffect(() => {
-    if (currentStep.type !== 'pitch' || !isDetecting || isCompleted || !activeTargetNote) return;
-
-    if (!frequency || rms < 0.012) {
-      setIsNoteMatched(false);
-      setPitchStatusMsg('Escuchando voz... Sostén la nota');
-      return;
-    }
-
-    const cents = 1200 * Math.log2(frequency / activeTargetNote.frequency);
-    const isClose = Math.abs(cents) <= activePitchChallenge.toleranceCents;
-    setIsNoteMatched(isClose);
-
-    if (isClose) {
-      setPitchStatusMsg('¡Afinación Perfecta! Empujando al 100%');
-      setTugOfWarProgress(prev => {
-        const next = Math.min(100, prev + 3.4);
-        if (next >= 100) {
-          // Note completed!
-          audioService.playSoftDing();
-          audioService.vibrateSuccess();
-
-          const nextIndex = pitchNoteIndex + 1;
-          setCompletedPitchNotes(old => new Set(old).add(pitchNoteIndex));
-
-          if (nextIndex < activePitchChallenge.notes.length) {
-            setPitchNoteIndex(nextIndex);
-            return 50;
-          } else {
-            // All notes in level completed!
-            audioService.playSuccessBellSound();
-            setTimeout(() => handleStepSuccess(), 450);
-            return 100;
-          }
-        }
-        return next;
-      });
-    } else {
-      if (frequency < activeTargetNote.frequency) {
-        setPitchStatusMsg('Muy grave ↑ Sube el tono');
-      } else {
-        setPitchStatusMsg('Muy agudo ↓ Baja el tono');
-      }
-      setTugOfWarProgress(prev => Math.max(15, prev - 1.1));
-    }
-  }, [frequency, rms, isDetecting, activeTargetNote, currentStep.type, isCompleted, activePitchChallenge, pitchNoteIndex]);
-
-  // Play reference note
-  const handlePlayReferenceNote = () => {
-    audioService.playClickSound();
-    voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
-  };
 
   // ─── Question Sub-State ───────────────────────────────────────────
   const activeQuestion: TheoryQuestion =
@@ -314,7 +216,6 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
 
   // ─── Step Transition & Completion ──────────────────────────────────
   const handleStepSuccess = () => {
-    stop();
     setCompletedSteps(prev => new Set(prev).add(currentStepIndex));
 
     if (currentStepIndex + 1 >= TOTAL_STEPS) {
@@ -347,38 +248,38 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn overflow-y-auto cursor-pointer"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fadeIn overflow-y-auto cursor-pointer"
       onClick={onClose}
     >
       <div
-        className={`rounded-3xl p-5 sm:p-6 max-w-lg w-full space-y-4 shadow-2xl relative border transition-all max-h-[94vh] overflow-y-auto cursor-default ${
+        className={`rounded-3xl p-4 sm:p-6 max-w-lg w-full space-y-3.5 shadow-2xl relative border transition-all max-h-[96vh] overflow-y-auto cursor-default ${
           zenMode
             ? 'bg-[#1a1b1e] border-[#2e3138] text-[#ded9cf]'
-            : 'bg-white dark:bg-[#102034] border-slate-100 dark:border-[#1b2b3f] text-[#0b1c30] dark:text-[#d3e4fe]'
+            : 'bg-[#f8f9ff] dark:bg-[#071322] border-slate-100 dark:border-[#1b2b3f] text-[#0b1c30] dark:text-[#d3e4fe]'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer z-20"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Header Title and Step Progress */}
-        <div className="pr-8 space-y-2">
+        <div className="pr-8 space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-              <Zap className="w-4 h-4 fill-emerald-500" />
+            <span className="p-1 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <Zap className="w-3.5 h-3.5 fill-emerald-500" />
             </span>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
               Entrenamiento de Recuperación
             </span>
           </div>
 
           <div className="flex items-center justify-between">
-            <h3 className="font-heading font-black text-lg sm:text-xl text-[#0b1c30] dark:text-[#d3e4fe]">
+            <h3 className="font-heading font-black text-base sm:text-lg text-[#0b1c30] dark:text-[#d3e4fe]">
               {isCompleted ? '¡Examen Completado!' : `Paso ${currentStepIndex + 1} de ${TOTAL_STEPS}: ${currentStep.title}`}
             </h3>
             <span className="text-xs font-bold text-slate-400">
@@ -387,7 +288,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
           </div>
 
           {/* 7-Step Progress Segment Bar */}
-          <div className="grid grid-cols-7 gap-1.5 pt-1">
+          <div className="grid grid-cols-7 gap-1.5 pt-0.5">
             {stepsPlan.map((s, idx) => {
               const isDone = completedSteps.has(idx);
               const isCurrent = currentStepIndex === idx && !isCompleted;
@@ -410,125 +311,29 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
 
         {/* ─── Main Interactive Body ───────────────────────────────────── */}
         {!isCompleted ? (
-          <div className="space-y-4">
-            {/* 1. AFINACIÓN STEP (Niveles 4, 5 y 6 del Modo Fácil en los 3 momentos) */}
+          <div className="space-y-3">
+            {/* 1. AFINACIÓN STEP: Exact Tuner View with Sphere, AudioParticleCanvas, Tug-of-War and Teclado Vocal */}
             {currentStep.type === 'pitch' && (
-              <div className="space-y-4 text-center py-1">
-                {/* Level and Mode Header Badge */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800">
-                      Modo Fácil • Nivel {activePitchChallenge.level}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-                      {activePitchChallenge.subtitle}
-                    </span>
-                  </div>
-                  <span className="text-xs font-bold text-slate-400">
-                    Nota {pitchNoteIndex + 1} de {activePitchChallenge.notes.length}
-                  </span>
-                </div>
-
-                {/* Notes Sequence Strip */}
-                <div className="flex items-center justify-center gap-1.5 flex-wrap py-1">
-                  {activePitchChallenge.notes.map((n, idx) => {
-                    const isDone = completedPitchNotes.has(idx);
-                    const isCurrent = idx === pitchNoteIndex;
-                    return (
-                      <div
-                        key={idx}
-                        className={`px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1 border transition-all ${
-                          isDone
-                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-400/50'
-                            : isCurrent
-                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md scale-105 animate-pulse'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        <span>{n.fullName || n.name}</span>
-                        {isDone && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Target Note Display Box */}
-                <div className="p-4 rounded-3xl bg-gradient-to-br from-indigo-50/70 to-blue-50/70 dark:from-indigo-950/30 dark:to-blue-950/30 border border-indigo-200/70 dark:border-indigo-900/50 space-y-1.5 shadow-sm">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                    Nota a Entonar
-                  </div>
-                  <div className="text-4xl font-heading font-black text-[#0b1c30] dark:text-[#d3e4fe]">
-                    {activeTargetNote.fullName || activeTargetNote.name}
-                  </div>
-                  <div className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400">
-                    Frecuencia: {activeTargetNote.frequency} Hz
-                  </div>
-                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300 pt-1">
-                    {pitchStatusMsg}
-                  </p>
-                </div>
-
-                {/* Audio reference & mic buttons */}
-                <div className="flex items-center justify-center gap-3">
-                  <button
-                    onClick={handlePlayReferenceNote}
-                    className="py-2.5 px-4 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-heading font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                    <span>Escuchar Tono</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      if (isDetecting) stop();
-                      else start();
-                    }}
-                    className={`py-2.5 px-4 rounded-full font-heading font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer ${
-                      isDetecting
-                        ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    {isDetecting ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-                    <span>{isDetecting ? 'Micrófono Activo' : 'Activar Micrófono'}</span>
-                  </button>
-                </div>
-
-                {/* Tug-of-War Precision Gauge Bar */}
-                <div className="space-y-1.5 pt-2">
-                  <div className="flex justify-between text-xs font-bold px-1 text-slate-500 dark:text-slate-400">
-                    <span>Fuerza de Afinación (Tug-of-War)</span>
-                    <span className={tugOfWarProgress >= 90 ? 'text-emerald-500 font-extrabold' : ''}>
-                      {Math.round(tugOfWarProgress)}%
-                    </span>
-                  </div>
-                  <div className="w-full h-3.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden relative shadow-inner">
-                    {/* Center 50% marker */}
-                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-slate-400/40 z-10" />
-                    <div
-                      className={`h-full transition-all duration-150 rounded-full ${
-                        tugOfWarProgress >= 80
-                          ? 'bg-gradient-to-r from-teal-400 to-emerald-500'
-                          : tugOfWarProgress >= 45
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500'
-                            : 'bg-gradient-to-r from-rose-500 to-amber-500'
-                      }`}
-                      style={{ width: `${tugOfWarProgress}%` }}
-                    />
-                  </div>
-                  {frequency > 0 && isDetecting && (
-                    <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 pt-0.5">
-                      Voz detectada: {Math.round(frequency)} Hz
-                    </div>
-                  )}
-                </div>
-              </div>
+              <TunerPitchChallengeView
+                key={`pitch-step-${currentStepIndex}-${activePitchChallenge.level}`}
+                difficultyLabel="Fácil"
+                levelNumber={activePitchChallenge.level}
+                subtitle={activePitchChallenge.subtitle}
+                notes={activePitchChallenge.notes}
+                toleranceCents={activePitchChallenge.toleranceCents}
+                gender={gender}
+                vocalRangeData={userStats.vocalRangeData}
+                zenMode={zenMode}
+                onSuccess={() => {
+                  handleStepSuccess();
+                }}
+              />
             )}
 
-            {/* 2. PREGUNTA STEP (Preguntas teóricas intercaladas) */}
+            {/* 2. PREGUNTA STEP */}
             {currentStep.type === 'question' && (
-              <div className="space-y-4 py-1">
-                <div className="p-4 rounded-2xl bg-[#f8f9ff] dark:bg-[#0b1828] border border-slate-200/80 dark:border-slate-800">
+              <div className="space-y-3.5 py-1">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#102034] border border-slate-200/80 dark:border-slate-800 shadow-xs">
                   <h4 className="font-heading font-bold text-sm sm:text-base text-[#0b1c30] dark:text-[#d3e4fe]">
                     {activeQuestion.question}
                   </h4>
@@ -553,7 +358,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
                               ? 'bg-rose-500/15 border-rose-500 text-rose-800 dark:text-rose-200'
                               : isSelected
                                 ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 text-indigo-900 dark:text-indigo-200'
-                                : 'bg-white dark:bg-[#102034] border-slate-200/80 dark:border-slate-700 hover:border-slate-400 text-slate-700 dark:text-slate-200'
+                                : 'bg-white dark:bg-[#102034] border-slate-200/80 dark:border-slate-700 hover:border-slate-400 text-slate-700 dark:text-slate-200 shadow-2xs'
                         }`}
                       >
                         <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
@@ -573,7 +378,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
 
                 {/* Explanation and Next Button */}
                 {hasAnswered && (
-                  <div className="space-y-3 pt-2 animate-fadeIn">
+                  <div className="space-y-3 pt-1 animate-fadeIn">
                     <div className={`p-3 rounded-2xl border text-xs ${
                       selectedAnswer === activeQuestion.correctAnswer
                         ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
@@ -599,7 +404,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
                           setSelectedAnswer(null);
                           setHasAnswered(false);
                         }}
-                        className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200 dark:border-slate-700"
                       >
                         <RotateCcw className="w-4 h-4" />
                         <span>Intentar de nuevo esta pregunta</span>
@@ -610,19 +415,9 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
               </div>
             )}
 
-            {/* 3. RITMO STEP (Paso 7 Final: Coordinación con TunerRhythmView) */}
+            {/* 3. RITMO STEP: Exact TunerRhythmView Component */}
             {currentStep.type === 'rhythm' && (
-              <div className="space-y-3 py-1">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800">
-                    Modo Fácil • Nivel {examContent.rhythm.level} ({examContent.rhythm.bpm} BPM)
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    Alcanza $\ge 80\%$ de precisión
-                  </span>
-                </div>
-
-                {/* TunerRhythmView arcade */}
+              <div className="space-y-2.5 py-1">
                 <TunerRhythmView
                   key={`exam-rhythm-${currentStepIndex}-${examContent.rhythm.level}`}
                   level={examContent.rhythm.level}
