@@ -110,9 +110,9 @@ function getFacilPitchLevel(lvl: 4 | 5 | 6, pool: NoteInfo[]): PitchChallenge {
 /**
  * Generates a rhythm challenge from Modo Fácil (levels 7 to 12)
  */
-function getFacilRhythmChallenge(): RhythmChallenge {
+function getFacilRhythmChallenge(preferredLevel?: number): RhythmChallenge {
   const rhythmLevels = [7, 8, 9, 10, 11, 12];
-  const level = rhythmLevels[Math.floor(Math.random() * rhythmLevels.length)];
+  const level = preferredLevel ?? rhythmLevels[Math.floor(Math.random() * rhythmLevels.length)];
   const pattern = rhythmPatterns[level] || rhythmPatterns[7];
   const bpm = 80 + (level - 7) * 10;
 
@@ -134,15 +134,15 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
-  // 7-Step Plan using levels 4, 5, and 6 of Modo Fácil in the 3 pitch moments
+  // 7-Step Plan: afinación, pregunta, ritmo, pregunta, afinación, pregunta, ritmo
   const stepsPlan: StepConfig[] = useMemo(() => [
-    { id: 1, type: 'pitch', title: 'Modo Fácil • Nivel 4 (Estrellita)' },
-    { id: 2, type: 'question', title: 'Pregunta de Solfeo' },
-    { id: 3, type: 'pitch', title: 'Modo Fácil • Nivel 5 (5 Notas)' },
+    { id: 1, type: 'pitch', title: 'Afinación • Modo Fácil (Estrellita)' },
+    { id: 2, type: 'question', title: 'Pregunta de Solfeo y Lectura' },
+    { id: 3, type: 'rhythm', title: 'Ritmo • Coordinación Rítmica 1' },
     { id: 4, type: 'question', title: 'Pregunta de Técnica Vocal' },
-    { id: 5, type: 'pitch', title: 'Modo Fácil • Nivel 6 (Mary Had A Lamb)' },
-    { id: 6, type: 'question', title: 'Pregunta de Fisiología' },
-    { id: 7, type: 'rhythm', title: 'Coordinación Rítmica Final' }
+    { id: 5, type: 'pitch', title: 'Afinación • Modo Fácil (Mary Had A Lamb)' },
+    { id: 6, type: 'question', title: 'Pregunta de Fisiología y Salud' },
+    { id: 7, type: 'rhythm', title: 'Ritmo • Coordinación Rítmica Final' }
   ], []);
 
   // Adapt to user's vocal range pool & gender
@@ -158,7 +158,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
     return generateUserNotePool(userStats.vocalRangeData, gender);
   }, [userStats.vocalRangeData, gender]);
 
-  // Content for this exam session: exactly levels 4, 5, and 6 of Modo Fácil
+  // Content for this exam session: 2 pitch (niveles 4 y 6), 3 questions, 2 rhythm
   const examContent = useMemo(() => {
     // 3 Random theory questions without duplicates
     const shuffledQuestions = [...VOCAL_THEORY_QUESTIONS].sort(() => 0.5 - Math.random());
@@ -166,33 +166,38 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
     const q2 = shuffledQuestions[1] || VOCAL_THEORY_QUESTIONS[1];
     const q3 = shuffledQuestions[2] || VOCAL_THEORY_QUESTIONS[2];
 
-    // Levels 4, 5, and 6 of Modo Fácil for the 3 pitch moments
+    // Pitch moments: Paso 1 (Nivel 4 Estrellita) y Paso 5 (Nivel 6 Mary Had A Lamb)
     const p1 = getFacilPitchLevel(4, userNotePool);
-    const p2 = getFacilPitchLevel(5, userNotePool);
-    const p3 = getFacilPitchLevel(6, userNotePool);
+    const p2 = getFacilPitchLevel(6, userNotePool);
 
-    // Rhythm challenge for Step 7
-    const r = getFacilRhythmChallenge();
+    // Rhythm moments: Paso 3 (Rhythm 1) y Paso 7 (Rhythm 2)
+    const rhythmLevels = [7, 8, 9, 10, 11, 12].sort(() => 0.5 - Math.random());
+    const r1 = getFacilRhythmChallenge(rhythmLevels[0] || 7);
+    const r2 = getFacilRhythmChallenge(rhythmLevels[1] || 10);
 
     return {
       pitch1: p1,
       pitch2: p2,
-      pitch3: p3,
       question1: q1,
       question2: q2,
       question3: q3,
-      rhythm: r
+      rhythm1: r1,
+      rhythm2: r2
     };
   }, [userNotePool]);
 
   const currentStep = stepsPlan[currentStepIndex];
 
-  // Active pitch challenge based on step index
+  // Active pitch challenge based on step index (Step 1 is index 0, Step 5 is index 4)
   const activePitchChallenge: PitchChallenge =
-    currentStepIndex === 0 ? examContent.pitch1 :
-    currentStepIndex === 2 ? examContent.pitch2 : examContent.pitch3;
+    currentStepIndex === 0 ? examContent.pitch1 : examContent.pitch2;
+
+  // Active rhythm challenge based on step index (Step 3 is index 2, Step 7 is index 6)
+  const activeRhythmChallenge: RhythmChallenge =
+    currentStepIndex === 2 ? examContent.rhythm1 : examContent.rhythm2;
 
   // ─── Question Sub-State ───────────────────────────────────────────
+  // Active question based on step index (Step 2 is index 1, Step 4 is index 3, Step 6 is index 5)
   const activeQuestion: TheoryQuestion =
     currentStepIndex === 1 ? examContent.question1 :
     currentStepIndex === 3 ? examContent.question2 : examContent.question3;
@@ -419,10 +424,10 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
             {currentStep.type === 'rhythm' && (
               <div className="space-y-2.5 py-1">
                 <TunerRhythmView
-                  key={`exam-rhythm-${currentStepIndex}-${examContent.rhythm.level}`}
-                  level={examContent.rhythm.level}
-                  pattern={examContent.rhythm.pattern}
-                  bpm={examContent.rhythm.bpm}
+                  key={`exam-rhythm-${currentStepIndex}-${activeRhythmChallenge.level}`}
+                  level={activeRhythmChallenge.level}
+                  pattern={activeRhythmChallenge.pattern}
+                  bpm={activeRhythmChallenge.bpm}
                   hideExitButton={true}
                   onSuccess={(score) => {
                     if (score >= 80) {
