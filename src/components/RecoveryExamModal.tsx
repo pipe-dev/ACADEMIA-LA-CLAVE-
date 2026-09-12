@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { UserStats } from '../types';
@@ -12,7 +12,6 @@ import {
   difficultyLevels,
   rhythmPatterns,
   generateChallenge,
-  generateIntervalChallenge,
   melodies
 } from '../data/tunerLevelsData';
 import { VOCAL_THEORY_QUESTIONS, TheoryQuestion } from '../data/academyData';
@@ -23,15 +22,11 @@ import {
   Heart,
   Zap,
   CheckCircle2,
-  AlertCircle,
   Volume2,
   Mic,
   MicOff,
-  Sparkles,
   ArrowRight,
-  RotateCcw,
-  Drum,
-  Music
+  RotateCcw
 } from 'lucide-react';
 
 interface RecoveryExamModalProps {
@@ -66,28 +61,16 @@ interface RhythmChallenge {
   pattern: { time: number; instrument: 'clap' | 'kick' }[];
 }
 
-function generateExamPitchChallenge(
-  pool: NoteInfo[],
-  preferredDiff?: ChallengeDifficulty
-): PitchChallenge {
-  const diffs: ChallengeDifficulty[] = ['Fácil', 'Medio', 'Difícil', 'Maestro'];
-  const diff = preferredDiff || diffs[Math.floor(Math.random() * diffs.length)];
-
-  let lvl = 1;
-  if (diff === 'Fácil') lvl = Math.floor(Math.random() * 6) + 1; // 1 to 6
-  else if (diff === 'Medio') lvl = Math.floor(Math.random() * 12) + 1; // 1 to 12
-  else if (diff === 'Difícil') lvl = Math.floor(Math.random() * 12) + 1; // 1 to 12
-  else lvl = Math.floor(Math.random() * 6) + 1; // 1 to 6
-
+/**
+ * Generates specifically level 4, 5, or 6 of Modo Fácil
+ */
+function getFacilPitchLevel(lvl: 4 | 5 | 6, pool: NoteInfo[]): PitchChallenge {
   let notes: NoteInfo[] = [];
   let subtitle = '';
 
-  if (diff === 'Medio' && (lvl === 1 || lvl % 2 === 0)) {
-    notes = generateIntervalChallenge(lvl, pool);
-    subtitle = 'Arpegio / Intervalos';
-  } else if (diff === 'Fácil' && (lvl === 4 || lvl === 6)) {
-    const melodyKey = lvl === 4 ? 'twinkle' : 'maryHadALamb';
-    const m = melodies[melodyKey] || melodies.twinkle;
+  if (lvl === 4) {
+    // Modo Fácil • Nivel 4: Melodía Estrellita (Twinkle)
+    const m = melodies.twinkle;
     const baseMidi = pool[Math.floor(pool.length / 2)]?.midi || 60;
     notes = m.map(item => {
       const midi = baseMidi + (item.midi - 60);
@@ -97,15 +80,24 @@ function generateExamPitchChallenge(
       const frequency = Math.round(440 * Math.pow(2, (midi - 69) / 12) * 100) / 100;
       return { name, letter, octave, frequency, fullName: `${name}${octave}`, midi };
     });
-    subtitle = lvl === 4 ? 'Melodía: Estrellita' : 'Melodía: Mary Had A Lamb';
+    subtitle = 'Melodía: Estrellita';
+  } else if (lvl === 5) {
+    // Modo Fácil • Nivel 5: Reto de 5 notas en escala
+    notes = generateChallenge(5, pool);
+    subtitle = 'Escala de 5 Notas';
   } else {
-    const count = diff === 'Maestro'
-      ? [3, 4, 4, 5, 5, 6][lvl - 1] || 4
-      : diff === 'Difícil'
-        ? [4, 4, 5, 5, 6, 6, 6, 7, 7, 8, 8, 8][lvl - 1] || 4
-        : difficultyLevels[diff][lvl - 1] || 4;
-    notes = generateChallenge(count, pool);
-    subtitle = `${notes.length} notas en escala`;
+    // Modo Fácil • Nivel 6: Melodía Mary Had a Little Lamb
+    const m = melodies.maryHadALamb;
+    const baseMidi = pool[Math.floor(pool.length / 2)]?.midi || 60;
+    notes = m.map(item => {
+      const midi = baseMidi + (item.midi - 60);
+      const name = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'][midi % 12];
+      const letter = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][midi % 12];
+      const octave = Math.floor(midi / 12) - 1;
+      const frequency = Math.round(440 * Math.pow(2, (midi - 69) / 12) * 100) / 100;
+      return { name, letter, octave, frequency, fullName: `${name}${octave}`, midi };
+    });
+    subtitle = 'Melodía: Mary Had A Lamb';
   }
 
   if (notes.length === 0) {
@@ -113,40 +105,27 @@ function generateExamPitchChallenge(
     subtitle = '3 notas en escala';
   }
 
-  const toleranceCents = diff === 'Maestro' ? 25 : diff === 'Difícil' ? 35 : 45;
-
   return {
-    difficulty: diff,
+    difficulty: 'Fácil',
     level: lvl,
     notes,
     subtitle,
-    toleranceCents
+    toleranceCents: 45
   };
 }
 
-function generateExamRhythmChallenge(preferredModeGroup?: 'easy_medium' | 'hard_master'): RhythmChallenge {
-  const diffs: { diff: ChallengeDifficulty; levels: number[] }[] = [
-    { diff: 'Fácil', levels: [7, 8, 9, 10, 11, 12] },
-    { diff: 'Medio', levels: [13, 14, 15, 16] },
-    { diff: 'Difícil', levels: [17, 18, 19, 20] },
-    { diff: 'Maestro', levels: [21, 22, 23, 24] }
-  ];
-
-  let selectedGroup = diffs;
-  if (preferredModeGroup === 'easy_medium') {
-    selectedGroup = [diffs[0], diffs[1]];
-  } else if (preferredModeGroup === 'hard_master') {
-    selectedGroup = [diffs[2], diffs[3]];
-  }
-
-  const randomGroup = selectedGroup[Math.floor(Math.random() * selectedGroup.length)];
-  const randomLevel = randomGroup.levels[Math.floor(Math.random() * randomGroup.levels.length)];
-  const pattern = rhythmPatterns[randomLevel] || rhythmPatterns[7];
-  const bpm = 80 + (randomLevel - 7) * 10;
+/**
+ * Generates a rhythm challenge from Modo Fácil (levels 7 to 12)
+ */
+function getFacilRhythmChallenge(): RhythmChallenge {
+  const rhythmLevels = [7, 8, 9, 10, 11, 12];
+  const level = rhythmLevels[Math.floor(Math.random() * rhythmLevels.length)];
+  const pattern = rhythmPatterns[level] || rhythmPatterns[7];
+  const bpm = 80 + (level - 7) * 10;
 
   return {
-    difficulty: randomGroup.diff,
-    level: randomLevel,
+    difficulty: 'Fácil',
+    level,
     bpm,
     pattern
   };
@@ -162,13 +141,20 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
-  // Step 1 to 7 sequence definition: Afinación -> Pregunta -> Ritmo -> Pregunta -> Afinación -> Pregunta -> Ritmo
+  // 7-Step Plan with levels 4, 5, and 6 of Modo Fácil in the 3 pitch moments:
+  // Paso 1: Modo Fácil - Nivel 4 (Melodía Estrellita)
+  // Paso 2: Pregunta Teórica
+  // Paso 3: Modo Fácil - Nivel 5 (Escala de 5 Notas)
+  // Paso 4: Pregunta Teórica
+  // Paso 5: Modo Fácil - Nivel 6 (Melodía Mary Had A Lamb)
+  // Paso 6: Pregunta Teórica
+  // Paso 7: Coordinación Rítmica Final
   const stepsPlan: StepConfig[] = useMemo(() => [
-    { id: 1, type: 'pitch', title: 'Afinación de Niveles' },
+    { id: 1, type: 'pitch', title: 'Modo Fácil • Nivel 4 (Estrellita)' },
     { id: 2, type: 'question', title: 'Pregunta de Solfeo' },
-    { id: 3, type: 'rhythm', title: 'Coordinación Rítmica de Niveles' },
+    { id: 3, type: 'pitch', title: 'Modo Fácil • Nivel 5 (5 Notas)' },
     { id: 4, type: 'question', title: 'Pregunta de Técnica Vocal' },
-    { id: 5, type: 'pitch', title: 'Afinación de Niveles' },
+    { id: 5, type: 'pitch', title: 'Modo Fácil • Nivel 6 (Mary Had A Lamb)' },
     { id: 6, type: 'question', title: 'Pregunta de Fisiología' },
     { id: 7, type: 'rhythm', title: 'Coordinación Rítmica Final' }
   ], []);
@@ -186,7 +172,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
     return generateUserNotePool(userStats.vocalRangeData, gender);
   }, [userStats.vocalRangeData, gender]);
 
-  // Preselected randomized content for this exam session across all 4 modes
+  // Content for this exam session: exactly levels 4, 5, and 6 of Modo Fácil
   const examContent = useMemo(() => {
     // 3 Random theory questions without duplicates
     const shuffledQuestions = [...VOCAL_THEORY_QUESTIONS].sort(() => 0.5 - Math.random());
@@ -194,22 +180,22 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
     const q2 = shuffledQuestions[1] || VOCAL_THEORY_QUESTIONS[1];
     const q3 = shuffledQuestions[2] || VOCAL_THEORY_QUESTIONS[2];
 
-    // 2 Pitch challenges from any of the 4 modes
-    const p1 = generateExamPitchChallenge(userNotePool, 'Fácil');
-    const p2 = generateExamPitchChallenge(userNotePool, 'Medio');
+    // Levels 4, 5, and 6 of Modo Fácil for the 3 pitch moments
+    const p1 = getFacilPitchLevel(4, userNotePool);
+    const p2 = getFacilPitchLevel(5, userNotePool);
+    const p3 = getFacilPitchLevel(6, userNotePool);
 
-    // 2 Rhythm challenges from any of the 4 modes (Fácil/Medio for Step 3, Difícil/Maestro for Step 7)
-    const r1 = generateExamRhythmChallenge('easy_medium');
-    const r2 = generateExamRhythmChallenge('hard_master');
+    // Rhythm challenge for Step 7
+    const r = getFacilRhythmChallenge();
 
     return {
       pitch1: p1,
       pitch2: p2,
+      pitch3: p3,
       question1: q1,
       question2: q2,
       question3: q3,
-      rhythm1: r1,
-      rhythm2: r2
+      rhythm: r
     };
   }, [userNotePool]);
 
@@ -218,7 +204,8 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
   // ─── Pitch Challenge Sub-State ─────────────────────────────────────
   const { isDetecting, frequency, rms, start, stop } = usePitchDetection();
   const activePitchChallenge: PitchChallenge =
-    currentStepIndex === 0 ? examContent.pitch1 : examContent.pitch2;
+    currentStepIndex === 0 ? examContent.pitch1 :
+    currentStepIndex === 2 ? examContent.pitch2 : examContent.pitch3;
 
   const [pitchNoteIndex, setPitchNoteIndex] = useState<number>(0);
   const [completedPitchNotes, setCompletedPitchNotes] = useState<Set<number>>(new Set());
@@ -266,7 +253,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
     if (isClose) {
       setPitchStatusMsg('¡Afinación Perfecta! Empujando al 100%');
       setTugOfWarProgress(prev => {
-        const next = Math.min(100, prev + 3.2);
+        const next = Math.min(100, prev + 3.4);
         if (next >= 100) {
           // Note completed!
           audioService.playSoftDing();
@@ -324,10 +311,6 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
       audioService.vibrate([70, 50, 70]);
     }
   };
-
-  // ─── Rhythm Sub-State ─────────────────────────────────────────────
-  const activeRhythm: RhythmChallenge =
-    currentStepIndex === 2 ? examContent.rhythm1 : examContent.rhythm2;
 
   // ─── Step Transition & Completion ──────────────────────────────────
   const handleStepSuccess = () => {
@@ -428,22 +411,14 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
         {/* ─── Main Interactive Body ───────────────────────────────────── */}
         {!isCompleted ? (
           <div className="space-y-4">
-            {/* 1. AFINACIÓN STEP (Copiado de los niveles de afinación de los 4 modos) */}
+            {/* 1. AFINACIÓN STEP (Niveles 4, 5 y 6 del Modo Fácil en los 3 momentos) */}
             {currentStep.type === 'pitch' && (
               <div className="space-y-4 text-center py-1">
                 {/* Level and Mode Header Badge */}
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                      activePitchChallenge.difficulty === 'Fácil'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                        : activePitchChallenge.difficulty === 'Medio'
-                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
-                          : activePitchChallenge.difficulty === 'Difícil'
-                            ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800'
-                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                    }`}>
-                      Modo {activePitchChallenge.difficulty} • Nivel {activePitchChallenge.level}
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800">
+                      Modo Fácil • Nivel {activePitchChallenge.level}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                       {activePitchChallenge.subtitle}
@@ -550,7 +525,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
               </div>
             )}
 
-            {/* 2. PREGUNTA STEP (Pregunta teórica con opciones) */}
+            {/* 2. PREGUNTA STEP (Preguntas teóricas intercaladas) */}
             {currentStep.type === 'question' && (
               <div className="space-y-4 py-1">
                 <div className="p-4 rounded-2xl bg-[#f8f9ff] dark:bg-[#0b1828] border border-slate-200/80 dark:border-slate-800">
@@ -635,32 +610,24 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
               </div>
             )}
 
-            {/* 3. RITMO STEP (Copiado directamente de los niveles de ritmo con TunerRhythmView) */}
+            {/* 3. RITMO STEP (Paso 7 Final: Coordinación con TunerRhythmView) */}
             {currentStep.type === 'rhythm' && (
               <div className="space-y-3 py-1">
                 <div className="flex items-center justify-between px-1">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                    activeRhythm.difficulty === 'Fácil'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                      : activeRhythm.difficulty === 'Medio'
-                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
-                        : activeRhythm.difficulty === 'Difícil'
-                          ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800'
-                          : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                  }`}>
-                    Modo {activeRhythm.difficulty} • Nivel {activeRhythm.level}
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800">
+                    Modo Fácil • Nivel {examContent.rhythm.level} ({examContent.rhythm.bpm} BPM)
                   </span>
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     Alcanza $\ge 80\%$ de precisión
                   </span>
                 </div>
 
-                {/* TunerRhythmView Component integrado de forma limpia */}
+                {/* TunerRhythmView arcade */}
                 <TunerRhythmView
-                  key={`exam-rhythm-${currentStepIndex}-${activeRhythm.level}`}
-                  level={activeRhythm.level}
-                  pattern={activeRhythm.pattern}
-                  bpm={activeRhythm.bpm}
+                  key={`exam-rhythm-${currentStepIndex}-${examContent.rhythm.level}`}
+                  level={examContent.rhythm.level}
+                  pattern={examContent.rhythm.pattern}
+                  bpm={examContent.rhythm.bpm}
                   hideExitButton={true}
                   onSuccess={(score) => {
                     if (score >= 80) {
@@ -692,7 +659,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
                 ¡Has recuperado 1 vida!
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                Completaste los 7 pasos de afinación, ritmo y teoría de los modos. Tu corazón ha sido restaurado sin costo de XP.
+                Superaste los niveles 4, 5 y 6 del Modo Fácil, las preguntas teóricas y el examen rítmico. Tu corazón ha sido restaurado sin costo de XP.
               </p>
             </div>
 
