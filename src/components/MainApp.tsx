@@ -1039,6 +1039,11 @@ export default function App() {
           userStats={userStats}
           onClose={() => setIsStoreOpen(false)}
           onBuyLives={handleBuyLife}
+          onOpenRecoveryExam={() => {
+            setIsStoreOpen(false);
+            setIsRecoveryExamOpen(true);
+          }}
+          zenMode={zenMode}
         />
       )}
 
