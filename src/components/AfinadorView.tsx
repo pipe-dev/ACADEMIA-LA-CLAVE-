@@ -263,6 +263,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   // ─── Tug-of-War Precision Bar State (Level Modes) ─────────────────
   const [tugOfWarProgress, setTugOfWarProgress] = useState<number>(50);
   const tugOfWarRef = useRef<number>(50);
+  const [calentamientoProgress, setCalentamientoProgress] = useState<number>(0);
   const [isLevelFailed, setIsLevelFailed] = useState<boolean>(false);
   const isLevelFailedRef = useRef<boolean>(false);
   const selectedDifficultyRef = useRef<Difficulty>(selectedDifficulty);
@@ -342,6 +343,27 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     }
   }
 
+  // Concentric Aura Shield Ring progress & badges
+  const ringProgress = useMemo(() => {
+    if (tunerMode === 'niveles') {
+      if (selectedDifficulty === 'Calentamiento') {
+        return calentamientoProgress;
+      }
+      return tugOfWarProgress;
+    }
+    // In Modo Libre:
+    if (!isTuningActive || !detectedPitch) return 0;
+    if (isPitchMatched) return 100;
+    if (pitchDiff !== null) {
+      const maxDiff = tolerance * 2.5;
+      const ratio = Math.max(0, Math.min(1, 1 - pitchDiff / maxDiff));
+      return Math.max(12, Math.round(ratio * 100));
+    }
+    return 0;
+  }, [tunerMode, selectedDifficulty, calentamientoProgress, tugOfWarProgress, isTuningActive, detectedPitch, isPitchMatched, pitchDiff, tolerance]);
+
+  const showRingBadges = tunerMode === 'niveles' && selectedDifficulty !== 'Calentamiento';
+
   // ─── 7. Microphone & Tuning Handler ──────────────────────────────
   const startTuningMic = async () => {
     if ((userStats.lives ?? 1) <= 0) {
@@ -378,9 +400,16 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             if (selectedDifficultyRef.current === 'Calentamiento') {
               if (!inTuneSinceRef.current) {
                 inTuneSinceRef.current = nowTime;
-              } else if (nowTime - inTuneSinceRef.current >= 650) {
-                inTuneSinceRef.current = null;
-                handleNoteCompletedInChallenge();
+                setCalentamientoProgress(15);
+              } else {
+                const elapsed = nowTime - inTuneSinceRef.current;
+                const p = Math.min(100, Math.round((elapsed / 650) * 100));
+                setCalentamientoProgress(p);
+                if (elapsed >= 650) {
+                  inTuneSinceRef.current = null;
+                  setCalentamientoProgress(0);
+                  handleNoteCompletedInChallenge();
+                }
               }
             } else {
               // 4 Modes: In-pitch pushes Tug-of-War towards 100%
@@ -424,6 +453,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
           });
         } else {
           inTuneSinceRef.current = null;
+          setCalentamientoProgress(0);
           if (pitchHz < currTarget.frequency) {
             setTuningStatusMsg('Muy grueso ↑ Sube el tono');
           } else {
@@ -451,6 +481,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
         setIsPitchMatched(false);
         setTuningStatusMsg('Escuchando voz...');
         inTuneSinceRef.current = null;
+        setCalentamientoProgress(0);
       }
     });
 
@@ -1243,36 +1274,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
               {/* Dynamic Center Sphere with Concentric Aura Shield Ring */}
               <div className="relative z-10 flex flex-col items-center my-2">
-                {tunerMode === 'niveles' && selectedDifficulty !== 'Calentamiento' ? (
-                  <AuraShieldRing
-                    progress={tugOfWarProgress}
-                    isActive={isTuningActive}
-                    isMatched={isPitchMatched}
-                    zenMode={zenMode}
-                    showBadges={true}
-                  >
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
-                      }}
-                      title="Toca para escuchar voz real"
-                      className={`w-22 h-22 rounded-full flex flex-col items-center justify-center text-white shadow-xl transition-all duration-300 relative cursor-pointer ${sphereStyle}`}
-                      style={{
-                        transform: isTuningActive && volume > 0.02 ? `scale(${1 + Math.min(0.18, volume * 1.5)})` : undefined
-                      }}
-                    >
-                      <span className="font-heading font-bold text-3xl tracking-wide leading-none drop-shadow-sm">
-                        {activeTargetNote.name}
-                      </span>
-                      <span className="text-[11px] font-semibold opacity-95 mt-1 bg-black/25 px-2.5 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1">
-                        <Volume2 className="w-3 h-3 opacity-80" />
-                        {detectedPitch ? `${detectedPitch} Hz` : `${targetFreq} Hz`}
-                      </span>
-                    </motion.button>
-                  </AuraShieldRing>
-                ) : (
+                <AuraShieldRing
+                  progress={ringProgress}
+                  isActive={isTuningActive}
+                  isMatched={isPitchMatched}
+                  zenMode={zenMode}
+                  showBadges={showRingBadges}
+                >
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -1293,7 +1301,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                       {detectedPitch ? `${detectedPitch} Hz` : `${targetFreq} Hz`}
                     </span>
                   </motion.button>
-                )}
+                </AuraShieldRing>
 
                 {/* State Badge */}
                 {isTuningActive ? (
