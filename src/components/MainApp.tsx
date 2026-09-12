@@ -927,6 +927,8 @@ export default function App() {
                   setUnlockedUnitAnimationId(null);
                   setShowUnitCelebration(true);
                 }}
+                onOpenRecoveryExam={() => setIsRecoveryExamOpen(true)}
+                onOpenStore={() => setIsStoreOpen(true)}
               />
             )}
 
@@ -1000,6 +1002,7 @@ export default function App() {
       {selectedNode && (
         <LessonModal
           node={selectedNode}
+          userStats={userStats}
           onClose={() => setSelectedNode(null)}
           onCompleteNode={handleCompleteNode}
           onOpenUnitCelebration={() => {
@@ -1007,6 +1010,9 @@ export default function App() {
             setSelectedNode(null);
             setShowUnitCelebration(true);
           }}
+          onLoseLife={handleLoseLife}
+          onOpenRecoveryExam={() => setIsRecoveryExamOpen(true)}
+          onOpenStore={() => setIsStoreOpen(true)}
         />
       )}
 

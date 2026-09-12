@@ -2,18 +2,20 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import YouTube, { YouTubeProps } from 'react-youtube';
-import { LessonNode } from '../types';
+import { LessonNode, UserStats } from '../types';
 import { audioService } from '../utils/audioService';
 import { VocalRangeModal } from './VocalRangeModal';
-import { UnitCompletionScreen } from './UnitCompletionScreen';
 import { X, CheckCircle2, Wind, Sparkles, Trophy, AlertTriangle, Play, Pause, ArrowLeft, RotateCcw, RotateCw, Zap, Star } from 'lucide-react';
 
 interface LessonModalProps {
   node: LessonNode;
-  userStats?: any;
+  userStats?: UserStats;
   onClose: () => void;
   onCompleteNode: (nodeId: string, xpReward: number) => void;
-  onUnlockNextUnit?: () => void;
+  onOpenUnitCelebration?: () => void;
+  onLoseLife?: (source: 'tuner' | 'academia' | 'karaoke') => void;
+  onOpenRecoveryExam?: () => void;
+  onOpenStore?: () => void;
 }
 
 export interface BalloonColorTheme {
@@ -61,8 +63,8 @@ const BALLOON_COLOR_THEMES: BalloonColorTheme[] = [
   {
     id: 'amber',
     name: 'Dorado Solar',
-    gradient: 'from-amber-300 via-yellow-400 to-orange-500',
-    glowRgb: 'rgba(251, 191, 36, 0.4)',
+    gradient: 'from-yellow-300 via-amber-400 to-orange-500',
+    glowRgb: 'rgba(245, 158, 11, 0.4)',
     knotColor: 'bg-[#d97706]',
     bgCircle: 'bg-amber-400'
   }
@@ -73,7 +75,10 @@ export const LessonModal: React.FC<LessonModalProps> = ({
   userStats,
   onClose,
   onCompleteNode,
-  onUnlockNextUnit
+  onOpenUnitCelebration,
+  onLoseLife,
+  onOpenRecoveryExam,
+  onOpenStore
 }) => {
   const [step, setStep] = useState<'intro' | 'video' | 'practice' | 'vocal_diagnostic' | 'success'>(() => {
     return node.type === 'control' ? 'practice' : 'intro';
@@ -257,7 +262,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     }
   ];
 
-  const isExamNode = node.type === 'exam' || node.id === 'u1-node12.5';
+  const isExamNode = node.type === 'exam' || 
+                     node.id === 'u1-node12.5' || 
+                     Boolean(node.title?.toLowerCase().includes('evaluaci'));
   const activeQuestions = isExamNode ? UNIT_1_EXAM_QUESTIONS : CLASS_1_QUIZ_QUESTIONS;
 
   // State triggers
@@ -271,7 +278,6 @@ export const LessonModal: React.FC<LessonModalProps> = ({
   const [quizScore, setQuizScore] = useState<number>(0);
   const [earnedStars, setEarnedStars] = useState<number>(0);
   const [star3Climax, setStar3Climax] = useState<boolean>(false);
-  const [showUnitCelebration, setShowUnitCelebration] = useState<boolean>(false);
 
   // Sync Timer for Video Progress
   useEffect(() => {
@@ -466,8 +472,6 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     setStar3GrandJump(false);
     setStar3StaticLanded(false);
 
-    onCompleteNode(node.id, node.xpReward);
-
     if (score >= 2) {
       // Winning Cascade Timeline (2 or 3 stars)
       // 1. Star 1 Fills at 350ms (Arpeggio Note 1: Do5)
@@ -540,6 +544,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
         setIsRollingBack(true);
         setEarnedStars(1); // Drops back to 1 star!
         audioService.playSadDefeatSound(); // Tragic melancholic defeat song!
+        if (isExamNode && onLoseLife) {
+          onLoseLife('academia');
+        }
       }, 1900);
 
       // 5. IF SCORE IS 0: TOTAL WIPEOUT & LAUGHING MOCKERY AT 2900ms (1s after rollback)!
@@ -551,7 +558,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
         }, 2900);
       }
     }
-  }, [node.id, node.xpReward, onCompleteNode]);
+  }, [isExamNode, onLoseLife]);
 
   const handleNextQuizQuestion = () => {
     audioService.playClickSound();
@@ -928,26 +935,6 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     // Generic fallback mapping the exact title
     return `Has dominado los conceptos de ${node.title} con gran éxito.`;
   };
-
-  if (showUnitCelebration) {
-    return (
-      <UnitCompletionScreen
-        unitId={1}
-        unitTitle="Fisiología y Registro Vocal"
-        vocalRangeClassification={userStats?.vocalRange || 'Barítono'}
-        onClose={() => {
-          setShowUnitCelebration(false);
-          onClose();
-        }}
-        onUnlockNextUnit={() => {
-          localStorage.setItem('laclave_unit_1_celebrated', 'true');
-          if (onUnlockNextUnit) {
-            onUnlockNextUnit();
-          }
-        }}
-      />
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn cursor-pointer overflow-y-auto" onClick={handleAttemptClose}>
@@ -1603,7 +1590,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                 ) : (
                   <div className="inline-flex items-center gap-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 px-4 py-2 rounded-full text-xs font-black">
                     <AlertTriangle className="w-4 h-4 text-rose-500" />
-                    <span>Se requieren mínimo 2 respuestas correctas</span>
+                    <span>{isExamNode ? 'Examen no superado: -1 Vida' : 'Se requieren mínimo 2 respuestas correctas'}</span>
                   </div>
                 )}
 
@@ -1614,22 +1601,30 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                       audioService.playClickSound();
                       setQuizResolved(true);
                       unlockOrientation();
-                      onCompleteNode(node.id, node.xpReward);
-
-                      const celebrated = localStorage.getItem('laclave_unit_1_celebrated');
-                      if (!celebrated && isExamNode) {
-                        setShowUnitCelebration(true);
+                      onClose();
+                      if (isExamNode && onOpenUnitCelebration) {
+                        onOpenUnitCelebration();
                       } else {
-                        onClose();
+                        onCompleteNode(node.id, node.xpReward);
                       }
                     }}
                     className="w-full py-4 rounded-full tactile-btn-success font-heading font-black text-sm cursor-pointer shadow-lg press-effect mt-2"
                   >
-                    Continuar en la Academia
+                    Continuar
                   </button>
                 ) : (
                   <button
                     onClick={() => {
+                      if ((userStats?.lives ?? 1) <= 0) {
+                        audioService.playClickSound();
+                        onClose();
+                        if (onOpenRecoveryExam) {
+                          onOpenRecoveryExam();
+                        } else if (onOpenStore) {
+                          onOpenStore();
+                        }
+                        return;
+                      }
                       audioService.playClickSound();
                       setQuizQuestionIdx(0);
                       setQuizAnswers([null, null, null, null]);
@@ -1638,7 +1633,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                     className="w-full py-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-heading font-black text-sm cursor-pointer shadow-lg press-effect mt-2 flex items-center justify-center gap-2"
                   >
                     <RotateCcw className="w-5 h-5" />
-                    <span>Reintentar Quiz</span>
+                    <span>{(userStats?.lives ?? 1) <= 0 ? 'Sin vidas (Recuperar vida gratis)' : (isExamNode ? 'Reintentar Examen (-1 vida si fallas)' : 'Reintentar Quiz')}</span>
                   </button>
                 )}
               </div>
