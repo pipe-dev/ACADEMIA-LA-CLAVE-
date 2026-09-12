@@ -835,6 +835,7 @@ export default function App() {
         onToggleZenMode={handleToggleZenMode}
         onToggleAmbientSound={handleToggleAmbientSound}
         onOpenStore={() => setIsStoreOpen(true)}
+        onOpenRecoveryExam={() => setIsRecoveryExamOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenFlameView={() => setActiveTab('racha')}
         onNavigateTab={(tab) => handleTabChange(tab)}
