@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { emitMicActive } from './micEvents';
 
 /**
  * Web Audio API helper for synthesized piano/vocal notes, button feedback sound effects,
@@ -24,6 +25,11 @@ class AudioService {
         logger.warn('Audio', 'Error al reanudar AudioContext', err);
       });
     }
+  }
+
+  public getAudioContext(): AudioContext | null {
+    this.initCtx();
+    return this.ctx;
   }
 
   /**
@@ -421,6 +427,77 @@ class AudioService {
 
   public playRetrySound() {
     this.playSadDefeatSound();
+  }
+
+  /**
+   * Sound effect for losing a heart/life (subtle descending tone)
+   */
+  public playHeartLostSound() {
+    this.vibrate([60, 40, 70]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(260, now + 0.35);
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.22, now + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Sound effect for gaining/recovering a heart/life (bright arpeggiated chord)
+   */
+  public playHeartGainedSound() {
+    this.vibrate([40, 30, 80]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      // Bright C-Major arpeggio: C4 (261.63), E4 (329.63), G4 (392.00), C5 (523.25)
+      const notes = [
+        { freq: 261.63, delay: 0.00, dur: 0.20 },
+        { freq: 329.63, delay: 0.08, dur: 0.20 },
+        { freq: 392.00, delay: 0.16, dur: 0.22 },
+        { freq: 523.25, delay: 0.24, dur: 0.40 }
+      ];
+
+      notes.forEach(({ freq, delay, dur }) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + delay);
+
+        gain.gain.setValueAtTime(0, now + delay);
+        gain.gain.linearRampToValueAtTime(0.2, now + delay + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+
+        osc.start(now + delay);
+        osc.stop(now + delay + dur);
+      });
+    } catch {
+      // Ignore
+    }
   }
 
   /**
@@ -862,6 +939,7 @@ class AudioService {
       source.connect(this.analyser);
 
       this.isListening = true;
+      emitMicActive(true);
       this.detectPitchLoop(onPitchDetected);
       return true;
     } catch (err: any) {
@@ -875,7 +953,10 @@ class AudioService {
   }
 
   public stopMicrophone() {
-    this.isListening = false;
+    if (this.isListening) {
+      this.isListening = false;
+      emitMicActive(false);
+    }
     if (this.micStream) {
       this.micStream.getTracks().forEach(track => track.stop());
       this.micStream = null;
@@ -1285,107 +1366,481 @@ class AudioService {
     return this.isAmbientOn;
   }
 
-  /**
-   * Synthesis method for Orb Hold Charge pitch riser
-   */
-  public playOrbeChargeRiser(progress: number) {
+  public playOrbChargeSound() {
     try {
       this.initCtx();
       if (!this.ctx) return;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-
-      const startFreq = 220 + progress * 440; // 220Hz to 660Hz
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
-
+      osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 1.5);
       gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 0.1);
-
+      gain.gain.linearRampToValueAtTime(0.25, this.ctx.currentTime + 1.5);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
-
-      osc.start(this.ctx.currentTime);
-      osc.stop(this.ctx.currentTime + 0.12);
-    } catch {}
+      osc.start();
+      osc.stop(this.ctx.currentTime + 1.5);
+    } catch {
+      // Ignore
+    }
   }
 
-  /**
-   * Synthesis method for Unit Victory Fanfare
-   */
-  public playUnitVictoryFanfare() {
+  public playOrbShatterSound() {
+    this.vibrate([60, 80, 100]);
     try {
       this.initCtx();
       if (!this.ctx) return;
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 chord
-      notes.forEach((freq, idx) => {
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.12);
-
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.12);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.12 + 1.2);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(this.ctx.currentTime + idx * 0.12);
-        osc.stop(this.ctx.currentTime + idx * 0.12 + 1.3);
-      });
-    } catch {}
+      // Sub-bass impact
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.8);
+      gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.8);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.8);
+    } catch {
+      // Ignore
+    }
   }
 
-  /**
-   * Rapid XP Counter Tick Sound
-   */
   public playXpTickSound() {
     try {
       this.initCtx();
       if (!this.ctx) return;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-      gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
-
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
-
-      osc.start(this.ctx.currentTime);
-      osc.stop(this.ctx.currentTime + 0.04);
-    } catch {}
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.05);
+    } catch {
+      // Ignore
+    }
   }
 
-  /**
-   * Majestic Badge Unlock Chime
-   */
-  public playBadgeUnlockChime() {
+  public playUnitVictoryFanfare() {
+    this.vibrate([40, 60, 40, 80, 120]);
     try {
       this.initCtx();
       if (!this.ctx) return;
-      const notes = [587.33, 880, 1174.66]; // D5, A5, D6
+      const notes = [523.25, 659.25, 783.99, 1046.50];
       notes.forEach((freq, idx) => {
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.08);
+        osc.frequency.setValueAtTime(freq, this.ctx!.currentTime + idx * 0.12);
+        gain.gain.setValueAtTime(0.2, this.ctx!.currentTime + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx!.currentTime + idx * 0.12 + 0.4);
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(this.ctx!.currentTime + idx * 0.12);
+        osc.stop(this.ctx!.currentTime + idx * 0.12 + 0.4);
+      });
+    } catch {
+      // Ignore
+    }
+  }
 
-        gain.gain.setValueAtTime(0.25, this.ctx.currentTime + idx * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.08 + 1.5);
+  public playRubberStretchSound(level: number = 1) {
+    this.vibrate(level === 3 ? [60, 80, 120] : [30, 40]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const duration = level === 1 ? 0.35 : level === 2 ? 0.55 : 0.9;
+      const startFreq = level === 1 ? 140 : level === 2 ? 200 : 260;
+      const endFreq = level === 1 ? 380 : level === 2 ? 650 : 1150;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(startFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+
+      if (level === 3) {
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        lfo.frequency.setValueAtTime(25, now);
+        lfoGain.gain.setValueAtTime(15, now);
+        lfo.connect(osc.frequency);
+        lfo.start(now);
+        lfo.stop(now + duration);
+      }
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.linearRampToValueAtTime(level === 3 ? 0.35 : 0.25, now + duration * 0.7);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration);
+    } catch {
+      // Ignore
+    }
+  }
+
+  public playDryCrackSound(level: number = 1) {
+    this.vibrate(level === 3 ? [40, 60, 80, 120] : level === 2 ? [30, 50, 70] : [25, 40]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const duration = level === 1 ? 0.09 : level === 2 ? 0.16 : 0.28;
+
+      // 1. Dry snap noise burst (wood/root cracking snap)
+      const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+      }
+
+      const noiseSource = this.ctx.createBufferSource();
+      noiseSource.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(level === 1 ? 2400 : level === 2 ? 1800 : 1200, now);
+      filter.Q.setValueAtTime(level === 3 ? 3.5 : 2.5, now);
+
+      const noiseGain = this.ctx.createGain();
+      const vol = level === 1 ? 0.3 : level === 2 ? 0.5 : 0.75;
+      noiseGain.gain.setValueAtTime(vol, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      noiseSource.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.ctx.destination);
+
+      noiseSource.start(now);
+
+      // 2. Tonal impact snap layer (rapid pitch drop for sharp dry crack)
+      const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(level === 1 ? 950 : level === 2 ? 750 : 550, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + duration * 0.8);
+
+      oscGain.gain.setValueAtTime(vol * 0.6, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.8);
+
+      osc.connect(oscGain);
+      oscGain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    } catch {
+      // Ignore
+    }
+  }
+
+  public playRubberStrainOverloadSound() {
+    this.vibrate([30, 40, 50, 70, 90, 120]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const pitches = [400, 550, 720, 950];
+      pitches.forEach((startFreq, idx) => {
+        const offset = idx * 0.08;
+        const dur = 0.09;
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(startFreq, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(startFreq * 1.5, now + offset + dur);
+
+        gain.gain.setValueAtTime(0.25, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + dur);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(this.ctx.currentTime + idx * 0.08);
-        osc.stop(this.ctx.currentTime + idx * 0.08 + 1.6);
+        gain.connect(this.ctx!.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + dur);
       });
-    } catch {}
+    } catch {
+      // Ignore
+    }
   }
+
+  public playDryExplosionPopSound(level: number = 3) {
+    this.vibrate(level === 3 ? [80, 100, 140, 180, 240] : level === 2 ? [50, 70, 90] : [40, 60]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Number of pops based on level: level 1 = 1 pop, level 2 = 3 pops, level 3 = 6 pops (muy fuerte)
+      const popOffsets = level === 1 
+        ? [0] 
+        : level === 2 
+        ? [0, 0.09, 0.18] 
+        : [0, 0.06, 0.12, 0.18, 0.25, 0.33];
+
+      const popPitches = [1600, 1300, 1900, 1100, 1750, 1400];
+      const masterVol = level === 3 ? 1.0 : level === 2 ? 0.75 : 0.55;
+
+      popOffsets.forEach((offset, idx) => {
+        const t = now + offset;
+        const dur = level === 3 ? 0.22 : 0.16;
+        const bufferSize = Math.floor(this.ctx!.sampleRate * dur);
+        const buffer = this.ctx!.createBuffer(1, bufferSize, this.ctx!.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.1));
+        }
+
+        const noise = this.ctx!.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx!.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(popPitches[idx % popPitches.length], t);
+        filter.Q.setValueAtTime(3.2, t);
+
+        const gain = this.ctx!.createGain();
+        gain.gain.setValueAtTime(masterVol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx!.destination);
+        noise.start(t);
+
+        // Sub impact on each pop (deeper for level 3)
+        const osc = this.ctx!.createOscillator();
+        const oscGain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(level === 3 ? 160 + idx * 10 : 130, t);
+        osc.frequency.exponentialRampToValueAtTime(30, t + dur);
+        oscGain.gain.setValueAtTime(masterVol * 0.8, t);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        osc.connect(oscGain);
+        oscGain.connect(this.ctx!.destination);
+        osc.start(t);
+        osc.stop(t + dur);
+      });
+    } catch {
+      // Ignore
+    }
+  }
+
+  public playWindWhooshSound() {
+    this.vibrate([40, 60]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const duration = 0.95;
+
+      const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(200, now);
+      filter.frequency.exponentialRampToValueAtTime(1400, now + duration * 0.45);
+      filter.frequency.exponentialRampToValueAtTime(150, now + duration);
+      filter.Q.setValueAtTime(1.8, now);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.exponentialRampToValueAtTime(0.65, now + duration * 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      noise.start(now);
+      noise.stop(now + duration);
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Sound of liquid / water filling a container smoothly from left to right.
+   * Sweeps resonant acoustic frequency upwards from 280Hz to 820Hz with gentle bubbly pops.
+   */
+  public playWaterFillSound(durationSeconds: number = 1.8) {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const dur = durationSeconds;
+
+      // 1. Rising liquid stream: acoustic noise filtered through sweeping bandpass resonance
+      const bufferSize = Math.floor(this.ctx.sampleRate * dur);
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      const bandpass = this.ctx.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.setValueAtTime(280, now);
+      bandpass.frequency.exponentialRampToValueAtTime(820, now + dur);
+      bandpass.Q.setValueAtTime(4.2, now);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.24, now + 0.12);
+      gain.gain.setValueAtTime(0.24, now + dur - 0.12);
+      gain.gain.linearRampToValueAtTime(0.001, now + dur);
+
+      noise.connect(bandpass);
+      bandpass.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      noise.start(now);
+      noise.stop(now + dur);
+
+      // 2. Liquid bubble pops popping at rising frequencies
+      const bubbleCount = 8;
+      for (let i = 0; i < bubbleCount; i++) {
+        const bubbleTime = now + (i / bubbleCount) * dur * 0.92 + 0.05;
+        const bubbleFreq = 380 + i * 55 + (Math.random() * 40 - 20);
+        const osc = this.ctx.createOscillator();
+        const bGain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(bubbleFreq, bubbleTime);
+        osc.frequency.exponentialRampToValueAtTime(bubbleFreq * 1.35, bubbleTime + 0.04);
+        bGain.gain.setValueAtTime(0.14, bubbleTime);
+        bGain.gain.exponentialRampToValueAtTime(0.001, bubbleTime + 0.045);
+        osc.connect(bGain);
+        bGain.connect(this.ctx.destination);
+        osc.start(bubbleTime);
+        osc.stop(bubbleTime + 0.045);
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  public playUnitUnlockSound() {
+    this.vibrate([50, 70, 100, 160]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // 1. Mechanical padlock snap
+      const snapOsc = this.ctx.createOscillator();
+      const snapGain = this.ctx.createGain();
+      snapOsc.type = 'triangle';
+      snapOsc.frequency.setValueAtTime(1800, now);
+      snapOsc.frequency.exponentialRampToValueAtTime(300, now + 0.08);
+      snapGain.gain.setValueAtTime(0.7, now);
+      snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      snapOsc.connect(snapGain);
+      snapGain.connect(this.ctx.destination);
+      snapOsc.start(now);
+      snapOsc.stop(now + 0.08);
+
+      // 2. Triumphant rising arpeggio (C5, E5, G5, C6)
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        const t = now + 0.12 + idx * 0.11;
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(t);
+        osc.stop(t + 0.5);
+      });
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Play crystal-clear resonant victory bell / success chime when the first node illuminates
+   * Features metallic strike transient, warm harmonic partials (C6, E6, G6, C7), and a 1.6s shimmering decay.
+   */
+  public playSuccessBellSound = () => {
+    this.vibrate([40, 90, 150]);
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // 1. Initial metallic bell strike transient
+      const strikeOsc = this.ctx.createOscillator();
+      const strikeGain = this.ctx.createGain();
+      strikeOsc.type = 'triangle';
+      strikeOsc.frequency.setValueAtTime(3200, now);
+      strikeOsc.frequency.exponentialRampToValueAtTime(1600, now + 0.04);
+      strikeGain.gain.setValueAtTime(0.28, now);
+      strikeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      strikeOsc.connect(strikeGain);
+      strikeGain.connect(this.ctx.destination);
+      strikeOsc.start(now);
+      strikeOsc.stop(now + 0.04);
+
+      // 2. Resonant Bell Harmonics (Warm, celebratory, crystal-clear chime)
+      const partials = [
+        { freq: 1046.50, gain: 0.40, decay: 1.6 }, // C6 Fundamental Chime
+        { freq: 1318.51, gain: 0.28, decay: 1.4 }, // E6 Major third sweetness
+        { freq: 1567.98, gain: 0.24, decay: 1.2 }, // G6 Perfect fifth warmth
+        { freq: 2093.00, gain: 0.16, decay: 0.9 }, // C7 Crystal shimmer
+        { freq: 3135.96, gain: 0.08, decay: 0.6 }  // G7 Sparkle
+      ];
+
+      partials.forEach(({ freq, gain, decay }) => {
+        const osc = this.ctx!.createOscillator();
+        const g = this.ctx!.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(gain, now + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+
+        osc.connect(g);
+        g.connect(this.ctx!.destination);
+
+        osc.start(now);
+        osc.stop(now + decay);
+      });
+    } catch {
+      // Ignore
+    }
+  };
 }
 
 export const audioService = new AudioService();
+
+// Standalone function export for guaranteed Turbopack HMR binding and resilient execution
+export const playSuccessBellSound = () => {
+  if (typeof audioService.playSuccessBellSound === 'function') {
+    audioService.playSuccessBellSound();
+  }
+};
+

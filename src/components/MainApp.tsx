@@ -12,13 +12,20 @@ import { AfinadorView } from './AfinadorView';
 import { PracticaView } from './PracticaView';
 import { ProgresoView } from './ProgresoView';
 import { LessonModal } from './LessonModal';
+import { UnitCelebrationModal } from './UnitCelebrationModal';
 import { VoiceEvalModal } from './VoiceEvalModal';
 import { VocalRangeModal } from './VocalRangeModal';
 import { StoreModal } from './StoreModal';
 import { SettingsModal } from './SettingsModal';
 import { StreakFlameView } from './StreakFlameView';
+import {
+  calculatePassiveRecharge,
+  applyLifeDeduction,
+  applyLifeAward,
+  applyLifePurchase,
+  MAX_LIVES
+} from '../utils/livesEngine';
 
-import { UnitCompletionScreen } from './UnitCompletionScreen';
 import { InstallPwaModal } from './InstallPwaModal';
 import { ZenOverlay } from './ZenOverlay';
 import { YouTubeAmbientPlayer } from './YouTubeAmbientPlayer';
@@ -31,6 +38,7 @@ import { updateAppIconBadge, getSharedTargetContent, SharedContent, enableScreen
 import { ToastContainer, ToastItem } from './ToastNotification';
 import { getLevelTitle } from '../utils/levelHelper';
 import { Share2, X } from 'lucide-react';
+import { emitStreakEligibleAction, getTodayStr, isStreakLitToday, subscribeStreakEligibleAction } from '../utils/streakPrompt';
 
 const TAB_ORDER: Record<TabType, number> = {
   academia: 0,
@@ -65,15 +73,16 @@ export default function App() {
     setActiveTab(newTab);
   };
 
-  // Load persisted user stats
+  // Load persisted user stats with passive recharge applied
   const [userStats, setUserStats] = useState<UserStats>(() => {
     const saved = localStorage.getItem('laclave_user_stats_v5');
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
+        const recharged = calculatePassiveRecharge(parsed);
         return {
-          ...parsed,
-          badges: evaluateBadges(parsed)
+          ...recharged,
+          badges: evaluateBadges(recharged)
         };
       } catch {}
     }
@@ -121,7 +130,15 @@ export default function App() {
   const [units, setUnits] = useState<Unit[]>(() => {
     const saved = localStorage.getItem('laclave_units_v8');
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try {
+        const parsed: Unit[] = JSON.parse(saved);
+        // Self-healing check: If u1-node12.5 is completed, ensure Unit 2 node 1 (u2-node13) is unlocked!
+        const u1Exam = parsed[0]?.nodes?.find(n => n.id === 'u1-node12.5');
+        if (u1Exam && u1Exam.status === 'completed' && parsed[1]?.nodes[0]?.status === 'locked') {
+          parsed[1].nodes[0].status = 'current';
+        }
+        return parsed;
+      } catch {}
     }
     return INITIAL_UNITS;
   });
@@ -130,6 +147,9 @@ export default function App() {
   const [selectedNode, setSelectedNode] = useState<LessonNode | null>(null);
   const [isVoiceEvalOpen, setIsVoiceEvalOpen] = useState<boolean>(false);
   const [isVocalRangeOpen, setIsVocalRangeOpen] = useState<boolean>(false);
+  const [unlockedUnitAnimationId, setUnlockedUnitAnimationId] = useState<number | null>(null);
+  const [justUnlockedNodeId, setJustUnlockedNodeId] = useState<string | null>(null);
+  const [showUnitCelebration, setShowUnitCelebration] = useState<boolean>(false);
 
   // Global haptic and auditory feedback listener for 3D buttons and interactive elements
   useEffect(() => {
@@ -241,14 +261,25 @@ export default function App() {
     }
   }, [showSplash, isInstalled, openModal]);
   const [isStoreOpen, setIsStoreOpen] = useState<boolean>(false);
+  const [isRecoveryExamOpen, setIsRecoveryExamOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showZenOverlay, setShowZenOverlay] = useState<boolean>(false);
-  const [replayUnitCelebration, setReplayUnitCelebration] = useState<boolean>(false);
+
+  // Streak prompt overlay: aparece después de una acción si la racha no fue encendida hoy
+  const [streakPromptOpen, setStreakPromptOpen] = useState<boolean>(false);
+  const openStreakPrompt = () => {
+    if (isStreakLitToday()) return;
+    setStreakPromptOpen(true);
+  };
+
+  useEffect(() => {
+    return subscribeStreakEligibleAction(openStreakPrompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleStreakIgniteComplete = (newStreak: number) => {
     try {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      localStorage.setItem('laclave_last_streak_date', todayStr);
+      localStorage.setItem('laclave_last_streak_date', getTodayStr());
     } catch {}
     setUserStats(prev => ({
       ...prev,
@@ -317,25 +348,30 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('laclave_dark_mode', String(darkMode));
-    if (darkMode) {
+    const effectiveDark = zenMode || darkMode;
+    if (effectiveDark) {
       document.documentElement.classList.add('dark');
       document.body.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
       document.body.classList.remove('dark');
     }
-  }, [darkMode]);
+  }, [darkMode, zenMode]);
 
   useEffect(() => {
     localStorage.setItem('laclave_zen_mode', String(zenMode));
     if (zenMode) {
-      document.documentElement.classList.add('zen-mode');
-      document.body.classList.add('zen-mode');
+      document.documentElement.classList.add('zen-mode', 'dark');
+      document.body.classList.add('zen-mode', 'dark');
     } else {
       document.documentElement.classList.remove('zen-mode');
       document.body.classList.remove('zen-mode');
+      if (!darkMode) {
+        document.documentElement.classList.remove('dark');
+        document.body.classList.remove('dark');
+      }
     }
-  }, [zenMode]);
+  }, [zenMode, darkMode]);
 
   // Sync state to localStorage
   useEffect(() => {
@@ -352,9 +388,22 @@ export default function App() {
 
   // Complete a lesson node
   const handleCompleteNode = (nodeId: string, xpReward: number) => {
+    emitStreakEligibleAction();
     // Find node and unit titles
     const targetNode = units.flatMap(u => u.nodes).find(n => n.id === nodeId);
     const targetUnit = units.find(u => u.nodes.some(n => n.id === nodeId));
+
+    // Unit 1 Completion Trigger: Open Unit Celebratory Balloon Modal first
+    const isLastNodeOfUnit1 = nodeId === 'u1-node12.5' || 
+                              targetNode?.type === 'exam' ||
+                              Boolean(targetNode?.title?.toLowerCase().includes('evaluaci')) ||
+                              (targetUnit?.id === 1 && targetUnit.nodes[targetUnit.nodes.length - 1]?.id === nodeId);
+    if (isLastNodeOfUnit1) {
+      setUnlockedUnitAnimationId(null);
+      setSelectedNode(null);
+      setShowUnitCelebration(true);
+      return;
+    }
 
     // Prevent duplicate rewards if already completed
     if (targetNode?.status === 'completed') {
@@ -370,23 +419,50 @@ export default function App() {
       xpEarned: xpReward
     };
 
-    // 1. Update node status
-    setUnits((prevUnits) =>
-      prevUnits.map((u) => ({
+    // 1. Determine next unlocked node for celebratory illumination & bell chime
+    let newlyUnlockedNodeId: string | null = null;
+    const completedUnit = units.find((u) => u.nodes.some((n) => n.id === nodeId));
+    if (completedUnit) {
+      const completedNodeIdx = completedUnit.nodes.findIndex((n) => n.id === nodeId);
+      if (completedNodeIdx !== -1 && completedNodeIdx + 1 < completedUnit.nodes.length) {
+        newlyUnlockedNodeId = completedUnit.nodes[completedNodeIdx + 1].id;
+      }
+    }
+
+    if (newlyUnlockedNodeId && !isLastNodeOfUnit1) {
+      setJustUnlockedNodeId(null);
+      setTimeout(() => {
+        setJustUnlockedNodeId(newlyUnlockedNodeId);
+      }, 150);
+    }
+
+    // 2. Update node status across unit boundaries
+    setUnits((prevUnits) => {
+      const completedUnitIdx = prevUnits.findIndex((u) => u.nodes.some((n) => n.id === nodeId));
+      const completedNodeIdx = completedUnitIdx !== -1 
+        ? prevUnits[completedUnitIdx].nodes.findIndex((n) => n.id === nodeId)
+        : -1;
+      
+      const isLastNodeOfUnit = completedUnitIdx !== -1 && completedNodeIdx === prevUnits[completedUnitIdx].nodes.length - 1;
+
+      return prevUnits.map((u, uIdx) => ({
         ...u,
-        nodes: u.nodes.map((n, idx) => {
+        nodes: u.nodes.map((n, nIdx) => {
           if (n.id === nodeId) {
             return { ...n, status: 'completed' as const };
           }
-          // If previous node completed, unlock next node if locked
-          const prevNode = u.nodes[idx - 1];
-          if (prevNode && prevNode.id === nodeId && n.status === 'locked') {
+          // Unlock next node in the same unit
+          if (uIdx === completedUnitIdx && nIdx === completedNodeIdx + 1 && n.status === 'locked') {
+            return { ...n, status: 'current' as const };
+          }
+          // Cross-Unit Unlock: If completing the last node of a unit, unlock 1st node of the NEXT unit!
+          if (isLastNodeOfUnit && uIdx === completedUnitIdx + 1 && nIdx === 0 && n.status === 'locked') {
             return { ...n, status: 'current' as const };
           }
           return n;
         })
-      }))
-    );
+      }));
+    });
 
     // 2. Award XP & check level up & update recentLessons
     setUserStats((prev) => {
@@ -484,19 +560,73 @@ export default function App() {
     );
   };
 
-  const handleUnlockNextUnit = () => {
-    localStorage.setItem('laclave_unit_1_celebrated', 'true');
-    setUnits((prevUnits) =>
-      prevUnits.map((u) => {
-        if (u.id === 2) {
+  // When clicking "CONTINUAR A LA UNIDAD 2" in the balloon celebration modal
+  const handleContinueToUnit2 = () => {
+    setShowUnitCelebration(false);
+    setUnits((prevUnits) => {
+      const updated = prevUnits.map((u) => {
+        if (u.id === 1) {
           return {
             ...u,
-            nodes: u.nodes.map((n, idx) => (idx === 0 ? { ...n, status: 'current' as const } : n))
+            nodes: u.nodes.map((n) => ({ ...n, status: 'completed' as const }))
+          };
+        }
+        if (u.id === 2) {
+          const hasCompletedInUnit2 = u.nodes.some((n) => n.status === 'completed');
+          const hasCurrentInUnit2 = u.nodes.some((n) => n.status === 'current');
+
+          return {
+            ...u,
+            nodes: u.nodes.map((n, idx) => {
+              // Never downgrade already completed nodes!
+              if (n.status === 'completed') return n;
+              if (idx === 0 && !hasCompletedInUnit2 && !hasCurrentInUnit2) {
+                return { ...n, status: 'current' as const };
+              }
+              return n;
+            })
           };
         }
         return u;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('laclave_units_v8', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // Award XP and stats for completing the unit 1 exam if not already awarded
+    const targetNode = units.flatMap((u) => u.nodes).find((n) => n.id === 'u1-node12.5');
+    if (targetNode?.status !== 'completed') {
+      setUserStats((prev) => {
+        const newXP = prev.xp + 100;
+        let newLevel = prev.level;
+        let newMaxXP = prev.maxXP;
+        if (newXP >= prev.maxXP) {
+          newLevel += 1;
+          newMaxXP += 500;
+        }
+        const updatedStats = {
+          ...prev,
+          xp: newXP,
+          level: newLevel,
+          maxXP: newMaxXP,
+          levelTitle: getLevelTitle(newLevel),
+          lessonsCompleted: (prev.lessonsCompleted || 0) + 1,
+          practiceMinutes: (prev.practiceMinutes || 0) + 10
+        };
+        try {
+          localStorage.setItem('laclave_user_stats_v5', JSON.stringify(updatedStats));
+        } catch {}
+        return updatedStats;
+      });
+    }
+
+    setActiveTab('academia');
+    setUnlockedUnitAnimationId(null);
+    setTimeout(() => {
+      setUnlockedUnitAnimationId(2);
+    }, 60);
   };
 
   // Update Quest Progress (e.g. from Afinador or Practica)
@@ -604,17 +734,93 @@ export default function App() {
     );
   };
 
-  // Buy lives in store
-  const handleBuyLives = () => {
-    setUserStats((prev) => ({
-      ...prev,
-      lives: prev.maxLives,
-      xp: Math.max(0, prev.xp - 50)
-    }));
+  // Passive life recharge loop (1-second tick when lives < MAX_LIVES)
+  useEffect(() => {
+    if ((userStats.lives ?? MAX_LIVES) >= MAX_LIVES) return;
+
+    const timer = setInterval(() => {
+      setUserStats((prev) => {
+        if ((prev.lives ?? MAX_LIVES) >= MAX_LIVES) return prev;
+        const recharged = calculatePassiveRecharge(prev);
+        if ((recharged.lives ?? 0) > (prev.lives ?? 0)) {
+          audioService.playHeartGainedSound();
+          addToast({
+            type: 'heart',
+            title: '¡Vida regenerada!',
+            description: `Recuperaste 1 vida de forma pasiva (${recharged.lives}/${MAX_LIVES})`
+          });
+          return recharged;
+        }
+        return prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [userStats.lives]);
+
+  // Centralized life management handlers
+  const handleLoseLife = (source: 'academia' | 'tuner' | 'karaoke') => {
+    setUserStats((prev) => {
+      if ((prev.lives ?? MAX_LIVES) <= 0) return prev;
+      const updated = applyLifeDeduction(prev);
+      audioService.playHeartLostSound();
+      addToast({
+        type: 'warning',
+        title: 'Perdiste 1 vida',
+        description: updated.lives > 0
+          ? `Te quedan ${updated.lives} de ${MAX_LIVES} vidas`
+          : '¡Te has quedado sin vidas! Entrena o recarga en la tienda para continuar'
+      });
+      return updated;
+    });
+  };
+
+  const handleGainLife = (amount: number = 1) => {
+    setUserStats((prev) => {
+      const currentLives = prev.lives ?? MAX_LIVES;
+      if (currentLives >= MAX_LIVES) return prev;
+      const updated = applyLifeAward(prev, amount);
+      audioService.playHeartGainedSound();
+      addToast({
+        type: 'heart',
+        title: '¡Vida recuperada!',
+        description: `Ahora tienes ${updated.lives} de ${MAX_LIVES} vidas`
+      });
+      return updated;
+    });
+  };
+
+  const handleBuyLife = () => {
+    let resultCost = 0;
+    let resultError = '';
+    setUserStats((prev) => {
+      const res = applyLifePurchase(prev);
+      if (!res.success) {
+        resultError = res.error || 'No se pudo comprar la vida';
+        return prev;
+      }
+      resultCost = res.cost;
+      return res.updatedStats;
+    });
+
+    if (resultError) {
+      addToast({
+        type: 'warning',
+        title: 'Compra no completada',
+        description: resultError
+      });
+    } else if (resultCost > 0) {
+      audioService.playHeartGainedSound();
+      addToast({
+        type: 'heart',
+        title: '¡Vida adquirida!',
+        description: `Has recuperado 1 vida por ${resultCost} XP`
+      });
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9ff] dark:bg-[#071322] text-[#0b1c30] dark:text-[#d3e4fe] flex flex-col font-sans selection:bg-[#4648d4] selection:text-white antialiased transition-colors duration-200">
+    <div className={`min-h-screen ${zenMode ? 'zen-mode bg-[#161719] text-[#ded9cf]' : 'bg-[#f8f9ff] dark:bg-[#071322] text-[#0b1c30] dark:text-[#d3e4fe]'} flex flex-col font-sans ${zenMode ? 'selection:bg-[#e5b83b] selection:text-[#161719]' : 'selection:bg-[#4648d4] selection:text-white'} antialiased transition-colors duration-200`}>
       {/* Toast Notifications System */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
 
@@ -631,6 +837,8 @@ export default function App() {
         onOpenStore={() => setIsStoreOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenFlameView={() => setActiveTab('racha')}
+        onNavigateTab={(tab) => handleTabChange(tab)}
+        onNavigateToPractice={() => setActiveTab('practica')}
       />
 
       {/* Offline Status & Sync Engine Notification Banner */}
@@ -703,16 +911,27 @@ export default function App() {
               <AcademiaView
                 userStats={userStats}
                 units={units}
-                onSelectNode={(node) => setSelectedNode(node)}
+                zenMode={zenMode}
+                onSelectNode={(node) => {
+                  setUnlockedUnitAnimationId(null);
+                  setSelectedNode(node);
+                }}
                 onOpenVoiceEval={() => setIsVoiceEvalOpen(true)}
-                onReplayUnitCelebration={() => setReplayUnitCelebration(true)}
+                unlockedUnitAnimationId={unlockedUnitAnimationId}
+                onClearUnlockedUnitAnimation={() => setUnlockedUnitAnimationId(null)}
+                justUnlockedNodeId={justUnlockedNodeId}
+                onClearJustUnlockedNode={() => setJustUnlockedNodeId(null)}
+                onOpenUnitCelebration={() => {
+                  setUnlockedUnitAnimationId(null);
+                  setShowUnitCelebration(true);
+                }}
               />
             )}
 
             {activeTab === 'afinador' && (
               <AfinadorView
                 userStats={userStats}
-                darkMode={darkMode}
+                darkMode={zenMode ? true : darkMode}
                 zenMode={zenMode}
                 onUpdateQuestProgress={handleUpdateNotesTuned}
                 onUpdateStats={(updated) => setUserStats(prev => ({ ...prev, ...updated }))}
@@ -722,6 +941,7 @@ export default function App() {
             {activeTab === 'practica' && (
               <PracticaView
                 userStats={userStats}
+                zenMode={zenMode}
                 onUpdateQuestProgress={handleUpdatePracticeTime}
               />
             )}
@@ -735,6 +955,7 @@ export default function App() {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onUpdateStats={(updated) => setUserStats(prev => ({ ...prev, ...updated }))}
                 onOpenVocalRangeModal={() => setIsVocalRangeOpen(true)}
+                zenMode={zenMode}
               />
             )}
           </motion.div>
@@ -742,31 +963,56 @@ export default function App() {
       </main>
 
       {/* Fullscreen Streak Flame Overlay */}
-      {activeTab === 'racha' && (
+      {(activeTab === 'racha' || streakPromptOpen) && (
         <StreakFlameView
           currentStreak={userStats.streak}
-          onBack={() => setActiveTab('academia')}
+          onBack={() => {
+            if (streakPromptOpen) {
+              setStreakPromptOpen(false);
+            } else {
+              setActiveTab('academia');
+            }
+          }}
           onStreakUpdate={(newStreak) => {
             handleStreakIgniteComplete(newStreak);
             setUserStats(prev => ({
               ...prev,
               xp: prev.xp + 50
             }));
+            if (streakPromptOpen) {
+              setTimeout(() => setStreakPromptOpen(false), 2000);
+            }
           }}
         />
       )}
 
       {/* Bottom Floating Navigation */}
-      <BottomNav activeTab={activeTab} onChangeTab={handleTabChange} progressBadgeCount={progressBadgeCount} />
+      <BottomNav 
+        activeTab={activeTab} 
+        onChangeTab={handleTabChange} 
+        progressBadgeCount={progressBadgeCount} 
+        zenMode={zenMode}
+      />
 
       {/* Interactive Modals */}
       {selectedNode && (
         <LessonModal
           node={selectedNode}
-          userStats={userStats}
           onClose={() => setSelectedNode(null)}
           onCompleteNode={handleCompleteNode}
-          onUnlockNextUnit={handleUnlockNextUnit}
+          onOpenUnitCelebration={() => {
+            setUnlockedUnitAnimationId(null);
+            setSelectedNode(null);
+            setShowUnitCelebration(true);
+          }}
+        />
+      )}
+
+      {/* Standalone Fullscreen Unit Culmination Celebration */}
+      {showUnitCelebration && (
+        <UnitCelebrationModal
+          isOpen={showUnitCelebration}
+          onContinueToUnit2={handleContinueToUnit2}
         />
       )}
 
@@ -791,18 +1037,18 @@ export default function App() {
         <StoreModal
           userStats={userStats}
           onClose={() => setIsStoreOpen(false)}
-          onBuyLives={handleBuyLives}
+          onBuyLives={handleBuyLife}
         />
       )}
 
       {isSettingsOpen && (
         <SettingsModal
           userStats={userStats}
-          darkMode={darkMode}
+          darkMode={zenMode ? true : darkMode}
           zenMode={zenMode}
           ambientSound={ambientSound}
           isOnline={isOnline}
-          onToggleDarkMode={() => setDarkMode(prev => !prev)}
+          onToggleDarkMode={zenMode ? undefined : () => setDarkMode(prev => !prev)}
           onToggleZenMode={handleToggleZenMode}
           onToggleAmbientSound={handleToggleAmbientSound}
           onStartTour={() => startOnboardingTour(activeTab, handleTabChange, true)}
@@ -836,16 +1082,12 @@ export default function App() {
         onFinished={() => setShowZenOverlay(false)}
       />
 
-      {/* Fullscreen Unit Completion Celebration Overlay (Replay) */}
-      {replayUnitCelebration && (
-        <UnitCompletionScreen
-          unitId={1}
-          unitTitle="Fisiología y Registro Vocal"
-          vocalRangeClassification={userStats.vocalRange || 'Barítono'}
-          onClose={() => setReplayUnitCelebration(false)}
-          onUnlockNextUnit={handleUnlockNextUnit}
-        />
-      )}
+      {/* Daily Vocal Tip Splash Screen */}
+      <AnimatePresence>
+        {showSplash && (
+          <SplashScreen onFinish={() => setShowSplash(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

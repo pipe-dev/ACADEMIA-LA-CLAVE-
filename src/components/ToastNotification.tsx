@@ -1,13 +1,13 @@
 'use client';
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, Target, CheckCircle2, Award, Sparkles, X, Zap } from 'lucide-react';
+import { Trophy, Target, CheckCircle2, Award, Sparkles, X, Zap, Heart, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { audioService } from '../utils/audioService';
 
 export interface ToastItem {
   id: string;
-  type: 'level' | 'quest' | 'badge' | 'xp';
+  type: 'level' | 'quest' | 'badge' | 'xp' | 'heart' | 'warning';
   title: string;
   description: string;
   xpReward?: number;
@@ -25,7 +25,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
   return (
     <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4 flex flex-col gap-3 pointer-events-none">
       <AnimatePresence mode="popLayout">
-        {toasts.map((toast) => (
+        {toasts.slice(0, 2).map((toast) => (
           <SingleToast key={toast.id} toast={toast} onDismiss={onDismiss} />
         ))}
       </AnimatePresence>
@@ -103,6 +103,28 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onDismiss }) => {
           progressColor: 'bg-gradient-to-r from-purple-400 to-indigo-300',
           Icon: Award,
           tagText: 'NUEVA INSIGNIA'
+        };
+      case 'heart':
+        return {
+          bg: 'bg-gradient-to-r from-[#28080c]/95 via-[#3b0d14]/95 to-[#0b1c30]/95 dark:from-[#2d090f]/95 dark:to-[#071322]/95',
+          border: 'border-rose-400/80 dark:border-rose-500/80',
+          shadow: 'shadow-[0_12px_36px_rgba(244,63,94,0.35)]',
+          iconBg: 'bg-rose-500/20 text-rose-400 border border-rose-400/40',
+          badgeBg: 'bg-rose-500 text-white font-bold',
+          progressColor: 'bg-gradient-to-r from-rose-400 to-red-400',
+          Icon: Heart,
+          tagText: 'VIDAS'
+        };
+      case 'warning':
+        return {
+          bg: 'bg-gradient-to-r from-[#261503]/95 via-[#351e05]/95 to-[#0b1c30]/95 dark:from-[#2a1705]/95 dark:to-[#071322]/95',
+          border: 'border-amber-400/80 dark:border-amber-500/80',
+          shadow: 'shadow-[0_12px_36px_rgba(245,158,11,0.35)]',
+          iconBg: 'bg-amber-500/20 text-amber-400 border border-amber-400/40',
+          badgeBg: 'bg-amber-500 text-black font-bold',
+          progressColor: 'bg-gradient-to-r from-amber-400 to-yellow-300',
+          Icon: AlertCircle,
+          tagText: 'ALERTA'
         };
       case 'xp':
       default:

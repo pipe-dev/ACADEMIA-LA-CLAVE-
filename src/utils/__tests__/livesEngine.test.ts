@@ -21,12 +21,15 @@ function assert(condition: boolean, message: string) {
 }
 
 const mockStats: UserStats = {
+  name: 'Test User',
+  avatarUrl: '',
+  levelTitle: 'Principiante',
+  maxXP: 500,
   xp: 500,
   streak: 3,
   lives: 5,
   maxLives: 5,
   level: 1,
-  gems: 100,
   lastLifeLostAt: null,
   lifePurchaseCount: 0,
   hasUsedCourtesySong: false
