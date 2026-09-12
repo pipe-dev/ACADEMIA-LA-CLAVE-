@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AudioParticleCanvas } from './AudioParticleCanvas';
+import { AuraShieldRing } from './AuraShieldRing';
 import { PitchStabilityChart } from './PitchStabilityChart';
 import { DueloRapidoModal } from './DueloRapidoModal';
 import { StabilityChallengeModal } from './StabilityChallengeModal';
@@ -1187,71 +1188,21 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
               )}
             </div>
 
-            {/* Tug-of-War Precision Bar in Level Mode */}
-            {tunerMode === 'niveles' && (
-              selectedDifficulty === 'Calentamiento' ? (
-                <div className={`flex items-center justify-between p-2.5 rounded-2xl border text-xs font-bold ${
-                  zenMode
-                    ? 'bg-[#22252a] border-[#2e3138] text-[#ded9cf]'
-                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span>Calentamiento (Zona Segura • Sin perder vidas)</span>
-                  </div>
-                  <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-heading font-extrabold">
-                    Libre
-                  </span>
+            {/* Calentamiento banner (Solo en niveles cuando está en calentamiento) */}
+            {tunerMode === 'niveles' && selectedDifficulty === 'Calentamiento' && (
+              <div className={`flex items-center justify-between p-2.5 rounded-2xl border text-xs font-bold ${
+                zenMode
+                  ? 'bg-[#22252a] border-[#2e3138] text-[#ded9cf]'
+                  : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <span>Calentamiento (Zona Segura • Sin perder vidas)</span>
                 </div>
-              ) : (
-                <div className={`p-3 rounded-2xl border space-y-2 ${
-                  zenMode
-                    ? 'bg-[#22252a] border-[#2e3138]'
-                    : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800'
-                }`}>
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <div className="flex items-center gap-1.5 text-rose-500 font-heading">
-                      <Heart className="w-3.5 h-3.5 fill-rose-500" />
-                      <span>Derrota (-1 Vida)</span>
-                    </div>
-                    <span className="text-[11px] font-mono font-black text-slate-600 dark:text-slate-300">
-                      {Math.round(tugOfWarProgress)}%
-                    </span>
-                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-heading">
-                      <Trophy className="w-3.5 h-3.5" />
-                      <span>Victoria</span>
-                    </div>
-                  </div>
-
-                  {/* Bar track */}
-                  <div className="relative h-3 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    {/* Center 50% neutral marker */}
-                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-slate-400 dark:bg-slate-500 z-10 opacity-70" />
-                    {/* Progress fill */}
-                    <div
-                      className={`h-full transition-all duration-100 ${
-                        tugOfWarProgress > 50
-                          ? 'bg-gradient-to-r from-amber-400 to-emerald-500'
-                          : 'bg-gradient-to-r from-rose-500 to-amber-400'
-                      }`}
-                      style={{ width: `${Math.max(0, Math.min(100, tugOfWarProgress))}%` }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                    <span>
-                      {isPitchMatched
-                        ? '¡Afinando! Empujando a la victoria...'
-                        : pitchDiff !== null
-                        ? '¡Desafinado! Corrige o pierdes vida'
-                        : 'Silencio (Barra congelada)'}
-                    </span>
-                    <span className="font-semibold">
-                      {tugOfWarProgress <= 25 ? '¡PELIGRO CRÍTICO!' : tugOfWarProgress >= 75 ? '¡Casi completado!' : 'En equilibrio'}
-                    </span>
-                  </div>
-                </div>
-              )
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-heading font-extrabold">
+                  Libre
+                </span>
+              </div>
             )}
 
             {/* Gauge Display with Particles & Dynamic Central Sphere */}
@@ -1290,28 +1241,59 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 )}
               </AnimatePresence>
 
-              {/* Dynamic Center Sphere (Restored to original w-22 h-22 size) */}
+              {/* Dynamic Center Sphere with Concentric Aura Shield Ring */}
               <div className="relative z-10 flex flex-col items-center my-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
-                  }}
-                  title="Toca para escuchar voz real"
-                  className={`w-22 h-22 rounded-full flex flex-col items-center justify-center text-white shadow-xl transition-all duration-300 relative cursor-pointer ${sphereStyle}`}
-                  style={{
-                    transform: isTuningActive && volume > 0.02 ? `scale(${1 + Math.min(0.18, volume * 1.5)})` : undefined
-                  }}
-                >
-                  <span className="font-heading font-bold text-3xl tracking-wide leading-none drop-shadow-sm">
-                    {activeTargetNote.name}
-                  </span>
-                  <span className="text-[11px] font-semibold opacity-95 mt-1 bg-black/25 px-2.5 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1">
-                    <Volume2 className="w-3 h-3 opacity-80" />
-                    {detectedPitch ? `${detectedPitch} Hz` : `${targetFreq} Hz`}
-                  </span>
-                </motion.button>
+                {tunerMode === 'niveles' && selectedDifficulty !== 'Calentamiento' ? (
+                  <AuraShieldRing
+                    progress={tugOfWarProgress}
+                    isActive={isTuningActive}
+                    isMatched={isPitchMatched}
+                    zenMode={zenMode}
+                    showBadges={true}
+                  >
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
+                      }}
+                      title="Toca para escuchar voz real"
+                      className={`w-22 h-22 rounded-full flex flex-col items-center justify-center text-white shadow-xl transition-all duration-300 relative cursor-pointer ${sphereStyle}`}
+                      style={{
+                        transform: isTuningActive && volume > 0.02 ? `scale(${1 + Math.min(0.18, volume * 1.5)})` : undefined
+                      }}
+                    >
+                      <span className="font-heading font-bold text-3xl tracking-wide leading-none drop-shadow-sm">
+                        {activeTargetNote.name}
+                      </span>
+                      <span className="text-[11px] font-semibold opacity-95 mt-1 bg-black/25 px-2.5 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1">
+                        <Volume2 className="w-3 h-3 opacity-80" />
+                        {detectedPitch ? `${detectedPitch} Hz` : `${targetFreq} Hz`}
+                      </span>
+                    </motion.button>
+                  </AuraShieldRing>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
+                    }}
+                    title="Toca para escuchar voz real"
+                    className={`w-22 h-22 rounded-full flex flex-col items-center justify-center text-white shadow-xl transition-all duration-300 relative cursor-pointer ${sphereStyle}`}
+                    style={{
+                      transform: isTuningActive && volume > 0.02 ? `scale(${1 + Math.min(0.18, volume * 1.5)})` : undefined
+                    }}
+                  >
+                    <span className="font-heading font-bold text-3xl tracking-wide leading-none drop-shadow-sm">
+                      {activeTargetNote.name}
+                    </span>
+                    <span className="text-[11px] font-semibold opacity-95 mt-1 bg-black/25 px-2.5 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1">
+                      <Volume2 className="w-3 h-3 opacity-80" />
+                      {detectedPitch ? `${detectedPitch} Hz` : `${targetFreq} Hz`}
+                    </span>
+                  </motion.button>
+                )}
 
                 {/* State Badge */}
                 {isTuningActive ? (
