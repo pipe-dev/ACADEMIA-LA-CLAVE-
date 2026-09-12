@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { TabType, UserStats, Unit, LessonNode, DailyQuest, CompletedLessonEntry } from '../types';
 import { INITIAL_USER_STATS, INITIAL_UNITS, INITIAL_QUESTS } from '../data/academyData';
@@ -54,17 +54,24 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('academia');
   const [tabDirection, setTabDirection] = useState<number>(1);
 
-  // Toast Notifications State
+  // Toast Notifications State with strict deduplication
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = (toast: Omit<ToastItem, 'id'>) => {
-    const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    setToasts((prev) => [...prev, { ...toast, id }]);
-  };
+  const addToast = useCallback((toast: Omit<ToastItem, 'id'>) => {
+    setToasts((prev) => {
+      // Prevent duplicate toasts in queue with same type, title, and description
+      const isDuplicate = prev.some(
+        (t) => t.type === toast.type && t.title === toast.title && t.description === toast.description
+      );
+      if (isDuplicate) return prev;
+      const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      return [...prev, { ...toast, id }];
+    });
+  }, []);
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
   const handleTabChange = (newTab: TabType) => {
     if (newTab === activeTab) return;
@@ -744,12 +751,15 @@ export default function App() {
         if ((prev.lives ?? MAX_LIVES) >= MAX_LIVES) return prev;
         const recharged = calculatePassiveRecharge(prev);
         if ((recharged.lives ?? 0) > (prev.lives ?? 0)) {
-          audioService.playHeartGainedSound();
-          addToast({
-            type: 'heart',
-            title: '¡Vida regenerada!',
-            description: `Recuperaste 1 vida de forma pasiva (${recharged.lives}/${MAX_LIVES})`
-          });
+          // Schedule side effects outside this state updater
+          setTimeout(() => {
+            audioService.playHeartGainedSound();
+            addToast({
+              type: 'heart',
+              title: '¡Vida regenerada!',
+              description: `Recuperaste 1 vida de forma pasiva (${recharged.lives}/${MAX_LIVES})`
+            });
+          }, 0);
           return recharged;
         }
         return prev;
@@ -757,38 +767,48 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [userStats.lives]);
+  }, [userStats.lives, addToast]);
 
   // Centralized life management handlers
   const handleLoseLife = (source: 'academia' | 'tuner' | 'karaoke') => {
+    let livesRemaining = -1;
     setUserStats((prev) => {
       if ((prev.lives ?? MAX_LIVES) <= 0) return prev;
       const updated = applyLifeDeduction(prev);
+      livesRemaining = updated.lives;
+      return updated;
+    });
+
+    if (livesRemaining >= 0) {
       audioService.playHeartLostSound();
       addToast({
         type: 'warning',
         title: 'Perdiste 1 vida',
-        description: updated.lives > 0
-          ? `Te quedan ${updated.lives} de ${MAX_LIVES} vidas`
+        description: livesRemaining > 0
+          ? `Te quedan ${livesRemaining} de ${MAX_LIVES} vidas`
           : '¡Te has quedado sin vidas! Entrena o recarga en la tienda para continuar'
       });
-      return updated;
-    });
+    }
   };
 
   const handleGainLife = (amount: number = 1) => {
+    let newLives = -1;
     setUserStats((prev) => {
       const currentLives = prev.lives ?? MAX_LIVES;
       if (currentLives >= MAX_LIVES) return prev;
       const updated = applyLifeAward(prev, amount);
+      newLives = updated.lives;
+      return updated;
+    });
+
+    if (newLives > 0) {
       audioService.playHeartGainedSound();
       addToast({
         type: 'heart',
         title: '¡Vida recuperada!',
-        description: `Ahora tienes ${updated.lives} de ${MAX_LIVES} vidas`
+        description: `Ahora tienes ${newLives} de ${MAX_LIVES} vidas`
       });
-      return updated;
-    });
+    }
   };
 
   const handleBuyLife = () => {

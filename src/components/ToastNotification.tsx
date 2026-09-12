@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, Target, CheckCircle2, Award, Sparkles, X, Zap, Heart, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -40,9 +40,14 @@ interface SingleToastProps {
 
 const SingleToast: React.FC<SingleToastProps> = ({ toast, onDismiss }) => {
   const duration = toast.duration || 4500;
+  const onDismissRef = useRef(onDismiss);
 
   useEffect(() => {
-    // Play celebratory sound & effects
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  useEffect(() => {
+    // Play celebratory sound & effects ONCE when this toast mounts
     if (toast.type === 'level') {
       audioService.playLevelUpSound();
       try {
@@ -62,11 +67,11 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onDismiss }) => {
     }
 
     const timer = setTimeout(() => {
-      onDismiss(toast.id);
+      onDismissRef.current(toast.id);
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [toast, duration, onDismiss]);
+  }, [toast.id, duration]);
 
   // Color & Icon configs based on toast type
   const getConfig = () => {
