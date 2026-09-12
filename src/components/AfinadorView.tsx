@@ -37,18 +37,22 @@ import {
   ChevronUp,
   SlidersHorizontal,
   Swords,
+  Lock,
   Target,
   Trophy,
   Heart,
-  Flame,
   Star,
   Play,
   Brain,
   Drum,
   ArrowRight,
   UserCheck,
-  X
+  X,
+  Zap,
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { AudioParticleCanvas } from './AudioParticleCanvas';
 import { PitchStabilityChart } from './PitchStabilityChart';
 import { DueloRapidoModal } from './DueloRapidoModal';
@@ -61,6 +65,8 @@ import { TunerRangeRequiredModal } from './TunerRangeRequiredModal';
 import { TunerLevelSelectModal } from './TunerLevelSelectModal';
 import { TunerWinModal } from './TunerWinModal';
 import { TunerRhythmView } from './TunerRhythmView';
+import { emitStreakEligibleAction } from '../utils/streakPrompt';
+import { getTimeToNextLife } from '../utils/livesEngine';
 
 interface TunedHistoryItem {
   id: string;
@@ -78,6 +84,9 @@ interface AfinadorViewProps {
   zenMode?: boolean;
   onUpdateQuestProgress?: (notesTunedCount: number) => void;
   onUpdateStats?: (updated: Partial<UserStats>) => void;
+  onLoseLife?: (source: 'tuner' | 'academia' | 'karaoke') => void;
+  onOpenRecoveryExam?: () => void;
+  onOpenStore?: () => void;
 }
 
 export const AfinadorView: React.FC<AfinadorViewProps> = ({
@@ -85,7 +94,10 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   darkMode = false,
   zenMode = false,
   onUpdateQuestProgress,
-  onUpdateStats
+  onUpdateStats,
+  onLoseLife,
+  onOpenRecoveryExam,
+  onOpenStore
 }) => {
   // ─── 1. Vocal Range Calibration State ──────────────────────────────
   const [effectiveRangeData, setEffectiveRangeData] = useState(() => {
@@ -164,6 +176,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   // Sub-view modal inside Afinador
   const [activeSubView, setActiveSubView] = useState<'escalas' | 'respiracion' | 'estabilidad' | 'duelo' | 'tesitura' | 'evaluacion' | null>(null);
 
+  // Al acceder a cualquier herramienta, siempre se muestra desde arriba
+  useEffect(() => {
+    if (activeSubView) {
+      window.scrollTo(0, 0);
+    }
+  }, [activeSubView]);
+
   // Tolerance in Hz
   const tolerance = difficulty === 'facil' ? 15 : difficulty === 'medio' ? 8 : 4;
 
@@ -174,13 +193,25 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const [isWinModalOpen, setIsWinModalOpen] = useState<boolean>(false);
   const [winStars, setWinStars] = useState<number>(3);
   const [winXp, setWinXp] = useState<number>(25);
+  const [showEasyWinVideo, setShowEasyWinVideo] = useState<boolean>(false);
 
   const [levelProgress, setLevelProgress] = useState<ProgressState>(() => {
+    const fallback: ProgressState = { 'Fácil': {}, 'Medio': {}, 'Difícil': {}, 'Maestro': {} };
     try {
       const saved = localStorage.getItem('laclave_tuner_progress_v2');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            'Fácil': parsed['Fácil'] || {},
+            'Medio': parsed['Medio'] || {},
+            'Difícil': parsed['Difícil'] || {},
+            'Maestro': parsed['Maestro'] || {}
+          };
+        }
+      }
     } catch {}
-    return { Fácil: {}, Medio: {}, Difícil: {}, Maestro: {} };
+    return fallback;
   });
 
   const [challengeNotes, setChallengeNotes] = useState<NoteInfo[]>([]);
@@ -219,6 +250,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const tunerModeRef = useRef(tunerMode);
   const challengeNotesRef = useRef(challengeNotes);
   const challengeIndexRef = useRef(challengeIndex);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => { selectedNoteRef.current = selectedNote; }, [selectedNote]);
   useEffect(() => { toleranceRef.current = tolerance; }, [tolerance]);
@@ -226,6 +258,37 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   useEffect(() => { tunerModeRef.current = tunerMode; }, [tunerMode]);
   useEffect(() => { challengeNotesRef.current = challengeNotes; }, [challengeNotes]);
   useEffect(() => { challengeIndexRef.current = challengeIndex; }, [challengeIndex]);
+
+  // ─── Tug-of-War Precision Bar State (Level Modes) ─────────────────
+  const [tugOfWarProgress, setTugOfWarProgress] = useState<number>(50);
+  const tugOfWarRef = useRef<number>(50);
+  const [isLevelFailed, setIsLevelFailed] = useState<boolean>(false);
+  const isLevelFailedRef = useRef<boolean>(false);
+  const selectedDifficultyRef = useRef<Difficulty>(selectedDifficulty);
+  const onLoseLifeRef = useRef(onLoseLife);
+
+  useEffect(() => { selectedDifficultyRef.current = selectedDifficulty; }, [selectedDifficulty]);
+  useEffect(() => { onLoseLifeRef.current = onLoseLife; }, [onLoseLife]);
+
+  // Passive countdown for 0 lives
+  const [timeToNextLife, setTimeToNextLife] = useState<{ remainingMs: number; formatted: string }>(() =>
+    getTimeToNextLife(userStats)
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeToNextLife(getTimeToNextLife(userStats));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [userStats]);
+
+  // Turn off mic if lives reach 0
+  useEffect(() => {
+    if ((userStats.lives ?? 1) <= 0 && isTuningActive) {
+      audioService.stopMicrophone();
+      setIsTuningActive(false);
+    }
+  }, [userStats.lives, isTuningActive]);
 
   // Current Target Note and Frequency
   const activeTargetNote = tunerMode === 'libre'
@@ -238,32 +301,52 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const pitchDiff = (isTuningActive && detectedPitch && detectedPitch > 40) ? Math.abs(detectedPitch - targetFreq) : null;
 
   // Visual sphere colors and badge styling
-  let sphereStyle = 'bg-[#4648d4] dark:bg-[#5356e8] shadow-[#4648d4]/40 scale-100 ring-0';
-  let badgeBorderColor = 'border-slate-200/80 dark:border-slate-700';
-  let statusTextColor = 'text-slate-800 dark:text-slate-200';
-  let statusIcon = <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 animate-pulse" />;
+  let sphereStyle = zenMode
+    ? 'bg-[#22252a] text-[#f0ebe1] border-2 border-[#e5b83b] shadow-[0_0_20px_rgba(229,184,59,0.25)] scale-100 ring-0'
+    : 'bg-[#4648d4] dark:bg-[#5356e8] shadow-[#4648d4]/40 scale-100 ring-0';
+  let badgeBorderColor = zenMode
+    ? 'border-[#2e3138] bg-[#1f2125]'
+    : 'border-slate-200/80 dark:border-slate-700';
+  let statusTextColor = zenMode ? 'text-[#f0ebe1]' : 'text-slate-800 dark:text-slate-200';
+  let statusIcon = <Sparkles className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500 dark:text-indigo-400'} animate-pulse`} />;
 
   if (isPitchMatched) {
-    sphereStyle = 'bg-emerald-500 dark:bg-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.9)] scale-110 ring-4 ring-emerald-300 dark:ring-emerald-400 animate-pulse';
-    badgeBorderColor = 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/90 dark:bg-emerald-950/90';
-    statusTextColor = 'text-emerald-800 dark:text-emerald-200';
-    statusIcon = <CheckCircle2 className="w-4 h-4 text-emerald-500 animate-bounce" />;
+    sphereStyle = zenMode
+      ? 'bg-[#e5b83b] text-[#161719] shadow-[0_0_40px_rgba(229,184,59,0.9)] scale-110 ring-4 ring-[#f5d56b] animate-pulse'
+      : 'bg-emerald-500 dark:bg-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.9)] scale-110 ring-4 ring-emerald-300 dark:ring-emerald-400 animate-pulse';
+    badgeBorderColor = zenMode
+      ? 'border-[#e5b83b] bg-[#e5b83b]/20'
+      : 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/90 dark:bg-emerald-950/90';
+    statusTextColor = zenMode ? 'text-[#e5b83b]' : 'text-emerald-800 dark:text-emerald-200';
+    statusIcon = <CheckCircle2 className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'} animate-bounce`} />;
   } else if (pitchDiff !== null) {
     if (pitchDiff <= tolerance * 2.5) {
-      sphereStyle = 'bg-amber-500 dark:bg-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.8)] scale-105 ring-4 ring-amber-300 dark:ring-amber-400/80';
-      badgeBorderColor = 'border-amber-300 dark:border-amber-700 bg-amber-50/90 dark:bg-amber-950/90';
-      statusTextColor = 'text-amber-800 dark:text-amber-200';
-      statusIcon = <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />;
+      sphereStyle = zenMode
+        ? 'bg-[#d8a728] text-[#161719] shadow-[0_0_30px_rgba(229,184,59,0.7)] scale-105 ring-4 ring-[#f5d56b]'
+        : 'bg-amber-500 dark:bg-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.8)] scale-105 ring-4 ring-amber-300 dark:ring-amber-400/80';
+      badgeBorderColor = zenMode
+        ? 'border-[#d8a728] bg-[#d8a728]/20'
+        : 'border-amber-300 dark:border-amber-700 bg-amber-50/90 dark:bg-amber-950/90';
+      statusTextColor = zenMode ? 'text-[#f5d56b]' : 'text-amber-800 dark:text-amber-200';
+      statusIcon = <Sparkles className={`w-3.5 h-3.5 ${zenMode ? 'text-[#f5d56b]' : 'text-amber-500'} animate-pulse`} />;
     } else {
-      sphereStyle = 'bg-rose-600 dark:bg-rose-600 shadow-[0_0_30px_rgba(225,29,72,0.8)] scale-100 ring-4 ring-rose-300 dark:ring-rose-500/80';
-      badgeBorderColor = 'border-rose-300 dark:border-rose-700 bg-rose-50/90 dark:bg-rose-950/90';
-      statusTextColor = 'text-rose-800 dark:text-rose-200';
-      statusIcon = <Sparkles className="w-3.5 h-3.5 text-rose-500 animate-ping" />;
+      sphereStyle = zenMode
+        ? 'bg-[#2a2d34] text-[#ded9cf] border-2 border-[#e5b83b]/50 shadow-[0_0_20px_rgba(0,0,0,0.5)] scale-100 ring-2 ring-[#e5b83b]/30'
+        : 'bg-rose-600 dark:bg-rose-600 shadow-[0_0_30px_rgba(225,29,72,0.8)] scale-100 ring-4 ring-rose-300 dark:ring-rose-500/80';
+      badgeBorderColor = zenMode
+        ? 'border-[#383c44] bg-[#26292f]'
+        : 'border-rose-300 dark:border-rose-700 bg-rose-50/90 dark:bg-rose-950/90';
+      statusTextColor = zenMode ? 'text-[#ded9cf]' : 'text-rose-800 dark:text-rose-200';
+      statusIcon = <Sparkles className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-rose-500'} animate-ping`} />;
     }
   }
 
   // ─── 7. Microphone & Tuning Handler ──────────────────────────────
   const startTuningMic = async () => {
+    if ((userStats.lives ?? 1) <= 0) {
+      if (onOpenRecoveryExam) onOpenRecoveryExam();
+      return false;
+    }
     if (isTuningActive) return true;
     const success = await audioService.startMicrophone((pitchHz, vol) => {
       const nowTime = Date.now();
@@ -289,13 +372,25 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             audioService.vibrateSuccess();
           }
 
-          // In Level Mode: require sustained hold of 650ms to advance
-          if (tunerModeRef.current === 'niveles') {
-            if (!inTuneSinceRef.current) {
-              inTuneSinceRef.current = nowTime;
-            } else if (nowTime - inTuneSinceRef.current >= 650) {
-              inTuneSinceRef.current = null;
-              handleNoteCompletedInChallenge();
+          // In Level Mode: Tug-of-War or sustained hold
+          if (tunerModeRef.current === 'niveles' && !isLevelFailedRef.current) {
+            if (selectedDifficultyRef.current === 'Calentamiento') {
+              if (!inTuneSinceRef.current) {
+                inTuneSinceRef.current = nowTime;
+              } else if (nowTime - inTuneSinceRef.current >= 650) {
+                inTuneSinceRef.current = null;
+                handleNoteCompletedInChallenge();
+              }
+            } else {
+              // 4 Modes: In-pitch pushes Tug-of-War towards 100%
+              tugOfWarRef.current = Math.min(100, tugOfWarRef.current + 2.5);
+              setTugOfWarProgress(tugOfWarRef.current);
+              if (tugOfWarRef.current >= 100) {
+                tugOfWarRef.current = 50;
+                setTugOfWarProgress(50);
+                inTuneSinceRef.current = null;
+                handleNoteCompletedInChallenge();
+              }
             }
           }
 
@@ -333,6 +428,22 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
           } else {
             setTuningStatusMsg('Muy delgado ↓ Baja el tono');
           }
+
+          // In Level Mode: off-pitch penalty in 4 modes (Calentamiento is exempt)
+          if (tunerModeRef.current === 'niveles' && !isLevelFailedRef.current && selectedDifficultyRef.current !== 'Calentamiento') {
+            tugOfWarRef.current = Math.max(0, tugOfWarRef.current - 1.2);
+            setTugOfWarProgress(tugOfWarRef.current);
+            if (tugOfWarRef.current <= 0) {
+              isLevelFailedRef.current = true;
+              setIsLevelFailed(true);
+              audioService.stopMicrophone();
+              setIsTuningActive(false);
+              audioService.playSadDefeatSound();
+              if (onLoseLifeRef.current) {
+                onLoseLifeRef.current('tuner');
+              }
+            }
+          }
         }
       } else {
         setDetectedPitch(null);
@@ -353,6 +464,10 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   const toggleTuning = () => {
     audioService.playClickSound();
+    if ((userStats.lives ?? 1) <= 0) {
+      if (onOpenRecoveryExam) onOpenRecoveryExam();
+      return;
+    }
     if (isTuningActive) {
       audioService.stopMicrophone();
       setIsTuningActive(false);
@@ -366,11 +481,21 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   // ─── 8. Note Selection & Real Human Voice Playback ────────────────
   const handleSelectNote = (note: ChromaticNoteButtonInfo) => {
+    // In Level Mode: ONLY allow playing the active target note to recall its pitch
+    if (tunerMode === 'niveles') {
+      const isTarget = activeTargetNote.name.toUpperCase() === note.name.toUpperCase();
+      if (!isTarget) {
+        return; // Only the active target note can sound during level challenges
+      }
+      voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
+      return;
+    }
+
     setSelectedNote(note);
     setIsPitchMatched(false);
     setDetectedPitch(null);
 
-    // Play recorded human voice MP3 via Web Audio Buffer
+    // Libre mode: play the key's default octave
     voicePlayback.playVoiceNote(
       { name: note.displayName || note.name, midi: note.midi, frequency: note.frequency, octave: note.octave },
       gender,
@@ -380,6 +505,10 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   // ─── 9. Level Challenge Mechanics ─────────────────────────────────
   const startLevel = useCallback((diff: Difficulty, lvl: number) => {
+    if ((userStats.lives ?? 1) <= 0) {
+      if (onOpenRecoveryExam) onOpenRecoveryExam();
+      return;
+    }
     setTunerMode('niveles');
     setSelectedDifficulty(diff);
     if (diff === 'Fácil') setDifficulty('facil');
@@ -392,6 +521,10 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     setCompletedChallengeNotes(new Set());
     setChallengeIndex(0);
     inTuneSinceRef.current = null;
+    setTugOfWarProgress(50);
+    tugOfWarRef.current = 50;
+    setIsLevelFailed(false);
+    isLevelFailedRef.current = false;
 
     const diffArray = difficultyLevels[diff as ChallengeDifficulty];
     const isRhythm = diff !== 'Calentamiento' && diffArray && diffArray[lvl - 1] === 0;
@@ -449,6 +582,8 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const handleNoteCompletedInChallenge = () => {
     voicePlayback.playCompletionChime();
     setCompletedChallengeNotes(prev => new Set(prev).add(challengeIndexRef.current));
+    setTugOfWarProgress(50);
+    tugOfWarRef.current = 50;
 
     // Handle combo
     const now = Date.now();
@@ -486,6 +621,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const handleLevelVictory = (calculatedScore = 100) => {
     audioService.stopMicrophone();
     setIsTuningActive(false);
+    emitStreakEligibleAction();
 
     const starsEarned = calculatedScore >= 95 ? 3 : calculatedScore >= 80 ? 2 : 1;
     const xp = starsEarned * 15;
@@ -522,6 +658,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   };
 
   const handleNextLevel = () => {
+    // Show video cinematic for last level of Easy mode after clicking next
+    if (selectedDifficulty === 'Fácil' && currentLevel === difficultySettings['Fácil'].levelCount) {
+      setShowEasyWinVideo(true);
+      // Don't open level select here - let the video component handle it
+      setIsWinModalOpen(false);
+      return; // Exit early, video component will open level select after closing
+    }
     setIsWinModalOpen(false);
     const maxLvl = difficultySettings[selectedDifficulty]?.levelCount || 12;
     if (currentLevel < maxLvl) {
@@ -693,11 +836,129 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
         onClose={() => setIsWinModalOpen(false)}
       />
 
-      {/* ─── Detected Range Minimalist Indicator ─── */}
-      {effectiveRangeData && (
+      {/* ─── Level Defeat Modal (Tug-of-War reached 0) ─── */}
+      {isLevelFailed && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className={`rounded-3xl p-6 max-w-sm w-full space-y-4 border shadow-2xl text-center ${
+            zenMode
+              ? 'bg-[#1f2125] border-[#2e3138]'
+              : 'bg-white dark:bg-[#102034] border-rose-200 dark:border-rose-900/60'
+          }`}>
+            <div className="w-16 h-16 rounded-3xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center mx-auto text-rose-500 shadow-sm">
+              <Heart className="w-8 h-8 fill-rose-500 animate-pulse" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-heading font-black text-slate-800 dark:text-white">
+                ¡Nivel Fracasado!
+              </h3>
+              <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                -1 Vida descontada
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Has desafinado repetidamente la nota del reto y la barra de precisión llegó al límite.
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              {(userStats.lives ?? 1) > 0 ? (
+                <button
+                  onClick={() => {
+                    audioService.playClickSound();
+                    setIsLevelFailed(false);
+                    startLevel(selectedDifficulty, currentLevel);
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Reintentar Nivel</span>
+                </button>
+              ) : (
+                <>
+                  {onOpenRecoveryExam && (
+                    <button
+                      onClick={() => {
+                        audioService.playClickSound();
+                        setIsLevelFailed(false);
+                        setTunerMode('libre');
+                        onOpenRecoveryExam();
+                      }}
+                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Zap className="w-4 h-4 text-emerald-200 fill-emerald-200" />
+                      <span>Entrenar para ganar 1 vida (Gratis)</span>
+                    </button>
+                  )}
+                  {onOpenStore && (
+                    <button
+                      onClick={() => {
+                        audioService.playClickSound();
+                        setIsLevelFailed(false);
+                        setTunerMode('libre');
+                        onOpenStore();
+                      }}
+                      className={`w-full py-2.5 px-4 rounded-xl font-heading font-bold text-xs border active:scale-98 transition-all cursor-pointer ${
+                        zenMode
+                          ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#2e323a] border-[#383c44]'
+                          : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      Recargar en la Tienda
+                    </button>
+                  )}
+                </>
+              )}
+
+              <button
+                onClick={() => {
+                  audioService.playClickSound();
+                  setIsLevelFailed(false);
+                  setTunerMode('libre');
+                }}
+                className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                Salir a Modo Libre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Easy Mode Win Video ─── */}
+      {showEasyWinVideo && (
+        <div className="fixed inset-0 bg-black z-99 flex flex-col items-center justify-center p-4 pointer-events-auto">
+          <div className="w-full max-w-md aspect-square">
+            <video
+              ref={videoRef}
+              src="/Duck Win.mp4"
+              autoPlay
+              muted={false}
+              loop
+              playsInline
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <Button
+            size="lg"
+            onClick={() => {
+              setShowEasyWinVideo(false);
+              setIsLevelSelectOpen(true);
+            }}
+            className={`absolute bottom-16 z-80 h-20 px-8 text-xl sm:text-2xl font-black rounded-full transition-all ${
+              zenMode
+                ? 'bg-[#e5b83b] text-[#161719] shadow-[0_4px_0_0_#9a7212] hover:translate-y-1'
+                : 'bg-[#4648d4] text-white shadow-[0_4px_0_0_rgba(30,30,120,1)] hover:translate-y-1 hover:shadow-[0px_2px_0px_0px_rgba(30,30,120,1)]'
+            }`}
+          >
+            Siguiente Reto <ArrowRight className="ml-2 w-8 h-8 sm:w-10 sm:h-10" />
+          </Button>
+        </div>
+      )}
+
+{effectiveRangeData && (
         <div className="flex items-center justify-between px-2 py-0.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${zenMode ? 'bg-[#e5b83b]' : 'bg-indigo-500'}`} />
             <span>
               Tesitura: <strong className="font-bold text-slate-700 dark:text-slate-300">{effectiveRangeData.classification}</strong>{' '}
               <span className="opacity-75">({effectiveRangeData.noteMin} - {effectiveRangeData.noteMax})</span>
@@ -705,41 +966,127 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
           </div>
           <button
             onClick={() => setActiveSubView('tesitura')}
-            className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors cursor-pointer"
+            className={`text-[10px] font-bold hover:underline transition-colors cursor-pointer ${
+              zenMode ? 'text-[#e5b83b] hover:text-[#f5d56b]' : 'text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400'
+            }`}
           >
             Recalibrar
           </button>
         </div>
       )}
 
-      {/* ─── Rhythm Mode Active View ─── */}
-      {isRhythmActive ? (
+      {/* ─── 0-Lives Locked Gate or Active Tuner/Rhythm View ─── */}
+      {(userStats.lives ?? 1) <= 0 ? (
+        <div className={`rounded-3xl p-6 shadow-lg border text-center space-y-4 ${
+          zenMode
+            ? 'bg-[#1f2125] border-[#2e3138]'
+            : 'bg-white dark:bg-[#102034] border-rose-200/70 dark:border-rose-900/50'
+        }`}>
+          <div className="w-16 h-16 rounded-3xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center mx-auto text-rose-500 shadow-sm">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h2 className={`text-xl font-heading font-black ${
+              zenMode ? 'text-[#ded9cf]' : 'text-slate-800 dark:text-white'
+            }`}>
+              Afinador Bloqueado (0 Vidas)
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+              Tanto el modo libre como los niveles requieren al menos 1 vida para escuchar tu afinación en vivo.
+              ¡Los programas de control diafragmático y respiración abajo siguen 100% habilitados!
+            </p>
+          </div>
+
+          {/* Passive recharge countdown */}
+          <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-left max-w-xs mx-auto ${
+            zenMode
+              ? 'bg-[#22252a] border-[#2e3138]'
+              : 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40'
+          }`}>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-rose-500" />
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                Recarga pasiva en
+              </span>
+            </div>
+            <span className="text-xs font-mono font-black text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg">
+              {timeToNextLife.formatted}
+            </span>
+          </div>
+
+          {/* Recovery actions */}
+          <div className="space-y-2 pt-1 max-w-xs mx-auto">
+            {onOpenRecoveryExam && (
+              <button
+                onClick={() => {
+                  audioService.playClickSound();
+                  onOpenRecoveryExam();
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Zap className="w-4 h-4 text-emerald-200 fill-emerald-200" />
+                <span>Entrenar para ganar 1 vida (Gratis)</span>
+              </button>
+            )}
+
+            {onOpenStore && (
+              <button
+                onClick={() => {
+                  audioService.playClickSound();
+                  onOpenStore();
+                }}
+                className={`w-full py-2.5 px-4 rounded-xl font-heading font-bold text-xs border active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  zenMode
+                    ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#2e323a] border-[#383c44]'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                <span>Recargar en la Tienda</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : isRhythmActive ? (
         <TunerRhythmView
           level={currentLevel}
           pattern={rhythmPatterns[currentLevel] || rhythmPatterns[7]}
           bpm={80 + (currentLevel - 7) * 10}
           onSuccess={(score) => handleLevelVictory(score)}
+          onFail={() => {
+            if (onLoseLife) {
+              onLoseLife('tuner');
+            }
+          }}
           onExit={() => setTunerMode('libre')}
         />
       ) : (
         <>
           {/* ─── Tuner Visualizer Card ─── */}
-          <div id="tour-tuner-card" className="bg-white dark:bg-[#102034] rounded-3xl p-4 sm:p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3.5 transition-colors">
+          <div id="tour-tuner-card" className={`rounded-3xl p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3.5 transition-colors border ${
+            zenMode
+              ? 'bg-[#1f2125] border-[#2e3138]'
+              : 'bg-white dark:bg-[#102034] border-slate-100 dark:border-[#1b2b3f]'
+          }`}>
             {/* Header: Title on left, Escuchar & EN VIVO on right, dynamic subtitle below */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <h2 className="font-heading font-bold text-lg text-[#2c2abc] dark:text-[#c0c1ff] whitespace-nowrap truncate">
-                    {tunerMode === 'libre' ? 'Afinador Vocal' : `Desafío: ${activeTargetNote.name}`}
-                  </h2>
+                  {tunerMode === 'libre' && (
+                    <h2 className={`font-heading font-bold text-lg whitespace-nowrap truncate ${
+                      zenMode ? 'text-[#f0ebe1]' : 'text-[#2c2abc] dark:text-[#c0c1ff]'
+                    }`}>
+                      Afinador Vocal
+                    </h2>
+                  )}
                   {tunerMode === 'niveles' && (
                     <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/70 border border-amber-200/80 dark:border-amber-800/80 text-amber-700 dark:text-amber-300 text-[10px] font-heading font-extrabold shrink-0">
                       {selectedDifficulty} • Nv {currentLevel}
                     </span>
                   )}
                   {tunerMode === 'niveles' && comboCount >= 2 && (
-                    <span className="flex items-center gap-0.5 text-xs font-heading font-black text-rose-500 animate-bounce shrink-0">
-                      <Flame className="w-3.5 h-3.5 fill-rose-500" />
+                    <span className="flex items-center gap-0.5 text-xs font-heading font-black text-amber-500 dark:text-amber-400 animate-bounce shrink-0">
+                      <Zap className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
                       x{comboCount}
                     </span>
                   )}
@@ -750,25 +1097,37 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                     onClick={() => {
                       voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
                     }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                      zenMode
+                        ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#2e323a] border border-[#383c44]'
+                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
                     title="Escuchar audio de la nota"
                   >
-                    <Volume2 className="w-3.5 h-3.5 text-indigo-500" />
+                    <Volume2 className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'}`} />
                     <span>Escuchar</span>
                   </button>
 
                   {isTuningActive ? (
-                    <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 text-xs px-2.5 py-1 rounded-xl font-bold whitespace-nowrap">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl font-bold whitespace-nowrap border ${
+                      zenMode
+                        ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/30'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full animate-ping ${zenMode ? 'bg-[#e5b83b]' : 'bg-emerald-500'}`} />
                       <span>EN VIVO</span>
                     </div>
                   ) : (
                     <button
                       onClick={toggleTuning}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-xs font-semibold border border-indigo-200/50 dark:border-indigo-800/50 transition-all cursor-pointer whitespace-nowrap"
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap ${
+                        zenMode
+                          ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/30 hover:bg-[#2e323a]'
+                          : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border-indigo-200/50 dark:border-indigo-800/50'
+                      }`}
                       title="Activar micrófono para afinar"
                     >
-                      <Mic className="w-3.5 h-3.5 text-indigo-500" />
+                      <Mic className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'}`} />
                       <span>Activar</span>
                     </button>
                   )}
@@ -828,6 +1187,73 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
               )}
             </div>
 
+            {/* Tug-of-War Precision Bar in Level Mode */}
+            {tunerMode === 'niveles' && (
+              selectedDifficulty === 'Calentamiento' ? (
+                <div className={`flex items-center justify-between p-2.5 rounded-2xl border text-xs font-bold ${
+                  zenMode
+                    ? 'bg-[#22252a] border-[#2e3138] text-[#ded9cf]'
+                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                    <span>Calentamiento (Zona Segura • Sin perder vidas)</span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-heading font-extrabold">
+                    Libre
+                  </span>
+                </div>
+              ) : (
+                <div className={`p-3 rounded-2xl border space-y-2 ${
+                  zenMode
+                    ? 'bg-[#22252a] border-[#2e3138]'
+                    : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800'
+                }`}>
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <div className="flex items-center gap-1.5 text-rose-500 font-heading">
+                      <Heart className="w-3.5 h-3.5 fill-rose-500" />
+                      <span>Derrota (-1 Vida)</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-black text-slate-600 dark:text-slate-300">
+                      {Math.round(tugOfWarProgress)}%
+                    </span>
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-heading">
+                      <Trophy className="w-3.5 h-3.5" />
+                      <span>Victoria</span>
+                    </div>
+                  </div>
+
+                  {/* Bar track */}
+                  <div className="relative h-3 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    {/* Center 50% neutral marker */}
+                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-slate-400 dark:bg-slate-500 z-10 opacity-70" />
+                    {/* Progress fill */}
+                    <div
+                      className={`h-full transition-all duration-100 ${
+                        tugOfWarProgress > 50
+                          ? 'bg-gradient-to-r from-amber-400 to-emerald-500'
+                          : 'bg-gradient-to-r from-rose-500 to-amber-400'
+                      }`}
+                      style={{ width: `${Math.max(0, Math.min(100, tugOfWarProgress))}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                    <span>
+                      {isPitchMatched
+                        ? '¡Afinando! Empujando a la victoria...'
+                        : pitchDiff !== null
+                        ? '¡Desafinado! Corrige o pierdes vida'
+                        : 'Silencio (Barra congelada)'}
+                    </span>
+                    <span className="font-semibold">
+                      {tugOfWarProgress <= 25 ? '¡PELIGRO CRÍTICO!' : tugOfWarProgress >= 75 ? '¡Casi completado!' : 'En equilibrio'}
+                    </span>
+                  </div>
+                </div>
+              )
+            )}
+
             {/* Gauge Display with Particles & Dynamic Central Sphere */}
             <div
               id="tour-tuner-gauge"
@@ -857,8 +1283,8 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                     exit={{ scale: 0.8, opacity: 0 }}
                     className="absolute inset-x-0 top-2 z-30 flex justify-center pointer-events-none"
                   >
-                    <span className="text-2xl sm:text-3xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 drop-shadow-lg">
-                      ¡COMBO x{comboCount}! 🔥
+                    <span className="text-2xl sm:text-3xl font-heading font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 drop-shadow-lg">
+                      ¡COMBO x{comboCount}! ⚡
                     </span>
                   </motion.div>
                 )}
@@ -896,9 +1322,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 ) : (
                   <button
                     onClick={toggleTuning}
-                    className="mt-2 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-[#102034]/95 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/70 hover:bg-indigo-50 dark:hover:bg-[#15273e] transition-all cursor-pointer shadow-xs hover:scale-102"
+                    className={`mt-2 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-102 ${
+                      zenMode
+                        ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/40 hover:bg-[#2e323a]'
+                        : 'bg-white/95 dark:bg-[#102034]/95 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/70 hover:bg-indigo-50 dark:hover:bg-[#15273e]'
+                    }`}
                   >
-                    <Mic className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+                    <Mic className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'} animate-pulse`} />
                     <span>Toca para activar micrófono y afinar</span>
                   </button>
                 )}
@@ -914,7 +1344,9 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                     <div
                       key={i}
                       className={`w-6 rounded-t-md transition-all duration-150 ${
-                        isPitchMatched ? 'bg-emerald-400' : 'bg-[#98a5f5]'
+                        zenMode
+                          ? (isPitchMatched ? 'bg-[#e5b83b]' : 'bg-[#383c44]')
+                          : (isPitchMatched ? 'bg-emerald-400' : 'bg-[#98a5f5]')
                       }`}
                       style={{ height: `${dynamicHeight}%` }}
                     />
@@ -934,12 +1366,9 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                   {tunerMode === 'libre'
                     ? 'Toca una tecla para escuchar su tono de referencia'
-                    : 'Notas del nivel iluminadas • Toca una tecla para escuchar su tono'}
+                    : 'Toca la tecla activa para recordar su tono de referencia'}
                 </span>
               </div>
-              <span className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-500 dark:text-indigo-400 font-semibold shrink-0">
-                Octava {selectedNote.octave}
-              </span>
             </div>
 
             {/* 🎹 Piano Touch Strip (7 Natural White Keys + 5 Sharp Black Keys) */}
@@ -962,51 +1391,51 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                   return (
                     <motion.button
                       key={note.name}
-                      whileTap={!isUnused ? { scale: 0.96 } : undefined}
-                      onClick={() => {
-                        if (isUnused) return;
-                        handleSelectNote(note);
-                      }}
-                      disabled={isUnused}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => handleSelectNote(note)}
                       className={`flex-1 h-full rounded-b-xl sm:rounded-b-2xl transition-all flex flex-col justify-end items-center pb-1.5 relative border ${
-                        isUnused
-                          ? 'bg-slate-100/60 dark:bg-[#0c1624]/50 text-slate-400/50 dark:text-slate-600/50 border-slate-200/30 dark:border-slate-800/30 shadow-none cursor-not-allowed opacity-35 grayscale'
-                          : isCurrentTarget
-                          ? 'bg-gradient-to-b from-indigo-500 to-indigo-600 text-white border-indigo-600 shadow-[0_4px_0_0_#312e81] ring-2 ring-indigo-400/80 z-0 cursor-pointer animate-pulse'
+                        isCurrentTarget
+                          ? (zenMode
+                              ? 'bg-[#e5b83b] text-[#161719] border-[#f5d56b] shadow-[0_4px_0_0_#9a7212] ring-2 ring-[#f5d56b] z-0 cursor-pointer animate-pulse font-black'
+                              : 'bg-gradient-to-b from-indigo-500 to-indigo-600 text-white border-indigo-600 shadow-[0_4px_0_0_#312e81] ring-2 ring-indigo-400/80 z-0 cursor-pointer animate-pulse')
                           : isCompleted
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/80 shadow-[0_4px_0_0_#059669] dark:shadow-[0_4px_0_0_#064e3b] cursor-pointer'
+                          ? (zenMode
+                              ? 'bg-[#9ba2b0] text-[#141619] border-[#e5b83b]/60 shadow-[0_4px_0_0_#6c7380] cursor-pointer'
+                              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/80 shadow-[0_4px_0_0_#059669] dark:shadow-[0_4px_0_0_#064e3b] cursor-pointer')
                           : isInChallenge
-                          ? 'bg-white dark:bg-[#152336] text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-indigo-200/90 dark:border-indigo-800/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] ring-1 ring-indigo-400/30 cursor-pointer'
-                          : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
+                          ? (zenMode
+                              ? 'bg-[#e2e6ed] text-[#141619] hover:bg-[#edf1f8] border-[#e5b83b] ring-1 ring-[#e5b83b]/60 shadow-[0_4px_0_0_#9ba2b0] cursor-pointer'
+                              : 'bg-white dark:bg-[#152336] text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-indigo-200/90 dark:border-indigo-800/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] ring-1 ring-indigo-400/30 cursor-pointer')
+                          : (zenMode
+                              ? 'bg-[#c8ccd4] text-[#141619] hover:bg-[#d8dce4] border-[#aeb4c0] shadow-[0_4px_0_0_#8e94a0] cursor-pointer'
+                              : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer')
                       }`}
-                      title={isUnused ? `${note.displayName} (no se usa en este nivel)` : `Tocar ${note.displayName} (${note.frequency} Hz)`}
+                      title={isLevelMode ? (isCurrentTarget ? `Tocar ${note.displayName} (recordar tono)` : `Nota ${note.displayName}`) : `Tocar ${note.displayName}`}
                     >
                       {/* Top Indicator for Level Challenge (Check or Active Dot) */}
                       {isLevelMode && !isUnused && (
                         <div className="absolute top-1 inset-x-0 flex justify-center">
                           {isCompleted ? (
-                            <span className="text-[8px] font-black text-emerald-500 leading-none">✓</span>
+                            <span className={`text-[8px] font-black leading-none ${zenMode ? 'text-[#141619]' : 'text-emerald-500'}`}>✓</span>
                           ) : isCurrentTarget ? (
                             <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                           ) : (
-                            <span className="w-1 h-1 rounded-full bg-indigo-400/70" />
+                            <span className={`w-1 h-1 rounded-full ${zenMode ? 'bg-[#7a580a]' : 'bg-indigo-400/70'}`} />
                           )}
                         </div>
                       )}
 
-                      <span className="font-heading font-black text-xs sm:text-sm leading-none">
+                      <span className={`font-heading font-black text-xs sm:text-sm leading-none ${
+                        zenMode && isCurrentTarget ? 'text-[#161719]' : zenMode ? 'text-[#141619]' : ''
+                      }`}>
                         {note.name}
                       </span>
                       <span className={`text-[10px] font-bold mt-0.5 leading-none ${
-                        isCurrentTarget
-                          ? 'text-indigo-100'
-                          : isCompleted
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : isUnused
-                          ? 'text-slate-300 dark:text-slate-700'
-                          : 'text-slate-400 dark:text-slate-500'
+                        zenMode
+                          ? (isCurrentTarget ? 'text-[#161719]' : isCompleted ? 'text-[#7a580a]' : 'text-[#4b5260]')
+                          : (isCurrentTarget ? 'text-indigo-100' : isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500')
                       }`}>
-                        {note.letter}{note.octave}
+                        {note.letter}
                       </span>
                     </motion.button>
                   );
@@ -1031,50 +1460,50 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 return (
                   <motion.button
                     key={note.name}
-                    whileTap={!isUnused ? { scale: 0.93 } : undefined}
-                    onClick={() => {
-                      if (isUnused) return;
-                      handleSelectNote(note);
-                    }}
-                    disabled={isUnused}
+                    whileTap={{ scale: 0.93 }}
+                    onClick={() => handleSelectNote(note)}
                     style={{ left }}
                     className={`absolute top-1 z-10 -translate-x-1/2 w-[10.5%] sm:w-[11%] h-12 sm:h-13 rounded-b-lg sm:rounded-b-xl transition-all flex flex-col justify-end items-center pb-1 border ${
-                      isUnused
-                        ? 'bg-slate-800/30 dark:bg-[#070d18]/40 text-slate-600/40 dark:text-slate-700/40 border-transparent shadow-none cursor-not-allowed opacity-30 grayscale'
-                        : isCurrentTarget
-                        ? 'bg-gradient-to-b from-violet-500 to-purple-700 text-white border-violet-400 shadow-[0_3px_0_0_#3b0764] ring-2 ring-violet-300 scale-105 z-20 cursor-pointer animate-pulse'
+                      isCurrentTarget
+                        ? (zenMode
+                            ? 'bg-[#e5b83b] text-[#161719] border-[#f5d56b] shadow-[0_3px_0_0_#9a7212] ring-2 ring-[#f5d56b] scale-105 z-20 cursor-pointer animate-pulse font-black'
+                            : 'bg-gradient-to-b from-violet-500 to-purple-700 text-white border-violet-400 shadow-[0_3px_0_0_#3b0764] ring-2 ring-violet-300 scale-105 z-20 cursor-pointer animate-pulse')
                         : isCompleted
-                        ? 'bg-emerald-800 dark:bg-emerald-900 text-emerald-100 border-emerald-600 shadow-[0_3px_0_0_#064e3b] z-10 cursor-pointer'
+                        ? (zenMode
+                            ? 'bg-[#2a2d34] text-[#f0ebe1] border-[#383c44] shadow-[0_3px_0_0_#141619] z-10 cursor-pointer'
+                            : 'bg-emerald-800 dark:bg-emerald-900 text-emerald-100 border-emerald-600 shadow-[0_3px_0_0_#064e3b] z-10 cursor-pointer')
                         : isInChallenge
-                        ? 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-purple-400/70 shadow-[0_3px_0_0_#020617] ring-1 ring-violet-400/40 cursor-pointer'
-                        : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
+                        ? (zenMode
+                            ? 'bg-[#141619] text-white hover:bg-[#1f2125] border-[#e5b83b]/40 shadow-[0_3px_0_0_#0a0b0d] cursor-pointer'
+                            : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-purple-400/70 shadow-[0_3px_0_0_#020617] ring-1 ring-violet-400/40 cursor-pointer')
+                        : (zenMode
+                            ? 'bg-[#141619] text-[#ded9cf] hover:bg-[#1f2125] border-[#2e3138] shadow-[0_3px_0_0_#0a0b0d] cursor-pointer'
+                            : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer')
                     }`}
-                    title={isUnused ? `${note.displayName} (no se usa en este nivel)` : `Tocar ${note.displayName} (${note.frequency} Hz)`}
+                    title={isLevelMode ? (isCurrentTarget ? `Tocar ${note.displayName} (recordar tono)` : `Nota ${note.displayName}`) : `Tocar ${note.displayName}`}
                   >
                     {/* Top Indicator for Level Challenge (Check or Active Dot) */}
                     {isLevelMode && !isUnused && (
                       <div className="absolute top-0.5 inset-x-0 flex justify-center">
                         {isCompleted ? (
-                          <span className="text-[7.5px] font-black text-emerald-400 leading-none">✓</span>
+                          <span className={`text-[7.5px] font-black leading-none ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-400'}`}>✓</span>
                         ) : isCurrentTarget ? (
-                          <span className="w-1.5 h-1.5 rounded-full bg-violet-200 animate-ping" />
+                          <span className={`w-1.5 h-1.5 rounded-full animate-ping ${zenMode ? 'bg-[#161719]' : 'bg-violet-200'}`} />
                         ) : (
-                          <span className="w-1 h-1 rounded-full bg-violet-400/80" />
+                          <span className={`w-1 h-1 rounded-full ${zenMode ? 'bg-[#e5b83b]/70' : 'bg-violet-400/80'}`} />
                         )}
                       </div>
                     )}
 
-                    <span className="font-heading font-black text-[9px] sm:text-[10px] text-white leading-none drop-shadow-xs">
+                    <span className={`font-heading font-black text-[9px] sm:text-[10px] leading-none drop-shadow-xs ${
+                      isCurrentTarget && zenMode ? 'text-[#161719]' : 'text-white'
+                    }`}>
                       {note.name}
                     </span>
                     <span className={`text-[8px] sm:text-[9px] font-bold mt-0.5 leading-none ${
-                      isCurrentTarget
-                        ? 'text-violet-200'
-                        : isCompleted
-                        ? 'text-emerald-300'
-                        : isUnused
-                        ? 'text-slate-600'
-                        : 'text-slate-400'
+                      zenMode
+                        ? (isCurrentTarget ? 'text-[#161719]' : isCompleted ? 'text-[#e5b83b]' : 'text-[#99958d]')
+                        : (isCurrentTarget ? 'text-violet-200' : isCompleted ? 'text-emerald-300' : 'text-slate-400')
                     }`}>
                       {note.letter}
                     </span>
@@ -1086,7 +1515,11 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             {/* Controls Group: Mode Selector + Mic Button */}
             <div className="pt-2 sm:pt-2.5 space-y-2">
               {/* Difficulty / Mode Selector Pill - Slim & Discrete */}
-              <div className="bg-[#eff4ff]/80 dark:bg-[#0b1828]/80 p-0.5 rounded-full flex items-center justify-between border border-slate-200/70 dark:border-slate-800 max-w-[310px] mx-auto w-full">
+              <div className={`p-0.5 rounded-full flex items-center justify-between max-w-[310px] mx-auto w-full border ${
+                zenMode
+                  ? 'bg-[#191b1f] border-[#2e3138]'
+                  : 'bg-[#eff4ff]/80 dark:bg-[#0b1828]/80 border-slate-200/70 dark:border-slate-800'
+              }`}>
                 {(['facil', 'medio', 'dificil'] as const).map(d => {
                   const targetDiff: Difficulty = d === 'facil' ? 'Fácil' : d === 'medio' ? 'Medio' : 'Difícil';
                   const hzText = d === 'facil' ? '±15Hz' : d === 'medio' ? '±8Hz' : '±4Hz';
@@ -1095,19 +1528,27 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                       key={d}
                       onClick={() => {
                         audioService.playClickSound();
+                        if ((userStats.lives ?? 1) <= 0) {
+                          if (onOpenRecoveryExam) onOpenRecoveryExam();
+                          return;
+                        }
                         setDifficulty(d);
                         setSelectedDifficulty(targetDiff);
                         setIsLevelSelectOpen(true);
                       }}
                       className={`flex-1 py-0.5 px-1.5 text-[10px] font-bold rounded-full transition-all cursor-pointer capitalize flex items-center justify-center gap-1 leading-normal ${
                         difficulty === d
-                          ? 'bg-white dark:bg-[#102034] text-[#2c2abc] dark:text-[#c0c1ff] shadow-2xs border border-slate-200/80 dark:border-slate-700'
-                          : 'text-slate-500 dark:text-[#a0a5ba] hover:text-slate-800 dark:hover:text-white'
+                          ? (zenMode
+                              ? 'bg-[#e5b83b] text-[#161719] shadow-2xs border border-[#f5d56b] font-black'
+                              : 'bg-white dark:bg-[#102034] text-[#2c2abc] dark:text-[#c0c1ff] shadow-2xs border border-slate-200/80 dark:border-slate-700')
+                          : (zenMode
+                              ? 'text-[#99958d] hover:text-[#ded9cf]'
+                              : 'text-slate-500 dark:text-[#a0a5ba] hover:text-slate-800 dark:hover:text-white')
                       }`}
                       title={`Ver niveles en modo ${targetDiff}`}
                     >
                       <span>{targetDiff}</span>
-                      <span className="text-[8.5px] opacity-60 font-normal">({hzText})</span>
+                      <span className={`text-[8.5px] font-normal ${zenMode && difficulty === d ? 'text-[#161719]/80' : 'opacity-60'}`}>({hzText})</span>
                     </button>
                   );
                 })}
@@ -1119,8 +1560,8 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                   onClick={toggleTuning}
                   className={`w-full max-w-[210px] sm:max-w-[220px] py-1.5 sm:py-2 px-4 rounded-full font-heading font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap ${
                     isTuningActive
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_2px_0_0_#991b1b]'
-                      : 'tactile-btn-primary'
+                      ? (zenMode ? 'bg-[#2a2d34] text-[#e5b83b] border border-[#e5b83b] shadow-[0_2px_0_0_#141619]' : 'bg-red-600 hover:bg-red-700 text-white shadow-[0_2px_0_0_#991b1b]')
+                      : (zenMode ? 'bg-[#e5b83b] text-[#161719] shadow-[0_3px_0_0_#9a7212] font-black' : 'tactile-btn-primary')
                   }`}
                 >
                   {isTuningActive ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
@@ -1149,18 +1590,32 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             audioService.playClickSound();
             setIsExtraToolsOpen(prev => !prev);
           }}
-          className="w-full py-4 px-5 rounded-3xl bg-white dark:bg-[#102034] border border-slate-200/80 dark:border-[#1b2b3f] shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-between cursor-pointer min-h-[56px]"
+          className={`w-full py-4 px-5 rounded-3xl border shadow-sm hover:shadow-md active:scale-[0.98] transition-all flex items-center justify-between cursor-pointer min-h-[56px] ${
+            zenMode
+              ? 'bg-[#1f2125] border-[#2e3138]'
+              : 'bg-white dark:bg-[#102034] border-slate-200/80 dark:border-[#1b2b3f]'
+          }`}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 text-[#4648d4] dark:text-[#c0c1ff] shadow-inner">
+            <div className={`p-2.5 rounded-2xl shadow-inner ${
+              zenMode
+                ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+                : 'bg-indigo-50 dark:bg-indigo-950/70 text-[#4648d4] dark:text-[#c0c1ff]'
+            }`}>
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div className="text-left">
               <div className="flex items-center gap-2">
-                <h3 className="font-heading font-bold text-sm text-[#0b1c30] dark:text-[#d3e4fe]">
+                <h3 className={`font-heading font-bold text-sm ${
+                  zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+                }`}>
                   Aparatos y Programas de Práctica
                 </h3>
-                <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                  zenMode
+                    ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/30'
+                    : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+                }`}>
                   6 Herramientas
                 </span>
               </div>
@@ -1185,71 +1640,33 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 audioService.playOpenSound();
                 setActiveSubView('tesitura');
               }}
-              className="p-4 rounded-3xl bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white shadow-md text-left flex items-center justify-between cursor-pointer"
+              className={`p-4 rounded-3xl text-left flex items-center justify-between cursor-pointer transition-all ${
+                zenMode
+                  ? 'bg-[#22252a] border border-[#2e3138] text-[#f0ebe1] shadow-none'
+                  : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white shadow-md'
+              }`}
             >
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-200 block mb-0.5">
+                <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-0.5 ${
+                  zenMode ? 'text-[#e5b83b]' : 'text-purple-200'
+                }`}>
                   TEST VOCAL
                 </span>
                 <h4 className="text-base font-heading font-black">Rango vocal en vivo</h4>
-                <p className="text-xs text-purple-100/90 font-medium mt-0.5">
+                <p className={`text-xs font-medium mt-0.5 ${
+                  zenMode ? 'text-[#9ea3ae]' : 'text-purple-100/90'
+                }`}>
                   Encuentra tu nota más baja y más aguda
                 </p>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 ml-3">
-                <Mic className="w-5 h-5 text-white" />
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ml-3 ${
+                zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-white/20 backdrop-blur-md text-white'
+              }`}>
+                <Mic className="w-5 h-5" />
               </div>
             </motion.button>
 
-            {/* Tool 2: Evaluación Inteligente */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                audioService.playOpenSound();
-                setActiveSubView('evaluacion');
-              }}
-              className="p-4 rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-blue-700 text-white shadow-md text-left flex items-center justify-between cursor-pointer"
-            >
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-200 block mb-0.5">
-                  Diagnóstico IA
-                </span>
-                <h4 className="text-base font-heading font-black">Evaluación de Precisión</h4>
-                <p className="text-xs text-indigo-100/90 font-medium mt-0.5">
-                  Puntuación y reseña técnica de tu tono
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 ml-3">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-            </motion.button>
-
-            {/* Tool 3: Escalas Rápidas */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                audioService.playOpenSound();
-                setActiveSubView('escalas');
-              }}
-              className="p-4 rounded-3xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 text-white shadow-md text-left flex items-center justify-between cursor-pointer"
-            >
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-200 block mb-0.5">
-                  Solfeo y Audición
-                </span>
-                <h4 className="text-base font-heading font-black">Escalas Rápidas Vocales</h4>
-                <p className="text-xs text-cyan-100/90 font-medium mt-0.5">
-                  Referencia auditiva para solfeo
-                </p>
-              </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 ml-3">
-                <Music2 className="w-5 h-5 text-white" />
-              </div>
-            </motion.button>
-
-            {/* Tool 4: Ejercicios de Respiración */}
+            {/* Tool 2: Ejercicios de Respiración */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -1257,23 +1674,33 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 audioService.playOpenSound();
                 setActiveSubView('respiracion');
               }}
-              className="p-4 rounded-3xl bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600 text-white shadow-md text-left flex items-center justify-between cursor-pointer"
+              className={`p-4 rounded-3xl text-left flex items-center justify-between cursor-pointer transition-all ${
+                zenMode
+                  ? 'bg-[#22252a] border border-[#2e3138] text-[#f0ebe1] shadow-none'
+                  : 'bg-gradient-to-r from-indigo-600 via-blue-600 to-blue-700 text-white shadow-md'
+              }`}
             >
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-200 block mb-0.5">
+                <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-0.5 ${
+                  zenMode ? 'text-[#e5b83b]' : 'text-indigo-200'
+                }`}>
                   Control Diafragmático
                 </span>
                 <h4 className="text-base font-heading font-black">Ejercicios de Respiración</h4>
-                <p className="text-xs text-emerald-100/90 font-medium mt-0.5">
+                <p className={`text-xs font-medium mt-0.5 ${
+                  zenMode ? 'text-[#9ea3ae]' : 'text-emerald-100/90'
+                }`}>
                   Visualizador diafragmático 4-4-4
                 </p>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 ml-3">
-                <RotateCcw className="w-5 h-5 text-white" />
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ml-3 ${
+                zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-white/20 backdrop-blur-md text-white'
+              }`}>
+                <RotateCcw className="w-5 h-5" />
               </div>
             </motion.button>
 
-            {/* Tool 5: Desafío de Estabilidad 10s */}
+            {/* Tool 3: Desafío de Estabilidad 10s */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -1281,56 +1708,156 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 audioService.playOpenSound();
                 setActiveSubView('estabilidad');
               }}
-              className="p-4 rounded-3xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-md text-left flex items-center justify-between cursor-pointer"
+              className={`p-4 rounded-3xl text-left flex items-center justify-between cursor-pointer transition-all ${
+                zenMode
+                  ? 'bg-[#22252a] border border-[#2e3138] text-[#f0ebe1] shadow-none'
+                  : 'bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 text-white shadow-md'
+              }`}
             >
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-fuchsia-200 block mb-0.5">
+                <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-0.5 ${
+                  zenMode ? 'text-[#e5b83b]' : 'text-cyan-200'
+                }`}>
                   Desafío de Retención
                 </span>
                 <h4 className="text-base font-heading font-black">Desafío de Estabilidad (10s)</h4>
-                <p className="text-xs text-fuchsia-100/90 font-medium mt-0.5">
+                <p className={`text-xs font-medium mt-0.5 ${
+                  zenMode ? 'text-[#9ea3ae]' : 'text-fuchsia-100/90'
+                }`}>
                   Retén la nota fija y multiplica tu XP
                 </p>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 ml-3">
-                <Target className="w-5 h-5 text-white" />
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ml-3 ${
+                zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-white/20 backdrop-blur-md text-white'
+              }`}>
+                <Target className="w-5 h-5" />
               </div>
             </motion.button>
 
-            {/* Tool 6: Duelo Rápido Vocal */}
+            {/* Tool 4: Evaluación Inteligente */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
                 audioService.playOpenSound();
-                setActiveSubView('duelo');
+                setActiveSubView('evaluacion');
               }}
-              className="p-4 rounded-3xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-md text-left flex items-center justify-between cursor-pointer"
+              className={`p-4 rounded-3xl text-left flex items-center justify-between cursor-pointer transition-all ${
+                zenMode
+                  ? 'bg-[#22252a] border border-[#2e3138] text-[#f0ebe1] shadow-none'
+                  : 'bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600 text-white shadow-md'
+              }`}
             >
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-200 block mb-0.5">
+                <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-0.5 ${
+                  zenMode ? 'text-[#e5b83b]' : 'text-emerald-200'
+                }`}>
+                  Diagnóstico IA
+                </span>
+                <h4 className="text-base font-heading font-black">Evaluación de Precisión</h4>
+                <p className={`text-xs font-medium mt-0.5 ${
+                  zenMode ? 'text-[#9ea3ae]' : 'text-indigo-100/90'
+                }`}>
+                  Puntuación y reseña técnica de tu tono
+                </p>
+              </div>
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ml-3 ${
+                zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-white/20 backdrop-blur-md text-white'
+              }`}>
+                <Sparkles className="w-5 h-5" />
+              </div>
+            </motion.button>
+
+            {/* Tool 5: Escalas Rápidas */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                audioService.playOpenSound();
+                setActiveSubView('escalas');
+              }}
+              className={`p-4 rounded-3xl text-left flex items-center justify-between cursor-pointer transition-all ${
+                zenMode
+                  ? 'bg-[#22252a] border border-[#2e3138] text-[#f0ebe1] shadow-none'
+                  : 'bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-md'
+              }`}
+            >
+              <div>
+                <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-0.5 ${
+                  zenMode ? 'text-[#e5b83b]' : 'text-fuchsia-200'
+                }`}>
+                  Solfeo y Audición
+                </span>
+                <h4 className="text-base font-heading font-black">Escalas Rápidas Vocales</h4>
+                <p className={`text-xs font-medium mt-0.5 ${
+                  zenMode ? 'text-[#9ea3ae]' : 'text-cyan-100/90'
+                }`}>
+                  Referencia auditiva para solfeo
+                </p>
+              </div>
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ml-3 ${
+                zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-white/20 backdrop-blur-md text-white'
+              }`}>
+                <Music2 className="w-5 h-5" />
+              </div>
+            </motion.button>
+
+            {/* Tool 6: Duelo Rápido Vocal (próximamente) */}
+            <div className={`p-4 rounded-3xl text-left flex items-center justify-between relative overflow-hidden cursor-not-allowed select-none transition-all ${
+              zenMode
+                ? 'bg-[#22252a] border border-[#2e3138] text-[#f0ebe1] shadow-none'
+                : 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white shadow-md'
+            }`}>
+              {/* Cinta de seguridad diagonal: de arriba-izquierda a abajo-derecha */}
+              <div
+                className="absolute -left-14 top-1 w-[160%] -rotate-[18deg] py-1.5 flex items-center justify-center shadow-md"
+                style={{ backgroundImage: zenMode ? 'repeating-linear-gradient(45deg, #0a0a0a 0px, #0a0a0a 9px, #e5b83b 9px, #e5b83b 18px)' : 'repeating-linear-gradient(45deg, #0a0a0a 0px, #0a0a0a 9px, #facc15 9px, #facc15 18px)' }}
+              >
+                <span className="bg-black/80 text-yellow-300 text-[10px] font-black uppercase tracking-widest px-4 py-0.5 rounded-sm shadow-md flex items-center gap-1 -ml-30">
+                  <Lock className="w-3 h-3" />
+                  Disponible Pronto
+                </span>
+              </div>
+              <div>
+                <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-0.5 ${
+                  zenMode ? 'text-[#e5b83b]' : 'text-amber-200'
+                }`}>
                   Competencia Vocal
                 </span>
                 <h4 className="text-base font-heading font-black">Duelo Rápido Vocal</h4>
-                <p className="text-xs text-amber-100/90 font-medium mt-0.5">
+                <p className={`text-xs font-medium mt-0.5 ${
+                  zenMode ? 'text-[#9ea3ae]' : 'text-amber-100/90'
+                }`}>
                   Desafía a un amigo o a la IA
                 </p>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 ml-3">
-                <Swords className="w-5 h-5 text-white" />
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ml-3 opacity-60 ${
+                zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-white/20 backdrop-blur-md text-white'
+              }`}>
+                <Swords className="w-5 h-5" />
               </div>
-            </motion.button>
+            </div>
           </div>
 
           {/* ─── Precision History Section ─── */}
-          <div id="sec-historial" className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3">
+          <div id="sec-historial" className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors ${
+            zenMode
+              ? 'bg-[#1b1c1e] border border-[#2e3138]'
+              : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+          }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                <div className={`p-2 rounded-xl ${
+                  zenMode
+                    ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+                    : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                }`}>
                   <History className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-heading font-bold text-base text-[#0b1c30] dark:text-[#d3e4fe]">
+                  <h4 className={`font-heading font-bold text-base ${
+                    zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+                  }`}>
                     Historial de Precisión
                   </h4>
                   <p className="text-xs text-slate-400 font-medium">
@@ -1353,8 +1880,14 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             </div>
 
             {tunedHistory.length === 0 ? (
-              <div className="bg-[#f8fafc] dark:bg-[#0b1828] p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-1">
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+              <div className={`p-4 rounded-2xl border border-dashed text-center space-y-1 ${
+                zenMode
+                  ? 'bg-[#161719] border-[#2e3138]'
+                  : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800'
+              }`}>
+                <p className={`text-xs font-bold ${
+                  zenMode ? 'text-[#9ea3ae]' : 'text-slate-600 dark:text-slate-400'
+                }`}>
                   Sin notas afinadas aún en este historial
                 </p>
                 <p className="text-[11px] text-slate-400">
@@ -1366,18 +1899,28 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 {tunedHistory.map(item => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between p-2.5 rounded-2xl bg-[#f8fafc] dark:bg-[#0b1828] border border-slate-100 dark:border-slate-800/80 hover:border-emerald-200 dark:hover:border-emerald-900/50 transition-all"
+                    className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all ${
+                      zenMode
+                        ? 'bg-[#22252a] border-[#2e3138] hover:border-[#e5b83b]/40'
+                        : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-100 dark:border-slate-800/80 hover:border-emerald-200 dark:hover:border-emerald-900/50'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <span
-                        className="w-9 h-9 rounded-xl text-white font-heading font-extrabold text-xs flex items-center justify-center shadow-xs"
-                        style={{ backgroundColor: item.noteColor }}
+                        className={`w-9 h-9 rounded-xl font-heading font-extrabold text-xs flex items-center justify-center shadow-xs ${
+                          zenMode
+                            ? 'bg-[#2e3138] text-[#e5b83b] border border-[#e5b83b]/30'
+                            : 'text-white'
+                        }`}
+                        style={{ backgroundColor: zenMode ? undefined : item.noteColor }}
                       >
                         {item.noteName}
                       </span>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <span className={`text-xs font-bold ${
+                            zenMode ? 'text-[#ded9cf]' : 'text-slate-800 dark:text-slate-200'
+                          }`}>
                             {item.detectedFreq} Hz
                           </span>
                           <span className="text-[10px] font-semibold text-slate-400">
@@ -1390,8 +1933,12 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/80 px-2.5 py-1 rounded-full text-emerald-700 dark:text-emerald-300 text-[11px] font-extrabold">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${
+                      zenMode
+                        ? 'bg-[#26292f] border-[#e5b83b]/40 text-[#e5b83b]'
+                        : 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200/80 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300'
+                    }`}>
+                      <CheckCircle2 className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'}`} />
                       <span>{item.diffHz === 0 ? 'Perfecto' : `±${item.diffHz} Hz`}</span>
                     </div>
                   </div>

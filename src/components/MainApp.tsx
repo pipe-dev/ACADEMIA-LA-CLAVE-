@@ -939,6 +939,9 @@ export default function App() {
                 zenMode={zenMode}
                 onUpdateQuestProgress={handleUpdateNotesTuned}
                 onUpdateStats={(updated) => setUserStats(prev => ({ ...prev, ...updated }))}
+                onLoseLife={handleLoseLife}
+                onOpenRecoveryExam={() => setIsRecoveryExamOpen(true)}
+                onOpenStore={() => setIsStoreOpen(true)}
               />
             )}
 
