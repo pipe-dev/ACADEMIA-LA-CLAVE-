@@ -16,6 +16,7 @@ import { UnitCelebrationModal } from './UnitCelebrationModal';
 import { VoiceEvalModal } from './VoiceEvalModal';
 import { VocalRangeModal } from './VocalRangeModal';
 import { StoreModal } from './StoreModal';
+import { RecoveryExamModal } from './RecoveryExamModal';
 import { SettingsModal } from './SettingsModal';
 import { StreakFlameView } from './StreakFlameView';
 import {
@@ -1043,6 +1044,15 @@ export default function App() {
             setIsStoreOpen(false);
             setIsRecoveryExamOpen(true);
           }}
+          zenMode={zenMode}
+        />
+      )}
+
+      {isRecoveryExamOpen && (
+        <RecoveryExamModal
+          userStats={userStats}
+          onClose={() => setIsRecoveryExamOpen(false)}
+          onGainLife={() => handleGainLife(1)}
           zenMode={zenMode}
         />
       )}
