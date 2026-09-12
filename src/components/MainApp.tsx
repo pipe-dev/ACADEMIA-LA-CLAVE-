@@ -820,6 +820,13 @@ export default function App() {
     }
   };
 
+  const handleUseCourtesySong = () => {
+    setUserStats((prev) => ({
+      ...prev,
+      hasUsedCourtesySong: true
+    }));
+  };
+
   return (
     <div className={`min-h-screen ${zenMode ? 'zen-mode bg-[#161719] text-[#ded9cf]' : 'bg-[#f8f9ff] dark:bg-[#071322] text-[#0b1c30] dark:text-[#d3e4fe]'} flex flex-col font-sans ${zenMode ? 'selection:bg-[#e5b83b] selection:text-[#161719]' : 'selection:bg-[#4648d4] selection:text-white'} antialiased transition-colors duration-200`}>
       {/* Toast Notifications System */}
@@ -950,6 +957,11 @@ export default function App() {
                 userStats={userStats}
                 zenMode={zenMode}
                 onUpdateQuestProgress={handleUpdatePracticeTime}
+                onLoseLife={handleLoseLife}
+                onGainLife={() => handleGainLife(1)}
+                onUseCourtesySong={handleUseCourtesySong}
+                onOpenRecoveryExam={() => setIsRecoveryExamOpen(true)}
+                onOpenStore={() => setIsStoreOpen(true)}
               />
             )}
 
