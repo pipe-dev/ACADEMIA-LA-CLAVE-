@@ -12,7 +12,8 @@ interface TunerRhythmViewProps {
   bpm?: number;
   onSuccess: (score: number) => void;
   onFail?: () => void;
-  onExit: () => void;
+  onExit?: () => void;
+  hideExitButton?: boolean;
 }
 
 export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
@@ -21,7 +22,8 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
   bpm = 100,
   onSuccess,
   onFail,
-  onExit
+  onExit,
+  hideExitButton = false
 }) => {
   const [phase, setPhase] = useState<'guide' | 'playing' | 'results'>('guide');
   const [score, setScore] = useState<number>(0);
@@ -399,13 +401,17 @@ export const TunerRhythmView: React.FC<TunerRhythmViewProps> = ({
     <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={onExit}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Volver al Afinador</span>
-        </button>
+        {!hideExitButton && onExit ? (
+          <button
+            onClick={onExit}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Volver al Afinador</span>
+          </button>
+        ) : (
+          <div />
+        )}
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
             Nivel {level} • {bpm} BPM

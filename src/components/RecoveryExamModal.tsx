@@ -1,14 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { UserStats } from '../types';
 import { audioService } from '../utils/audioService';
-import { voicePlayback, NoteInfo } from '../utils/voicePlaybackService';
-import { rhythmPatterns } from '../data/tunerLevelsData';
+import { voicePlayback, generateUserNotePool, NoteInfo } from '../utils/voicePlaybackService';
+import {
+  Difficulty,
+  ChallengeDifficulty,
+  difficultyLevels,
+  rhythmPatterns,
+  generateChallenge,
+  generateIntervalChallenge,
+  melodies
+} from '../data/tunerLevelsData';
 import { VOCAL_THEORY_QUESTIONS, TheoryQuestion } from '../data/academyData';
 import { usePitchDetection } from '../hooks/use-pitch-detection';
+import { TunerRhythmView } from './TunerRhythmView';
 import {
   X,
   Heart,
@@ -22,7 +31,7 @@ import {
   ArrowRight,
   RotateCcw,
   Drum,
-  Award
+  Music
 } from 'lucide-react';
 
 interface RecoveryExamModalProps {
@@ -42,15 +51,106 @@ interface StepConfig {
 
 const TOTAL_STEPS = 7;
 
-// Central comfortable notes for pitch matching
-const RECOVERY_TUNING_NOTES = [
-  { name: 'DO', octave: 4, frequency: 261.63, label: 'Do4 (261.6 Hz)' },
-  { name: 'RE', octave: 4, frequency: 293.66, label: 'Re4 (293.7 Hz)' },
-  { name: 'MI', octave: 4, frequency: 329.63, label: 'Mi4 (329.6 Hz)' },
-  { name: 'FA', octave: 4, frequency: 349.23, label: 'Fa4 (349.2 Hz)' },
-  { name: 'SOL', octave: 4, frequency: 392.00, label: 'Sol4 (392.0 Hz)' },
-  { name: 'LA', octave: 4, frequency: 440.00, label: 'La4 (440.0 Hz)' }
-];
+interface PitchChallenge {
+  difficulty: ChallengeDifficulty;
+  level: number;
+  notes: NoteInfo[];
+  subtitle: string;
+  toleranceCents: number;
+}
+
+interface RhythmChallenge {
+  difficulty: ChallengeDifficulty;
+  level: number;
+  bpm: number;
+  pattern: { time: number; instrument: 'clap' | 'kick' }[];
+}
+
+function generateExamPitchChallenge(
+  pool: NoteInfo[],
+  preferredDiff?: ChallengeDifficulty
+): PitchChallenge {
+  const diffs: ChallengeDifficulty[] = ['Fácil', 'Medio', 'Difícil', 'Maestro'];
+  const diff = preferredDiff || diffs[Math.floor(Math.random() * diffs.length)];
+
+  let lvl = 1;
+  if (diff === 'Fácil') lvl = Math.floor(Math.random() * 6) + 1; // 1 to 6
+  else if (diff === 'Medio') lvl = Math.floor(Math.random() * 12) + 1; // 1 to 12
+  else if (diff === 'Difícil') lvl = Math.floor(Math.random() * 12) + 1; // 1 to 12
+  else lvl = Math.floor(Math.random() * 6) + 1; // 1 to 6
+
+  let notes: NoteInfo[] = [];
+  let subtitle = '';
+
+  if (diff === 'Medio' && (lvl === 1 || lvl % 2 === 0)) {
+    notes = generateIntervalChallenge(lvl, pool);
+    subtitle = 'Arpegio / Intervalos';
+  } else if (diff === 'Fácil' && (lvl === 4 || lvl === 6)) {
+    const melodyKey = lvl === 4 ? 'twinkle' : 'maryHadALamb';
+    const m = melodies[melodyKey] || melodies.twinkle;
+    const baseMidi = pool[Math.floor(pool.length / 2)]?.midi || 60;
+    notes = m.map(item => {
+      const midi = baseMidi + (item.midi - 60);
+      const name = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'][midi % 12];
+      const letter = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][midi % 12];
+      const octave = Math.floor(midi / 12) - 1;
+      const frequency = Math.round(440 * Math.pow(2, (midi - 69) / 12) * 100) / 100;
+      return { name, letter, octave, frequency, fullName: `${name}${octave}`, midi };
+    });
+    subtitle = lvl === 4 ? 'Melodía: Estrellita' : 'Melodía: Mary Had A Lamb';
+  } else {
+    const count = diff === 'Maestro'
+      ? [3, 4, 4, 5, 5, 6][lvl - 1] || 4
+      : diff === 'Difícil'
+        ? [4, 4, 5, 5, 6, 6, 6, 7, 7, 8, 8, 8][lvl - 1] || 4
+        : difficultyLevels[diff][lvl - 1] || 4;
+    notes = generateChallenge(count, pool);
+    subtitle = `${notes.length} notas en escala`;
+  }
+
+  if (notes.length === 0) {
+    notes = generateChallenge(3, pool);
+    subtitle = '3 notas en escala';
+  }
+
+  const toleranceCents = diff === 'Maestro' ? 25 : diff === 'Difícil' ? 35 : 45;
+
+  return {
+    difficulty: diff,
+    level: lvl,
+    notes,
+    subtitle,
+    toleranceCents
+  };
+}
+
+function generateExamRhythmChallenge(preferredModeGroup?: 'easy_medium' | 'hard_master'): RhythmChallenge {
+  const diffs: { diff: ChallengeDifficulty; levels: number[] }[] = [
+    { diff: 'Fácil', levels: [7, 8, 9, 10, 11, 12] },
+    { diff: 'Medio', levels: [13, 14, 15, 16] },
+    { diff: 'Difícil', levels: [17, 18, 19, 20] },
+    { diff: 'Maestro', levels: [21, 22, 23, 24] }
+  ];
+
+  let selectedGroup = diffs;
+  if (preferredModeGroup === 'easy_medium') {
+    selectedGroup = [diffs[0], diffs[1]];
+  } else if (preferredModeGroup === 'hard_master') {
+    selectedGroup = [diffs[2], diffs[3]];
+  }
+
+  const randomGroup = selectedGroup[Math.floor(Math.random() * selectedGroup.length)];
+  const randomLevel = randomGroup.levels[Math.floor(Math.random() * randomGroup.levels.length)];
+  const pattern = rhythmPatterns[randomLevel] || rhythmPatterns[7];
+  const bpm = 80 + (randomLevel - 7) * 10;
+
+  return {
+    difficulty: randomGroup.diff,
+    level: randomLevel,
+    bpm,
+    pattern
+  };
+}
 
 export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
   userStats,
@@ -64,96 +164,147 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
 
   // Step 1 to 7 sequence definition: Afinación -> Pregunta -> Ritmo -> Pregunta -> Afinación -> Pregunta -> Ritmo
   const stepsPlan: StepConfig[] = useMemo(() => [
-    { id: 1, type: 'pitch', title: 'Afinación de Precisión' },
+    { id: 1, type: 'pitch', title: 'Afinación de Niveles' },
     { id: 2, type: 'question', title: 'Pregunta de Solfeo' },
-    { id: 3, type: 'rhythm', title: 'Coordinación Rítmica' },
+    { id: 3, type: 'rhythm', title: 'Coordinación Rítmica de Niveles' },
     { id: 4, type: 'question', title: 'Pregunta de Técnica Vocal' },
-    { id: 5, type: 'pitch', title: 'Afinación de Precisión' },
+    { id: 5, type: 'pitch', title: 'Afinación de Niveles' },
     { id: 6, type: 'question', title: 'Pregunta de Fisiología' },
     { id: 7, type: 'rhythm', title: 'Coordinación Rítmica Final' }
   ], []);
 
-  // Preselected randomized content for this exam session
+  // Adapt to user's vocal range pool & gender
+  const gender = useMemo<'masculino' | 'femenino'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('laclave_voice_gender');
+      if (saved === 'masculino' || saved === 'femenino') return saved;
+    }
+    return 'femenino';
+  }, []);
+
+  const userNotePool = useMemo(() => {
+    return generateUserNotePool(userStats.vocalRangeData, gender);
+  }, [userStats.vocalRangeData, gender]);
+
+  // Preselected randomized content for this exam session across all 4 modes
   const examContent = useMemo(() => {
-    // 3 Random questions without duplicates
+    // 3 Random theory questions without duplicates
     const shuffledQuestions = [...VOCAL_THEORY_QUESTIONS].sort(() => 0.5 - Math.random());
     const q1 = shuffledQuestions[0] || VOCAL_THEORY_QUESTIONS[0];
     const q2 = shuffledQuestions[1] || VOCAL_THEORY_QUESTIONS[1];
     const q3 = shuffledQuestions[2] || VOCAL_THEORY_QUESTIONS[2];
 
-    // 2 Random pitch targets
-    const shuffledNotes = [...RECOVERY_TUNING_NOTES].sort(() => 0.5 - Math.random());
-    const n1 = shuffledNotes[0];
-    const n2 = shuffledNotes[1] || shuffledNotes[0];
+    // 2 Pitch challenges from any of the 4 modes
+    const p1 = generateExamPitchChallenge(userNotePool, 'Fácil');
+    const p2 = generateExamPitchChallenge(userNotePool, 'Medio');
 
-    // 2 Random rhythm patterns (levels 7 to 12)
-    const rhythmKeys = [7, 8, 9, 10, 11, 12];
-    const r1Key = rhythmKeys[Math.floor(Math.random() * rhythmKeys.length)];
-    const r2Key = rhythmKeys[(Math.floor(Math.random() * rhythmKeys.length) + 1) % rhythmKeys.length];
+    // 2 Rhythm challenges from any of the 4 modes (Fácil/Medio for Step 3, Difícil/Maestro for Step 7)
+    const r1 = generateExamRhythmChallenge('easy_medium');
+    const r2 = generateExamRhythmChallenge('hard_master');
 
     return {
-      note1: n1,
-      note2: n2,
+      pitch1: p1,
+      pitch2: p2,
       question1: q1,
       question2: q2,
       question3: q3,
-      rhythm1: { key: r1Key, pattern: rhythmPatterns[r1Key] || rhythmPatterns[7] },
-      rhythm2: { key: r2Key, pattern: rhythmPatterns[r2Key] || rhythmPatterns[8] }
+      rhythm1: r1,
+      rhythm2: r2
     };
-  }, []);
+  }, [userNotePool]);
 
   const currentStep = stepsPlan[currentStepIndex];
 
-  // ─── Pitch Matching Sub-State ──────────────────────────────────────
+  // ─── Pitch Challenge Sub-State ─────────────────────────────────────
   const { isDetecting, frequency, rms, start, stop } = usePitchDetection();
-  const [pitchProgress, setPitchProgress] = useState<number>(0);
-  const targetNote = currentStepIndex === 0 ? examContent.note1 : examContent.note2;
-  const inTuneRef = useRef<number | null>(null);
+  const activePitchChallenge: PitchChallenge =
+    currentStepIndex === 0 ? examContent.pitch1 : examContent.pitch2;
 
-  // Stop mic when leaving pitch steps or closing
+  const [pitchNoteIndex, setPitchNoteIndex] = useState<number>(0);
+  const [completedPitchNotes, setCompletedPitchNotes] = useState<Set<number>>(new Set());
+  const [tugOfWarProgress, setTugOfWarProgress] = useState<number>(50);
+  const [pitchStatusMsg, setPitchStatusMsg] = useState<string>('Canta en el micrófono para afinar');
+  const [isNoteMatched, setIsNoteMatched] = useState<boolean>(false);
+
+  const activeTargetNote = activePitchChallenge.notes[pitchNoteIndex] || activePitchChallenge.notes[0];
+
+  // Reset pitch progress on step change
   useEffect(() => {
+    setPitchNoteIndex(0);
+    setCompletedPitchNotes(new Set());
+    setTugOfWarProgress(50);
+    setIsNoteMatched(false);
+    setPitchStatusMsg('Canta en el micrófono para afinar');
+  }, [currentStepIndex]);
+
+  // Turn on/off mic based on current step
+  useEffect(() => {
+    if (currentStep.type === 'pitch' && !isDetecting && !isCompleted) {
+      start();
+    } else if (currentStep.type !== 'pitch' && isDetecting) {
+      stop();
+    }
     return () => {
       stop();
     };
-  }, [stop]);
+  }, [currentStep.type, isCompleted, isDetecting, start, stop]);
 
-  // Pitch matching detection loop
+  // Pitch matching loop with Tug-of-War bar
   useEffect(() => {
-    if (currentStep.type !== 'pitch' || !isDetecting || isCompleted) return;
+    if (currentStep.type !== 'pitch' || !isDetecting || isCompleted || !activeTargetNote) return;
 
-    if (!frequency || rms < 0.015) {
-      inTuneRef.current = null;
-      setPitchProgress(prev => Math.max(0, prev - 3));
+    if (!frequency || rms < 0.012) {
+      setIsNoteMatched(false);
+      setPitchStatusMsg('Escuchando voz... Sostén la nota');
       return;
     }
 
-    const cents = 1200 * Math.log2(frequency / targetNote.frequency);
-    const isClose = Math.abs(cents) <= 45; // 45 cents tolerance
+    const cents = 1200 * Math.log2(frequency / activeTargetNote.frequency);
+    const isClose = Math.abs(cents) <= activePitchChallenge.toleranceCents;
+    setIsNoteMatched(isClose);
 
     if (isClose) {
-      if (!inTuneRef.current) inTuneRef.current = Date.now();
-      const elapsed = Date.now() - inTuneRef.current;
-      const progress = Math.min(100, Math.floor((elapsed / 1200) * 100));
-      setPitchProgress(progress);
+      setPitchStatusMsg('¡Afinación Perfecta! Empujando al 100%');
+      setTugOfWarProgress(prev => {
+        const next = Math.min(100, prev + 3.2);
+        if (next >= 100) {
+          // Note completed!
+          audioService.playSoftDing();
+          audioService.vibrateSuccess();
 
-      if (progress >= 100) {
-        audioService.playSuccessBellSound();
-        handleStepSuccess();
-      }
+          const nextIndex = pitchNoteIndex + 1;
+          setCompletedPitchNotes(old => new Set(old).add(pitchNoteIndex));
+
+          if (nextIndex < activePitchChallenge.notes.length) {
+            setPitchNoteIndex(nextIndex);
+            return 50;
+          } else {
+            // All notes in level completed!
+            audioService.playSuccessBellSound();
+            setTimeout(() => handleStepSuccess(), 450);
+            return 100;
+          }
+        }
+        return next;
+      });
     } else {
-      inTuneRef.current = null;
-      setPitchProgress(prev => Math.max(0, prev - 4));
+      if (frequency < activeTargetNote.frequency) {
+        setPitchStatusMsg('Muy grave ↑ Sube el tono');
+      } else {
+        setPitchStatusMsg('Muy agudo ↓ Baja el tono');
+      }
+      setTugOfWarProgress(prev => Math.max(15, prev - 1.1));
     }
-  }, [frequency, rms, isDetecting, targetNote, currentStep.type, isCompleted]);
+  }, [frequency, rms, isDetecting, activeTargetNote, currentStep.type, isCompleted, activePitchChallenge, pitchNoteIndex]);
 
   // Play reference note
   const handlePlayReferenceNote = () => {
     audioService.playClickSound();
-    voicePlayback.playVoiceNote({ frequency: targetNote.frequency, name: targetNote.name, octave: targetNote.octave }, 'femenino', 2.0);
+    voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
   };
 
   // ─── Question Sub-State ───────────────────────────────────────────
-  const activeQuestion: TheoryQuestion = 
+  const activeQuestion: TheoryQuestion =
     currentStepIndex === 1 ? examContent.question1 :
     currentStepIndex === 3 ? examContent.question2 : examContent.question3;
 
@@ -175,83 +326,12 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
   };
 
   // ─── Rhythm Sub-State ─────────────────────────────────────────────
-  const activeRhythm = currentStepIndex === 2 ? examContent.rhythm1 : examContent.rhythm2;
-  const [rhythmPhase, setRhythmPhase] = useState<'intro' | 'listening' | 'tapping' | 'evaluating'>('intro');
-  const [userTaps, setUserTaps] = useState<number[]>([]);
-  const [rhythmScore, setRhythmScore] = useState<number | null>(null);
-  const rhythmStartTimeRef = useRef<number>(0);
-  const rhythmTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
-
-  const clearRhythmTimeouts = () => {
-    rhythmTimeoutsRef.current.forEach(clearTimeout);
-    rhythmTimeoutsRef.current = [];
-  };
-
-  useEffect(() => {
-    return () => clearRhythmTimeouts();
-  }, []);
-
-  const handleStartRhythmDemo = () => {
-    clearRhythmTimeouts();
-    setRhythmPhase('listening');
-    audioService.playClickSound();
-
-    const pattern = activeRhythm.pattern;
-    const maxDuration = pattern[pattern.length - 1]?.time + 1200 || 3000;
-
-    pattern.forEach(p => {
-      const t = setTimeout(() => {
-        if (p.instrument === 'kick') {
-          voicePlayback.playKick();
-        } else {
-          voicePlayback.playClap();
-        }
-      }, p.time);
-      rhythmTimeoutsRef.current.push(t);
-    });
-
-    const endTimer = setTimeout(() => {
-      setRhythmPhase('tapping');
-      setUserTaps([]);
-      rhythmStartTimeRef.current = Date.now();
-    }, maxDuration);
-    rhythmTimeoutsRef.current.push(endTimer);
-  };
-
-  const handleUserTap = () => {
-    audioService.vibrate(12);
-    voicePlayback.playMetronomeTick();
-    const tapOffset = Date.now() - rhythmStartTimeRef.current;
-    const nextTaps = [...userTaps, tapOffset];
-    setUserTaps(nextTaps);
-
-    const pattern = activeRhythm.pattern;
-    if (nextTaps.length >= pattern.length) {
-      // Evaluate accuracy
-      let matches = 0;
-      pattern.forEach((expected, i) => {
-        const actual = nextTaps[i];
-        if (actual !== undefined && Math.abs(actual - expected.time) <= 350) {
-          matches++;
-        }
-      });
-
-      const accuracy = Math.round((matches / pattern.length) * 100);
-      setRhythmScore(accuracy);
-      setRhythmPhase('evaluating');
-
-      if (accuracy >= 65) {
-        audioService.playSuccessBellSound();
-      } else {
-        audioService.playRetrySound();
-      }
-    }
-  };
+  const activeRhythm: RhythmChallenge =
+    currentStepIndex === 2 ? examContent.rhythm1 : examContent.rhythm2;
 
   // ─── Step Transition & Completion ──────────────────────────────────
   const handleStepSuccess = () => {
     stop();
-    clearRhythmTimeouts();
     setCompletedSteps(prev => new Set(prev).add(currentStepIndex));
 
     if (currentStepIndex + 1 >= TOTAL_STEPS) {
@@ -270,14 +350,9 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
     } else {
       // Advance to next step
       setCurrentStepIndex(prev => prev + 1);
-      // Reset step sub-states
-      setPitchProgress(0);
-      inTuneRef.current = null;
+      // Reset question sub-states
       setSelectedAnswer(null);
       setHasAnswered(false);
-      setRhythmPhase('intro');
-      setUserTaps([]);
-      setRhythmScore(null);
     }
   };
 
@@ -293,7 +368,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
       onClick={onClose}
     >
       <div
-        className={`rounded-3xl p-5 sm:p-6 max-w-lg w-full space-y-5 shadow-2xl relative border transition-all max-h-[92vh] overflow-y-auto cursor-default ${
+        className={`rounded-3xl p-5 sm:p-6 max-w-lg w-full space-y-4 shadow-2xl relative border transition-all max-h-[94vh] overflow-y-auto cursor-default ${
           zenMode
             ? 'bg-[#1a1b1e] border-[#2e3138] text-[#ded9cf]'
             : 'bg-white dark:bg-[#102034] border-slate-100 dark:border-[#1b2b3f] text-[#0b1c30] dark:text-[#d3e4fe]'
@@ -353,29 +428,79 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
         {/* ─── Main Interactive Body ───────────────────────────────────── */}
         {!isCompleted ? (
           <div className="space-y-4">
-            {/* 1. AFINACIÓN STEP */}
+            {/* 1. AFINACIÓN STEP (Copiado de los niveles de afinación de los 4 modos) */}
             {currentStep.type === 'pitch' && (
-              <div className="space-y-4 text-center py-2">
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/60 to-blue-50/60 dark:from-indigo-950/20 dark:to-blue-950/20 border border-indigo-200/60 dark:border-indigo-900/40 space-y-2">
+              <div className="space-y-4 text-center py-1">
+                {/* Level and Mode Header Badge */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                      activePitchChallenge.difficulty === 'Fácil'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                        : activePitchChallenge.difficulty === 'Medio'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                          : activePitchChallenge.difficulty === 'Difícil'
+                            ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                    }`}>
+                      Modo {activePitchChallenge.difficulty} • Nivel {activePitchChallenge.level}
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
+                      {activePitchChallenge.subtitle}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-400">
+                    Nota {pitchNoteIndex + 1} de {activePitchChallenge.notes.length}
+                  </span>
+                </div>
+
+                {/* Notes Sequence Strip */}
+                <div className="flex items-center justify-center gap-1.5 flex-wrap py-1">
+                  {activePitchChallenge.notes.map((n, idx) => {
+                    const isDone = completedPitchNotes.has(idx);
+                    const isCurrent = idx === pitchNoteIndex;
+                    return (
+                      <div
+                        key={idx}
+                        className={`px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1 border transition-all ${
+                          isDone
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-400/50'
+                            : isCurrent
+                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md scale-105 animate-pulse'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        <span>{n.fullName || n.name}</span>
+                        {isDone && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Target Note Display Box */}
+                <div className="p-4 rounded-3xl bg-gradient-to-br from-indigo-50/70 to-blue-50/70 dark:from-indigo-950/30 dark:to-blue-950/30 border border-indigo-200/70 dark:border-indigo-900/50 space-y-1.5 shadow-sm">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                    Canta y sostén la nota objetivo
+                    Nota a Entonar
                   </div>
-                  <div className="text-3xl font-heading font-black text-[#0b1c30] dark:text-[#d3e4fe]">
-                    {targetNote.label}
+                  <div className="text-4xl font-heading font-black text-[#0b1c30] dark:text-[#d3e4fe]">
+                    {activeTargetNote.fullName || activeTargetNote.name}
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Escucha el tono de referencia y sostén la afinación durante 1.2 segundos.
+                  <div className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400">
+                    Frecuencia: {activeTargetNote.frequency} Hz
+                  </div>
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300 pt-1">
+                    {pitchStatusMsg}
                   </p>
                 </div>
 
-                {/* Audio reference playback button */}
+                {/* Audio reference & mic buttons */}
                 <div className="flex items-center justify-center gap-3">
                   <button
                     onClick={handlePlayReferenceNote}
                     className="py-2.5 px-4 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-heading font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <Volume2 className="w-4 h-4" />
-                    <span>Escuchar Nota</span>
+                    <span>Escuchar Tono</span>
                   </button>
 
                   <button
@@ -394,28 +519,38 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
                   </button>
                 </div>
 
-                {/* Precision Progress Bar */}
+                {/* Tug-of-War Precision Gauge Bar */}
                 <div className="space-y-1.5 pt-2">
                   <div className="flex justify-between text-xs font-bold px-1 text-slate-500 dark:text-slate-400">
-                    <span>Progreso de Afinación</span>
-                    <span>{pitchProgress}%</span>
+                    <span>Fuerza de Afinación (Tug-of-War)</span>
+                    <span className={tugOfWarProgress >= 90 ? 'text-emerald-500 font-extrabold' : ''}>
+                      {Math.round(tugOfWarProgress)}%
+                    </span>
                   </div>
-                  <div className="w-full h-3 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                  <div className="w-full h-3.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden relative shadow-inner">
+                    {/* Center 50% marker */}
+                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-slate-400/40 z-10" />
                     <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-150 rounded-full"
-                      style={{ width: `${pitchProgress}%` }}
+                      className={`h-full transition-all duration-150 rounded-full ${
+                        tugOfWarProgress >= 80
+                          ? 'bg-gradient-to-r from-teal-400 to-emerald-500'
+                          : tugOfWarProgress >= 45
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500'
+                            : 'bg-gradient-to-r from-rose-500 to-amber-500'
+                      }`}
+                      style={{ width: `${tugOfWarProgress}%` }}
                     />
                   </div>
                   {frequency > 0 && isDetecting && (
-                    <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 pt-1">
-                      Detectado: {Math.round(frequency)} Hz
+                    <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 pt-0.5">
+                      Voz detectada: {Math.round(frequency)} Hz
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* 2. PREGUNTA STEP */}
+            {/* 2. PREGUNTA STEP (Pregunta teórica con opciones) */}
             {currentStep.type === 'question' && (
               <div className="space-y-4 py-1">
                 <div className="p-4 rounded-2xl bg-[#f8f9ff] dark:bg-[#0b1828] border border-slate-200/80 dark:border-slate-800">
@@ -500,97 +635,42 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
               </div>
             )}
 
-            {/* 3. RITMO STEP */}
+            {/* 3. RITMO STEP (Copiado directamente de los niveles de ritmo con TunerRhythmView) */}
             {currentStep.type === 'rhythm' && (
-              <div className="space-y-4 text-center py-2">
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/60 to-orange-50/60 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                    Patrón Rítmico #{activeRhythm.key}
-                  </div>
-                  <div className="font-heading font-black text-base text-[#0b1c30] dark:text-[#d3e4fe]">
-                    Escucha el compás y pulsa al ritmo
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {rhythmPhase === 'intro' && 'Presiona "Escuchar Patrón" para oír la demostración.'}
-                    {rhythmPhase === 'listening' && 'Escuchando el pulso... Prepárate para tocar.'}
-                    {rhythmPhase === 'tapping' && `¡Toca el botón ${activeRhythm.pattern.length} veces siguiendo el tiempo!`}
-                    {rhythmPhase === 'evaluating' && `Precisión obtenida: ${rhythmScore}%`}
-                  </p>
+              <div className="space-y-3 py-1">
+                <div className="flex items-center justify-between px-1">
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                    activeRhythm.difficulty === 'Fácil'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                      : activeRhythm.difficulty === 'Medio'
+                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                        : activeRhythm.difficulty === 'Difícil'
+                          ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                          : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                  }`}>
+                    Modo {activeRhythm.difficulty} • Nivel {activeRhythm.level}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Alcanza $\ge 80\%$ de precisión
+                  </span>
                 </div>
 
-                {rhythmPhase === 'intro' && (
-                  <button
-                    onClick={handleStartRhythmDemo}
-                    className="py-3 px-5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-heading font-bold text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto cursor-pointer"
-                  >
-                    <Drum className="w-4 h-4" />
-                    <span>Escuchar Patrón</span>
-                  </button>
-                )}
-
-                {rhythmPhase === 'listening' && (
-                  <div className="py-6 flex items-center justify-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center animate-ping">
-                      <Volume2 className="w-6 h-6" />
-                    </div>
-                  </div>
-                )}
-
-                {rhythmPhase === 'tapping' && (
-                  <div className="py-4 space-y-3">
-                    <button
-                      onClick={handleUserTap}
-                      className="w-24 h-24 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 text-white font-heading font-black text-lg shadow-xl hover:scale-105 active:scale-95 transition-all mx-auto flex flex-col items-center justify-center cursor-pointer border-4 border-white dark:border-slate-800"
-                    >
-                      <Drum className="w-6 h-6 mb-1" />
-                      <span>¡TOCA!</span>
-                    </button>
-                    <div className="text-xs font-bold text-slate-400">
-                      Pulsos registrados: {userTaps.length} de {activeRhythm.pattern.length}
-                    </div>
-                  </div>
-                )}
-
-                {rhythmPhase === 'evaluating' && rhythmScore !== null && (
-                  <div className="space-y-3 pt-2 animate-fadeIn">
-                    <div className={`p-3 rounded-2xl border text-xs ${
-                      rhythmScore >= 65
-                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
-                        : 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200'
-                    }`}>
-                      <span className="font-bold block mb-0.5">
-                        {rhythmScore >= 65 ? '¡Excelente precisión rítmica!' : 'Ritmo fuera de tiempo'}
-                      </span>
-                      <span>
-                        {rhythmScore >= 65
-                          ? `Lograste un ${rhythmScore}% de acierto sobre el patrón temporal.`
-                          : `Obtuviste un ${rhythmScore}%. Necesitas al menos 65% para aprobar este paso.`}
-                      </span>
-                    </div>
-
-                    {rhythmScore >= 65 ? (
-                      <button
-                        onClick={handleStepSuccess}
-                        className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <span>Avanzar al siguiente paso</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setRhythmPhase('intro');
-                          setUserTaps([]);
-                          setRhythmScore(null);
-                        }}
-                        className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        <span>Reintentar ejercicio rítmico</span>
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* TunerRhythmView Component integrado de forma limpia */}
+                <TunerRhythmView
+                  key={`exam-rhythm-${currentStepIndex}-${activeRhythm.level}`}
+                  level={activeRhythm.level}
+                  pattern={activeRhythm.pattern}
+                  bpm={activeRhythm.bpm}
+                  hideExitButton={true}
+                  onSuccess={(score) => {
+                    if (score >= 80) {
+                      audioService.playSuccessBellSound();
+                      handleStepSuccess();
+                    }
+                  }}
+                  onFail={() => {}}
+                  onExit={() => {}}
+                />
               </div>
             )}
           </div>
@@ -612,7 +692,7 @@ export const RecoveryExamModal: React.FC<RecoveryExamModalProps> = ({
                 ¡Has recuperado 1 vida!
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                Completaste los 7 pasos de afinación, ritmo y teoría. Tu corazón ha sido restaurado sin costo de XP.
+                Completaste los 7 pasos de afinación, ritmo y teoría de los modos. Tu corazón ha sido restaurado sin costo de XP.
               </p>
             </div>
 
