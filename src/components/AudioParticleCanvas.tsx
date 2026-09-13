@@ -109,9 +109,6 @@ export const AudioParticleCanvas: React.FC<AudioParticleCanvasProps> = React.mem
 
     const resizeObserver = new ResizeObserver(() => {
       handleResize();
-      if (!propsRef.current.isTuningActive) {
-        render(performance.now());
-      }
     });
     resizeObserver.observe(container);
     handleResize();
@@ -123,9 +120,7 @@ export const AudioParticleCanvas: React.FC<AudioParticleCanvasProps> = React.mem
 
     const render = (timestamp: number) => {
       if (width === 0 || height === 0) {
-        if (propsRef.current.isTuningActive) {
-          animFrameId = requestAnimationFrame(render);
-        }
+        animFrameId = requestAnimationFrame(render);
         return;
       }
 
@@ -298,17 +293,10 @@ export const AudioParticleCanvas: React.FC<AudioParticleCanvasProps> = React.mem
       });
 
       ctx.restore();
-
-      if (propsRef.current.isTuningActive) {
-        animFrameId = requestAnimationFrame(render);
-      }
+      animFrameId = requestAnimationFrame(render);
     };
 
-    if (isTuningActive) {
-      animFrameId = requestAnimationFrame(render);
-    } else {
-      render(performance.now());
-    }
+    animFrameId = requestAnimationFrame(render);
 
     return () => {
       if (animFrameId) {
@@ -316,7 +304,7 @@ export const AudioParticleCanvas: React.FC<AudioParticleCanvasProps> = React.mem
       }
       resizeObserver.disconnect();
     };
-  }, [isTuningActive]);
+  }, []);
 
   return (
     <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-hidden rounded-2xl">
