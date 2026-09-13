@@ -56,11 +56,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       const songCovers = SONGS_DATABASE.map(s => s.coverUrl).filter(Boolean);
       const appStaticAssets = [
         '/',
-        '/index.html',
         '/manifest.json',
-        '/src/main.tsx',
-        '/src/index.css',
-        '/src/App.tsx',
+        '/duck.png',
+        '/trollface.png',
         'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=192&q=80',
         ...songCovers
       ];
@@ -81,14 +79,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       setProgress(40);
       try {
         await Promise.allSettled([
+          import('../components/AfinadorView'),
           import('../components/PracticaView'),
           import('../components/ProgresoView'),
+          import('../components/StreakFlameView'),
           import('../components/LessonModal'),
           import('../components/VoiceEvalModal'),
           import('../components/VocalRangeModal'),
           import('../components/StoreModal'),
           import('../components/SettingsModal'),
-          import('../components/StreakFlameView')
+          import('../components/RecoveryExamModal'),
+          import('../components/UnitCelebrationModal'),
+          import('../components/InstallPwaModal')
         ]);
       } catch (e) {
         console.warn('[SplashScreen] Carga previa de módulos:', e);
@@ -125,13 +127,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       setProgress(90);
 
       try {
-        // Pre-warm Web Audio API context without playing sound
+        // Pre-warm Web Audio API context without playing sound or leaking context
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (AudioCtx) {
           const tempCtx = new AudioCtx();
           if (tempCtx.state === 'suspended') {
             tempCtx.resume().catch(() => {});
           }
+          setTimeout(() => {
+            try { tempCtx.close(); } catch {}
+          }, 500);
         }
       } catch {}
 

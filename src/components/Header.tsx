@@ -56,7 +56,7 @@ interface HeaderProps {
   onNavigateToPractice?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+const HeaderComponent: React.FC<HeaderProps> = ({
   userStats,
   darkMode = false,
   zenMode = false,
@@ -81,8 +81,10 @@ export const Header: React.FC<HeaderProps> = ({
   const [timeToNextLife, setTimeToNextLife] = useState(() => getTimeToNextLife(userStats));
 
   useEffect(() => {
-    if ((userStats.lives ?? MAX_LIVES) >= MAX_LIVES) {
-      setTimeToNextLife({ remainingMs: 0, formatted: '00:00' });
+    if (!isLivesModalOpen || (userStats.lives ?? MAX_LIVES) >= MAX_LIVES) {
+      if ((userStats.lives ?? MAX_LIVES) >= MAX_LIVES) {
+        setTimeToNextLife({ remainingMs: 0, formatted: '00:00' });
+      }
       return;
     }
     setTimeToNextLife(getTimeToNextLife(userStats));
@@ -90,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
       setTimeToNextLife(getTimeToNextLife(userStats));
     }, 1000);
     return () => clearInterval(interval);
-  }, [userStats]);
+  }, [isLivesModalOpen, userStats]);
 
   useEffect(() => {
     if (isStreakModalOpen) {
@@ -699,3 +701,6 @@ export const Header: React.FC<HeaderProps> = ({
     </>
   );
 };
+
+export const Header = React.memo(HeaderComponent);
+export default Header;

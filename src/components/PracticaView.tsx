@@ -18,7 +18,7 @@ import { emitStreakEligibleAction } from '../utils/streakPrompt';
 import { PolygraphCanvas, NoteData } from './practica/polygraph-canvas';
 import { useVocalRemover } from '../hooks/use-vocal-remover';
 import { Slider } from './ui/slider';
-import { getTimeToNextLife } from '../utils/livesEngine';
+import { getTimeToNextLife, MAX_LIVES } from '../utils/livesEngine';
 
 export interface CatalogTrack {
   id: string;
@@ -205,11 +205,13 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   );
 
   useEffect(() => {
+    if (!showNoLivesModal || (userStats.lives ?? MAX_LIVES) >= MAX_LIVES) return;
+    setTimeToNextLife(getTimeToNextLife(userStats));
     const timer = setInterval(() => {
       setTimeToNextLife(getTimeToNextLife(userStats));
     }, 1000);
     return () => clearInterval(timer);
-  }, [userStats]);
+  }, [showNoLivesModal, userStats]);
   // ─── Estado de Catálogo y Búsqueda ───
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<CatalogTrack[]>([]);

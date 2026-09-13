@@ -5,29 +5,48 @@ import { TabType, UserStats, Unit, LessonNode, DailyQuest, CompletedLessonEntry 
 import { INITIAL_USER_STATS, INITIAL_UNITS, INITIAL_QUESTS } from '../data/academyData';
 import { evaluateBadges } from '../utils/badgeHelper';
 import { audioService } from '../utils/audioService';
+import dynamic from 'next/dynamic';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { AcademiaView } from './AcademiaView';
-import { AfinadorView } from './AfinadorView';
-import { PracticaView } from './PracticaView';
-import { ProgresoView } from './ProgresoView';
-import { LessonModal } from './LessonModal';
-import { UnitCelebrationModal } from './UnitCelebrationModal';
-import { VoiceEvalModal } from './VoiceEvalModal';
-import { VocalRangeModal } from './VocalRangeModal';
-import { StoreModal } from './StoreModal';
-import { RecoveryExamModal } from './RecoveryExamModal';
-import { SettingsModal } from './SettingsModal';
-import { StreakFlameView } from './StreakFlameView';
+
+// Code-split dynamic views with pre-loading fallback
+const AfinadorView = dynamic(() => import('./AfinadorView').then(m => m.AfinadorView), {
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center p-8 text-neutral-400">Cargando Afinador...</div>
+});
+const PracticaView = dynamic(() => import('./PracticaView').then(m => m.PracticaView), {
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center p-8 text-neutral-400">Cargando Práctica...</div>
+});
+const ProgresoView = dynamic(() => import('./ProgresoView').then(m => m.ProgresoView), {
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center p-8 text-neutral-400">Cargando Progreso...</div>
+});
+const StreakFlameView = dynamic(() => import('./StreakFlameView').then(m => m.StreakFlameView), {
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center p-8 text-neutral-400">Cargando Racha...</div>
+});
+
+// Code-split dynamic modals (loaded on-demand or preheated by SplashScreen)
+const LessonModal = dynamic(() => import('./LessonModal').then(m => m.LessonModal), { ssr: false });
+const UnitCelebrationModal = dynamic(() => import('./UnitCelebrationModal').then(m => m.UnitCelebrationModal), { ssr: false });
+const VoiceEvalModal = dynamic(() => import('./VoiceEvalModal').then(m => m.VoiceEvalModal), { ssr: false });
+const VocalRangeModal = dynamic(() => import('./VocalRangeModal').then(m => m.VocalRangeModal), { ssr: false });
+const StoreModal = dynamic(() => import('./StoreModal').then(m => m.StoreModal), { ssr: false });
+const RecoveryExamModal = dynamic(() => import('./RecoveryExamModal').then(m => m.RecoveryExamModal), { ssr: false });
+const SettingsModal = dynamic(() => import('./SettingsModal').then(m => m.SettingsModal), { ssr: false });
+const InstallPwaModal = dynamic(() => import('./InstallPwaModal').then(m => m.InstallPwaModal), { ssr: false });
+
 import {
   calculatePassiveRecharge,
+  getTimeToNextLife,
   applyLifeDeduction,
   applyLifeAward,
   applyLifePurchase,
   MAX_LIVES
 } from '../utils/livesEngine';
 
-import { InstallPwaModal } from './InstallPwaModal';
 import { ZenOverlay } from './ZenOverlay';
 import { YouTubeAmbientPlayer } from './YouTubeAmbientPlayer';
 import { SplashScreen } from './SplashScreen';
@@ -742,11 +761,11 @@ export default function App() {
     );
   };
 
-  // Passive life recharge loop (1-second tick when lives < MAX_LIVES)
+  // Passive life recharge: targeted timeout + tab visibility listener (0% idle CPU)
   useEffect(() => {
     if ((userStats.lives ?? MAX_LIVES) >= MAX_LIVES) return;
 
-    const timer = setInterval(() => {
+    const checkAndRecharge = () => {
       setUserStats((prev) => {
         if ((prev.lives ?? MAX_LIVES) >= MAX_LIVES) return prev;
         const recharged = calculatePassiveRecharge(prev);
@@ -764,10 +783,30 @@ export default function App() {
         }
         return prev;
       });
-    }, 1000);
+    };
 
-    return () => clearInterval(timer);
-  }, [userStats.lives, addToast]);
+    // Check immediately in case recharge time passed while idle
+    checkAndRecharge();
+
+    // Schedule exact timeout until next life is due
+    const { remainingMs } = getTimeToNextLife(userStats);
+    const delay = Math.max(500, remainingMs + 100);
+
+    const timer = setTimeout(checkAndRecharge, delay);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndRecharge();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [userStats.lives, userStats.lastLifeLostAt, addToast]);
 
   // Centralized life management handlers
   const handleLoseLife = (source: 'academia' | 'tuner' | 'karaoke') => {
@@ -1128,10 +1167,12 @@ export default function App() {
       )}
 
       {/* YouTube Zen Audio Player (144p quality, hidden video) */}
-      <YouTubeAmbientPlayer
-        isPlaying={ambientSound}
-        onTogglePlay={handleToggleAmbientSound}
-      />
+      {ambientSound && (
+        <YouTubeAmbientPlayer
+          isPlaying={ambientSound}
+          onTogglePlay={handleToggleAmbientSound}
+        />
+      )}
 
       {/* Zen Mode Transition Overlay */}
       <ZenOverlay

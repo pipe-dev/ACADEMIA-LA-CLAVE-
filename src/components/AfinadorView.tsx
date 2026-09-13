@@ -278,11 +278,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   );
 
   useEffect(() => {
+    if ((userStats.lives ?? 1) > 0) return;
+    setTimeToNextLife(getTimeToNextLife(userStats));
     const timer = setInterval(() => {
       setTimeToNextLife(getTimeToNextLife(userStats));
     }, 1000);
     return () => clearInterval(timer);
-  }, [userStats]);
+  }, [userStats.lives, userStats.lastLifeLostAt]);
 
   // Turn off mic if lives reach 0
   useEffect(() => {

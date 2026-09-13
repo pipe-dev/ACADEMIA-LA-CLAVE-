@@ -102,12 +102,17 @@ export const AudioParticleCanvas: React.FC<AudioParticleCanvasProps> = React.mem
       const rect = container.getBoundingClientRect();
       width = rect.width;
       height = rect.height;
-      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.25);
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
     };
 
-    const resizeObserver = new ResizeObserver(() => handleResize());
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+      if (!propsRef.current.isTuningActive) {
+        render(performance.now());
+      }
+    });
     resizeObserver.observe(container);
     handleResize();
 
@@ -118,7 +123,9 @@ export const AudioParticleCanvas: React.FC<AudioParticleCanvasProps> = React.mem
 
     const render = (timestamp: number) => {
       if (width === 0 || height === 0) {
-        animFrameId = requestAnimationFrame(render);
+        if (propsRef.current.isTuningActive) {
+          animFrameId = requestAnimationFrame(render);
+        }
         return;
       }
 
@@ -292,16 +299,24 @@ export const AudioParticleCanvas: React.FC<AudioParticleCanvasProps> = React.mem
 
       ctx.restore();
 
-      animFrameId = requestAnimationFrame(render);
+      if (propsRef.current.isTuningActive) {
+        animFrameId = requestAnimationFrame(render);
+      }
     };
 
-    animFrameId = requestAnimationFrame(render);
+    if (isTuningActive) {
+      animFrameId = requestAnimationFrame(render);
+    } else {
+      render(performance.now());
+    }
 
     return () => {
-      cancelAnimationFrame(animFrameId);
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+      }
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [isTuningActive]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-hidden rounded-2xl">

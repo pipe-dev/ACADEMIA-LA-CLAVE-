@@ -22,7 +22,7 @@ interface AcademiaViewProps {
   onOpenStore?: () => void;
 }
 
-export const AcademiaView: React.FC<AcademiaViewProps> = ({
+const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
   userStats,
   units,
   onSelectNode,
@@ -62,12 +62,13 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
   const [timeToNextLife, setTimeToNextLife] = useState(() => getTimeToNextLife(userStats));
 
   useEffect(() => {
-    if ((userStats.lives ?? MAX_LIVES) >= MAX_LIVES) return;
+    if (!showNoLivesModal || (userStats.lives ?? MAX_LIVES) >= MAX_LIVES) return;
+    setTimeToNextLife(getTimeToNextLife(userStats));
     const timer = setInterval(() => {
       setTimeToNextLife(getTimeToNextLife(userStats));
     }, 1000);
     return () => clearInterval(timer);
-  }, [userStats]);
+  }, [showNoLivesModal, userStats]);
 
   // Interactive carousel card messages
   const [currentMsgIndex, setCurrentMsgIndex] = useState<number>(0);
@@ -806,4 +807,7 @@ export const AcademiaView: React.FC<AcademiaViewProps> = ({
     </div>
   );
 };
+
+export const AcademiaView = React.memo(AcademiaViewComponent);
+export default AcademiaView;
 

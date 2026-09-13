@@ -1,5 +1,6 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { subscribeMicActive, isMicActiveGlobal } from '../utils/micEvents';
 
 interface YouTubeAmbientPlayerProps {
   isPlaying: boolean;
@@ -17,10 +18,91 @@ export const YouTubeAmbientPlayer: React.FC<YouTubeAmbientPlayerProps> = ({ isPl
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [playerReady, setPlayerReady] = useState<boolean>(false);
+  const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentVolumeRef = useRef<number>(50);
+  const isDuckedByMicRef = useRef<boolean>(false);
+  const isPlayingRef = useRef<boolean>(isPlaying);
+
+  const [hasActivated, setHasActivated] = useState<boolean>(isPlaying);
+
+  useEffect(() => {
+    if (isPlaying && !hasActivated) {
+      setHasActivated(true);
+    }
+  }, [isPlaying, hasActivated]);
+
+  // Keep isPlayingRef updated
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  const clearFadeInterval = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+  };
+
+  const fadeOutAndPause = useCallback(() => {
+    clearFadeInterval();
+    if (!playerRef.current) return;
+
+    fadeIntervalRef.current = setInterval(() => {
+      currentVolumeRef.current = Math.max(0, currentVolumeRef.current - 4);
+      try {
+        playerRef.current?.setVolume?.(currentVolumeRef.current);
+      } catch {
+        // Ignore
+      }
+
+      if (currentVolumeRef.current <= 0) {
+        clearFadeInterval();
+        try {
+          playerRef.current?.pauseVideo?.();
+        } catch {
+          // Ignore
+        }
+      }
+    }, 25);
+  }, []);
+
+  const resumeAndFadeIn = useCallback(() => {
+    clearFadeInterval();
+    if (!playerRef.current) return;
+
+    try {
+      playerRef.current?.setVolume?.(0);
+      currentVolumeRef.current = 0;
+      playerRef.current?.playVideo?.();
+    } catch {
+      // Ignore
+    }
+
+    fadeIntervalRef.current = setInterval(() => {
+      currentVolumeRef.current = Math.min(50, currentVolumeRef.current + 3);
+      try {
+        playerRef.current?.setVolume?.(currentVolumeRef.current);
+      } catch {
+        // Ignore
+      }
+
+      if (currentVolumeRef.current >= 50) {
+        clearFadeInterval();
+        try {
+          playerRef.current?.setVolume?.(50);
+        } catch {
+          // Ignore
+        }
+        currentVolumeRef.current = 50;
+      }
+    }, 25);
+  }, []);
 
   const videoId = 'UfcAVejslrU';
 
   useEffect(() => {
+    if (!hasActivated) return;
+
     // Load YouTube Iframe API if not already present
     if (!window.YT) {
       const tag = document.createElement('script');
@@ -41,7 +123,7 @@ export const YouTubeAmbientPlayer: React.FC<YouTubeAmbientPlayerProps> = ({ isPl
             width: '1',
             videoId: videoId,
             playerVars: {
-              autoplay: isPlaying ? 1 : 0,
+              autoplay: isPlaying && !isMicActiveGlobal() ? 1 : 0,
               loop: 1,
               playlist: videoId,
               controls: 0,
@@ -61,11 +143,16 @@ export const YouTubeAmbientPlayer: React.FC<YouTubeAmbientPlayerProps> = ({ isPl
                   event.target.setVolume(50); // Default volume 50%
                 }
                 if (isPlaying) {
-                  event.target.playVideo();
+                  if (isMicActiveGlobal()) {
+                    isDuckedByMicRef.current = true;
+                    // Don't start video while mic is active
+                  } else {
+                    event.target.playVideo();
+                  }
                 }
               },
               onStateChange: (event: any) => {
-                if (event.data === window.YT?.PlayerState?.ENDED && isPlaying) {
+                if (event.data === window.YT?.PlayerState?.ENDED && isPlayingRef.current && !isDuckedByMicRef.current) {
                   event.target.playVideo();
                 }
               }
@@ -88,6 +175,7 @@ export const YouTubeAmbientPlayer: React.FC<YouTubeAmbientPlayerProps> = ({ isPl
     }
 
     return () => {
+      clearFadeInterval();
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
         try {
           playerRef.current.destroy();
@@ -97,27 +185,63 @@ export const YouTubeAmbientPlayer: React.FC<YouTubeAmbientPlayerProps> = ({ isPl
         playerRef.current = null;
       }
     };
-  }, []);
+  }, [hasActivated]);
+
+  // Subscribe to microphone active/inactive broadcaster
+  useEffect(() => {
+    const unsubscribe = subscribeMicActive((isMicActive) => {
+      if (isMicActive) {
+        // Microphone turned ON: smooth fade out ambient music to not disrupt pitch detection
+        if (isPlayingRef.current) {
+          isDuckedByMicRef.current = true;
+          fadeOutAndPause();
+        }
+      } else {
+        // Microphone turned OFF: resume ambient music with smooth fade in
+        if (isDuckedByMicRef.current && isPlayingRef.current) {
+          isDuckedByMicRef.current = false;
+          resumeAndFadeIn();
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [fadeOutAndPause, resumeAndFadeIn]);
 
   // Sync playback state with isPlaying prop
   useEffect(() => {
-    if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-      if (isPlaying) {
+    if (!playerRef.current || typeof playerRef.current.playVideo !== 'function') return;
+
+    if (isPlaying) {
+      if (isMicActiveGlobal()) {
+        isDuckedByMicRef.current = true;
+      } else {
+        isDuckedByMicRef.current = false;
         try {
           playerRef.current.setPlaybackQuality?.('small');
+          currentVolumeRef.current = 50;
+          playerRef.current.setVolume?.(50);
           playerRef.current.playVideo();
         } catch {
           // Ignore
         }
-      } else {
-        try {
-          playerRef.current.pauseVideo();
-        } catch {
-          // Ignore
-        }
+      }
+    } else {
+      clearFadeInterval();
+      isDuckedByMicRef.current = false;
+      try {
+        playerRef.current.pauseVideo();
+      } catch {
+        // Ignore
       }
     }
   }, [isPlaying]);
+
+  if (!hasActivated) {
+    return null;
+  }
 
   return (
     <div 
@@ -126,8 +250,8 @@ export const YouTubeAmbientPlayer: React.FC<YouTubeAmbientPlayerProps> = ({ isPl
       aria-hidden="true"
     >
       <div id="yt-ambient-audio-frame" />
-      {/* Fallback iframe player for instant autoplay if YT API is loading */}
-      {isPlaying && !playerReady && (
+      {/* Fallback iframe player for instant autoplay if YT API is loading and mic is not active */}
+      {isPlaying && !playerReady && !isMicActiveGlobal() && (
         <iframe
           width="1"
           height="1"
