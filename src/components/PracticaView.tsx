@@ -296,6 +296,12 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const hitFramesCountRef = useRef<number>(0);
   const missFramesCountRef = useRef<number>(0);
   const maxComboRef = useRef<number>(0);
+  const hasCompletedRef = useRef<boolean>(false);
+  const scoreRef = useRef<number>(0);
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
 
   // Cita motivacional aleatoria fija por pista
   const currentFallbackLyric = useMemo(() => {
@@ -453,6 +459,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     setSelectedTrack(track);
     setStageImageFailed(false);
     setIsFinished(false);
+    hasCompletedRef.current = false;
     setIsPlaybackMode(false);
     setScore(0);
     setComboCount(0);
@@ -567,6 +574,79 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     }
   };
 
+  // ─── Fin de Canción y Celebración Automática ───
+  const handleSongCompleted = useCallback(() => {
+    if (hasCompletedRef.current) return;
+    hasCompletedRef.current = true;
+
+    setIsPlaying(false);
+    setIsFinished(true);
+    stopPitchDetection();
+
+    if (!useYtFallback && vocalRemover.isReady) {
+      vocalRemover.pause();
+    } else if (playerRef.current) {
+      try {
+        playerRef.current.pauseVideo();
+      } catch {}
+    }
+
+    const finalScore = scoreRef.current;
+    const stars = finalScore >= 3000 ? 5 : finalScore >= 1800 ? 4 : finalScore >= 900 ? 3 : finalScore >= 300 ? 2 : 1;
+    setEarnedStars(stars);
+
+    // Reglas de Vidas:
+    // Exención estricta de canción de cortesía o reproducción de grabación propia
+    if (isCourtesySongActive || isPlaybackMode) {
+      // No modifica vidas
+    } else {
+      if (stars <= 2) {
+        if (onLoseLife) {
+          onLoseLife('karaoke');
+        }
+      } else if (stars === 5) {
+        if (onGainLife) {
+          onGainLife();
+        }
+      }
+    }
+
+    // Confeti triunfal
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#4648d4', '#10b981', '#fbbf24', '#ec4899']
+      });
+    } catch {}
+
+    // Guardar en base de datos IndexedDB
+    if (selectedTrack) {
+      saveKaraokeScore({
+        videoId: activeVideoId,
+        trackName: selectedTrack.title,
+        artistName: selectedTrack.artist,
+        score: finalScore,
+        stars,
+        date: Date.now()
+      }).catch(err => console.error('Error guardando en historial:', err));
+    }
+
+    // Disparar racha diaria
+    emitStreakEligibleAction();
+  }, [
+    useYtFallback,
+    vocalRemover,
+    isCourtesySongActive,
+    isPlaybackMode,
+    onLoseLife,
+    onGainLife,
+    selectedTrack,
+    activeVideoId,
+    stopPitchDetection
+  ]);
+
   // ─── Bucle de Tiempo a 60 FPS con requestAnimationFrame ───
   const updatePlaybackTime = useCallback(() => {
     let t = 0;
@@ -587,10 +667,17 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       }
     }
 
+    // Finalización automática preventiva: si el audio llega al final (a menos de 0.25s) y aún no se ha disparado el modal
+    const trackDur = !useYtFallback ? vocalRemover.duration : duration;
+    if (isPlaying && !hasCompletedRef.current && trackDur > 5 && t >= trackDur - 0.25) {
+      handleSongCompleted();
+      return;
+    }
+
     if (isPlaying) {
       rafRef.current = requestAnimationFrame(updatePlaybackTime);
     }
-  }, [isPlaying, isPlaybackMode, useYtFallback, vocalRemover]);
+  }, [isPlaying, isPlaybackMode, useYtFallback, vocalRemover, duration, handleSongCompleted]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -619,11 +706,12 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     }
   }, [useYtFallback, vocalRemover.duration]);
 
+  // Disparo automático inmediato al terminar la canción en Web Audio
   useEffect(() => {
-    if (!useYtFallback && vocalRemover.isFinished && isPlaying) {
+    if (!useYtFallback && vocalRemover.isFinished && !isFinished) {
       handleSongCompleted();
     }
-  }, [useYtFallback, vocalRemover.isFinished, isPlaying]);
+  }, [useYtFallback, vocalRemover.isFinished, isFinished, handleSongCompleted]);
 
   useEffect(() => {
     if (vocalRemover.error && !useYtFallback) {
@@ -707,58 +795,6 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     }
   };
 
-  // ─── Fin de Canción y Celebración ───
-  const handleSongCompleted = () => {
-    setIsPlaying(false);
-    setIsFinished(true);
-    stopPitchDetection();
-
-    const finalScore = score;
-    const stars = finalScore >= 3000 ? 5 : finalScore >= 1800 ? 4 : finalScore >= 900 ? 3 : finalScore >= 300 ? 2 : 1;
-    setEarnedStars(stars);
-
-    // Reglas de Vidas:
-    // Exención estricta de canción de cortesía:
-    // "si el usuario canta muy bien su ultima canción de cortesia y se saca 5 estrellas no pasa nada, no recupera vidas ya que solo era de cortesia"
-    if (isCourtesySongActive) {
-      // No gana vidas aunque obtenga 5 estrellas
-    } else {
-      if (stars <= 2) {
-        if (onLoseLife) {
-          onLoseLife('karaoke');
-        }
-      } else if (stars === 5) {
-        if (onGainLife) {
-          onGainLife();
-        }
-      }
-    }
-
-    // Confeti triunfal
-    try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#4648d4', '#10b981', '#fbbf24', '#ec4899']
-      });
-    } catch {}
-
-    // Guardar en base de datos IndexedDB
-    if (selectedTrack) {
-      saveKaraokeScore({
-        videoId: activeVideoId,
-        trackName: selectedTrack.title,
-        artistName: selectedTrack.artist,
-        score: finalScore,
-        stars,
-        date: Date.now()
-      }).catch(err => console.error('Error guardando en historial:', err));
-    }
-
-    // Disparar racha diaria
-    emitStreakEligibleAction();
-  };
 
   // ─── Controles de Reproducción Unificados ───
   const togglePlay = async () => {
@@ -919,6 +955,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     hitFramesCountRef.current = 0;
     missFramesCountRef.current = 0;
     maxComboRef.current = 0;
+    hasCompletedRef.current = false;
     setIsFinished(false);
     setAutoplayBlocked(false);
     setUseYtFallback(false);
@@ -928,6 +965,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const handlePlayRecording = () => {
     audioService.playClickSound();
     setIsPlaybackMode(true);
+    hasCompletedRef.current = false;
     setIsFinished(false);
     if (!useYtFallback) {
       vocalRemover.setTime(0);
@@ -1647,6 +1685,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
                 {(userStats.lives ?? 1) > 0 ? (
                   <button
                     onClick={() => {
+                      hasCompletedRef.current = false;
                       setIsFinished(false);
                       setScore(0);
                       setComboCount(0);
@@ -1680,6 +1719,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
                       <button
                         onClick={() => {
                           audioService.playClickSound();
+                          hasCompletedRef.current = false;
                           setIsFinished(false);
                           handleExitToCatalog();
                           onOpenRecoveryExam();
@@ -1694,6 +1734,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
                       <button
                         onClick={() => {
                           audioService.playClickSound();
+                          hasCompletedRef.current = false;
                           setIsFinished(false);
                           handleExitToCatalog();
                           onOpenStore();
