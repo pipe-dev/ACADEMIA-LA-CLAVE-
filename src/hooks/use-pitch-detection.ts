@@ -3,6 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useToast } from "./use-toast";
+import { emitMicActive } from "@/utils/micEvents";
 
 type Note = {
   name: string;
@@ -135,11 +136,28 @@ export const usePitchDetection = () => {
   const lastStateUpdateTime = useRef<number>(0);
 
   const bufferRef = useRef<Float32Array | null>(null);
+  const isMicEmittedRef = useRef<boolean>(false);
 
   const start = useCallback(async () => {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
+        // Desactivar echoCancellation, noiseSuppression y autoGainControl evita que iOS/Android
+        // conmuten el audio a modo 'VoiceChat/Llamada', bloqueen el control de volumen multimedia,
+        // bajen la calidad a mono 16kHz o silencien la música de fondo del karaoke.
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            },
+            video: false
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
         streamRef.current = stream;
         
         const context = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -191,6 +209,10 @@ export const usePitchDetection = () => {
         setSmoothedCentsOff(0);
         setRms(0);
         setIsDetecting(true);
+        if (!isMicEmittedRef.current) {
+          isMicEmittedRef.current = true;
+          emitMicActive(true);
+        }
       } else {
         throw new Error("getUserMedia not supported on your browser!");
       }
@@ -226,6 +248,11 @@ export const usePitchDetection = () => {
       audioContextRef.current = null;
     }
     
+    if (isMicEmittedRef.current) {
+      isMicEmittedRef.current = false;
+      emitMicActive(false);
+    }
+
     setIsDetecting(false);
     setFrequency(0);
     setNote(EMPTY_NOTE);

@@ -932,7 +932,22 @@ class AudioService {
         return false;
       }
 
-      this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      // Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
+      // Desactivar echoCancellation, noiseSuppression y autoGainControl evita que iOS/Android
+      // conmuten el audio a modo 'VoiceChat/Llamada', bloqueen el control de volumen multimedia,
+      // bajen la calidad a mono 16kHz o silencien la música de fondo del karaoke.
+      try {
+        this.micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          },
+          video: false
+        });
+      } catch {
+        this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      }
       const source = this.ctx.createMediaStreamSource(this.micStream);
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 2048;

@@ -357,10 +357,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   // Tension context in Tug-of-War level mode
   const isLevelTension = tunerMode === 'niveles' && selectedDifficulty !== 'Calentamiento';
-  const isDangerZone = isLevelTension && tugOfWarProgress <= 30;
-  const isVictoryZone = isLevelTension && tugOfWarProgress >= 75;
-
-  // Visual sphere colors and badge styling
+  // Visual sphere colors and badge styling (pure minimalist, zero emojis)
   let sphereStyle = zenMode
     ? 'bg-[#22252a] text-[#f0ebe1] border-2 border-[#e5b83b] shadow-[0_0_20px_rgba(229,184,59,0.25)] scale-100 ring-0'
     : 'bg-[#4648d4] dark:bg-[#5356e8] shadow-[#4648d4]/40 scale-100 ring-0';
@@ -369,7 +366,6 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     : 'border-slate-200/80 dark:border-slate-700';
   let statusTextColor = zenMode ? 'text-[#f0ebe1]' : 'text-slate-800 dark:text-slate-200';
   let statusIcon = <Sparkles className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500 dark:text-indigo-400'} animate-pulse`} />;
-  let displayStatusMsg = tuningStatusMsg;
 
   if (isPitchMatched) {
     sphereStyle = zenMode
@@ -379,56 +375,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
       ? 'border-[#e5b83b] bg-[#e5b83b]/20'
       : 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/90 dark:bg-emerald-950/90';
     statusTextColor = zenMode ? 'text-[#e5b83b]' : 'text-emerald-800 dark:text-emerald-200';
-    statusIcon = isVictoryZone
-      ? <Trophy className="w-4 h-4 text-amber-500 fill-amber-400 animate-bounce" />
-      : <CheckCircle2 className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'} animate-bounce`} />;
-
-    if (isVictoryZone) {
-      displayStatusMsg = '¡AFINACIÓN PERFECTA! • ¡Victoria casi lista! 🏆';
-    } else if (isDangerZone) {
-      displayStatusMsg = '¡AFINACIÓN PERFECTA! • Recuperando ⚡';
-    } else {
-      displayStatusMsg = '¡AFINACIÓN PERFECTA!';
-    }
-  } else if (isDangerZone) {
-    // Alerta de peligro directo en la píldora inferior
-    sphereStyle = zenMode
-      ? 'bg-[#2a2d34] text-[#ded9cf] border-2 border-rose-500/60 shadow-[0_0_20px_rgba(244,63,94,0.4)] scale-100 ring-2 ring-rose-500/40 animate-pulse'
-      : 'bg-rose-600 dark:bg-rose-600 shadow-[0_0_30px_rgba(225,29,72,0.85)] scale-100 ring-4 ring-rose-300 dark:ring-rose-500/80 animate-pulse';
-    badgeBorderColor = zenMode
-      ? 'border-rose-500/60 bg-rose-950/40'
-      : 'border-rose-400 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/90 shadow-sm shadow-rose-500/20';
-    statusTextColor = zenMode ? 'text-rose-400' : 'text-rose-700 dark:text-rose-300';
-    statusIcon = <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 animate-pulse" />;
-
-    if (centsOff !== null) {
-      if (centsOff < 0) {
-        displayStatusMsg = '¡Peligro: -1 Vida! Sube el tono ↑';
-      } else {
-        displayStatusMsg = '¡Peligro: -1 Vida! Baja el tono ↓';
-      }
-    } else {
-      displayStatusMsg = '¡Peligro: -1 Vida! Corrige el tono';
-    }
-  } else if (isVictoryZone) {
-    // Indicador de victoria cercana en la píldora inferior
-    badgeBorderColor = zenMode
-      ? 'border-[#e5b83b] bg-[#e5b83b]/20'
-      : 'border-emerald-400 dark:border-emerald-700 bg-emerald-50/90 dark:bg-emerald-950/90 shadow-sm shadow-emerald-500/20';
-    statusTextColor = zenMode ? 'text-[#e5b83b]' : 'text-emerald-800 dark:text-emerald-200';
-    statusIcon = <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-400 animate-bounce" />;
-
-    if (centsOff !== null) {
-      if (centsOff < -toleranceCents) {
-        displayStatusMsg = '🏆 ¡Casi listo! Sube un poco ↑';
-      } else if (centsOff > toleranceCents) {
-        displayStatusMsg = '🏆 ¡Casi listo! Baja un poco ↓';
-      } else {
-        displayStatusMsg = '🏆 ¡Casi listo! Mantén la afinación';
-      }
-    } else {
-      displayStatusMsg = '🏆 ¡Casi listo! Mantén la afinación';
-    }
+    statusIcon = <CheckCircle2 className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'} animate-bounce`} />;
   } else if (absCents !== null) {
     if (absCents <= nearMissCents) {
       sphereStyle = zenMode
@@ -1419,9 +1366,9 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
                 {/* State Badge */}
                 {isTuningActive ? (
-                  <div className={`mt-5 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-extrabold shadow-md border transition-all duration-300 ${badgeBorderColor} ${statusTextColor} ${isDangerZone ? 'animate-pulse' : ''}`}>
+                  <div className={`mt-5 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-extrabold shadow-md border transition-all duration-300 ${badgeBorderColor} ${statusTextColor}`}>
                     {statusIcon}
-                    <span>{displayStatusMsg}</span>
+                    <span>{tuningStatusMsg}</span>
                   </div>
                 ) : (
                   <button
