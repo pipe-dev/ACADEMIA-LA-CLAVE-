@@ -15,6 +15,7 @@ export function useVocalRemover(initialVideoId?: string) {
   const vocalGainRef = useRef<GainNode | null>(null);
   const bassGainRef = useRef<GainNode | null>(null);
   const airGainRef = useRef<GainNode | null>(null);
+  const sideGainRRef = useRef<GainNode | null>(null);
   const bassFilterRef = useRef<BiquadFilterNode | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
 
@@ -167,6 +168,18 @@ export function useVocalRemover(initialVideoId?: string) {
       }
     }
 
+    // 4. Rotación de polaridad adaptativa mono-compatible en el canal R:
+    // A vocal = 0 -> +1.0 (en fase con L; elimina 100% la cancelación destructiva en celulares y altavoces mono)
+    // A vocal = 1 -> -1.0 (restituye la matriz estéreo original L/R completa)
+    if (sideGainRRef.current) {
+      const targetSidePhaseR = 1.0 - 2.0 * clampedVocal;
+      if (ctx) {
+        sideGainRRef.current.gain.setTargetAtTime(targetSidePhaseR, now, 0.015);
+      } else {
+        sideGainRRef.current.gain.value = targetSidePhaseR;
+      }
+    }
+
     // Reset suave de filtros si se elige voz completa
     if (clampedVocal >= 0.90 && corridorFilterRef.current && notchFilterRef.current) {
       if (ctx) {
@@ -194,6 +207,7 @@ export function useVocalRemover(initialVideoId?: string) {
     vocalGainRef.current = null;
     bassGainRef.current = null;
     airGainRef.current = null;
+    sideGainRRef.current = null;
     bassFilterRef.current = null;
     masterGainRef.current = null;
     setIsPlaying(false);
@@ -268,16 +282,16 @@ export function useVocalRemover(initialVideoId?: string) {
 
       // ─── 2. Matriz Side: L_side = 0.5*(L - R) ───
       // Instrumentos y arreglos estéreo laterales
-      const sideGainL = ctx.createGain();
-      const sideGainR = ctx.createGain();
-      sideGainL.gain.value = 0.5;
-      sideGainR.gain.value = -0.5;
+      const sideSplitterL = ctx.createGain();
+      const sideSplitterR = ctx.createGain();
+      sideSplitterL.gain.value = 0.5;
+      sideSplitterR.gain.value = -0.5;
 
       const sidePreBus = ctx.createGain();
-      splitter.connect(sideGainL, 0);
-      splitter.connect(sideGainR, 1);
-      sideGainL.connect(sidePreBus);
-      sideGainR.connect(sidePreBus);
+      splitter.connect(sideSplitterL, 0);
+      splitter.connect(sideSplitterR, 1);
+      sideSplitterL.connect(sidePreBus);
+      sideSplitterR.connect(sidePreBus);
 
       // ─── 2.1 Supresión Dinámica A + C en el Canal Side ───
       // Filtro C: Corredor vocal adaptativo (peaking amplio en 1400 Hz)
@@ -301,15 +315,20 @@ export function useVocalRemover(initialVideoId?: string) {
       corridorFilter.connect(notchFilter);
       const sideFilteredBus = notchFilter;
 
-      // Generar L_side y R_side en fase estéreo correcta
+      // Generar L_side y R_side en matriz mono-compatible adaptativa
       const sideBusL = ctx.createGain();
       sideFilteredBus.connect(sideBusL);
 
-      const sideInvert = ctx.createGain();
-      sideInvert.gain.value = -1.0;
+      // En R_side modulamos la fase adaptativa:
+      // Cuando vocalLevel = 0: Ganancia +1.0 (en fase con L; elimina al 100% la anulación destructiva en teléfonos y altavoces mono)
+      // Cuando vocalLevel = 1: Ganancia -1.0 (matriz estéreo M/S original completa)
+      const sidePhaseR = ctx.createGain();
+      sidePhaseR.gain.value = 1.0 - 2.0 * initialVocalLevel;
+      sideGainRRef.current = sidePhaseR;
+
       const sideBusR = ctx.createGain();
-      sideFilteredBus.connect(sideInvert);
-      sideInvert.connect(sideBusR);
+      sideFilteredBus.connect(sidePhaseR);
+      sidePhaseR.connect(sideBusR);
 
       // ─── 3. Crossover de Bombo & Bajo (Kick Drum & Bass Preservation) ───
       // < 200 Hz mantiene sub-bajo y bombo sin filtrar cuerpo pectoral de la voz
@@ -382,6 +401,8 @@ export function useVocalRemover(initialVideoId?: string) {
         }
       });
       audio.addEventListener('canplay', () => setIsReady(true));
+      audio.addEventListener('canplaythrough', () => setIsReady(true));
+      audio.addEventListener('loadeddata', () => setIsReady(true));
       audio.addEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
       audio.addEventListener('play', () => {
         setIsPlaying(true);
@@ -398,6 +419,12 @@ export function useVocalRemover(initialVideoId?: string) {
         stopDspLoop();
       });
       audio.addEventListener('error', () => {
+        const mediaErr = audio.error;
+        console.error('Error en elemento Audio Web Audio:', {
+          code: mediaErr?.code,
+          message: mediaErr?.message,
+          src: audio.src
+        });
         setError('No se pudo transmitir el audio sin procesar; conmutando al reproductor alternativo.');
       });
       

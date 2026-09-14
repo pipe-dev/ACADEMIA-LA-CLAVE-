@@ -803,7 +803,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       setAutoplayBlocked(false);
     }
 
-    if (!useYtFallback && vocalRemover.isReady) {
+    if (!useYtFallback) {
       if (vocalRemover.isPlaying) {
         vocalRemover.pause();
         setIsPlaying(false);
@@ -815,6 +815,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         const started = await vocalRemover.play();
         if (started) {
           setIsPlaying(true);
+          setAutoplayBlocked(false);
           if (isMicEnabled && !isDetecting && !isPlaybackMode) {
             startPitchDetection();
           }

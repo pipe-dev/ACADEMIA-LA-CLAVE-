@@ -1,55 +1,160 @@
 import { NextResponse } from 'next/server';
+import { execFile } from 'child_process';
+import https from 'https';
+import fs from 'fs';
+import { Readable } from 'stream';
+
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+// Caché en memoria para enlaces de streaming directos (evita re-extracción en seek o replay)
+const audioUrlCache = new Map<string, { url: string; expire: number }>();
+
+function getAudioUrl(videoId: string): Promise<string> {
+  const cached = audioUrlCache.get(videoId);
+  if (cached && cached.expire > Date.now()) {
+    return Promise.resolve(cached.url);
+  }
+
+  return new Promise((resolve, reject) => {
+    const pythonExe = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python';
+    const args = [
+      '-m', 'yt_dlp',
+      '--js-runtimes', 'node:node',
+      '-g',
+      '-f', '140/ba[ext=m4a]/ba[acodec^=mp4a]/ba/b',
+      '--no-warnings',
+      `https://www.youtube.com/watch?v=${videoId}`
+    ];
+
+    execFile(pythonExe, args, { timeout: 25000 }, (error, stdout) => {
+      if (error) {
+        // Intento de respaldo sin el flag de js-runtimes por si acaso
+        const fallbackArgs = [
+          '-m', 'yt_dlp',
+          '-g',
+          '-f', '140/ba[ext=m4a]/ba[acodec^=mp4a]/ba/b',
+          '--no-warnings',
+          `https://www.youtube.com/watch?v=${videoId}`
+        ];
+        execFile(pythonExe, fallbackArgs, { timeout: 25000 }, (fbErr, fbStdout) => {
+          if (fbErr) return reject(fbErr);
+          const lines = fbStdout.trim().split('\n');
+          const url = lines[lines.length - 1]?.trim();
+          if (!url || !url.startsWith('http')) {
+            return reject(new Error('No valid direct audio URL extracted in fallback'));
+          }
+          audioUrlCache.set(videoId, { url, expire: Date.now() + 2 * 3600 * 1000 });
+          resolve(url);
+        });
+        return;
+      }
+      const lines = stdout.trim().split('\n');
+      const url = lines[lines.length - 1]?.trim();
+      if (!url || !url.startsWith('http')) {
+        return reject(new Error('No valid direct audio URL extracted'));
+      }
+      // Cachear por 2 horas (los tokens de googlevideo suelen durar ~6 horas)
+      audioUrlCache.set(videoId, { url, expire: Date.now() + 2 * 3600 * 1000 });
+      resolve(url);
+    });
+  });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS, HEAD',
+      'Access-Control-Allow-Headers': 'Range, Content-Type, Accept',
+      'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+    }
+  });
+}
+
+export async function HEAD(req: Request) {
+  return GET(req);
+}
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const videoId = searchParams.get('videoId');
-    if (!videoId) return new NextResponse("Missing videoId", { status: 400 });
-
-    const instances = ["https://yewtu.be", "https://vid.puffyan.us", "https://invidious.flokinet.to"];
-    let audioUrl = null;
-
-    for (const instance of instances) {
-      try {
-        const res = await fetch(`${instance}/api/v1/videos/${videoId}`, { 
-          headers: { 'User-Agent': 'Mozilla/5.0' } 
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const formats = data.adaptiveFormats || [];
-          const audioFormats = formats.filter((f: any) => f.type?.startsWith('audio/'));
-          if (audioFormats.length > 0) {
-            audioFormats.sort((a: any, b: any) => parseInt(b.bitrate || '0') - parseInt(a.bitrate || '0'));
-            audioUrl = audioFormats[0].url;
-            break;
-          }
-        }
-      } catch (e) { continue; }
+    if (!videoId) {
+      return new NextResponse("Missing videoId", { status: 400 });
     }
 
-    if (!audioUrl) {
-      return new NextResponse("Could not fetch audio metadata from proxies", { status: 500 });
-    }
+    const audioUrl = await getAudioUrl(videoId);
+    const rangeHeader = req.headers.get('range');
 
-    // Now proxy the audio stream
-    const audioRes = await fetch(audioUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0'
+    return new Promise<NextResponse>((resolve) => {
+      const headers: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      };
+      if (rangeHeader) {
+        headers['Range'] = rangeHeader;
       }
-    });
 
-    if (!audioRes.ok) {
-      return new NextResponse("Failed to proxy audio stream", { status: audioRes.status });
-    }
+      const clientReq = https.get(audioUrl, {
+        headers,
+        rejectUnauthorized: false
+      }, (upstreamRes) => {
+        // Si el enlace de GoogleVideo expiró (403), purgamos la caché
+        if (upstreamRes.statusCode === 403) {
+          audioUrlCache.delete(videoId);
+        }
 
-    const headers = new Headers(audioRes.headers);
-    headers.set('Access-Control-Allow-Origin', '*');
+        const responseHeaders = new Headers();
+        responseHeaders.set('Access-Control-Allow-Origin', '*');
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+        responseHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+        responseHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+        responseHeaders.set('Accept-Ranges', 'bytes');
 
-    return new NextResponse(audioRes.body, {
-      status: audioRes.status,
-      headers: headers
+        const ct = upstreamRes.headers['content-type'] || 'audio/mp4';
+        responseHeaders.set('Content-Type', ct);
+
+        const cl = upstreamRes.headers['content-length'];
+        if (cl) responseHeaders.set('Content-Length', cl);
+
+        const cr = upstreamRes.headers['content-range'];
+        if (cr) responseHeaders.set('Content-Range', cr);
+
+        if (req.method === 'HEAD') {
+          resolve(new NextResponse(null, {
+            status: upstreamRes.statusCode || 200,
+            headers: responseHeaders
+          }));
+          return;
+        }
+
+        const webStream = Readable.toWeb(upstreamRes) as ReadableStream;
+        resolve(new NextResponse(webStream, {
+          status: upstreamRes.statusCode || 200,
+          headers: responseHeaders
+        }));
+      });
+
+      clientReq.on('error', (err) => {
+        resolve(new NextResponse(err.message || 'Stream error', { 
+          status: 502, 
+          headers: { 
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS, HEAD',
+            'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+          } 
+        }));
+      });
     });
   } catch (error: any) {
-    return new NextResponse(error.message, { status: 500 });
+    console.error("Error in /api/yt-audio:", error);
+    return new NextResponse(error.message || "Error extracting audio", { 
+      status: 500, 
+      headers: { 
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS, HEAD',
+        'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+      } 
+    });
   }
 }
