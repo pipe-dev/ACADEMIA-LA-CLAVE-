@@ -4,7 +4,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, Heart } from 'lucide-react';
 
-export function calculateAuraDashOffset(progress: number, radius: number = 68): number {
+export function calculateAuraDashOffset(progress: number, radius: number = 52): number {
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, progress));
   return circumference - (clamped / 100) * circumference;
@@ -34,135 +34,89 @@ export const AuraShieldRing: React.FC<AuraShieldRingProps> = ({
   showBadges = true,
   children
 }) => {
-  const radius = 68;
-  const circumference = 2 * Math.PI * radius; // ~427.25
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius; // ~326.73
   const strokeDashoffset = calculateAuraDashOffset(progress, radius);
   const { showVictory, showDanger } = getBadgeVisibility(progress);
 
-  const isHighTension = progress >= 50;
   const isCritical = progress <= 20;
-
-  // Calculate comet tip angle and coordinates (starts at 12 o'clock, rotates clockwise)
-  const tipAngleDeg = -90 + (Math.max(0, Math.min(100, progress)) / 100) * 360;
-  const tipAngleRad = (tipAngleDeg * Math.PI) / 180;
-  const tipX = 88 + radius * Math.cos(tipAngleRad);
-  const tipY = 88 + radius * Math.sin(tipAngleRad);
 
   return (
     <div className="relative inline-flex items-center justify-center">
-      {/* ─── SVG Concentric Aura Ring ─── */}
+      {/* ─── Ultra-Sleek Sci-Fi Neon Ring ─── */}
       <svg
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10 w-[176px] h-[176px] overflow-visible"
-        viewBox="0 0 176 176"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10 w-[132px] h-[132px] overflow-visible"
+        viewBox="0 0 132 132"
       >
         <defs>
-          <linearGradient id="aura-emerald-grad" gradientUnits="userSpaceOnUse" x1="88" y1="20" x2="88" y2="156">
-            <stop offset="0%" stopColor="#10b981" />
+          <linearGradient id="aura-victory-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#10b981" />
+          </linearGradient>
+          <linearGradient id="aura-active-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6366f1" />
             <stop offset="100%" stopColor="#06b6d4" />
           </linearGradient>
-          <linearGradient id="aura-danger-grad" gradientUnits="userSpaceOnUse" x1="88" y1="20" x2="88" y2="156">
+          <linearGradient id="aura-danger-grad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#f59e0b" />
             <stop offset="100%" stopColor="#f43f5e" />
           </linearGradient>
-          <linearGradient id="aura-zen-grad" gradientUnits="userSpaceOnUse" x1="88" y1="20" x2="88" y2="156">
+          <linearGradient id="aura-zen-grad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#f5d56b" />
             <stop offset="100%" stopColor="#e5b83b" />
           </linearGradient>
         </defs>
 
-        {/* Atmospheric Ambient Aura Halo (Soft outer glow) */}
+        {/* Subtle Semi-Transparent Guide Rail Track */}
         <circle
-          cx="88"
-          cy="88"
+          cx="66"
+          cy="66"
           r={radius}
           fill="none"
-          strokeWidth="14"
-          stroke={
-            zenMode
-              ? 'rgba(229, 184, 59, 0.15)'
-              : isHighTension
-              ? 'rgba(6, 182, 212, 0.16)'
-              : 'rgba(244, 63, 94, 0.16)'
-          }
-          className="transition-all duration-300 pointer-events-none"
-        />
-
-        {/* High-Contrast Background Track Circle */}
-        <circle
-          cx="88"
-          cy="88"
-          r={radius}
-          fill="none"
-          strokeWidth="5.5"
+          strokeWidth="2.5"
           className={
             zenMode
-              ? 'stroke-[#33373f]'
-              : 'stroke-slate-300 dark:stroke-slate-700/80'
+              ? 'stroke-[#ded9cf]/15 dark:stroke-[#33373f]/60'
+              : 'stroke-slate-300/40 dark:stroke-slate-700/50'
           }
         />
 
-        {/* 50% Neutral Midpoint Marker (6 o'clock bottom dot: 88, 156) */}
+        {/* Dynamic Glowing Neon Tension Arc */}
         <circle
-          cx="88"
-          cy={88 + radius}
-          r="3.5"
-          className={
-            zenMode
-              ? 'fill-[#ded9cf]/80'
-              : 'fill-slate-500 dark:fill-slate-400'
-          }
-        />
-
-        {/* Dynamic Glowing Tension Arc */}
-        <circle
-          cx="88"
-          cy="88"
+          cx="66"
+          cy="66"
           r={radius}
           fill="none"
-          strokeWidth={isCritical ? 8 : isMatched ? 7.5 : 6.5}
+          strokeWidth={isMatched ? 3.5 : isCritical ? 3.5 : 3}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          transform="rotate(-90 88 88)"
+          transform="rotate(-90 66 66)"
           stroke={
             zenMode
               ? 'url(#aura-zen-grad)'
               : isMatched
-              ? 'url(#aura-emerald-grad)'
-              : isHighTension
-              ? 'url(#aura-emerald-grad)'
-              : 'url(#aura-danger-grad)'
+              ? 'url(#aura-victory-grad)'
+              : progress >= 75
+              ? 'url(#aura-victory-grad)'
+              : progress <= 30
+              ? 'url(#aura-danger-grad)'
+              : 'url(#aura-active-grad)'
           }
           style={{
-            transition: 'stroke-dashoffset 120ms ease-out, stroke 200ms ease, stroke-width 150ms ease',
-            filter: isCritical
-              ? 'drop-shadow(0 0 10px rgba(244,63,94,0.95))'
+            transition: 'stroke-dashoffset 140ms cubic-bezier(0.4, 0, 0.2, 1), stroke 250ms ease',
+            filter: zenMode
+              ? 'drop-shadow(0 0 4px rgba(229,184,59,0.7))'
               : isMatched
-              ? 'drop-shadow(0 0 12px rgba(16,185,129,0.95))'
-              : isHighTension
-              ? 'drop-shadow(0 0 8px rgba(6,182,212,0.85))'
-              : 'drop-shadow(0 0 8px rgba(244,63,94,0.85))'
+              ? 'drop-shadow(0 0 6px rgba(16,185,129,0.85))'
+              : progress >= 75
+              ? 'drop-shadow(0 0 5px rgba(6,182,212,0.8))'
+              : progress <= 30
+              ? 'drop-shadow(0 0 6px rgba(244,63,94,0.85))'
+              : 'drop-shadow(0 0 4px rgba(99,102,241,0.7))'
           }}
           className={isCritical ? 'animate-pulse' : ''}
         />
-
-        {/* Glowing Comet Tip Dot Indicator */}
-        {progress > 1 && (
-          <circle
-            cx={tipX}
-            cy={tipY}
-            r={isCritical ? 5 : 4}
-            fill="#ffffff"
-            style={{
-              filter: isCritical
-                ? 'drop-shadow(0 0 6px rgba(244,63,94,1))'
-                : isHighTension
-                ? 'drop-shadow(0 0 6px rgba(6,182,212,1))'
-                : 'drop-shadow(0 0 6px rgba(244,63,94,1))'
-            }}
-            className={isCritical ? 'animate-pulse' : ''}
-          />
-        )}
       </svg>
 
       {/* ─── Floating Contextual Micro-Badges ─── */}
@@ -175,8 +129,8 @@ export const AuraShieldRing: React.FC<AuraShieldRingProps> = ({
                 initial={{ opacity: 0, scale: 0.7, x: 8 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.7, x: 8 }}
-                transition={{ type: 'spring', damping: 18, stiffness: 350 }}
-                className="absolute -left-13 sm:-left-15 top-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/95 text-white shadow-xl backdrop-blur-xs border border-rose-300/60 text-[10px] font-heading font-black tracking-tight whitespace-nowrap animate-pulse"
+                transition={{ type: 'spring', damping: 20, stiffness: 380 }}
+                className="absolute -left-12 sm:-left-14 top-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/90 text-white shadow-lg shadow-rose-500/30 backdrop-blur-md border border-rose-300/50 text-[10px] font-heading font-black tracking-tight whitespace-nowrap animate-pulse"
               >
                 <Heart className="w-3 h-3 fill-white text-white" />
                 <span>-1 Vida</span>
@@ -191,8 +145,8 @@ export const AuraShieldRing: React.FC<AuraShieldRingProps> = ({
                 initial={{ opacity: 0, scale: 0.7, x: -8 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.7, x: -8 }}
-                transition={{ type: 'spring', damping: 18, stiffness: 350 }}
-                className="absolute -right-13 sm:-right-15 top-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/95 text-white shadow-xl backdrop-blur-xs border border-emerald-300/60 text-[10px] font-heading font-black tracking-tight whitespace-nowrap"
+                transition={{ type: 'spring', damping: 20, stiffness: 380 }}
+                className="absolute -right-12 sm:-right-14 top-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/90 text-white shadow-lg shadow-emerald-500/30 backdrop-blur-md border border-emerald-300/50 text-[10px] font-heading font-black tracking-tight whitespace-nowrap"
               >
                 <Trophy className="w-3 h-3 text-white" />
                 <span>Victoria</span>
