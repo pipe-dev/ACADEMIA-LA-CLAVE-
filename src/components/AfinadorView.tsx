@@ -25,6 +25,11 @@ import {
   completionPhrases
 } from '../data/tunerLevelsData';
 import {
+  calculateCentsOff,
+  DIFFICULTY_PITCH_TOLERANCES,
+  FREE_MODE_PITCH_TOLERANCES
+} from '../utils/pitchUtils';
+import {
   RotateCcw,
   Mic,
   MicOff,
@@ -188,25 +193,25 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('Fácil');
   const [currentLevel, setCurrentLevel] = useState<number>(1);
 
-  // Tolerancia calibrada en Hz para una experiencia pedagógica, fluida y sin frustración
-  const tolerance = useMemo(() => {
+  // Tolerancia pedagógica y musical calibrada en CENTS (1 semitono = 100 cents).
+  // Elimina completamente falsos positivos como 113Hz en C3 (130.81Hz).
+  const toleranceCents = useMemo(() => {
     if (tunerMode === 'niveles') {
-      switch (selectedDifficulty) {
-        case 'Calentamiento':
-        case 'Fácil':
-          return 18;
-        case 'Medio':
-          return 12;
-        case 'Difícil':
-          return 7;
-        case 'Maestro':
-          return 4;
-        default:
-          return 15;
-      }
+      return DIFFICULTY_PITCH_TOLERANCES[selectedDifficulty]?.toleranceCents ?? 28;
     }
-    return difficulty === 'facil' ? 18 : difficulty === 'medio' ? 12 : 6;
+    return FREE_MODE_PITCH_TOLERANCES[difficulty]?.toleranceCents ?? 28;
   }, [tunerMode, selectedDifficulty, difficulty]);
+
+  // Zona Near-Miss (cerca de afinar, sin castigo de vida mientras busca la nota)
+  const nearMissCents = useMemo(() => {
+    if (tunerMode === 'niveles') {
+      return DIFFICULTY_PITCH_TOLERANCES[selectedDifficulty]?.nearMissCents ?? 45;
+    }
+    return FREE_MODE_PITCH_TOLERANCES[difficulty]?.nearMissCents ?? 45;
+  }, [tunerMode, selectedDifficulty, difficulty]);
+
+  // Alias retrocompatible
+  const tolerance = toleranceCents;
   const [isLevelSelectOpen, setIsLevelSelectOpen] = useState<boolean>(false);
   const [isWinModalOpen, setIsWinModalOpen] = useState<boolean>(false);
   const [winStars, setWinStars] = useState<number>(3);
@@ -264,6 +269,8 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   // Refs for real-time callbacks
   const selectedNoteRef = useRef<SolfegeButtonInfo>(selectedNote);
   const toleranceRef = useRef<number>(tolerance);
+  const toleranceCentsRef = useRef<number>(toleranceCents);
+  const nearMissCentsRef = useRef<number>(nearMissCents);
   const onUpdateQuestProgressRef = useRef(onUpdateQuestProgress);
   const tunerModeRef = useRef(tunerMode);
   const challengeNotesRef = useRef(challengeNotes);
@@ -272,6 +279,8 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   useEffect(() => { selectedNoteRef.current = selectedNote; }, [selectedNote]);
   useEffect(() => { toleranceRef.current = tolerance; }, [tolerance]);
+  useEffect(() => { toleranceCentsRef.current = toleranceCents; }, [toleranceCents]);
+  useEffect(() => { nearMissCentsRef.current = nearMissCents; }, [nearMissCents]);
   useEffect(() => { onUpdateQuestProgressRef.current = onUpdateQuestProgress; }, [onUpdateQuestProgress]);
   useEffect(() => { tunerModeRef.current = tunerMode; }, [tunerMode]);
   useEffect(() => { challengeNotesRef.current = challengeNotes; }, [challengeNotes]);
@@ -319,7 +328,11 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   const targetFreq = activeTargetNote.frequency;
 
-  // Compute pitch difference
+  // Compute pitch difference in cents (musical acoustics standard) and Hz
+  const centsOff = (isTuningActive && detectedPitch && detectedPitch > 40 && targetFreq > 0)
+    ? calculateCentsOff(detectedPitch, targetFreq)
+    : null;
+  const absCents = centsOff !== null ? Math.abs(centsOff) : null;
   const pitchDiff = (isTuningActive && detectedPitch && detectedPitch > 40) ? Math.abs(detectedPitch - targetFreq) : null;
 
   // Concentric Aura Shield Ring progress
@@ -333,13 +346,14 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     // In Modo Libre:
     if (!isTuningActive || !detectedPitch) return 0;
     if (isPitchMatched) return 100;
-    if (pitchDiff !== null) {
-      const maxDiff = tolerance * 2.5;
-      const ratio = Math.max(0, Math.min(1, 1 - pitchDiff / maxDiff));
+    if (absCents !== null) {
+      // 50 cents is quarter tone (0% aura). 0 cents is perfect in tune (100% aura).
+      const maxCents = 50;
+      const ratio = Math.max(0, Math.min(1, 1 - absCents / maxCents));
       return Math.max(12, Math.round(ratio * 100));
     }
     return 0;
-  }, [tunerMode, selectedDifficulty, calentamientoProgress, tugOfWarProgress, isTuningActive, detectedPitch, isPitchMatched, pitchDiff, tolerance]);
+  }, [tunerMode, selectedDifficulty, calentamientoProgress, tugOfWarProgress, isTuningActive, detectedPitch, isPitchMatched, absCents]);
 
   // Tension context in Tug-of-War level mode
   const isLevelTension = tunerMode === 'niveles' && selectedDifficulty !== 'Calentamiento';
@@ -387,8 +401,8 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     statusTextColor = zenMode ? 'text-rose-400' : 'text-rose-700 dark:text-rose-300';
     statusIcon = <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 animate-pulse" />;
 
-    if (pitchDiff !== null && detectedPitch) {
-      if (detectedPitch < targetFreq) {
+    if (centsOff !== null) {
+      if (centsOff < 0) {
         displayStatusMsg = '¡Peligro: -1 Vida! Sube el tono ↑';
       } else {
         displayStatusMsg = '¡Peligro: -1 Vida! Baja el tono ↓';
@@ -404,17 +418,19 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     statusTextColor = zenMode ? 'text-[#e5b83b]' : 'text-emerald-800 dark:text-emerald-200';
     statusIcon = <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-400 animate-bounce" />;
 
-    if (pitchDiff !== null && detectedPitch) {
-      if (detectedPitch < targetFreq) {
+    if (centsOff !== null) {
+      if (centsOff < -toleranceCents) {
         displayStatusMsg = '🏆 ¡Casi listo! Sube un poco ↑';
-      } else {
+      } else if (centsOff > toleranceCents) {
         displayStatusMsg = '🏆 ¡Casi listo! Baja un poco ↓';
+      } else {
+        displayStatusMsg = '🏆 ¡Casi listo! Mantén la afinación';
       }
     } else {
       displayStatusMsg = '🏆 ¡Casi listo! Mantén la afinación';
     }
-  } else if (pitchDiff !== null) {
-    if (pitchDiff <= tolerance * 2.5) {
+  } else if (absCents !== null) {
+    if (absCents <= nearMissCents) {
       sphereStyle = zenMode
         ? 'bg-[#d8a728] text-[#161719] shadow-[0_0_30px_rgba(229,184,59,0.7)] scale-105 ring-4 ring-[#f5d56b]'
         : 'bg-amber-500 dark:bg-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.8)] scale-105 ring-4 ring-amber-300 dark:ring-amber-400/80';
@@ -455,8 +471,10 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
           ? selectedNoteRef.current
           : (challengeNotesRef.current[challengeIndexRef.current] || selectedNoteRef.current);
 
-        const diff = Math.abs(pitchHz - currTarget.frequency);
-        const isMatched = diff <= toleranceRef.current;
+        const currCentsOff = calculateCentsOff(pitchHz, currTarget.frequency);
+        const absCentsVal = Math.abs(currCentsOff);
+        const diffHz = Math.abs(pitchHz - currTarget.frequency);
+        const isMatched = absCentsVal <= toleranceCentsRef.current;
         setIsPitchMatched(isMatched);
 
         if (isMatched) {
@@ -484,7 +502,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
               }
             } else {
               // 4 Modes: In-pitch pushes Tug-of-War towards 100% (avance gratificante)
-              const gain = selectedDifficultyRef.current === 'Fácil' ? 3.2 : selectedDifficultyRef.current === 'Medio' ? 2.8 : 2.4;
+              const gain = selectedDifficultyRef.current === 'Fácil'
+                ? 3.2
+                : selectedDifficultyRef.current === 'Medio'
+                ? 2.8
+                : selectedDifficultyRef.current === 'Difícil'
+                ? 2.4
+                : 2.0;
               tugOfWarRef.current = Math.min(100, tugOfWarRef.current + gain);
               setTugOfWarProgress(tugOfWarRef.current);
               if (tugOfWarRef.current >= 100) {
@@ -513,7 +537,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
               noteColor: (currTarget as SolfegeButtonInfo).bgColor || '#10b981',
               targetFreq: currTarget.frequency,
               detectedFreq: Math.round(pitchHz),
-              diffHz: Math.round(diff),
+              diffHz: Math.round(diffHz),
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
 
@@ -526,7 +550,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
         } else {
           inTuneSinceRef.current = null;
           setCalentamientoProgress(0);
-          if (pitchHz < currTarget.frequency) {
+          if (currCentsOff < 0) {
             setTuningStatusMsg('Muy grueso ↑ Sube el tono');
           } else {
             setTuningStatusMsg('Muy delgado ↓ Baja el tono');
@@ -537,9 +561,8 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             // 1. Periodo de gracia en transiciones de notas (da tiempo para escuchar la referencia y tomar aire)
             const isInTransitionGrace = nowTime < noteTransitionUntilRef.current;
 
-            // 2. Zona Near-Miss (cerca de afinar, dentro de 1.6x la tolerancia):
-            // Si el alumno está buscando la nota y se acerca, NO se penaliza.
-            const isNearMiss = diff <= toleranceRef.current * 1.6;
+            // 2. Zona Near-Miss (cerca de afinar, sin penalización mientras acomoda la voz):
+            const isNearMiss = absCentsVal <= nearMissCentsRef.current;
 
             if (!isInTransitionGrace && !isNearMiss) {
               // 3. Tasa de desgaste suave y pedagógica (en Fácil da más de 5 segundos completos para corregir)
@@ -1603,7 +1626,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
               }`}>
                 {(['facil', 'medio', 'dificil'] as const).map(d => {
                   const targetDiff: Difficulty = d === 'facil' ? 'Fácil' : d === 'medio' ? 'Medio' : 'Difícil';
-                  const hzText = d === 'facil' ? '±15Hz' : d === 'medio' ? '±8Hz' : '±4Hz';
+                  const centsText = d === 'facil' ? '±28¢' : d === 'medio' ? '±18¢' : '±10¢';
                   return (
                     <button
                       key={d}
@@ -1629,7 +1652,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                       title={`Ver niveles en modo ${targetDiff}`}
                     >
                       <span>{targetDiff}</span>
-                      <span className={`text-[8.5px] font-normal ${zenMode && difficulty === d ? 'text-[#161719]/80' : 'opacity-60'}`}>({hzText})</span>
+                      <span className={`text-[8.5px] font-normal ${zenMode && difficulty === d ? 'text-[#161719]/80' : 'opacity-60'}`}>({centsText})</span>
                     </button>
                   );
                 })}
@@ -1658,7 +1681,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             detectedPitch={detectedPitch}
             targetFrequency={targetFreq}
             targetNoteName={activeTargetNote.name}
-            tolerance={tolerance}
+            toleranceCents={toleranceCents}
             darkMode={darkMode}
           />
         </>

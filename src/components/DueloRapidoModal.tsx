@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { audioService } from '../utils/audioService';
+import { calculateCentsOff } from '../utils/pitchUtils';
 import { SOLFEGE_NOTES } from '../data/academyData';
 import { SolfegeNote } from '../types';
 import { FriendItem } from './FriendsSection';
@@ -102,11 +103,13 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
     const micSuccess = await audioService.startMicrophone((pitchHz) => {
       if (pitchHz > 60 && pitchHz < 900) {
         setP1CurrentPitch(Math.round(pitchHz));
-        const diff = Math.abs(pitchHz - selectedNote.frequency);
-        setP1PitchDiff(Math.round(diff));
+        const centsOff = calculateCentsOff(pitchHz, selectedNote.frequency);
+        const absCents = Math.abs(centsOff);
+        const diffHz = Math.abs(pitchHz - selectedNote.frequency);
+        setP1PitchDiff(Math.round(diffHz));
 
-        // In tune tolerance = 6 Hz
-        if (diff <= 6) {
+        // Tolerancia musical estándar: ±25 cents
+        if (absCents <= 25) {
           inTuneTicks += 0.1;
           const currentInTuneSec = Number((inTuneTicks).toFixed(1));
           setP1InTuneSeconds(currentInTuneSec);
@@ -116,7 +119,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
             audioService.vibrateSuccess();
             lastVibeRef.current = now;
           }
-        } else if (diff > 15) {
+        } else if (absCents > 45) {
           const now = Date.now();
           if (now - lastVibeRef.current > 1200) {
             audioService.vibrateError();
@@ -171,10 +174,13 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
     const micSuccess = await audioService.startMicrophone((pitchHz) => {
       if (pitchHz > 60 && pitchHz < 900) {
         setP2CurrentPitch(Math.round(pitchHz));
-        const diff = Math.abs(pitchHz - selectedNote.frequency);
-        setP2PitchDiff(Math.round(diff));
+        const centsOff = calculateCentsOff(pitchHz, selectedNote.frequency);
+        const absCents = Math.abs(centsOff);
+        const diffHz = Math.abs(pitchHz - selectedNote.frequency);
+        setP2PitchDiff(Math.round(diffHz));
 
-        if (diff <= 6) {
+        // Tolerancia musical estándar: ±25 cents
+        if (absCents <= 25) {
           inTuneTicks += 0.1;
           setP2InTuneSeconds(Number((inTuneTicks).toFixed(1)));
           const now = Date.now();
