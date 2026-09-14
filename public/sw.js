@@ -33,8 +33,43 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Next.js chunks & dynamic scripts: ALWAYS NETWORK FIRST
-  // This prevents stale bundles from lingering after updates
+  // Check if we are in a production environment with immutable hashed assets
+  const isLocalOrTunnelDev = url.hostname === 'localhost' || 
+                             url.hostname === '127.0.0.1' || 
+                             url.hostname.includes('trycloudflare.com');
+
+  // Next.js static assets with immutable content hashes (/next/static/chunks/...)
+  // In production (300k users): CACHE-FIRST for instant 0ms offline performance.
+  // In dev / live pair-programming: NETWORK-FIRST so edits reflect immediately.
+  if (url.pathname.startsWith('/_next/static/')) {
+    if (isLocalOrTunnelDev) {
+      event.respondWith(
+        fetch(request).then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        }).catch(() => caches.match(request))
+      );
+      return;
+    }
+
+    // Production: Cache-First (Hashed filenames never change)
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // Next.js dynamic / hot-reload scripts: Always Network-First
   if (url.pathname.startsWith('/_next/')) {
     event.respondWith(
       fetch(request).catch(() => caches.match(request))
