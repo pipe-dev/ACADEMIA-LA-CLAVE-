@@ -184,12 +184,29 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     }
   }, [activeSubView]);
 
-  // Tolerance in Hz
-  const tolerance = difficulty === 'facil' ? 15 : difficulty === 'medio' ? 8 : 4;
-
   // ─── 5. Gamified Levels State ─────────────────────────────────────
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('Fácil');
   const [currentLevel, setCurrentLevel] = useState<number>(1);
+
+  // Tolerancia calibrada en Hz para una experiencia pedagógica, fluida y sin frustración
+  const tolerance = useMemo(() => {
+    if (tunerMode === 'niveles') {
+      switch (selectedDifficulty) {
+        case 'Calentamiento':
+        case 'Fácil':
+          return 18;
+        case 'Medio':
+          return 12;
+        case 'Difícil':
+          return 7;
+        case 'Maestro':
+          return 4;
+        default:
+          return 15;
+      }
+    }
+    return difficulty === 'facil' ? 18 : difficulty === 'medio' ? 12 : 6;
+  }, [tunerMode, selectedDifficulty, difficulty]);
   const [isLevelSelectOpen, setIsLevelSelectOpen] = useState<boolean>(false);
   const [isWinModalOpen, setIsWinModalOpen] = useState<boolean>(false);
   const [winStars, setWinStars] = useState<number>(3);
@@ -266,6 +283,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const [calentamientoProgress, setCalentamientoProgress] = useState<number>(0);
   const [isLevelFailed, setIsLevelFailed] = useState<boolean>(false);
   const isLevelFailedRef = useRef<boolean>(false);
+  const noteTransitionUntilRef = useRef<number>(0);
   const selectedDifficultyRef = useRef<Difficulty>(selectedDifficulty);
   const onLoseLifeRef = useRef(onLoseLife);
 
@@ -465,8 +483,9 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
                 }
               }
             } else {
-              // 4 Modes: In-pitch pushes Tug-of-War towards 100%
-              tugOfWarRef.current = Math.min(100, tugOfWarRef.current + 2.5);
+              // 4 Modes: In-pitch pushes Tug-of-War towards 100% (avance gratificante)
+              const gain = selectedDifficultyRef.current === 'Fácil' ? 3.2 : selectedDifficultyRef.current === 'Medio' ? 2.8 : 2.4;
+              tugOfWarRef.current = Math.min(100, tugOfWarRef.current + gain);
               setTugOfWarProgress(tugOfWarRef.current);
               if (tugOfWarRef.current >= 100) {
                 tugOfWarRef.current = 50;
@@ -513,18 +532,36 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             setTuningStatusMsg('Muy delgado ↓ Baja el tono');
           }
 
-          // In Level Mode: off-pitch penalty in 4 modes (Calentamiento is exempt)
+          // In Level Mode: penalización justa y tolerante (Calentamiento is exempt)
           if (tunerModeRef.current === 'niveles' && !isLevelFailedRef.current && selectedDifficultyRef.current !== 'Calentamiento') {
-            tugOfWarRef.current = Math.max(0, tugOfWarRef.current - 1.2);
-            setTugOfWarProgress(tugOfWarRef.current);
-            if (tugOfWarRef.current <= 0) {
-              isLevelFailedRef.current = true;
-              setIsLevelFailed(true);
-              audioService.stopMicrophone();
-              setIsTuningActive(false);
-              audioService.playSadDefeatSound();
-              if (onLoseLifeRef.current) {
-                onLoseLifeRef.current('tuner');
+            // 1. Periodo de gracia en transiciones de notas (da tiempo para escuchar la referencia y tomar aire)
+            const isInTransitionGrace = nowTime < noteTransitionUntilRef.current;
+
+            // 2. Zona Near-Miss (cerca de afinar, dentro de 1.6x la tolerancia):
+            // Si el alumno está buscando la nota y se acerca, NO se penaliza.
+            const isNearMiss = diff <= toleranceRef.current * 1.6;
+
+            if (!isInTransitionGrace && !isNearMiss) {
+              // 3. Tasa de desgaste suave y pedagógica (en Fácil da más de 5 segundos completos para corregir)
+              const penalty = selectedDifficultyRef.current === 'Fácil'
+                ? 0.35
+                : selectedDifficultyRef.current === 'Medio'
+                ? 0.50
+                : selectedDifficultyRef.current === 'Difícil'
+                ? 0.70
+                : 0.90;
+
+              tugOfWarRef.current = Math.max(0, tugOfWarRef.current - penalty);
+              setTugOfWarProgress(tugOfWarRef.current);
+              if (tugOfWarRef.current <= 0) {
+                isLevelFailedRef.current = true;
+                setIsLevelFailed(true);
+                audioService.stopMicrophone();
+                setIsTuningActive(false);
+                audioService.playSadDefeatSound();
+                if (onLoseLifeRef.current) {
+                  onLoseLifeRef.current('tuner');
+                }
               }
             }
           }
@@ -610,6 +647,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     tugOfWarRef.current = 50;
     setIsLevelFailed(false);
     isLevelFailedRef.current = false;
+    noteTransitionUntilRef.current = Date.now() + 1500;
 
     const diffArray = difficultyLevels[diff as ChallengeDifficulty];
     const isRhythm = diff !== 'Calentamiento' && diffArray && diffArray[lvl - 1] === 0;
@@ -669,6 +707,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     setCompletedChallengeNotes(prev => new Set(prev).add(challengeIndexRef.current));
     setTugOfWarProgress(50);
     tugOfWarRef.current = 50;
+    noteTransitionUntilRef.current = Date.now() + 1400;
 
     // Handle combo
     const now = Date.now();
