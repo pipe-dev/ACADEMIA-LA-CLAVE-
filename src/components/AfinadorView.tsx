@@ -1241,7 +1241,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             {/* Gauge Display with Particles & Dynamic Central Sphere */}
             <div
               id="tour-tuner-gauge"
-              className={`bg-[#e9f0ff] dark:bg-[#0b1828] ${zenMode ? 'zen-mode:bg-[#131d2a]' : ''} rounded-2xl p-4 border border-blue-100 dark:border-slate-800 relative min-h-[190px] flex flex-col justify-between overflow-hidden shadow-inner`}
+              className={`bg-[#e9f0ff] dark:bg-[#0b1828] ${zenMode ? 'zen-mode:bg-[#131d2a]' : ''} rounded-2xl p-4 border border-blue-100 dark:border-slate-800 relative min-h-[210px] flex flex-col justify-between overflow-hidden shadow-inner`}
             >
               {/* Technical Grid Background */}
               <div className="absolute inset-0 bg-[linear-gradient(to_right,#1b2b3f15_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f15_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1b2b3f_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f_1px,transparent_1px)] bg-[size:24px_24px] opacity-50 pointer-events-none" />

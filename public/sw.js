@@ -1,8 +1,9 @@
-const CACHE_NAME = 'afinapp-v9';
+const CACHE_NAME = 'afinapp-v35';
 const PRECACHE_URLS = [
   '/',
-  '/Duck Win.mp4',
   '/manifest.json',
+  '/duck.png',
+  '/trollface.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -15,7 +16,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      // Wipe ALL caches to destroy old Vite remnants
+      // Wipe ALL caches to destroy old stale JS chunks
       Promise.all(keys.map((k) => caches.delete(k)))
     )
   );
@@ -26,9 +27,18 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // For navigation requests, always go to network (bypassing old Vite cache)
+  // For navigation requests, always go to network
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request));
+    return;
+  }
+
+  // Next.js chunks & dynamic scripts: ALWAYS NETWORK FIRST
+  // This prevents stale bundles from lingering after updates
+  if (url.pathname.startsWith('/_next/')) {
+    event.respondWith(
+      fetch(request).catch(() => caches.match(request))
+    );
     return;
   }
 
@@ -47,11 +57,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets (JS, CSS, images), use Stale-While-Revalidate
+  // For static media assets (images, fonts), use Stale-While-Revalidate
   if (
-    url.pathname.startsWith('/_next/') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.svg') ||
@@ -71,8 +78,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Default: Cache-first fallback to network
+  // Default: Network first, fallback to cache
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request))
+    fetch(request).catch(() => caches.match(request))
   );
 });
