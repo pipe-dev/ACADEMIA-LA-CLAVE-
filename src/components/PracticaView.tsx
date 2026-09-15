@@ -235,7 +235,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const [isReady, setIsReady] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [volume, setVolume] = useState<number>(85);
+  const [volume, setVolume] = useState<number>(100);
   const [syncOffset, setSyncOffset] = useState<number>(0); // Nudge timing in seconds
 
   // ─── Control Vocal en Tiempo Real (Cancelación de Centro sobre Pista Oficial) ───
@@ -517,6 +517,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
 
       // Inicializar Web Audio con autoPlay = true y pegada de batería fija potente (1.4x / +3dB)
       await vocalRemover.initAudio(finalVideoId, vocalLevel, 1.4, true);
+      vocalRemover.setMasterVolume(volume);
 
       // Reproducción inmediata
       const started = await vocalRemover.play();
@@ -524,7 +525,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         setIsPlaying(true);
         setAutoplayBlocked(false);
         if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-          startPitchDetection();
+          startPitchDetection(vocalRemover.getAudioContext());
         }
       } else {
         setAutoplayBlocked(true);
@@ -751,7 +752,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       setAutoplayBlocked(false);
 
       if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-        startPitchDetection();
+        startPitchDetection(vocalRemover.getAudioContext());
       }
       if (isPlaybackMode && audioPlaybackRef.current) {
         audioPlaybackRef.current.play().catch(console.error);
@@ -817,7 +818,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
           setIsPlaying(true);
           setAutoplayBlocked(false);
           if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-            startPitchDetection();
+            startPitchDetection(vocalRemover.getAudioContext());
           }
           if (isPlaybackMode && audioPlaybackRef.current) {
             audioPlaybackRef.current.play().catch(console.error);
@@ -842,7 +843,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         playerRef.current.playVideo();
         setIsPlaying(true);
         if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-          startPitchDetection();
+          startPitchDetection(vocalRemover.getAudioContext());
         }
         if (isPlaybackMode && audioPlaybackRef.current) {
           audioPlaybackRef.current.play().catch(console.error);
@@ -861,7 +862,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     } else {
       setIsMicEnabled(true);
       if (isPlaying) {
-        startPitchDetection();
+        startPitchDetection(vocalRemover.getAudioContext());
       }
     }
   };
@@ -1437,7 +1438,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
             </button>
 
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
-              Voz
+              Voz {useYtFallback && <span className="text-[10px] text-amber-500 dark:text-amber-400 font-normal">(Respaldo)</span>}
             </span>
 
             <Slider
