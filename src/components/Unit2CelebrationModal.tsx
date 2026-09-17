@@ -1208,108 +1208,110 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeLinecap="round"
                 />
 
-                {/* 13. Sound Resonance Waves (Pulsing when singing into microphone) */}
-                {isActive && (
-                  <>
-                    <ellipse
-                      cx="100"
-                      cy="32"
-                      rx={42 + (progress % 22)}
-                      ry={8.5 + (progress % 4.5)}
-                      fill="none"
-                      stroke="#22d3ee"
-                      strokeWidth="1.6"
-                      className="opacity-70 animate-ping pointer-events-none"
-                      style={{ animationDuration: '1.1s' }}
-                    />
-                    <circle
-                      cx="100"
-                      cy="120"
-                      r={18 + progress * 0.45}
-                      fill="none"
-                      stroke="#7dd3fc"
-                      strokeWidth="1.2"
-                      className="opacity-35 animate-pulse pointer-events-none"
-                    />
-                  </>
-                )}
+                {/* 13 & 14. INTERNAL ACOUSTIC RESONANCE WAVES & PROGRESSIVE FRACTURE CRACKS (Strictly contained inside bowl) */}
+                <g clipPath="url(#bowlInteriorClip)">
+                  {/* Internal Sound Resonance Waves */}
+                  {isActive && (
+                    <>
+                      <ellipse
+                        cx="100"
+                        cy="32"
+                        rx={38 + (progress % 10)}
+                        ry={7.5 + (progress % 2.5)}
+                        fill="none"
+                        stroke="#22d3ee"
+                        strokeWidth="1.6"
+                        className="opacity-60 animate-ping pointer-events-none"
+                        style={{ animationDuration: '1.1s' }}
+                      />
+                      <circle
+                        cx="100"
+                        cy="120"
+                        r={12 + progress * 0.35}
+                        fill="none"
+                        stroke="#7dd3fc"
+                        strokeWidth="1.2"
+                        className="opacity-40 animate-pulse pointer-events-none"
+                      />
+                    </>
+                  )}
 
-                {/* 14. PROGRESSIVE FRACTURE CRACKS (Spiderweb cracks with radiant core) */}
-                {/* Phase 1: Hairline Fractures (> 30% progress) */}
-                {progress >= 30 && (
-                  <g filter="url(#crackGlow)" className="animate-fadeIn">
-                    <path
-                      d="M 100,105 L 94,120 L 104,136 L 98,154 M 94,120 L 80,126 L 72,138"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M 100,105 L 94,120 L 104,136 L 98,154 M 94,120 L 80,126 L 72,138"
-                      fill="none"
-                      stroke="#22d3ee"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </g>
-                )}
+                  {/* Phase 1: Hairline Fractures (> 30% progress) */}
+                  {progress >= 30 && (
+                    <g filter="url(#crackGlow)" className="animate-fadeIn">
+                      <path
+                        d="M 100,105 L 95,118 L 103,132 L 97,146 M 95,118 L 84,124 L 76,134"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M 100,105 L 95,118 L 103,132 L 97,146 M 95,118 L 84,124 L 76,134"
+                        fill="none"
+                        stroke="#22d3ee"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </g>
+                  )}
 
-                {/* Phase 2: Spreading Spiderweb Cracks (> 60% progress) */}
-                {progress >= 60 && (
-                  <g filter="url(#crackGlow)" className="animate-fadeIn">
-                    <path
-                      d="M 104,136 L 118,142 L 126,132 L 136,145 M 118,142 L 114,160 L 102,172"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="2.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M 104,136 L 118,142 L 126,132 L 136,145 M 118,142 L 114,160 L 102,172"
-                      fill="none"
-                      stroke="#38bdf8"
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M 94,80 L 100,105 L 110,88 L 118,70"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                )}
+                  {/* Phase 2: Spreading Spiderweb Cracks (> 60% progress) */}
+                  {progress >= 60 && (
+                    <g filter="url(#crackGlow)" className="animate-fadeIn">
+                      <path
+                        d="M 103,132 L 115,138 L 124,130 L 132,142 M 115,138 L 112,154 L 104,166"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M 103,132 L 115,138 L 124,130 L 132,142 M 115,138 L 112,154 L 104,166"
+                        fill="none"
+                        stroke="#38bdf8"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M 95,82 L 100,105 L 108,90 L 116,74"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  )}
 
-                {/* Phase 3: Critical Structural Failure Fractures (> 85% progress) */}
-                {progress >= 85 && (
-                  <g filter="url(#crackGlow)">
-                    <path
-                      d="M 72,138 L 62,150 L 58,162 M 100,32 L 95,55 L 82,72 M 142,32 L 132,60 L 126,75 L 134,100"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="2.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M 72,138 L 62,150 L 58,162 M 100,32 L 95,55 L 82,72 M 142,32 L 132,60 L 126,75 L 134,100"
-                      fill="none"
-                      stroke="#e0f2fe"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {/* Glowing core sparks */}
-                    <circle cx="104" cy="136" r="4" fill="#ffffff" className="animate-ping" />
-                    <circle cx="94" cy="120" r="3" fill="#38bdf8" />
-                  </g>
-                )}
+                  {/* Phase 3: Critical Structural Failure Fractures (> 85% progress) */}
+                  {progress >= 85 && (
+                    <g filter="url(#crackGlow)">
+                      <path
+                        d="M 76,134 L 70,146 L 76,158 M 100,42 L 96,62 L 86,76 M 134,44 L 128,66 L 122,78 L 128,98"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M 76,134 L 70,146 L 76,158 M 100,42 L 96,62 L 86,76 M 134,44 L 128,66 L 122,78 L 128,98"
+                        fill="none"
+                        stroke="#e0f2fe"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {/* Glowing core sparks */}
+                      <circle cx="103" cy="132" r="3.5" fill="#ffffff" className="animate-ping" />
+                      <circle cx="95" cy="118" r="3" fill="#38bdf8" />
+                    </g>
+                  )}
+                </g>
               </g>
             </svg>
             </div>
