@@ -958,15 +958,22 @@ nextjs-portal,
 }
 
 @keyframes crystalPing {
-  0% { transform: scale(1) rotate(0deg); }
-  20% { transform: scale(1.025, 0.975) rotate(-1.2deg); }
-  40% { transform: scale(0.985, 1.015) rotate(1deg); }
-  60% { transform: scale(1.012, 0.988) rotate(-0.6deg); }
-  80% { transform: scale(0.995, 1.005) rotate(0.3deg); }
-  100% { transform: scale(1) rotate(0deg); }
+  0% { transform: translate(0, 0) rotate(0deg) scale(1, 1); }
+  8% { transform: translate(-6px, -1px) rotate(-3deg) scale(1.03, 0.97); }
+  16% { transform: translate(6px, 1px) rotate(3deg) scale(0.97, 1.03); }
+  24% { transform: translate(-5px, 0px) rotate(-2.4deg) scale(1.02, 0.98); }
+  32% { transform: translate(5px, 0px) rotate(2.2deg) scale(0.98, 1.02); }
+  42% { transform: translate(-3.5px, 0px) rotate(-1.6deg) scale(1.01, 0.99); }
+  52% { transform: translate(3.5px, 0px) rotate(1.4deg) scale(0.99, 1.01); }
+  62% { transform: translate(-2px, 0px) rotate(-0.9deg) scale(1.005, 0.995); }
+  72% { transform: translate(2px, 0px) rotate(0.7deg) scale(0.995, 1.005); }
+  82% { transform: translate(-1px, 0px) rotate(-0.3deg) scale(1, 1); }
+  92% { transform: translate(0.5px, 0px) rotate(0.1deg) scale(1, 1); }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1, 1); }
 }
 
 .animate-crystal-ping {
-  animation: crystalPing 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+  animation: crystalPing 0.55s cubic-bezier(0.25, 1, 0.5, 1) both;
+  transform-origin: 50% 90%;
 }
 

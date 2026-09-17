@@ -12,6 +12,9 @@ const playCrystalChime = () => {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     const now = ctx.currentTime;
 
     // Fundamental crystal tone (E7 ~ 2637 Hz)
@@ -83,6 +86,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const [isInteracting, setIsInteracting] = useState(false);
   const [surfaceAngle, setSurfaceAngle] = useState(0); // Continuous 360° cylindrical surface angle
   const [isJiggling, setIsJiggling] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
 
   // Physics refs
   const surfaceAngleRef = useRef(0);
@@ -226,15 +230,19 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     const now = performance.now();
     const start = pointerStartRef.current;
 
-    // Check tap: displacement < 8px and duration < 250ms
+    // Check tap: displacement < 20px and duration < 380ms
     if (start) {
       const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
       const duration = now - start.time;
-      if (dist < 8 && duration < 250) {
+      if (dist < 20 && duration < 380) {
         playCrystalChime();
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate([25, 20, 25]); } catch (_) {}
+        }
+        setTapCount(c => c + 1);
         setIsJiggling(true);
         if (jiggleTimeoutRef.current) clearTimeout(jiggleTimeoutRef.current);
-        jiggleTimeoutRef.current = setTimeout(() => setIsJiggling(false), 450);
+        jiggleTimeoutRef.current = setTimeout(() => setIsJiggling(false), 550);
       }
     }
   };
@@ -306,18 +314,24 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
             />
           </div>
 
-          {/* 3D Crystal Wine Glass Container with Progressive Cracking & Direct Touch Interaction */}
+          {/* Crystal Wine Glass Container with Progressive Cracking & Direct Touch Interaction */}
           <div 
-            className={`relative flex flex-col items-center select-none my-1 cursor-grab active:cursor-grabbing touch-none ${progress > 60 ? 'animate-shake' : ''} ${isJiggling ? 'animate-crystal-ping' : ''}`}
+            className={`relative flex flex-col items-center select-none my-1 cursor-grab active:cursor-grabbing touch-none ${progress > 60 ? 'animate-shake' : ''}`}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
           >
-            <svg
-              viewBox="0 0 200 310"
-              className="w-[260px] h-[403px] sm:w-[285px] sm:h-[442px] overflow-visible filter drop-shadow-[0_25px_50px_rgba(0,0,0,0.9)]"
+            {/* Vibrating Tremor Wrapper - key={tapCount} forces animation restart on EVERY consecutive tap */}
+            <div 
+              key={tapCount}
+              className={`w-full flex items-center justify-center ${isJiggling ? 'animate-crystal-ping' : ''}`}
+              style={{ transformOrigin: '50% 90%' }}
             >
+              <svg
+                viewBox="0 0 200 310"
+                className="w-[260px] h-[403px] sm:w-[285px] sm:h-[442px] overflow-visible filter drop-shadow-[0_25px_50px_rgba(0,0,0,0.9)]"
+              >
               <defs>
                 {/* Floor Drop Shadow Blur */}
                 <filter id="floorShadowBlur" x="-30%" y="-30%" width="160%" height="160%">
@@ -824,6 +838,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 )}
               </g>
             </svg>
+            </div>
           </div>
 
           {!isActive ? (
