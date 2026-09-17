@@ -742,20 +742,21 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       // 3. Candidate vocal frame: requires both musical harmonic pitch and voice volume.
       const isVocalCandidate = hasVocalPitch && hasVocalVolume;
 
-      // 4. Temporal Debounce (Continuity Filter):
+      // 4. Temporal Debounce & Hangover Continuity Filter:
       //    Human singing sustains a vowel across consecutive frames.
-      //    Transient noise spikes (coughs, desk taps, mouse clicks) last only 1 frame (~30ms).
+      //    We use an attack/decay confidence integrator with a 200ms hangover window so the bar doesn't stutter on/off
+      //    during vocal micro-vibrato or minor frame fluctuations.
       if (isVocalCandidate) {
-        consecutiveVoiceFramesRef.current = Math.min(8, consecutiveVoiceFramesRef.current + 1);
+        consecutiveVoiceFramesRef.current = Math.min(8, consecutiveVoiceFramesRef.current + 2);
+        lastVoiceTimeRef.current = now;
       } else {
         consecutiveVoiceFramesRef.current = Math.max(0, consecutiveVoiceFramesRef.current - 1);
       }
 
-      // Voice is confirmed when sustained for at least 2 consecutive frames (~60ms)
-      const isVoiceDetected = consecutiveVoiceFramesRef.current >= 2;
+      // Voice is active if confirmed by 2+ consecutive frames OR within the 200ms hangover window
+      const isVoiceDetected = consecutiveVoiceFramesRef.current >= 2 || (now - lastVoiceTimeRef.current < 200 && consecutiveVoiceFramesRef.current > 0);
 
       if (isVoiceDetected && hasVocalPitch) {
-        lastVoiceTimeRef.current = now;
         setDetectedPitch(Math.round(pitchHz));
       } else if (now - lastVoiceTimeRef.current > 600) {
         setDetectedPitch(null);
@@ -768,9 +769,9 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
         if (isVoiceDetected) {
           // Acoustic resonance physics:
           // Higher frequencies (> 350 Hz) create stronger sympathetic resonance in crystal glass!
-          const pitchBonus = pitchHz > 350 ? 1.3 : 1.0;
-          const loudnessBonus = vol > 0.025 ? 1.3 : 1.0;
-          // Fills in ~2.2s of solid singing
+          const pitchBonus = pitchHz > 350 ? 1.25 : 1.0;
+          const loudnessBonus = vol > 0.025 ? 1.25 : 1.0;
+          // Fills fluidly in ~2.2s of solid singing
           newProg += (dt / 2200) * 100 * pitchBonus * loudnessBonus;
         }
         // Progress holds steady when pausing to breathe (no frustrating drain)
@@ -815,12 +816,36 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
             Rompe la copa con tu nota más aguda
           </h2>
           
-          {/* Progress / Tension Bar */}
-          <div className="w-full h-4 bg-slate-900/90 border border-cyan-500/30 rounded-full overflow-hidden mb-6 shadow-[inset_0_2px_6px_rgba(0,0,0,0.8),_0_0_15px_rgba(6,182,212,0.2)] p-0.5 relative">
-            <div 
-              className="h-full bg-gradient-to-r from-cyan-500 via-sky-300 to-white rounded-full transition-all duration-75 shadow-[0_0_15px_rgba(34,211,238,0.9)]"
-              style={{ width: `${Math.max(progress > 0 ? 3 : 0, progress)}%` }}
-            />
+          {/* Fluid Acoustic Resonance Glass Tube Bar */}
+          <div className="w-full max-w-sm flex flex-col items-center mb-6 px-1">
+            <div className="w-full h-5 sm:h-6 bg-[#071322]/95 border border-cyan-400/40 rounded-full p-1 relative shadow-[inset_0_2px_8px_rgba(0,0,0,0.9),_0_0_20px_rgba(6,182,212,0.2)] overflow-hidden">
+              {/* Internal Chamber Calibration Ticks (25%, 50%, 75%) */}
+              <div className="absolute inset-0 flex justify-between items-center px-6 pointer-events-none opacity-20">
+                <div className="w-[1px] h-2 bg-cyan-200" />
+                <div className="w-[1px] h-3 bg-cyan-200" />
+                <div className="w-[1px] h-2 bg-cyan-200" />
+              </div>
+
+              {/* Fluid Liquid Fill */}
+              <div 
+                className="h-full rounded-full relative overflow-hidden transition-[width] duration-150 ease-out shadow-[0_0_16px_rgba(34,211,238,0.85)]"
+                style={{ 
+                  width: `${Math.max(progress > 0 ? 4 : 0, progress)}%`,
+                  background: 'linear-gradient(90deg, #0284c7 0%, #06b6d4 40%, #38bdf8 75%, #ffffff 100%)'
+                }}
+              >
+                {/* 3D Cylindrical Liquid Meniscus (Top Specular Sheen) */}
+                <div className="absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/60 to-transparent rounded-t-full pointer-events-none" />
+
+                {/* Continuous Flowing Liquid Shimmer Stream */}
+                <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.75)_50%,transparent_100%)] animate-fluid-stream pointer-events-none" />
+
+                {/* Glowing Leading Meniscus Bead (Surging Crest) */}
+                {progress > 0 && (
+                  <div className="absolute right-0 top-0 bottom-0 w-2.5 sm:w-3 rounded-full bg-white shadow-[0_0_10px_#ffffff,0_0_20px_#38bdf8] opacity-95" />
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Crystal Wine Glass Container with Progressive Cracking & Direct Touch Interaction */}
