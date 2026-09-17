@@ -99,24 +99,60 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const isDraggingRef = useRef(false);
   const jiggleTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Generates the single specular glare that glides across the front of the bowl
-  const highlights = useMemo(() => {
-    const list: { id: number; path: string; opacity: number }[] = [];
-    const angles = [surfaceAngle, surfaceAngle + 180];
-    for (let i = 0; i < 2; i++) {
-      const rad = (angles[i] * Math.PI) / 180;
-      const z = Math.cos(rad);
-      if (z > 0.01) {
-        const u = Math.sin(rad);
-        const op = Math.min(0.95, z * 1.15);
-        list.push({
-          id: i,
-          path: getGlarePath(u),
-          opacity: op,
-        });
-      }
-    }
-    return list;
+  // Unified 2.5D continuous perspective projection math
+  // Smoothly swaps positions of white highlights and gray refractions across boca, base, body & stem
+  const {
+    frontWeight,
+    backWeight,
+    mouthFrontOpacity,
+    mouthBackOpacity,
+    mouthFrontWidth,
+    mouthBackWidth,
+    footFrontOpacity,
+    footBackOpacity,
+    footFrontWidth,
+    footBackWidth,
+    whitePath,
+    grayPath,
+    stemX,
+  } = useMemo(() => {
+    const rad = (surfaceAngle * Math.PI) / 180;
+    const cosA = Math.cos(rad);
+    // frontWeight: 1.0 at 0° (facing front), 0.0 at 180° (facing back)
+    const fw = (1 + cosA) / 2;
+    const bw = 1 - fw;
+
+    // Mouth rim modulation (swaps white & gray between front arc and back arc)
+    const mfOp = 0.22 + 0.63 * fw;
+    const mbOp = 0.22 + 0.63 * bw;
+    const mfW = 1.2 + 0.5 * fw;
+    const mbW = 1.2 + 0.5 * bw;
+
+    // Foot base modulation (swaps white & gray between front crescent and back crescent)
+    const ffOp = 0.22 + 0.63 * fw;
+    const fbOp = 0.22 + 0.63 * bw;
+    const ffW = 1.2 + 0.6 * fw;
+    const fbW = 1.2 + 0.6 * bw;
+
+    // Body flank curves (swaps white glare and gray refraction between left and right)
+    const uW = -cosA;
+    const uG = cosA;
+
+    return {
+      frontWeight: fw,
+      backWeight: bw,
+      mouthFrontOpacity: mfOp,
+      mouthBackOpacity: mbOp,
+      mouthFrontWidth: mfW,
+      mouthBackWidth: mbW,
+      footFrontOpacity: ffOp,
+      footBackOpacity: fbOp,
+      footFrontWidth: ffW,
+      footBackWidth: fbW,
+      whitePath: getGlarePath(uW),
+      grayPath: getGlarePath(uG),
+      stemX: 100 + 2.0 * uG,
+    };
   }, [surfaceAngle]);
 
   useEffect(() => {
@@ -550,19 +586,38 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   filter="url(#subtleBlur)"
                 />
 
-                {/* 7. Soft Back Rim Ellipse */}
+                {/* 7 & 8. Top Rim (La Boca) - Smooth 3D Swapping of White & Gray Arcs */}
+                {/* Subtle base ellipse */}
                 <ellipse
                   cx="100"
                   cy="32"
                   rx="42"
                   ry="8.5"
                   fill="none"
-                  stroke="rgba(255,255,255,0.25)"
-                  strokeWidth="1.2"
-                  filter="url(#subtleBlur)"
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeWidth="1"
                 />
 
-                {/* 8. Front Lip Highlight Arc (Soft diffused studio light) */}
+                {/* Back Arc (Atrás): Starts gray at 0°, becomes white at 180° */}
+                <path
+                  d="M 58,32 A 42 8.5 0 0 1 142 32"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.35)"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                  filter="url(#softGlow)"
+                  opacity={backWeight}
+                />
+                <path
+                  d="M 58,32 A 42 8.5 0 0 1 142 32"
+                  fill="none"
+                  stroke={`rgba(255,255,255,${mouthBackOpacity.toFixed(2)})`}
+                  strokeWidth={mouthBackWidth.toFixed(2)}
+                  strokeLinecap="round"
+                  filter={backWeight < 0.3 ? "url(#subtleBlur)" : undefined}
+                />
+
+                {/* Front Arc (Adelante): Starts white at 0°, becomes gray at 180° */}
                 <path
                   d="M 58,32 A 42 8.5 0 0 0 142 32"
                   fill="none"
@@ -570,61 +625,62 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeWidth="3.2"
                   strokeLinecap="round"
                   filter="url(#softGlow)"
+                  opacity={frontWeight}
                 />
                 <path
-                  d="M 59,32 A 41 8.3 0 0 0 141 32"
+                  d="M 58,32 A 42 8.5 0 0 0 142 32"
                   fill="none"
-                  stroke="rgba(255,255,255,0.85)"
-                  strokeWidth="1.6"
+                  stroke={`rgba(255,255,255,${mouthFrontOpacity.toFixed(2)})`}
+                  strokeWidth={mouthFrontWidth.toFixed(2)}
                   strokeLinecap="round"
+                  filter={frontWeight < 0.3 ? "url(#subtleBlur)" : undefined}
                 />
 
-                {/* 9. Dynamic Specular Caustic Glare (Sweeping smoothly across the front of the crystal bowl) */}
+                {/* 9. Dynamic Specular Caustic Glare (White highlight sweeping smoothly across the crystal bowl) */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  {highlights.map(h => (
-                    <g key={`glare-${h.id}`}>
-                      {/* Wide ambient bloom */}
-                      <path
-                        d={h.path}
-                        fill="none"
-                        stroke="url(#softAmbientGlare)"
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                        opacity={h.opacity * 0.40}
-                        filter="url(#diffuseGlow)"
-                      />
-                      {/* Mid-feathered glare strip */}
-                      <path
-                        d={h.path}
-                        fill="none"
-                        stroke="url(#primaryLeftGlare)"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        opacity={h.opacity * 0.80}
-                        filter="url(#subtleBlur)"
-                      />
-                      {/* Soft core highlight */}
-                      <path
-                        d={h.path}
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="1.2"
-                        strokeLinecap="round"
-                        opacity={h.opacity * 0.75}
-                      />
-                    </g>
-                  ))}
+                  {/* Wide ambient bloom */}
+                  <path
+                    d={whitePath}
+                    fill="none"
+                    stroke="url(#softAmbientGlare)"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    opacity={0.40}
+                    filter="url(#diffuseGlow)"
+                  />
+                  {/* Mid-feathered glare strip */}
+                  <path
+                    d={whitePath}
+                    fill="none"
+                    stroke="url(#primaryLeftGlare)"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    opacity={0.80}
+                    filter="url(#subtleBlur)"
+                  />
+                  {/* Soft core highlight */}
+                  <path
+                    d={whitePath}
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    opacity={0.75}
+                  />
                 </g>
 
-                {/* 10. Right Side Soft Rim Ambient Refraction */}
-                <path
-                  d="M 137,38 C 140,75 139,120 125,152 C 120,163 113,172 105,182"
-                  fill="none"
-                  stroke="url(#rightEdgeGlare)"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  filter="url(#subtleBlur)"
-                />
+                {/* 10. Opposite Side Soft Rim Ambient Refraction (Gray curve sweeping across opposite flank) */}
+                <g clipPath="url(#bowlInteriorClip)">
+                  <path
+                    d={grayPath}
+                    fill="none"
+                    stroke="url(#rightEdgeGlare)"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    filter="url(#subtleBlur)"
+                    opacity={0.85}
+                  />
+                </g>
 
                 {/* 11. Fluted Crystal Stem with Smooth Parabolic Blend */}
                 <path
@@ -641,11 +697,11 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   stroke="rgba(255,255,255,0.25)"
                   strokeWidth="0.8"
                 />
-                {/* Stem Center Soft Specular Highlight (Diffused, not harsh) */}
+                {/* Stem Center Soft Specular Highlight (Glides dynamically with cylindrical rotation) */}
                 <line
-                  x1="99.5"
+                  x1={stemX.toFixed(1)}
                   y1="192"
-                  x2="99.5"
+                  x2={stemX.toFixed(1)}
                   y2="260"
                   stroke="rgba(255,255,255,0.75)"
                   strokeWidth="1.5"
@@ -653,7 +709,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   filter="url(#subtleBlur)"
                 />
 
-                {/* 12. Soft Beveled Crystal Foot Base */}
+                {/* 12. Soft Beveled Crystal Foot Base - Smooth 3D Swapping of White & Gray Crescent Arcs */}
                 {/* Foot Disc Volume */}
                 <ellipse
                   cx="100"
@@ -661,10 +717,10 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   rx="48"
                   ry="10.5"
                   fill="url(#baseBevelGrad)"
-                  stroke="rgba(255,255,255,0.3)"
-                  strokeWidth="1.2"
+                  stroke="rgba(255,255,255,0.20)"
+                  strokeWidth="1.0"
                 />
-                {/* Foot Inner Bevel Refraction (Soft blur, no wireframe) */}
+                {/* Foot Inner Bevel Refraction */}
                 <ellipse
                   cx="100"
                   cy="271"
@@ -675,7 +731,26 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeWidth="1"
                   filter="url(#subtleBlur)"
                 />
-                {/* Foot Front Rim Soft Crescent Glow */}
+
+                {/* Foot Back Arc: Starts gray at 0°, becomes white at 180° */}
+                <path
+                  d="M 57,274 A 47 10.3 0 0 1 143 274"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.3)"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  filter="url(#softGlow)"
+                  opacity={backWeight}
+                />
+                <path
+                  d="M 57,274 A 47 10.3 0 0 1 143 274"
+                  fill="none"
+                  stroke={`rgba(255,255,255,${footBackOpacity.toFixed(2)})`}
+                  strokeWidth={footBackWidth.toFixed(2)}
+                  strokeLinecap="round"
+                />
+
+                {/* Foot Front Arc: Starts white at 0°, becomes gray at 180° */}
                 <path
                   d="M 56,275 A 48 10.5 0 0 0 144 275"
                   fill="none"
@@ -683,12 +758,13 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeWidth="3.5"
                   strokeLinecap="round"
                   filter="url(#softGlow)"
+                  opacity={frontWeight}
                 />
                 <path
                   d="M 57,275 A 47 10.3 0 0 0 143 275"
                   fill="none"
-                  stroke="rgba(255,255,255,0.85)"
-                  strokeWidth="1.8"
+                  stroke={`rgba(255,255,255,${footFrontOpacity.toFixed(2)})`}
+                  strokeWidth={footFrontWidth.toFixed(2)}
                   strokeLinecap="round"
                 />
 
