@@ -79,27 +79,14 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const reqRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
 
-  // --- 2.5D Anti-Sticker Touch Interactivity & Exaggerated Tactile 3D Parallax State ---
+  // --- 2.5D Touch Interactivity (Surface rotation only, no parallax) ---
   const [isInteracting, setIsInteracting] = useState(false);
-  const [tiltX, setTiltX] = useState(0); // Up/down pitch: up to [-26, 26]
-  const [tiltY, setTiltY] = useState(0); // Left/right yaw: up to [-24, 24]
-  const [tiltZ, setTiltZ] = useState(0); // Lateral roll: up to [-8, 8]
-  const [panX, setPanX] = useState(0);   // Tactile X translation
-  const [panY, setPanY] = useState(0);   // Tactile Y translation
   const [surfaceAngle, setSurfaceAngle] = useState(0); // Continuous 360° cylindrical surface angle
   const [isJiggling, setIsJiggling] = useState(false);
 
   // Physics refs
   const surfaceAngleRef = useRef(0);
   const surfaceVelRef = useRef(0); // Angular velocity of surface spin
-  const tiltXRef = useRef(0);
-  const tiltVelXRef = useRef(0);
-  const tiltYRef = useRef(0);
-  const tiltVelYRef = useRef(0);
-  const tiltZRef = useRef(0);
-  const tiltVelZRef = useRef(0);
-  const panXRef = useRef(0);
-  const panYRef = useRef(0);
 
   const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -168,67 +155,29 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     };
   }, []);
 
-  // Unified 60fps animation & physics loop (Handles idle continuous spin, fling momentum, spring-back)
+  // Unified 60fps animation & physics loop (Handles idle continuous spin, fling momentum)
   useEffect(() => {
     if (!isOpen) return;
 
     let animId: number;
-    let lastTime = performance.now();
 
-    const loop = (now: number) => {
-      const dt = Math.min(32, now - lastTime);
-      lastTime = now;
-
+    const loop = () => {
       if (!isDraggingRef.current) {
-        // 1. Surface spin: momentum inertia vs ambient slow idle rotation (~18 deg/sec)
+        // Surface spin: momentum inertia vs ambient slow idle rotation (~18 deg/sec)
         if (Math.abs(surfaceVelRef.current) > 0.05) {
           surfaceAngleRef.current += surfaceVelRef.current;
           surfaceVelRef.current *= 0.94;
         } else {
-          surfaceAngleRef.current += 0.30 * (dt / 16.67);
+          surfaceAngleRef.current += 0.30;
         }
 
         // Bounded angle in [0, 360)
         surfaceAngleRef.current = ((surfaceAngleRef.current % 360) + 360) % 360;
 
-        // 2. Spring-back on Tilt X towards gentle ambient floating breath
-        const targetTiltX = isInteracting ? 0 : Math.sin(now * 0.0015) * 2.0;
-        const springForceX = -0.15 * (tiltXRef.current - targetTiltX);
-        tiltVelXRef.current = (tiltVelXRef.current + springForceX) * 0.82;
-        tiltXRef.current += tiltVelXRef.current;
-
-        // 3. Spring-back on Tilt Y towards 0
-        const springForceY = -0.15 * tiltYRef.current;
-        tiltVelYRef.current = (tiltVelYRef.current + springForceY) * 0.82;
-        tiltYRef.current += tiltVelYRef.current;
-
-        // 4. Spring-back on Tilt Z towards gentle ambient floating breath
-        const targetTiltZ = isInteracting ? 0 : Math.cos(now * 0.0015) * 0.8;
-        const springForceZ = -0.16 * (tiltZRef.current - targetTiltZ);
-        tiltVelZRef.current = (tiltVelZRef.current + springForceZ) * 0.80;
-        tiltZRef.current += tiltVelZRef.current;
-
-        // 5. Spring-back on Pan X and Pan Y towards 0
-        panXRef.current += (0 - panXRef.current) * 0.16;
-        panYRef.current += (0 - panYRef.current) * 0.16;
-
-        if (
-          isInteracting &&
-          Math.abs(surfaceVelRef.current) < 0.05 &&
-          Math.abs(tiltXRef.current) < 0.1 &&
-          Math.abs(tiltYRef.current) < 0.1 &&
-          Math.abs(tiltZRef.current) < 0.1 &&
-          Math.abs(panXRef.current) < 0.1 &&
-          Math.abs(panYRef.current) < 0.1
-        ) {
+        if (isInteracting && Math.abs(surfaceVelRef.current) < 0.05) {
           setIsInteracting(false);
         }
 
-        setTiltX(tiltXRef.current);
-        setTiltY(tiltYRef.current);
-        setTiltZ(tiltZRef.current);
-        setPanX(panXRef.current);
-        setPanY(panYRef.current);
         setSurfaceAngle(surfaceAngleRef.current);
       }
 
@@ -250,48 +199,20 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     pointerStartRef.current = { x: e.clientX, y: e.clientY, time: now };
     lastPointerRef.current = { x: e.clientX, y: e.clientY, time: now };
     surfaceVelRef.current = 0;
-    tiltVelXRef.current = 0;
-    tiltVelYRef.current = 0;
-    tiltVelZRef.current = 0;
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current || !lastPointerRef.current || !pointerStartRef.current) return;
+    if (!isDraggingRef.current || !lastPointerRef.current) return;
 
     const now = performance.now();
     const dt = Math.max(1, now - lastPointerRef.current.time);
-    
-    // Incremental step for continuous cylindrical surface spin
-    const stepDx = e.clientX - lastPointerRef.current.x;
-    
-    // Cumulative drag vector from touch start for exaggerated tactile 3D parallax
-    const totalDx = e.clientX - pointerStartRef.current.x;
-    const totalDy = e.clientY - pointerStartRef.current.y;
+    const dx = e.clientX - lastPointerRef.current.x;
 
-    // 1. Surface spin tracks horizontal swipe smoothly (line swap mechanism)
-    surfaceVelRef.current = (stepDx / dt) * 16;
-    surfaceAngleRef.current = ((surfaceAngleRef.current + stepDx * 0.9) % 360 + 360) % 360;
-
-    // 2. Exaggerated Tactile Parallax Tilt X (pitch): pull down tilts rim toward viewer [-26, 26]
-    tiltXRef.current = Math.max(-26, Math.min(26, -totalDy * 0.28));
-
-    // 3. Exaggerated Tactile Parallax Tilt Y (yaw): drag right tilts into 3D right [-24, 24]
-    tiltYRef.current = Math.max(-24, Math.min(24, totalDx * 0.25));
-
-    // 4. Lateral lean Tilt Z [-8, 8]
-    tiltZRef.current = Math.max(-8, Math.min(8, totalDx * 0.08));
-
-    // 5. Exaggerated tactile follow translation [-22, 22] px
-    panXRef.current = Math.max(-22, Math.min(22, totalDx * 0.18));
-    panYRef.current = Math.max(-20, Math.min(20, totalDy * 0.15));
+    // Surface spin tracks horizontal drag smoothly (line swap mechanism)
+    surfaceVelRef.current = (dx / dt) * 16;
+    surfaceAngleRef.current = ((surfaceAngleRef.current + dx * 0.9) % 360 + 360) % 360;
 
     lastPointerRef.current = { x: e.clientX, y: e.clientY, time: now };
-
-    setTiltX(tiltXRef.current);
-    setTiltY(tiltYRef.current);
-    setTiltZ(tiltZRef.current);
-    setPanX(panXRef.current);
-    setPanY(panYRef.current);
     setSurfaceAngle(surfaceAngleRef.current);
   };
 
@@ -368,14 +289,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       {/* Technical Grid Background from AfinadorView */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1b2b3f_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f_1px,transparent_1px)] bg-[size:24px_24px] bg-center opacity-60 pointer-events-none" />
 
-      {/* Subtle Central Glow Behind Glass with depth parallax */}
-      <div 
-        className="absolute w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none -translate-y-6" 
-        style={{
-          transform: `translate(${(-panX * 0.4).toFixed(1)}px, ${(-panY * 0.4).toFixed(1)}px)`,
-          transition: isDraggingRef.current ? 'none' : 'transform 0.4s ease-out'
-        }}
-      />
+      {/* Subtle Central Glow Behind Glass */}
+      <div className="absolute w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none -translate-y-6" />
 
       {!isShattered ? (
         <div className="relative z-10 flex flex-col items-center w-full max-w-sm px-6">
@@ -506,13 +421,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
               </defs>
 
               {/* 1. Floor Ambient Occlusion Shadow */}
-              <g 
-                style={{
-                  transform: `translate(${(panX * 0.4).toFixed(1)}px, ${(-tiltX * 0.7).toFixed(1)}px) scale(${1 + Math.abs(tiltY) * 0.02}, ${1 - tiltX * 0.025})`,
-                  transformOrigin: '100px 282px',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
-                }}
-              >
+              <g>
                 <ellipse
                   cx="100"
                   cy="282"
@@ -533,31 +442,17 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 />
               </g>
 
-              {/* 3D FLOATING LUXURY GLASS VESSEL WITH EXAGGERATED TACTILE PARALLAX */}
-              <g 
-                style={{
-                  transform: `perspective(600px) rotateX(${tiltX.toFixed(1)}deg) rotateY(${tiltY.toFixed(1)}deg) rotateZ(${tiltZ.toFixed(1)}deg) translate3d(${panX.toFixed(1)}px, ${panY.toFixed(1)}px, 0)`,
-                  transformStyle: 'preserve-3d',
-                  transformOrigin: '100px 180px',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
-                }}
-              >
-                {/* 2. OPTICAL BACKGROUND REFRACTION (Realistic glass volume bending actual background) */}
+              {/* CRYSTAL GLASS VESSEL */}
+              <g>
+                {/* 2. OPTICAL BACKGROUND REFRACTION */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  {/* Dense background occlusion: completely blocks straight background grid from passing straight through */}
+                  {/* Dense background occlusion */}
                   <rect x="40" y="20" width="120" height="180" fill="#0b1828" opacity="0.94" />
                   {/* Soft crystal cavity depth */}
                   <rect x="40" y="20" width="120" height="180" fill="url(#glassBodyGrad)" opacity="0.40" />
 
-                  {/* Refracted Background Grid: exact optical continuation with reverse depth parallax */}
-                  <g 
-                    className="animate-refraction-angle-shift" 
-                    filter="url(#silkyRefraction)"
-                    style={{
-                      transform: `translate(${(-tiltY * 0.65).toFixed(1)}px, ${(-tiltX * 0.55).toFixed(1)}px)`,
-                      transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
-                    }}
-                  >
+                  {/* Refracted Background Grid */}
+                  <g className="animate-refraction-angle-shift" filter="url(#silkyRefraction)">
                     {/* Verticals bent by cylindrical crystal volume (Matching #1b2b3f background grid) */}
                     <g stroke="#1b2b3f" strokeWidth="1" opacity="0.80">
                       <path d="M 52,60 C 48,95 54,135 72,165" fill="none" />
@@ -602,7 +497,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   filter="url(#subtleBlur)"
                 />
 
-                {/* 4. Internal Resonance Liquid / Sound Aura (Clipped inside bowl, with tactile liquid inertia) */}
+                {/* 4. Internal Resonance Liquid / Sound Aura */}
                 <g clipPath="url(#bowlInteriorClip)">
                   <path
                     d="M 62,95 C 60,135 75,165 97,184 L 103,184 C 125,165 140,135 138,95 C 125,100 110,102 100,102 C 90,102 75,100 62,95 Z"
@@ -611,7 +506,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                     filter="url(#subtleBlur)"
                     style={{
                       opacity: Math.min(0.80, 0.10 + (progress / 100) * 0.70),
-                      transform: `translate(${(-tiltY * 0.35).toFixed(1)}px, ${(-tiltX * 0.30).toFixed(1)}px) scale(${1 + (progress / 100) * 0.04})`,
+                      transform: `scale(${1 + (progress / 100) * 0.04})`,
                       transformOrigin: '100px 184px'
                     }}
                   />
@@ -693,60 +588,50 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   filter={frontWeight < 0.3 ? "url(#subtleBlur)" : undefined}
                 />
 
-                {/* 9. Dynamic Specular Caustic Glare (Clipped → inner transform for parallax) */}
+                {/* 9. Dynamic Specular Caustic Glare (Clipped inside bowl) */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  <g style={{
-                    transform: `translate(${(tiltY * 0.60).toFixed(1)}px, ${(tiltX * 0.45).toFixed(1)}px)`,
-                    transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
-                  }}>
-                    {/* Wide ambient bloom */}
-                    <path
-                      d={whitePath}
-                      fill="none"
-                      stroke="url(#softAmbientGlare)"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      opacity={0.40}
-                      filter="url(#diffuseGlow)"
-                    />
-                    {/* Mid-feathered glare strip */}
-                    <path
-                      d={whitePath}
-                      fill="none"
-                      stroke="url(#primaryLeftGlare)"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      opacity={0.80}
-                      filter="url(#subtleBlur)"
-                    />
-                    {/* Soft core highlight */}
-                    <path
-                      d={whitePath}
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      opacity={0.75}
-                    />
-                  </g>
+                  {/* Wide ambient bloom */}
+                  <path
+                    d={whitePath}
+                    fill="none"
+                    stroke="url(#softAmbientGlare)"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    opacity={0.40}
+                    filter="url(#diffuseGlow)"
+                  />
+                  {/* Mid-feathered glare strip */}
+                  <path
+                    d={whitePath}
+                    fill="none"
+                    stroke="url(#primaryLeftGlare)"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    opacity={0.80}
+                    filter="url(#subtleBlur)"
+                  />
+                  {/* Soft core highlight */}
+                  <path
+                    d={whitePath}
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    opacity={0.75}
+                  />
                 </g>
 
-                {/* 10. Opposite Side Soft Rim Ambient Refraction (Clipped → inner transform for parallax) */}
+                {/* 10. Opposite Side Soft Rim Ambient Refraction (Clipped inside bowl) */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  <g style={{
-                    transform: `translate(${(tiltY * 0.45).toFixed(1)}px, ${(tiltX * 0.35).toFixed(1)}px)`,
-                    transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
-                  }}>
-                    <path
-                      d={grayPath}
-                      fill="none"
-                      stroke="url(#rightEdgeGlare)"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      filter="url(#subtleBlur)"
-                      opacity={0.85}
-                    />
-                  </g>
+                  <path
+                    d={grayPath}
+                    fill="none"
+                    stroke="url(#rightEdgeGlare)"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    filter="url(#subtleBlur)"
+                    opacity={0.85}
+                  />
                 </g>
 
                 {/* 11. Fluted Crystal Stem with Smooth Parabolic Blend */}
