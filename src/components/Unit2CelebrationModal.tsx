@@ -1243,33 +1243,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeLinecap="round"
                 />
 
-                {/* 13 & 14. INTERNAL ACOUSTIC RESONANCE WAVES & PROGRESSIVE FRACTURE CRACKS (Strictly contained inside bowl) */}
+                {/* 13. PROGRESSIVE FRACTURE CRACKS (Strictly contained inside bowl) */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  {/* Internal Sound Resonance Waves */}
-                  {isActive && (
-                    <>
-                      <ellipse
-                        cx="100"
-                        cy="32"
-                        rx={38 + (progress % 10)}
-                        ry={7.5 + (progress % 2.5)}
-                        fill="none"
-                        stroke="#22d3ee"
-                        strokeWidth="1.6"
-                        className="opacity-60 animate-ping pointer-events-none"
-                        style={{ animationDuration: '1.1s' }}
-                      />
-                      <circle
-                        cx="100"
-                        cy="120"
-                        r={12 + progress * 0.35}
-                        fill="none"
-                        stroke="#7dd3fc"
-                        strokeWidth="1.2"
-                        className="opacity-40 animate-pulse pointer-events-none"
-                      />
-                    </>
-                  )}
 
                   {/* Phase 1: Hairline Fractures (> 30% progress) */}
                   {progress >= 30 && (
