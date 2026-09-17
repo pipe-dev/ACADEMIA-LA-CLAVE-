@@ -1,11 +1,73 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { audioService } from '../utils/audioService';
-import confetti from 'canvas-confetti';
 
 interface Unit2CelebrationModalProps {
   isOpen: boolean;
   onContinue: () => void;
 }
+
+// Synthesizes a high-impact acoustic glass fracture and crystalline ringing sound
+const playGlassShatterSound = () => {
+  try {
+    const ctx = audioService.getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    const now = ctx.currentTime;
+
+    // 1. Initial Explosive Fracture Transient (Filtered High-Pass Noise Burst)
+    const bufferSize = Math.floor(ctx.sampleRate * 0.16);
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.03));
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+
+    const hpFilter = ctx.createBiquadFilter();
+    hpFilter.type = 'highpass';
+    hpFilter.frequency.setValueAtTime(3200, now);
+    hpFilter.frequency.exponentialRampToValueAtTime(1600, now + 0.14);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.75, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    noiseSource.connect(hpFilter);
+    hpFilter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noiseSource.start(now);
+
+    // 2. High-Q Crystalline Shimmering Ringing Overtones (Micro-fragments chiming)
+    const harmonicPings = [3600, 4920, 6400, 8150, 9800, 11600, 13200];
+    harmonicPings.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+
+      const jitter = (Math.random() - 0.5) * 180;
+      osc.frequency.setValueAtTime(freq + jitter, now);
+      osc.frequency.exponentialRampToValueAtTime((freq + jitter) * 0.85, now + 0.65);
+
+      const delay = Math.random() * 0.035;
+      const duration = 0.22 + Math.random() * 0.45;
+      const initialVol = 0.045 + Math.random() * 0.05;
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.setValueAtTime(initialVol, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + delay);
+      osc.stop(now + delay + duration + 0.05);
+    });
+  } catch (err) {
+    console.warn("Glass shatter audio error:", err);
+  }
+};
 
 // Synthesizes a high-resonance crystal wine glass acoustic chime (E7 / 2637 Hz)
 const playCrystalChime = () => {
@@ -71,6 +133,33 @@ const getGlarePath = (u: number) => {
   return `M ${x0.toFixed(1)},40 C ${x1.toFixed(1)},80 ${x2.toFixed(1)},125 ${x3.toFixed(1)},155 C ${((x3 + x4) / 2).toFixed(1)},168 ${x4.toFixed(1)},175 ${x4.toFixed(1)},182`;
 };
 
+// Data model for 1,000 crystal glass shards & micro-fragments
+interface Shard {
+  type: 'polygon' | 'needle' | 'dust';
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotZ: number;
+  dRotZ: number;
+  rotX: number;
+  dRotX: number;
+  rotY: number;
+  dRotY: number;
+  scale: number;
+  alpha: number;
+  decay: number;
+  r: number;
+  g: number;
+  b: number;
+  baseAlpha: number;
+  points?: [number, number][];
+  length?: number;
+  width?: number;
+  glintPhase: number;
+  glintSpeed: number;
+}
+
 export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ isOpen, onContinue }) => {
   const [isActive, setIsActive] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -80,6 +169,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const lastTimeRef = useRef<number>(0);
   const lastVoiceTimeRef = useRef<number>(0);
   const isActiveRef = useRef<boolean>(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const shardAnimRef = useRef<number | null>(null);
 
   // --- 2.5D Touch Interactivity (Surface rotation only, no parallax) ---
   const [isInteracting, setIsInteracting] = useState(false);
@@ -255,10 +346,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           if (next >= 100) {
             setIsShattered(true);
             audioService.stopMicrophone();
+            playGlassShatterSound();
             audioService.play3StarFanfare();
-            try {
-              confetti({ particleCount: 100, spread: 75, origin: { y: 0.55 } });
-            } catch (_) {}
           }
           return next;
         });
@@ -289,6 +378,334 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
   }, []);
+
+  // --- 1,000 Crystal Shards Physics Simulation ("Mil Añicos") ---
+  useEffect(() => {
+    if (!isOpen || !isShattered) {
+      if (shardAnimRef.current) {
+        cancelAnimationFrame(shardAnimRef.current);
+        shardAnimRef.current = null;
+      }
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const TOTAL_SHARDS = 1000;
+    const shards: Shard[] = [];
+    const cx = width * 0.5;
+    const cy = height * 0.44; // Acoustic center of the crystal wine glass
+
+    for (let i = 0; i < TOTAL_SHARDS; i++) {
+      let type: 'polygon' | 'needle' | 'dust';
+      if (i < 400) {
+        type = 'polygon';
+      } else if (i < 750) {
+        type = 'needle';
+      } else {
+        type = 'dust';
+      }
+
+      // 360-degree explosive dispersal
+      const angle = Math.random() * Math.PI * 2;
+      let speed: number;
+      if (type === 'dust') {
+        speed = 4 + Math.random() * 26;
+      } else if (type === 'needle') {
+        speed = 4 + Math.random() * 22;
+      } else {
+        const isLarge = i < 45;
+        speed = isLarge ? (2 + Math.random() * 10) : (3.5 + Math.random() * 18);
+      }
+
+      // Explosive upward & outward burst
+      const upBias = 2 + Math.random() * 7;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed - upBias;
+
+      const initOffset = Math.random() * 24;
+      const x = cx + Math.cos(angle) * initOffset;
+      const y = cy + Math.sin(angle) * initOffset;
+
+      const rotZ = Math.random() * Math.PI * 2;
+      const dRotZ = (Math.random() - 0.5) * 0.25;
+      const rotX = Math.random() * Math.PI * 2;
+      const dRotX = (Math.random() - 0.5) * 0.3;
+      const rotY = Math.random() * Math.PI * 2;
+      const dRotY = (Math.random() - 0.5) * 0.3;
+
+      const glintPhase = Math.random() * Math.PI * 2;
+      const glintSpeed = 0.08 + Math.random() * 0.16;
+
+      // Crystal palette: Pure diamond white, Ice cyan, Glacial blue, Electric prism
+      const colorRand = Math.random();
+      let r = 224, g = 242, b = 254, baseAlpha = 0.45;
+      if (colorRand < 0.35) {
+        r = 255; g = 255; b = 255; baseAlpha = 0.55; // Diamond white
+      } else if (colorRand < 0.7) {
+        r = 186; g = 230; b = 253; baseAlpha = 0.42; // Ice cyan
+      } else {
+        r = 125; g = 211; b = 252; baseAlpha = 0.38; // Electric prism
+      }
+
+      // Lifespan: ~3.5 to 5.2 seconds
+      const decay = 0.003 + Math.random() * 0.0035;
+
+      if (type === 'polygon') {
+        const isLarge = i < 45;
+        const scale = isLarge 
+          ? (13 + Math.random() * 14) 
+          : (i < 200 ? 6.5 + Math.random() * 7 : 3 + Math.random() * 4);
+
+        const numVertices = Math.random() < 0.7 ? 3 : 4;
+        const points: [number, number][] = [];
+        for (let v = 0; v < numVertices; v++) {
+          const vAngle = (v / numVertices) * Math.PI * 2 + (Math.random() - 0.5) * 0.75;
+          const vDist = scale * (0.45 + Math.random() * 0.75);
+          points.push([Math.cos(vAngle) * vDist, Math.sin(vAngle) * vDist]);
+        }
+
+        shards.push({
+          type: 'polygon',
+          x,
+          y,
+          vx,
+          vy,
+          rotZ,
+          dRotZ,
+          rotX,
+          dRotX,
+          rotY,
+          dRotY,
+          scale,
+          alpha: 1.0,
+          decay,
+          r,
+          g,
+          b,
+          baseAlpha,
+          points,
+          glintPhase,
+          glintSpeed,
+        });
+      } else if (type === 'needle') {
+        const length = 9 + Math.random() * 18;
+        const sWidth = 1.2 + Math.random() * 1.5;
+        shards.push({
+          type: 'needle',
+          x,
+          y,
+          vx,
+          vy,
+          rotZ,
+          dRotZ,
+          rotX,
+          dRotX,
+          rotY,
+          dRotY,
+          scale: length,
+          length,
+          width: sWidth,
+          alpha: 1.0,
+          decay: decay * 1.1,
+          r: 240,
+          g: 249,
+          b: 255,
+          baseAlpha: 0.85,
+          glintPhase,
+          glintSpeed,
+        });
+      } else {
+        const scale = 1.0 + Math.random() * 2.2;
+        shards.push({
+          type: 'dust',
+          x,
+          y,
+          vx,
+          vy,
+          rotZ,
+          dRotZ,
+          rotX,
+          dRotX,
+          rotY,
+          dRotY,
+          scale,
+          alpha: 1.0,
+          decay: decay * 1.3,
+          r: 255,
+          g: 255,
+          b: 255,
+          baseAlpha: 0.9,
+          glintPhase,
+          glintSpeed,
+        });
+      }
+    }
+
+    let shockwaveRadius = 0;
+    let flashAlpha = 0.9;
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Initial Shockwave Flash & Expanding Acoustic Wave
+      if (flashAlpha > 0.01) {
+        ctx.fillStyle = `rgba(224, 242, 254, ${(flashAlpha * 0.28).toFixed(3)})`;
+        ctx.fillRect(0, 0, width, height);
+        flashAlpha *= 0.87;
+      }
+
+      if (shockwaveRadius < Math.max(width, height) * 0.8) {
+        shockwaveRadius += 20;
+        const ringAlpha = Math.max(0, 1 - shockwaveRadius / (Math.max(width, height) * 0.75));
+        if (ringAlpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, shockwaveRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${(ringAlpha * 0.65).toFixed(3)})`;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+      }
+
+      let activeCount = 0;
+
+      // 2. Render all 1,000 shards with real 3D tumbling physics
+      for (let i = 0; i < shards.length; i++) {
+        const s = shards[i];
+        if (s.alpha <= 0.005 || s.y > height + 80) continue;
+        activeCount++;
+
+        // Air drag
+        const drag = s.type === 'dust' ? 0.965 : (s.type === 'needle' ? 0.978 : 0.984);
+        s.vx *= drag;
+        s.vy *= drag;
+
+        // Gravity
+        const gravity = s.type === 'dust' ? 0.26 : (s.type === 'needle' ? 0.46 : 0.52);
+        s.vy += gravity;
+
+        // Displace
+        s.x += s.vx;
+        s.y += s.vy;
+
+        // 3D rotations
+        s.rotZ += s.dRotZ;
+        s.rotX += s.dRotX;
+        s.rotY += s.dRotY;
+        s.glintPhase += s.glintSpeed;
+
+        // Gradual fade
+        s.alpha = Math.max(0, s.alpha - s.decay);
+
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(s.rotZ);
+
+        if (s.type === 'polygon' && s.points) {
+          const cosY = Math.cos(s.rotY);
+          const cosX = Math.cos(s.rotX);
+          const scaleX = Math.abs(cosY) < 0.06 ? 0.06 : cosY;
+          const scaleY = Math.abs(cosX) < 0.06 ? 0.06 : cosX;
+          ctx.scale(scaleX, scaleY);
+
+          ctx.beginPath();
+          ctx.moveTo(s.points[0][0], s.points[0][1]);
+          for (let p = 1; p < s.points.length; p++) {
+            ctx.lineTo(s.points[p][0], s.points[p][1]);
+          }
+          ctx.closePath();
+
+          // Specular glint when facet aligns with camera/light
+          const glintVal = Math.cos(s.rotX) * Math.sin(s.rotY);
+          const isGlinting = glintVal > 0.82;
+
+          if (isGlinting) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, s.alpha * 1.3).toFixed(2)})`;
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 10;
+          } else {
+            ctx.fillStyle = `rgba(${s.r}, ${s.g}, ${s.b}, ${(s.alpha * s.baseAlpha).toFixed(3)})`;
+            ctx.shadowBlur = 0;
+          }
+          ctx.fill();
+
+          ctx.strokeStyle = isGlinting 
+            ? `rgba(255, 255, 255, ${s.alpha.toFixed(2)})` 
+            : `rgba(255, 255, 255, ${(s.alpha * 0.92).toFixed(3)})`;
+          ctx.lineWidth = isGlinting ? 1.4 : 0.9;
+          ctx.stroke();
+
+          // Internal refraction facet line on larger crystal fragments
+          if (s.scale > 11 && s.points.length >= 3) {
+            ctx.beginPath();
+            ctx.moveTo(s.points[0][0], s.points[0][1]);
+            ctx.lineTo(s.points[2][0], s.points[2][1]);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${(s.alpha * 0.45).toFixed(3)})`;
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+          }
+        } else if (s.type === 'needle' && s.length && s.width) {
+          const cosY = Math.cos(s.rotY);
+          const scaleX = Math.abs(cosY) < 0.1 ? 0.1 : cosY;
+          ctx.scale(scaleX, 1);
+
+          const hL = s.length / 2;
+          const hW = s.width / 2;
+
+          ctx.beginPath();
+          ctx.moveTo(0, -hL);
+          ctx.lineTo(hW, 0);
+          ctx.lineTo(0, hL);
+          ctx.lineTo(-hW, 0);
+          ctx.closePath();
+
+          ctx.fillStyle = `rgba(255, 255, 255, ${(s.alpha * 0.9).toFixed(3)})`;
+          ctx.fill();
+          ctx.strokeStyle = `rgba(186, 230, 253, ${(s.alpha * 0.75).toFixed(3)})`;
+          ctx.lineWidth = 0.6;
+          ctx.stroke();
+        } else {
+          // Diamond micro-sparkle dust
+          const dustAlpha = Math.min(1, s.alpha * (0.6 + 0.4 * Math.sin(s.glintPhase)));
+          ctx.beginPath();
+          ctx.arc(0, 0, s.scale, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${dustAlpha.toFixed(3)})`;
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 4;
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      if (activeCount > 0) {
+        shardAnimRef.current = requestAnimationFrame(render);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+      }
+    };
+
+    shardAnimRef.current = requestAnimationFrame(render);
+
+    return () => {
+      if (shardAnimRef.current) {
+        cancelAnimationFrame(shardAnimRef.current);
+        shardAnimRef.current = null;
+      }
+      ctx.clearRect(0, 0, width, height);
+    };
+  }, [isOpen, isShattered]);
 
   const handleStart = async () => {
     lastTimeRef.current = performance.now();
@@ -328,10 +745,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
         if (newProg >= 100) {
           setIsShattered(true);
           audioService.stopMicrophone();
+          playGlassShatterSound();
           audioService.play3StarFanfare();
-          try {
-            confetti({ particleCount: 100, spread: 75, origin: { y: 0.55 } });
-          } catch (_) {}
         }
         return newProg;
       });
@@ -352,6 +767,12 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
       {/* Subtle Central Glow Behind Glass */}
       <div className="absolute w-96 h-96 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none -translate-y-6" />
+
+      {/* 1,000 Crystal Glass Shards Simulation Canvas (Mil Añicos) */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full pointer-events-none z-30"
+      />
 
       {!isShattered ? (
         <div className="relative z-10 flex flex-col items-center w-full max-w-md px-6">
@@ -926,17 +1347,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           )}
         </div>
       ) : (
-        <div className="relative z-10 flex flex-col items-center justify-center animate-fade-in px-4">
-          {/* Shards (CSS explosion) */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-             <div className="w-5 h-5 bg-white/70 border border-cyan-200 transform rotate-45 translate-x-28 -translate-y-28 opacity-0 animate-[shatter_1.2s_ease-out_forwards]"></div>
-             <div className="w-8 h-4 bg-white/60 border border-white transform -rotate-12 -translate-x-32 -translate-y-16 opacity-0 animate-[shatter_1.2s_ease-out_forwards_0.1s]"></div>
-             <div className="w-4 h-10 bg-cyan-200/80 transform rotate-[70deg] translate-x-16 -translate-y-40 opacity-0 animate-[shatter_1.2s_ease-out_forwards_0.18s]"></div>
-             <div className="w-6 h-6 bg-white/70 transform -rotate-45 -translate-x-36 translate-y-16 opacity-0 animate-[shatter_1.2s_ease-out_forwards_0.15s]"></div>
-             <div className="w-9 h-3 bg-white/80 transform rotate-12 translate-x-36 translate-y-28 opacity-0 animate-[shatter_1.2s_ease-out_forwards_0.05s]"></div>
-             <div className="w-3 h-7 bg-cyan-300/80 transform rotate-45 -translate-x-12 translate-y-36 opacity-0 animate-[shatter_1.2s_ease-out_forwards_0.22s]"></div>
-          </div>
-
+        <div className="relative z-40 flex flex-col items-center justify-center animate-fade-in px-4">
           <div className="relative z-50 flex flex-col items-center justify-center w-full max-w-sm">
             <div className="w-full p-1 sm:p-[5px] rounded-full bg-[#0f172a] shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.7)] border border-slate-800">
               <div className="w-full p-1.5 flex flex-col items-center justify-center rounded-full bg-[#090d16] shadow-[inset_0_16px_20px_-4px_rgba(0,0,0,0.8),_inset_0_-2px_4px_rgba(255,255,255,0.05)] border border-slate-900">
