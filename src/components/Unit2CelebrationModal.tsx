@@ -735,9 +735,9 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       //    Ambient room noise, fan hum, typing, and turbulent breathing have NO periodic pitch (pitchHz === -1).
       const hasVocalPitch = pitchHz >= 75 && pitchHz <= 1400;
 
-      // 2. Volume threshold: must exceed the ambient room noise floor (vol >= 0.009).
-      //    Ambient room silence is ~0.001 - 0.005. Human singing into device is ~0.012 - 0.25.
-      const hasVocalVolume = vol >= 0.009;
+      // 2. Volume threshold: must exceed ambient room noise floor (vol >= 0.006).
+      //    Ambient room silence is ~0.001 - 0.003. Human singing into device is ~0.008 - 0.25.
+      const hasVocalVolume = vol >= 0.006;
 
       // 3. Candidate vocal frame: requires both musical harmonic pitch and voice volume.
       const isVocalCandidate = hasVocalPitch && hasVocalVolume;
@@ -816,32 +816,103 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
             Rompe la copa con tu nota más aguda
           </h2>
           
-          {/* Fluid Acoustic Resonance Glass Tube Bar */}
-          <div className="w-full max-w-sm flex flex-col items-center mb-6 px-1">
-            <div className="w-full h-5 sm:h-6 bg-[#071322]/95 border border-cyan-400/40 rounded-full p-1 relative shadow-[inset_0_2px_8px_rgba(0,0,0,0.9),_0_0_20px_rgba(6,182,212,0.2)] overflow-hidden">
-              {/* Internal Chamber Calibration Ticks (25%, 50%, 75%) */}
-              <div className="absolute inset-0 flex justify-between items-center px-6 pointer-events-none opacity-25 z-0">
-                <div className="w-[1px] h-2 bg-cyan-200" />
-                <div className="w-[1px] h-3 bg-cyan-200" />
-                <div className="w-[1px] h-2 bg-cyan-200" />
-              </div>
+          {/* Pure Vector Acoustic Resonance Glass Tube Bar (Zero WebKit Lag & 100% Browser Determinism) */}
+          <div className="w-full max-w-sm flex flex-col items-center mb-6 px-2">
+            <svg 
+              viewBox="0 0 320 24" 
+              className="w-full h-5 sm:h-6 overflow-visible filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
+            >
+              <defs>
+                <linearGradient id="barFluidGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#0284c7" />
+                  <stop offset="35%" stopColor="#06b6d4" />
+                  <stop offset="85%" stopColor="#38bdf8" />
+                  <stop offset="100%" stopColor="#ffffff" />
+                </linearGradient>
 
-              {/* Fluid Liquid Fill */}
-              <div 
-                className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-sky-400 to-white transition-all duration-150 ease-out shadow-[0_0_15px_rgba(34,211,238,0.85)] relative z-10"
-                style={{ 
-                  width: `${Math.max(progress > 0 ? 3 : 0, Math.min(100, progress))}%`
-                }}
-              >
-                {/* 3D Cylindrical Liquid Meniscus (Top Specular Sheen) */}
-                <div className="absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/50 to-transparent rounded-t-full pointer-events-none" />
+                <linearGradient id="barSheenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
+                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
+                </linearGradient>
 
-                {/* Glowing Leading Meniscus Bead (Surging Crest) */}
-                {progress > 0 && (
-                  <div className="absolute right-0 top-0 bottom-0 w-2.5 rounded-full bg-white shadow-[0_0_8px_#ffffff,0_0_15px_#38bdf8]" />
-                )}
-              </div>
-            </div>
+                <filter id="barGlow" x="-10%" y="-30%" width="120%" height="160%">
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                <filter id="beadGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                <clipPath id="tubeInteriorClip">
+                  <rect x="2" y="2" width="316" height="20" rx="10" ry="10" />
+                </clipPath>
+              </defs>
+
+              {/* 1. Outer Tube Chamber Background */}
+              <rect
+                x="1"
+                y="1"
+                width="318"
+                height="22"
+                rx="11"
+                ry="11"
+                fill="#071322"
+                stroke="#22d3ee"
+                strokeWidth="1.2"
+                strokeOpacity="0.45"
+              />
+
+              {/* 2. Calibration Ticks (25%, 50%, 75%) */}
+              <g stroke="#38bdf8" strokeWidth="1" opacity="0.30">
+                <line x1="80" y1="5" x2="80" y2="19" />
+                <line x1="160" y1="4" x2="160" y2="20" strokeWidth="1.2" opacity="0.45" />
+                <line x1="240" y1="5" x2="240" y2="19" />
+              </g>
+
+              {/* 3. Fluid Liquid Column */}
+              {progress > 0 && (
+                <g clipPath="url(#tubeInteriorClip)">
+                  {/* Glowing Liquid Stream */}
+                  <rect
+                    x="2"
+                    y="2"
+                    width={Math.max(6, (Math.min(100, progress) / 100) * 316)}
+                    height="20"
+                    rx="10"
+                    ry="10"
+                    fill="url(#barFluidGrad)"
+                    filter="url(#barGlow)"
+                  />
+                  {/* Top Specular Meniscus Highlight */}
+                  <rect
+                    x="2"
+                    y="2"
+                    width={Math.max(6, (Math.min(100, progress) / 100) * 316)}
+                    height="9"
+                    fill="url(#barSheenGrad)"
+                  />
+                </g>
+              )}
+
+              {/* 4. Surging Leading Meniscus Bead */}
+              {progress > 0 && progress < 100 && (
+                <circle
+                  cx={Math.max(10, Math.min(310, 2 + (Math.min(100, progress) / 100) * 316))}
+                  cy="12"
+                  r="4.5"
+                  fill="#ffffff"
+                  filter="url(#beadGlow)"
+                />
+              )}
+            </svg>
           </div>
 
           {/* Crystal Wine Glass Container with Progressive Cracking & Direct Touch Interaction */}
