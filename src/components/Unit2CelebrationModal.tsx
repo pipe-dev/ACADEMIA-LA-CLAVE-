@@ -72,7 +72,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const [isInteracting, setIsInteracting] = useState(false);
   const [tiltX, setTiltX] = useState(0); // Up/down tilt: bounded to [-10, 10]
   const [tiltZ, setTiltZ] = useState(0); // Subtle lateral lean: bounded to [-3, 3]
-  const [causticOffset, setCausticOffset] = useState(0); // Periodic translation: [-26px, 26px]
   const [causticAlpha, setCausticAlpha] = useState(0.85); // Modulating opacity with rotation
   const [isJiggling, setIsJiggling] = useState(false);
 
@@ -139,10 +138,9 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     setTiltX(tiltXRef.current);
     setTiltZ(tiltZRef.current);
 
-    // Cylindrical periodic mapping for caustics (stays on the curved glass!)
+    // Cylindrical periodic shimmer for caustics (glint brightens & dims with rotation, no horizontal shift)
     const rad = (surfaceAngleRef.current * Math.PI) / 180;
-    setCausticOffset(Math.sin(rad) * 26);
-    setCausticAlpha(0.45 + 0.45 * Math.cos(rad));
+    setCausticAlpha(0.60 + 0.35 * Math.cos(rad));
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -187,8 +185,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       setTiltZ(tiltZRef.current);
 
       const rad = (surfaceAngleRef.current * Math.PI) / 180;
-      setCausticOffset(Math.sin(rad) * 26);
-      setCausticAlpha(0.45 + 0.45 * Math.cos(rad));
+      setCausticAlpha(0.60 + 0.35 * Math.cos(rad));
 
       const isSettledSurface = Math.abs(surfaceVelRef.current) < 0.05;
       const isSettledTiltX = Math.abs(tiltXRef.current) < 0.1 && Math.abs(tiltVelXRef.current) < 0.05;
@@ -544,44 +541,46 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeLinecap="round"
                 />
 
-                {/* 9. Specular Caustics - Cylindrical Surface Orbit */}
-                <g 
-                  className={isInteracting ? '' : 'animate-caustic-rotate-shift'}
-                  style={isInteracting ? {
-                    transform: `translate(${causticOffset}px, ${tiltX * 0.2}px)`,
-                    opacity: causticAlpha,
-                    transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
-                  } : undefined}
-                >
-                  {/* Wide ambient bloom */}
-                  <path
-                    d="M 68,44 C 64,82 62,120 78,148"
-                    fill="none"
-                    stroke="url(#softAmbientGlare)"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    opacity="0.4"
-                    filter="url(#diffuseGlow)"
-                  />
-                  {/* Mid-feathered glare strip */}
-                  <path
-                    d="M 64,40 C 60,80 57,126 76,155 C 83,165 89,173 95,182"
-                    fill="none"
-                    stroke="url(#primaryLeftGlare)"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    opacity="0.80"
-                    filter="url(#subtleBlur)"
-                  />
-                  {/* Soft core highlight */}
-                  <path
-                    d="M 65,42 C 62,78 59,122 75,150"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    opacity="0.75"
-                  />
+                {/* 9. Specular Caustics - Cylindrical Surface Glint (Strictly Clipped Inside Bowl) */}
+                <g clipPath="url(#bowlInteriorClip)">
+                  <g 
+                    className={isInteracting ? '' : 'animate-caustic-rotate-shift'}
+                    style={isInteracting ? {
+                      transform: `translateY(${tiltX * 0.15}px)`,
+                      opacity: causticAlpha,
+                      transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
+                    } : undefined}
+                  >
+                    {/* Wide ambient bloom */}
+                    <path
+                      d="M 68,44 C 64,82 62,120 78,148"
+                      fill="none"
+                      stroke="url(#softAmbientGlare)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      opacity="0.4"
+                      filter="url(#diffuseGlow)"
+                    />
+                    {/* Mid-feathered glare strip */}
+                    <path
+                      d="M 64,40 C 60,80 57,126 76,155 C 83,165 89,173 95,182"
+                      fill="none"
+                      stroke="url(#primaryLeftGlare)"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      opacity="0.80"
+                      filter="url(#subtleBlur)"
+                    />
+                    {/* Soft core highlight */}
+                    <path
+                      d="M 65,42 C 62,78 59,122 75,150"
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      opacity="0.75"
+                    />
+                  </g>
                 </g>
 
                 {/* 10. Right Side Soft Rim Ambient Refraction */}

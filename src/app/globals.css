@@ -881,23 +881,23 @@ nextjs-portal,
 
 @keyframes causticOrbit360 {
   0% {
-    transform: translate(0px, 0px);
+    transform: translateY(0px);
     opacity: 0.85;
   }
   25% {
-    transform: translate(-8px, 1.5px);
+    transform: translateY(1.0px);
     opacity: 0.95;
   }
   50% {
-    transform: translate(0px, 3.5px);
+    transform: translateY(2.0px);
     opacity: 0.70;
   }
   75% {
-    transform: translate(8px, 1.5px);
-    opacity: 0.88;
+    transform: translateY(1.0px);
+    opacity: 0.90;
   }
   100% {
-    transform: translate(0px, 0px);
+    transform: translateY(0px);
     opacity: 0.85;
   }
 }
