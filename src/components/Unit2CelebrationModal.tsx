@@ -248,16 +248,16 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           handleStart();
         }
 
-        // Tapping the glass adds structural tension (+7% per strike)
+        // Tapping the glass adds structural tension (+10% per strike)
         setProgress(prev => {
           if (prev >= 100) return prev;
-          const next = Math.min(100, prev + 7);
+          const next = Math.min(100, prev + 10);
           if (next >= 100) {
             setIsShattered(true);
             audioService.stopMicrophone();
             audioService.play3StarFanfare();
             try {
-              confetti({ particleCount: 90, spread: 75, origin: { y: 0.55 } });
+              confetti({ particleCount: 100, spread: 75, origin: { y: 0.55 } });
             } catch (_) {}
           }
           return next;
@@ -275,6 +275,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       setDetectedPitch(null);
       lastTimeRef.current = performance.now();
       lastVoiceTimeRef.current = performance.now();
+      // Auto-start microphone since opening the modal is a direct user gesture
+      handleStart();
     } else {
       audioService.stopMicrophone();
       isActiveRef.current = false;
@@ -297,15 +299,17 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       const dt = Math.min(100, now - lastTimeRef.current);
       lastTimeRef.current = now;
 
-      // Highly responsive vocal detection:
-      // Catches singing note in musical range (60 - 2500 Hz) or acoustic volume > 0.005
-      const isVoiceDetected = (pitchHz > 60 && pitchHz < 2500) || vol > 0.005;
+      // Ultra-sensitive vocal sound & musical pitch detection
+      // Catches singing note in musical range (50 - 2500 Hz) or acoustic volume > 0.002
+      const isVoiceDetected = (pitchHz > 50 && pitchHz < 2500) || vol > 0.002;
 
       if (isVoiceDetected) {
         lastVoiceTimeRef.current = now;
-        if (pitchHz > 60 && pitchHz < 2500) {
+        if (pitchHz > 50 && pitchHz < 2500) {
           setDetectedPitch(Math.round(pitchHz));
         }
+      } else if (now - lastVoiceTimeRef.current > 800) {
+        setDetectedPitch(null);
       }
 
       setProgress(prev => {
@@ -313,12 +317,11 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
         let newProg = prev;
         if (isVoiceDetected) {
-          // Takes ~3.5s of singing to reach 100%
-          newProg += (dt / 3500) * 100;
-        } else if (now - lastVoiceTimeRef.current > 1200 && newProg > 0) {
-          // Generous breathing grace period: only gentle decay if no voice for >1.2s
-          newProg -= (dt / 5000) * 8;
+          // Rapid, responsive filling in ~2.2s of singing (with extra boost if loud)
+          const voiceBoost = vol > 0.012 ? 1.4 : 1.0;
+          newProg += (dt / 2200) * 100 * voiceBoost;
         }
+        // Progress holds steady when pausing to breathe (no frustrating drain)
 
         newProg = Math.max(0, Math.min(100, newProg));
 
@@ -327,7 +330,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           audioService.stopMicrophone();
           audioService.play3StarFanfare();
           try {
-            confetti({ particleCount: 90, spread: 75, origin: { y: 0.55 } });
+            confetti({ particleCount: 100, spread: 75, origin: { y: 0.55 } });
           } catch (_) {}
         }
         return newProg;
@@ -357,10 +360,10 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           </h2>
           
           {/* Progress / Tension Bar */}
-          <div className="w-full h-3.5 bg-slate-900/80 border border-slate-700/80 rounded-full overflow-hidden mb-6 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] p-0.5">
+          <div className="w-full h-4 bg-slate-900/90 border border-cyan-500/30 rounded-full overflow-hidden mb-6 shadow-[inset_0_2px_6px_rgba(0,0,0,0.8),_0_0_15px_rgba(6,182,212,0.2)] p-0.5 relative">
             <div 
-              className="h-full bg-gradient-to-r from-cyan-500 to-cyan-300 rounded-full transition-all duration-75 shadow-[0_0_12px_rgba(34,211,238,0.8)]"
-              style={{ width: `${progress}%` }}
+              className="h-full bg-gradient-to-r from-cyan-500 via-sky-300 to-white rounded-full transition-all duration-75 shadow-[0_0_15px_rgba(34,211,238,0.9)]"
+              style={{ width: `${Math.max(progress > 0 ? 3 : 0, progress)}%` }}
             />
           </div>
 
@@ -912,12 +915,12 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 </span>
                 <span className="text-cyan-300 font-bold text-sm tracking-wide">
                   {detectedPitch 
-                    ? `¡Tono captado (${detectedPitch} Hz)! Manténlo...` 
+                    ? `¡Tono captado (${detectedPitch} Hz)! Rompiendo...` 
                     : '¡Canta ahora con tu voz más aguda!'}
                 </span>
               </div>
-              <span className="text-slate-400 text-xs font-medium">
-                {progress > 0 ? `Tensión: ${Math.round(progress)}%` : 'Esperando tu voz (o toques con el dedo)...'}
+              <span className="text-slate-300 text-xs font-semibold tracking-wide">
+                {progress > 0 ? `Tensión Acústica: ${Math.round(progress)}%` : 'Esperando tu voz o toques con el dedo...'}
               </span>
             </div>
           )}
