@@ -61,75 +61,15 @@ const playCrystalChime = () => {
   }
 };
 
-interface CrystalLine {
-  id: number;
-  isFront: boolean;
-  path: string;
-  opacity: number;
-  strokeWidth: number;
-  isFlare: boolean;
-  flareOpacity: number;
-}
-
-// Generates 6 volumetric crystal facet lines rotating in 3D around the Y-axis (Mode 7 / Rareware 2.5D style)
-const computeCrystalLines = (surfaceAngleDeg: number): CrystalLine[] => {
-  const N = 6;
-  const lines: CrystalLine[] = [];
-
-  for (let k = 0; k < N; k++) {
-    const phi = ((surfaceAngleDeg + k * (360 / N)) * Math.PI) / 180;
-    const sin = Math.sin(phi);
-    const z = Math.cos(phi); // > 0: front hemisphere, <= 0: back hemisphere
-    const isFront = z > 0;
-
-    // Radius at key Y stations along the crystal bowl:
-    // y=32 (rim): R=42; y=80 (upper flank): R=46; y=135 (widest belly): R=50; y=168 (lower taper): R=26; y=188 (bottom): R=6
-    const x0 = 100 + 42 * sin;
-    const x1 = 100 + 46 * sin;
-    const x2 = 100 + 50 * sin;
-    const x3 = 100 + 26 * sin;
-    const x4 = 100 + 6 * sin;
-
-    // Cubic Bezier curve strictly matching the glass contour
-    const path = `M ${x0.toFixed(1)},32 C ${x1.toFixed(1)},68 ${x1.toFixed(1)},105 ${x2.toFixed(1)},135 C ${x3.toFixed(1)},158 ${x3.toFixed(1)},175 ${x4.toFixed(1)},188`;
-
-    if (isFront) {
-      // FRONT LINES: bright specular reflections facing the viewer
-      // Key studio light is positioned at -28 deg (front-left)
-      const lightAlignment = Math.max(0, Math.cos(phi + 0.5));
-      const opacity = Math.min(0.95, Math.max(0, z * (0.35 + 0.60 * lightAlignment)));
-      const strokeWidth = 1.0 + 1.8 * lightAlignment * z;
-      const isFlare = lightAlignment > 0.65 && z > 0.4;
-      const flareOpacity = isFlare ? (lightAlignment - 0.65) * 2.5 * z : 0;
-
-      lines.push({
-        id: k,
-        isFront: true,
-        path,
-        opacity,
-        strokeWidth,
-        isFlare,
-        flareOpacity,
-      });
-    } else {
-      // BACK LINES: darker refracted curves seen through the cavity/liquid
-      const b = -z; // 0 at edges, 1 at center-back
-      const opacity = Math.min(0.40, Math.max(0, b * 0.35));
-      const strokeWidth = 0.8 + 0.3 * b;
-
-      lines.push({
-        id: k,
-        isFront: false,
-        path,
-        opacity,
-        strokeWidth,
-        isFlare: false,
-        flareOpacity: 0,
-      });
-    }
-  }
-
-  return lines;
+// Calculates the smooth, curved specular highlight path matching the original glass contour
+// u = -1: exact left highlight; u = 0: center vertical line; u = +1: exact right highlight
+const getGlarePath = (u: number) => {
+  const x0 = 100 + 36 * u;
+  const x1 = 100 + 40 * u;
+  const x2 = 100 + 43 * u;
+  const x3 = 100 + 24 * u;
+  const x4 = 100 + 5 * u;
+  return `M ${x0.toFixed(1)},40 C ${x1.toFixed(1)},80 ${x2.toFixed(1)},125 ${x3.toFixed(1)},155 C ${((x3 + x4) / 2).toFixed(1)},168 ${x4.toFixed(1)},175 ${x4.toFixed(1)},182`;
 };
 
 export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ isOpen, onContinue }) => {
@@ -159,8 +99,25 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const isDraggingRef = useRef(false);
   const jiggleTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Compute 6 dynamic 2.5D rotating facet lines (Rareware / Nintendo Mode 7 style)
-  const crystalLines = useMemo(() => computeCrystalLines(surfaceAngle), [surfaceAngle]);
+  // Generates the single specular glare that glides across the front of the bowl
+  const highlights = useMemo(() => {
+    const list: { id: number; path: string; opacity: number }[] = [];
+    const angles = [surfaceAngle, surfaceAngle + 180];
+    for (let i = 0; i < 2; i++) {
+      const rad = (angles[i] * Math.PI) / 180;
+      const z = Math.cos(rad);
+      if (z > 0.01) {
+        const u = Math.sin(rad);
+        const op = Math.min(0.95, z * 1.15);
+        list.push({
+          id: i,
+          path: getGlarePath(u),
+          opacity: op,
+        });
+      }
+    }
+    return list;
+  }, [surfaceAngle]);
 
   useEffect(() => {
     return () => {
@@ -509,28 +466,20 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   <rect x="40" y="20" width="120" height="180" fill="url(#glassBodyGrad)" opacity="0.40" />
 
                   {/* Refracted Background Grid: exact optical continuation of the real background grid */}
-                  <g filter="url(#silkyRefraction)">
-                    {/* Dynamic Rotating Back Facets / Refracted Longitudinal Curves (Nintendo/Rare 2.5D) */}
-                    {crystalLines.filter(l => !l.isFront && l.opacity > 0.01).map(l => (
-                      <g key={`back-${l.id}`}>
-                        {/* Darker background grid continuation */}
-                        <path
-                          d={l.path}
-                          fill="none"
-                          stroke="#1b2b3f"
-                          strokeWidth={l.strokeWidth}
-                          opacity={l.opacity}
-                        />
-                        {/* Subtle cyan refractive dispersion */}
-                        <path
-                          d={l.path}
-                          fill="none"
-                          stroke="rgba(56, 189, 248, 0.35)"
-                          strokeWidth={l.strokeWidth * 0.75}
-                          opacity={l.opacity * 0.75}
-                        />
-                      </g>
-                    ))}
+                  <g className="animate-refraction-angle-shift" filter="url(#silkyRefraction)">
+                    {/* Verticals bent by cylindrical crystal volume (Matching #1b2b3f background grid) */}
+                    <g stroke="#1b2b3f" strokeWidth="1" opacity="0.80">
+                      <path d="M 52,60 C 48,95 54,135 72,165" fill="none" />
+                      <path d="M 76,32 C 66,75 64,125 84,175" fill="none" />
+                      <path d="M 100,32 L 100,185" fill="none" strokeWidth="1.1" />
+                      <path d="M 124,32 C 134,75 136,125 116,175" fill="none" />
+                      <path d="M 148,60 C 152,95 146,135 128,165" fill="none" />
+                    </g>
+                    {/* Subtle crystal dispersion / chromatic sheen on refracted verticals */}
+                    <g stroke="rgba(56, 189, 248, 0.22)" strokeWidth="0.8" opacity="0.55">
+                      <path d="M 76,32 C 66,75 64,125 84,175" fill="none" />
+                      <path d="M 124,32 C 134,75 136,125 116,175" fill="none" />
+                    </g>
 
                     {/* Horizontals bowed downward by spherical lens curvature (Connecting to background grid lines at edges) */}
                     <g stroke="#1b2b3f" strokeWidth="1" opacity="0.80">
@@ -630,40 +579,38 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeLinecap="round"
                 />
 
-                {/* 9. Dynamic Rotating Front Facets / Specular Glare (Nintendo/Rare 2.5D Volumetric Surface) */}
+                {/* 9. Dynamic Specular Caustic Glare (Sweeping smoothly across the front of the crystal bowl) */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  {crystalLines.filter(l => l.isFront && l.opacity > 0.01).map(l => (
-                    <g key={`front-${l.id}`}>
-                      {/* Wide ambient bloom when crossing key studio light */}
-                      {l.isFlare && (
-                        <path
-                          d={l.path}
-                          fill="none"
-                          stroke="url(#softAmbientGlare)"
-                          strokeWidth={l.strokeWidth * 3.4}
-                          strokeLinecap="round"
-                          opacity={l.flareOpacity * 0.50}
-                          filter="url(#diffuseGlow)"
-                        />
-                      )}
-                      {/* Feathered glare strip */}
+                  {highlights.map(h => (
+                    <g key={`glare-${h.id}`}>
+                      {/* Wide ambient bloom */}
                       <path
-                        d={l.path}
+                        d={h.path}
+                        fill="none"
+                        stroke="url(#softAmbientGlare)"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        opacity={h.opacity * 0.40}
+                        filter="url(#diffuseGlow)"
+                      />
+                      {/* Mid-feathered glare strip */}
+                      <path
+                        d={h.path}
                         fill="none"
                         stroke="url(#primaryLeftGlare)"
-                        strokeWidth={l.strokeWidth * 1.8}
+                        strokeWidth="3.5"
                         strokeLinecap="round"
-                        opacity={l.opacity * 0.85}
+                        opacity={h.opacity * 0.80}
                         filter="url(#subtleBlur)"
                       />
-                      {/* Crisp bright white core reflection */}
+                      {/* Soft core highlight */}
                       <path
-                        d={l.path}
+                        d={h.path}
                         fill="none"
                         stroke="#ffffff"
-                        strokeWidth={l.strokeWidth * 0.85}
+                        strokeWidth="1.2"
                         strokeLinecap="round"
-                        opacity={l.opacity}
+                        opacity={h.opacity * 0.75}
                       />
                     </g>
                   ))}
@@ -704,7 +651,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   filter="url(#subtleBlur)"
-                  style={{ opacity: 0.60 + 0.30 * Math.cos((surfaceAngle * Math.PI) / 180) }}
                 />
 
                 {/* 12. Soft Beveled Crystal Foot Base */}
@@ -744,7 +690,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   stroke="rgba(255,255,255,0.85)"
                   strokeWidth="1.8"
                   strokeLinecap="round"
-                  style={{ opacity: 0.70 + 0.20 * Math.sin((surfaceAngle * Math.PI) / 180) }}
                 />
 
                 {/* 13. Sound Resonance Waves (Pulsing when singing into microphone) */}
