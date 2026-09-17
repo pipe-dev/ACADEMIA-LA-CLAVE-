@@ -68,14 +68,22 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const reqRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
 
-  // --- 3D Touch Interactivity & Physics State ---
+  // --- 2.5D Anti-Sticker Touch Interactivity & Physics State ---
   const [isInteracting, setIsInteracting] = useState(false);
-  const [touchRotX, setTouchRotX] = useState(0);
-  const [touchRotY, setTouchRotY] = useState(0);
+  const [tiltX, setTiltX] = useState(0); // Up/down tilt: bounded to [-10, 10]
+  const [tiltZ, setTiltZ] = useState(0); // Subtle lateral lean: bounded to [-3, 3]
+  const [causticOffset, setCausticOffset] = useState(0); // Periodic translation: [-26px, 26px]
+  const [causticAlpha, setCausticAlpha] = useState(0.85); // Modulating opacity with rotation
   const [isJiggling, setIsJiggling] = useState(false);
 
-  const rotRef = useRef({ x: 0, y: 0 });
-  const velRef = useRef({ x: 0, y: 0 });
+  // Physics refs
+  const surfaceAngleRef = useRef(0); // Continuous 360° cylindrical surface angle
+  const surfaceVelRef = useRef(0); // Angular velocity of surface spin
+  const tiltXRef = useRef(0);
+  const tiltVelXRef = useRef(0);
+  const tiltZRef = useRef(0);
+  const tiltVelZRef = useRef(0);
+
   const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const isDraggingRef = useRef(false);
@@ -101,7 +109,9 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     const now = performance.now();
     pointerStartRef.current = { x: e.clientX, y: e.clientY, time: now };
     lastPointerRef.current = { x: e.clientX, y: e.clientY, time: now };
-    velRef.current = { x: 0, y: 0 };
+    surfaceVelRef.current = 0;
+    tiltVelXRef.current = 0;
+    tiltVelZRef.current = 0;
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -112,16 +122,27 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     const dx = e.clientX - lastPointerRef.current.x;
     const dy = e.clientY - lastPointerRef.current.y;
 
-    velRef.current.y = (dx / dt) * 14;
-    velRef.current.x = (-dy / dt) * 10;
+    // 1. Surface spin tracks horizontal drag smoothly
+    surfaceVelRef.current = (dx / dt) * 16;
+    surfaceAngleRef.current += dx * 1.2;
 
-    rotRef.current.y += dx * 0.7;
-    const newRotX = rotRef.current.x - dy * 0.4;
-    rotRef.current.x = Math.max(-22, Math.min(22, newRotX));
+    // 2. Physical tilt X: bounded strictly to [-10, 10] with elastic resistance
+    tiltVelXRef.current = (-dy / dt) * 8;
+    const targetTiltX = tiltXRef.current - dy * 0.25;
+    tiltXRef.current = Math.max(-10, Math.min(10, targetTiltX));
+
+    // 3. Subtle lateral lean Z: proportional to movement [-3, 3]
+    tiltZRef.current = Math.max(-3, Math.min(3, dx * 0.1));
 
     lastPointerRef.current = { x: e.clientX, y: e.clientY, time: now };
-    setTouchRotX(rotRef.current.x);
-    setTouchRotY(rotRef.current.y);
+
+    setTiltX(tiltXRef.current);
+    setTiltZ(tiltZRef.current);
+
+    // Cylindrical periodic mapping for caustics (stays on the curved glass!)
+    const rad = (surfaceAngleRef.current * Math.PI) / 180;
+    setCausticOffset(Math.sin(rad) * 26);
+    setCausticAlpha(0.45 + 0.45 * Math.cos(rad));
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -148,22 +169,32 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
     // Run momentum inertia & spring-back loop
     const runPhysics = () => {
-      // 1. Inertia on Y with smooth friction damping
-      rotRef.current.y += velRef.current.y;
-      velRef.current.y *= 0.94;
+      // 1. Surface spin inertia (frictional damping)
+      surfaceAngleRef.current += surfaceVelRef.current;
+      surfaceVelRef.current *= 0.94;
 
-      // 2. Spring-back on X (damped harmonic oscillator returning to 0)
-      const springForce = -0.09 * rotRef.current.x;
-      velRef.current.x = (velRef.current.x + springForce) * 0.85;
-      rotRef.current.x += velRef.current.x;
+      // 2. Spring-back on Tilt X (damped harmonic oscillator returning to 0)
+      const springForceX = -0.12 * tiltXRef.current;
+      tiltVelXRef.current = (tiltVelXRef.current + springForceX) * 0.82;
+      tiltXRef.current += tiltVelXRef.current;
 
-      setTouchRotX(rotRef.current.x);
-      setTouchRotY(rotRef.current.y);
+      // 3. Spring-back on Tilt Z
+      const springForceZ = -0.14 * tiltZRef.current;
+      tiltVelZRef.current = (tiltVelZRef.current + springForceZ) * 0.80;
+      tiltZRef.current += tiltVelZRef.current;
 
-      const isSettledY = Math.abs(velRef.current.y) < 0.04;
-      const isSettledX = Math.abs(rotRef.current.x) < 0.15 && Math.abs(velRef.current.x) < 0.04;
+      setTiltX(tiltXRef.current);
+      setTiltZ(tiltZRef.current);
 
-      if (isSettledY && isSettledX) {
+      const rad = (surfaceAngleRef.current * Math.PI) / 180;
+      setCausticOffset(Math.sin(rad) * 26);
+      setCausticAlpha(0.45 + 0.45 * Math.cos(rad));
+
+      const isSettledSurface = Math.abs(surfaceVelRef.current) < 0.05;
+      const isSettledTiltX = Math.abs(tiltXRef.current) < 0.1 && Math.abs(tiltVelXRef.current) < 0.05;
+      const isSettledTiltZ = Math.abs(tiltZRef.current) < 0.1 && Math.abs(tiltVelZRef.current) < 0.05;
+
+      if (isSettledSurface && isSettledTiltX && isSettledTiltZ) {
         setIsInteracting(false);
       } else {
         physicsAnimRef.current = requestAnimationFrame(runPhysics);
@@ -358,9 +389,9 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
               <g 
                 className={isInteracting ? '' : 'animate-luxury-shadow-sync'}
                 style={isInteracting ? {
-                  transform: `translate(${touchRotY * 0.12}px, 0px) scale(${1 + Math.sin((touchRotY * Math.PI) / 180) * 0.05}, 1)`,
+                  transform: `scale(${1 + Math.abs(tiltZ) * 0.02}, ${1 - tiltX * 0.015})`,
                   transformOrigin: '100px 282px',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
                 } : undefined}
               >
                 <ellipse
@@ -383,13 +414,13 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 />
               </g>
 
-              {/* 3D FLOATING LUXURY GLASS VESSEL WITH DIRECT TOUCH INTERACTION */}
+              {/* 3D FLOATING LUXURY GLASS VESSEL WITH PROTECTED 2.5D VOLUME */}
               <g 
                 className={isInteracting ? '' : 'animate-luxury-rotate-y'}
                 style={isInteracting ? {
-                  transform: `perspective(1000px) rotateX(${touchRotX}deg) rotateY(${touchRotY}deg) translateY(-2px)`,
+                  transform: `perspective(1000px) rotateX(${tiltX}deg) rotateY(${Math.sin((surfaceAngleRef.current * Math.PI) / 180) * 3}deg) rotateZ(${tiltZ}deg) translateY(-2px)`,
                   transformStyle: 'preserve-3d',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
                 } : undefined}
               >
                 {/* 2. OPTICAL BACKGROUND REFRACTION (Realistic glass volume bending actual background) */}
@@ -513,12 +544,13 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeLinecap="round"
                 />
 
-                {/* 9. Specular Caustics - Studio Glare smoothly shifting with rotation and touch */}
+                {/* 9. Specular Caustics - Cylindrical Surface Orbit */}
                 <g 
                   className={isInteracting ? '' : 'animate-caustic-rotate-shift'}
                   style={isInteracting ? {
-                    transform: `translate(${-touchRotY * 0.35}px, ${touchRotX * 0.2}px)`,
-                    transition: isDraggingRef.current ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
+                    transform: `translate(${causticOffset}px, ${tiltX * 0.2}px)`,
+                    opacity: causticAlpha,
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
                   } : undefined}
                 >
                   {/* Wide ambient bloom */}
