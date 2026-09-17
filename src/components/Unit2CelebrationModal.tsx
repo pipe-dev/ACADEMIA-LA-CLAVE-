@@ -349,19 +349,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
         if (!isActiveRef.current) {
           handleStart();
         }
-
-        // Tapping the glass adds structural tension (+10% per strike)
-        setProgress(prev => {
-          if (prev >= 100) return prev;
-          const next = Math.min(100, prev + 10);
-          if (next >= 100) {
-            setIsShattered(true);
-            audioService.stopMicrophone();
-            playGlassShatterSound();
-            audioService.play3StarFanfare();
-          }
-          return next;
-        });
       }
     }
   };
@@ -870,12 +857,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 strokeOpacity="0.45"
               />
 
-              {/* 2. Calibration Ticks (25%, 50%, 75%) */}
-              <g stroke="#38bdf8" strokeWidth="1" opacity="0.30">
-                <line x1="80" y1="5" x2="80" y2="19" />
-                <line x1="160" y1="4" x2="160" y2="20" strokeWidth="1.2" opacity="0.45" />
-                <line x1="240" y1="5" x2="240" y2="19" />
-              </g>
 
               {/* 3. Fluid Liquid Column */}
               {progress > 0 && (
@@ -1427,9 +1408,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
               >
                 <span>🎤 Activar Micrófono</span>
               </button>
-              <span className="text-slate-400 text-xs font-medium text-center">
-                (O dale toques a la copa con el dedo para romperla)
-              </span>
             </div>
           ) : (
             <div className="mt-6 sm:mt-8 flex flex-col items-center gap-1.5">
@@ -1445,7 +1423,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 </span>
               </div>
               <span className="text-slate-300 text-xs font-semibold tracking-wide">
-                {progress > 0 ? `Tensión Acústica: ${Math.round(progress)}%` : 'Esperando tu voz o toques con el dedo...'}
+                {progress > 0 ? `Tensión Acústica: ${Math.round(progress)}%` : 'Esperando tu voz...'}
               </span>
             </div>
           )}
