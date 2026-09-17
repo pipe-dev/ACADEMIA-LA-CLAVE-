@@ -10,9 +10,8 @@ interface Unit2CelebrationModalProps {
 // Synthesizes a high-resonance crystal wine glass acoustic chime (E7 / 2637 Hz)
 const playCrystalChime = () => {
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const ctx = audioService.getAudioContext();
+    if (!ctx) return;
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }
@@ -56,10 +55,6 @@ const playCrystalChime = () => {
     osc1.stop(now + 1.8);
     osc2.stop(now + 0.9);
     osc3.stop(now + 0.4);
-
-    setTimeout(() => {
-      try { ctx.close(); } catch (_) {}
-    }, 2000);
   } catch (err) {
     console.warn("Crystal chime audio error:", err);
   }
