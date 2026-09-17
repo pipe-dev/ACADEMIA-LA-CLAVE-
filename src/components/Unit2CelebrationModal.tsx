@@ -6,12 +6,172 @@ interface Unit2CelebrationModalProps {
   onContinue: () => void;
 }
 
+// Synthesizes a high-resonance crystal wine glass acoustic chime (E7 / 2637 Hz)
+const playCrystalChime = () => {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    // Fundamental crystal tone (E7 ~ 2637 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(2637, now);
+    osc1.frequency.exponentialRampToValueAtTime(2632, now + 1.8);
+    gain1.gain.setValueAtTime(0.28, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+
+    // Harmonic overtone (octave: 5274 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(5274, now);
+    gain2.gain.setValueAtTime(0.08, now);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+
+    // High crystalline sparkle (7911 Hz)
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(7911, now);
+    gain3.gain.setValueAtTime(0.03, now);
+    gain3.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+    osc1.connect(gain1);
+    osc2.connect(gain2);
+    osc3.connect(gain3);
+    gain1.connect(ctx.destination);
+    gain2.connect(ctx.destination);
+    gain3.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc3.start(now);
+    osc1.stop(now + 1.8);
+    osc2.stop(now + 0.9);
+    osc3.stop(now + 0.4);
+
+    setTimeout(() => {
+      try { ctx.close(); } catch (_) {}
+    }, 2000);
+  } catch (err) {
+    console.warn("Crystal chime audio error:", err);
+  }
+};
+
 export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ isOpen, onContinue }) => {
   const [isActive, setIsActive] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isShattered, setIsShattered] = useState(false);
   const reqRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
+
+  // --- 3D Touch Interactivity & Physics State ---
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [touchRotX, setTouchRotX] = useState(0);
+  const [touchRotY, setTouchRotY] = useState(0);
+  const [isJiggling, setIsJiggling] = useState(false);
+
+  const rotRef = useRef({ x: 0, y: 0 });
+  const velRef = useRef({ x: 0, y: 0 });
+  const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const lastPointerRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const isDraggingRef = useRef(false);
+  const physicsAnimRef = useRef<number>();
+  const jiggleTimeoutRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    return () => {
+      if (physicsAnimRef.current) cancelAnimationFrame(physicsAnimRef.current);
+      if (jiggleTimeoutRef.current) clearTimeout(jiggleTimeoutRef.current);
+    };
+  }, []);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    isDraggingRef.current = true;
+    setIsInteracting(true);
+
+    if (physicsAnimRef.current) cancelAnimationFrame(physicsAnimRef.current);
+
+    const now = performance.now();
+    pointerStartRef.current = { x: e.clientX, y: e.clientY, time: now };
+    lastPointerRef.current = { x: e.clientX, y: e.clientY, time: now };
+    velRef.current = { x: 0, y: 0 };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || !lastPointerRef.current) return;
+
+    const now = performance.now();
+    const dt = Math.max(1, now - lastPointerRef.current.time);
+    const dx = e.clientX - lastPointerRef.current.x;
+    const dy = e.clientY - lastPointerRef.current.y;
+
+    velRef.current.y = (dx / dt) * 14;
+    velRef.current.x = (-dy / dt) * 10;
+
+    rotRef.current.y += dx * 0.7;
+    const newRotX = rotRef.current.x - dy * 0.4;
+    rotRef.current.x = Math.max(-22, Math.min(22, newRotX));
+
+    lastPointerRef.current = { x: e.clientX, y: e.clientY, time: now };
+    setTouchRotX(rotRef.current.x);
+    setTouchRotY(rotRef.current.y);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const now = performance.now();
+    const start = pointerStartRef.current;
+
+    // Check tap: displacement < 8px and duration < 250ms
+    if (start) {
+      const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+      const duration = now - start.time;
+      if (dist < 8 && duration < 250) {
+        playCrystalChime();
+        setIsJiggling(true);
+        if (jiggleTimeoutRef.current) clearTimeout(jiggleTimeoutRef.current);
+        jiggleTimeoutRef.current = setTimeout(() => setIsJiggling(false), 450);
+      }
+    }
+
+    // Run momentum inertia & spring-back loop
+    const runPhysics = () => {
+      // 1. Inertia on Y with smooth friction damping
+      rotRef.current.y += velRef.current.y;
+      velRef.current.y *= 0.94;
+
+      // 2. Spring-back on X (damped harmonic oscillator returning to 0)
+      const springForce = -0.09 * rotRef.current.x;
+      velRef.current.x = (velRef.current.x + springForce) * 0.85;
+      rotRef.current.x += velRef.current.x;
+
+      setTouchRotX(rotRef.current.x);
+      setTouchRotY(rotRef.current.y);
+
+      const isSettledY = Math.abs(velRef.current.y) < 0.04;
+      const isSettledX = Math.abs(rotRef.current.x) < 0.15 && Math.abs(velRef.current.x) < 0.04;
+
+      if (isSettledY && isSettledX) {
+        setIsInteracting(false);
+      } else {
+        physicsAnimRef.current = requestAnimationFrame(runPhysics);
+      }
+    };
+
+    physicsAnimRef.current = requestAnimationFrame(runPhysics);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -80,8 +240,14 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
             />
           </div>
 
-          {/* 3D Crystal Wine Glass Container with Progressive Cracking */}
-          <div className={`relative flex flex-col items-center select-none my-2 ${progress > 60 ? 'animate-shake' : ''}`}>
+          {/* 3D Crystal Wine Glass Container with Progressive Cracking & Direct Touch Interaction */}
+          <div 
+            className={`relative flex flex-col items-center select-none my-2 cursor-grab active:cursor-grabbing touch-none ${progress > 60 ? 'animate-shake' : ''} ${isJiggling ? 'animate-crystal-ping' : ''}`}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          >
             <svg
               viewBox="0 0 200 310"
               className="w-[200px] h-[310px] overflow-visible filter drop-shadow-[0_20px_45px_rgba(0,0,0,0.85)]"
@@ -188,8 +354,15 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 </filter>
               </defs>
 
-              {/* 1. Floor Ambient Occlusion Shadow (Synchronized with 3D Y-rotation) */}
-              <g className="animate-luxury-shadow-sync">
+              {/* 1. Floor Ambient Occlusion Shadow */}
+              <g 
+                className={isInteracting ? '' : 'animate-luxury-shadow-sync'}
+                style={isInteracting ? {
+                  transform: `translate(${touchRotY * 0.12}px, 0px) scale(${1 + Math.sin((touchRotY * Math.PI) / 180) * 0.05}, 1)`,
+                  transformOrigin: '100px 282px',
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
+                } : undefined}
+              >
                 <ellipse
                   cx="100"
                   cy="282"
@@ -210,8 +383,15 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 />
               </g>
 
-              {/* 3D FLOATING LUXURY GLASS VESSEL WITH Y-AXIS ROTATION */}
-              <g className="animate-luxury-rotate-y">
+              {/* 3D FLOATING LUXURY GLASS VESSEL WITH DIRECT TOUCH INTERACTION */}
+              <g 
+                className={isInteracting ? '' : 'animate-luxury-rotate-y'}
+                style={isInteracting ? {
+                  transform: `perspective(1000px) rotateX(${touchRotX}deg) rotateY(${touchRotY}deg) translateY(-2px)`,
+                  transformStyle: 'preserve-3d',
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
+                } : undefined}
+              >
                 {/* 2. OPTICAL BACKGROUND REFRACTION (Realistic glass volume bending actual background) */}
                 <g clipPath="url(#bowlInteriorClip)">
                   {/* Dense background occlusion: completely blocks straight background grid from passing straight through */}
@@ -333,8 +513,14 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeLinecap="round"
                 />
 
-                {/* 9. Specular Caustics - Studio Glare smoothly shifting with Y-rotation */}
-                <g className="animate-caustic-rotate-shift">
+                {/* 9. Specular Caustics - Studio Glare smoothly shifting with rotation and touch */}
+                <g 
+                  className={isInteracting ? '' : 'animate-caustic-rotate-shift'}
+                  style={isInteracting ? {
+                    transform: `translate(${-touchRotY * 0.35}px, ${touchRotX * 0.2}px)`,
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
+                  } : undefined}
+                >
                   {/* Wide ambient bloom */}
                   <path
                     d="M 68,44 C 64,82 62,120 78,148"
