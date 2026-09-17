@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { audioService } from '../utils/audioService';
+import confetti from 'canvas-confetti';
 
 interface Unit2CelebrationModalProps {
   isOpen: boolean;
@@ -79,8 +80,11 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const [isActive, setIsActive] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isShattered, setIsShattered] = useState(false);
+  const [detectedPitch, setDetectedPitch] = useState<number | null>(null);
   const reqRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
+  const lastVoiceTimeRef = useRef<number>(0);
+  const isActiveRef = useRef<boolean>(false);
 
   // --- 2.5D Touch Interactivity (Surface rotation only, no parallax) ---
   const [isInteracting, setIsInteracting] = useState(false);
@@ -243,36 +247,82 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
         setIsJiggling(true);
         if (jiggleTimeoutRef.current) clearTimeout(jiggleTimeoutRef.current);
         jiggleTimeoutRef.current = setTimeout(() => setIsJiggling(false), 450);
+
+        // Auto-activate microphone on first tap if not already active
+        if (!isActiveRef.current) {
+          handleStart();
+        }
+
+        // Tapping the glass adds structural tension (+7% per strike)
+        setProgress(prev => {
+          if (prev >= 100) return prev;
+          const next = Math.min(100, prev + 7);
+          if (next >= 100) {
+            setIsShattered(true);
+            audioService.stopMicrophone();
+            audioService.play3StarFanfare();
+            try {
+              confetti({ particleCount: 90, spread: 75, origin: { y: 0.55 } });
+            } catch (_) {}
+          }
+          return next;
+        });
       }
     }
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen) {
+      setProgress(0);
+      setIsShattered(false);
+      setIsActive(false);
+      isActiveRef.current = false;
+      setDetectedPitch(null);
+      lastTimeRef.current = performance.now();
+      lastVoiceTimeRef.current = performance.now();
+    } else {
+      audioService.stopMicrophone();
+      isActiveRef.current = false;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     return () => {
-      if (isActive) audioService.stopMicrophone();
+      audioService.stopMicrophone();
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
-  }, [isOpen, isActive]);
+  }, []);
 
   const handleStart = async () => {
     lastTimeRef.current = performance.now();
+    lastVoiceTimeRef.current = performance.now();
     
     const success = await audioService.startMicrophone((pitchHz, vol) => {
       const now = performance.now();
-      const dt = now - lastTimeRef.current;
+      const dt = Math.min(100, now - lastTimeRef.current);
       lastTimeRef.current = now;
+
+      // Highly responsive vocal detection:
+      // Catches singing note in musical range (60 - 2500 Hz) or acoustic volume > 0.005
+      const isVoiceDetected = (pitchHz > 60 && pitchHz < 2500) || vol > 0.005;
+
+      if (isVoiceDetected) {
+        lastVoiceTimeRef.current = now;
+        if (pitchHz > 60 && pitchHz < 2500) {
+          setDetectedPitch(Math.round(pitchHz));
+        }
+      }
 
       setProgress(prev => {
         if (prev >= 100) return prev; // Stop processing if shattered
 
         let newProg = prev;
-        // The volume from audioService is often small (e.g., 0.01 - 0.1).
-        if (vol > 0.015) {
-          newProg += (dt / 4500) * 100; // takes 4.5s to reach 100
-        } else if (newProg > 0) {
-           // Slowly drain if they stop singing, so it doesn't stay at 99 forever
-           newProg -= (dt / 2000) * 10; 
+        if (isVoiceDetected) {
+          // Takes ~3.5s of singing to reach 100%
+          newProg += (dt / 3500) * 100;
+        } else if (now - lastVoiceTimeRef.current > 1200 && newProg > 0) {
+          // Generous breathing grace period: only gentle decay if no voice for >1.2s
+          newProg -= (dt / 5000) * 8;
         }
 
         newProg = Math.max(0, Math.min(100, newProg));
@@ -280,6 +330,10 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
         if (newProg >= 100) {
           setIsShattered(true);
           audioService.stopMicrophone();
+          audioService.play3StarFanfare();
+          try {
+            confetti({ particleCount: 90, spread: 75, origin: { y: 0.55 } });
+          } catch (_) {}
         }
         return newProg;
       });
@@ -287,6 +341,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
     if (success) {
       setIsActive(true);
+      isActiveRef.current = true;
     }
   };
 
@@ -842,19 +897,32 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           </div>
 
           {!isActive ? (
-            <button 
-              onClick={handleStart} 
-              className="mt-6 sm:mt-8 px-8 py-3.5 sm:py-4 rounded-full font-heading font-black text-base uppercase tracking-wider text-white bg-[#00b4d8] hover:bg-[#0096c7] shadow-[0_5px_0_0_#0077b6] active:translate-y-1 active:shadow-[0_1px_0_0_#0077b6] transition-all cursor-pointer"
-            >
-              Activar Micrófono
-            </button>
-          ) : (
-            <div className="mt-6 sm:mt-8 flex flex-col items-center gap-1.5 animate-pulse">
-              <span className="text-cyan-300 font-bold text-sm tracking-wide">
-                ¡Canta ahora con tu voz más aguda!
+            <div className="mt-6 sm:mt-8 flex flex-col items-center gap-2">
+              <button 
+                onClick={handleStart} 
+                className="px-8 py-3.5 sm:py-4 rounded-full font-heading font-black text-base uppercase tracking-wider text-white bg-[#00b4d8] hover:bg-[#0096c7] shadow-[0_5px_0_0_#0077b6] active:translate-y-1 active:shadow-[0_1px_0_0_#0077b6] transition-all cursor-pointer flex items-center gap-2"
+              >
+                <span>🎤 Activar Micrófono</span>
+              </button>
+              <span className="text-slate-400 text-xs font-medium text-center">
+                (O dale toques a la copa con el dedo para romperla)
               </span>
+            </div>
+          ) : (
+            <div className="mt-6 sm:mt-8 flex flex-col items-center gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+                </span>
+                <span className="text-cyan-300 font-bold text-sm tracking-wide">
+                  {detectedPitch 
+                    ? `¡Tono captado (${detectedPitch} Hz)! Manténlo...` 
+                    : '¡Canta ahora con tu voz más aguda!'}
+                </span>
+              </div>
               <span className="text-slate-400 text-xs font-medium">
-                {progress > 0 ? `Carga: ${Math.round(progress)}%` : 'Esperando tu voz...'}
+                {progress > 0 ? `Tensión: ${Math.round(progress)}%` : 'Esperando tu voz (o toques con el dedo)...'}
               </span>
             </div>
           )}
