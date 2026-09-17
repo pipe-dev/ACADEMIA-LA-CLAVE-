@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { audioService } from '../utils/audioService';
 
 interface Unit2CelebrationModalProps {
@@ -61,6 +61,77 @@ const playCrystalChime = () => {
   }
 };
 
+interface CrystalLine {
+  id: number;
+  isFront: boolean;
+  path: string;
+  opacity: number;
+  strokeWidth: number;
+  isFlare: boolean;
+  flareOpacity: number;
+}
+
+// Generates 6 volumetric crystal facet lines rotating in 3D around the Y-axis (Mode 7 / Rareware 2.5D style)
+const computeCrystalLines = (surfaceAngleDeg: number): CrystalLine[] => {
+  const N = 6;
+  const lines: CrystalLine[] = [];
+
+  for (let k = 0; k < N; k++) {
+    const phi = ((surfaceAngleDeg + k * (360 / N)) * Math.PI) / 180;
+    const sin = Math.sin(phi);
+    const z = Math.cos(phi); // > 0: front hemisphere, <= 0: back hemisphere
+    const isFront = z > 0;
+
+    // Radius at key Y stations along the crystal bowl:
+    // y=32 (rim): R=42; y=80 (upper flank): R=46; y=135 (widest belly): R=50; y=168 (lower taper): R=26; y=188 (bottom): R=6
+    const x0 = 100 + 42 * sin;
+    const x1 = 100 + 46 * sin;
+    const x2 = 100 + 50 * sin;
+    const x3 = 100 + 26 * sin;
+    const x4 = 100 + 6 * sin;
+
+    // Cubic Bezier curve strictly matching the glass contour
+    const path = `M ${x0.toFixed(1)},32 C ${x1.toFixed(1)},68 ${x1.toFixed(1)},105 ${x2.toFixed(1)},135 C ${x3.toFixed(1)},158 ${x3.toFixed(1)},175 ${x4.toFixed(1)},188`;
+
+    if (isFront) {
+      // FRONT LINES: bright specular reflections facing the viewer
+      // Key studio light is positioned at -28 deg (front-left)
+      const lightAlignment = Math.max(0, Math.cos(phi + 0.5));
+      const opacity = Math.min(0.95, Math.max(0, z * (0.35 + 0.60 * lightAlignment)));
+      const strokeWidth = 1.0 + 1.8 * lightAlignment * z;
+      const isFlare = lightAlignment > 0.65 && z > 0.4;
+      const flareOpacity = isFlare ? (lightAlignment - 0.65) * 2.5 * z : 0;
+
+      lines.push({
+        id: k,
+        isFront: true,
+        path,
+        opacity,
+        strokeWidth,
+        isFlare,
+        flareOpacity,
+      });
+    } else {
+      // BACK LINES: darker refracted curves seen through the cavity/liquid
+      const b = -z; // 0 at edges, 1 at center-back
+      const opacity = Math.min(0.40, Math.max(0, b * 0.35));
+      const strokeWidth = 0.8 + 0.3 * b;
+
+      lines.push({
+        id: k,
+        isFront: false,
+        path,
+        opacity,
+        strokeWidth,
+        isFlare: false,
+        flareOpacity: 0,
+      });
+    }
+  }
+
+  return lines;
+};
+
 export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ isOpen, onContinue }) => {
   const [isActive, setIsActive] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -72,11 +143,11 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const [isInteracting, setIsInteracting] = useState(false);
   const [tiltX, setTiltX] = useState(0); // Up/down tilt: bounded to [-10, 10]
   const [tiltZ, setTiltZ] = useState(0); // Subtle lateral lean: bounded to [-3, 3]
-  const [causticAlpha, setCausticAlpha] = useState(0.85); // Modulating opacity with rotation
+  const [surfaceAngle, setSurfaceAngle] = useState(0); // Continuous 360° cylindrical surface angle
   const [isJiggling, setIsJiggling] = useState(false);
 
   // Physics refs
-  const surfaceAngleRef = useRef(0); // Continuous 360° cylindrical surface angle
+  const surfaceAngleRef = useRef(0);
   const surfaceVelRef = useRef(0); // Angular velocity of surface spin
   const tiltXRef = useRef(0);
   const tiltVelXRef = useRef(0);
@@ -86,15 +157,67 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const isDraggingRef = useRef(false);
-  const physicsAnimRef = useRef<number>();
   const jiggleTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Compute 6 dynamic 2.5D rotating facet lines (Rareware / Nintendo Mode 7 style)
+  const crystalLines = useMemo(() => computeCrystalLines(surfaceAngle), [surfaceAngle]);
 
   useEffect(() => {
     return () => {
-      if (physicsAnimRef.current) cancelAnimationFrame(physicsAnimRef.current);
       if (jiggleTimeoutRef.current) clearTimeout(jiggleTimeoutRef.current);
     };
   }, []);
+
+  // Unified 60fps animation & physics loop (Handles idle continuous spin, fling momentum, spring-back)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let animId: number;
+    let lastTime = performance.now();
+
+    const loop = (now: number) => {
+      const dt = Math.min(32, now - lastTime);
+      lastTime = now;
+
+      if (!isDraggingRef.current) {
+        // 1. Surface spin: momentum inertia vs ambient slow idle rotation (~18 deg/sec)
+        if (Math.abs(surfaceVelRef.current) > 0.05) {
+          surfaceAngleRef.current += surfaceVelRef.current;
+          surfaceVelRef.current *= 0.94;
+        } else {
+          surfaceAngleRef.current += 0.30 * (dt / 16.67);
+        }
+
+        // Bounded angle in [0, 360)
+        surfaceAngleRef.current = ((surfaceAngleRef.current % 360) + 360) % 360;
+
+        // 2. Spring-back on Tilt X towards gentle ambient floating breath
+        const targetTiltX = isInteracting ? 0 : Math.sin(now * 0.0015) * 2.0;
+        const springForceX = -0.12 * (tiltXRef.current - targetTiltX);
+        tiltVelXRef.current = (tiltVelXRef.current + springForceX) * 0.82;
+        tiltXRef.current += tiltVelXRef.current;
+
+        // 3. Spring-back on Tilt Z towards gentle ambient floating breath
+        const targetTiltZ = isInteracting ? 0 : Math.cos(now * 0.0015) * 0.8;
+        const springForceZ = -0.14 * (tiltZRef.current - targetTiltZ);
+        tiltVelZRef.current = (tiltVelZRef.current + springForceZ) * 0.80;
+        tiltZRef.current += tiltVelZRef.current;
+
+        if (isInteracting && Math.abs(surfaceVelRef.current) < 0.05 && Math.abs(tiltXRef.current) < 0.1 && Math.abs(tiltZRef.current) < 0.1) {
+          setIsInteracting(false);
+        }
+
+        setTiltX(tiltXRef.current);
+        setTiltZ(tiltZRef.current);
+        setSurfaceAngle(surfaceAngleRef.current);
+      }
+
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [isOpen, isInteracting]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     try {
@@ -102,8 +225,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     } catch (_) {}
     isDraggingRef.current = true;
     setIsInteracting(true);
-
-    if (physicsAnimRef.current) cancelAnimationFrame(physicsAnimRef.current);
 
     const now = performance.now();
     pointerStartRef.current = { x: e.clientX, y: e.clientY, time: now };
@@ -123,7 +244,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
     // 1. Surface spin tracks horizontal drag smoothly
     surfaceVelRef.current = (dx / dt) * 16;
-    surfaceAngleRef.current += dx * 1.2;
+    surfaceAngleRef.current = ((surfaceAngleRef.current + dx * 0.9) % 360 + 360) % 360;
 
     // 2. Physical tilt X: bounded strictly to [-10, 10] with elastic resistance
     tiltVelXRef.current = (-dy / dt) * 8;
@@ -137,10 +258,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
     setTiltX(tiltXRef.current);
     setTiltZ(tiltZRef.current);
-
-    // Cylindrical periodic shimmer for caustics (glint brightens & dims with rotation, no horizontal shift)
-    const rad = (surfaceAngleRef.current * Math.PI) / 180;
-    setCausticAlpha(0.60 + 0.35 * Math.cos(rad));
+    setSurfaceAngle(surfaceAngleRef.current);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -164,41 +282,6 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
         jiggleTimeoutRef.current = setTimeout(() => setIsJiggling(false), 450);
       }
     }
-
-    // Run momentum inertia & spring-back loop
-    const runPhysics = () => {
-      // 1. Surface spin inertia (frictional damping)
-      surfaceAngleRef.current += surfaceVelRef.current;
-      surfaceVelRef.current *= 0.94;
-
-      // 2. Spring-back on Tilt X (damped harmonic oscillator returning to 0)
-      const springForceX = -0.12 * tiltXRef.current;
-      tiltVelXRef.current = (tiltVelXRef.current + springForceX) * 0.82;
-      tiltXRef.current += tiltVelXRef.current;
-
-      // 3. Spring-back on Tilt Z
-      const springForceZ = -0.14 * tiltZRef.current;
-      tiltVelZRef.current = (tiltVelZRef.current + springForceZ) * 0.80;
-      tiltZRef.current += tiltVelZRef.current;
-
-      setTiltX(tiltXRef.current);
-      setTiltZ(tiltZRef.current);
-
-      const rad = (surfaceAngleRef.current * Math.PI) / 180;
-      setCausticAlpha(0.60 + 0.35 * Math.cos(rad));
-
-      const isSettledSurface = Math.abs(surfaceVelRef.current) < 0.05;
-      const isSettledTiltX = Math.abs(tiltXRef.current) < 0.1 && Math.abs(tiltVelXRef.current) < 0.05;
-      const isSettledTiltZ = Math.abs(tiltZRef.current) < 0.1 && Math.abs(tiltVelZRef.current) < 0.05;
-
-      if (isSettledSurface && isSettledTiltX && isSettledTiltZ) {
-        setIsInteracting(false);
-      } else {
-        physicsAnimRef.current = requestAnimationFrame(runPhysics);
-      }
-    };
-
-    physicsAnimRef.current = requestAnimationFrame(runPhysics);
   };
 
   useEffect(() => {
@@ -384,12 +467,11 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
               {/* 1. Floor Ambient Occlusion Shadow */}
               <g 
-                className={isInteracting ? '' : 'animate-luxury-shadow-sync'}
-                style={isInteracting ? {
+                style={{
                   transform: `scale(${1 + Math.abs(tiltZ) * 0.02}, ${1 - tiltX * 0.015})`,
                   transformOrigin: '100px 282px',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
-                } : undefined}
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
+                }}
               >
                 <ellipse
                   cx="100"
@@ -413,12 +495,11 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
               {/* 3D FLOATING LUXURY GLASS VESSEL WITH PROTECTED 2.5D VOLUME */}
               <g 
-                className={isInteracting ? '' : 'animate-luxury-rotate-y'}
-                style={isInteracting ? {
-                  transform: `perspective(1000px) rotateX(${tiltX}deg) rotateY(${Math.sin((surfaceAngleRef.current * Math.PI) / 180) * 3}deg) rotateZ(${tiltZ}deg) translateY(-2px)`,
+                style={{
+                  transform: `perspective(1000px) rotateX(${tiltX}deg) rotateZ(${tiltZ}deg) translateY(-2px)`,
                   transformStyle: 'preserve-3d',
-                  transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
-                } : undefined}
+                  transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
+                }}
               >
                 {/* 2. OPTICAL BACKGROUND REFRACTION (Realistic glass volume bending actual background) */}
                 <g clipPath="url(#bowlInteriorClip)">
@@ -428,20 +509,28 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   <rect x="40" y="20" width="120" height="180" fill="url(#glassBodyGrad)" opacity="0.40" />
 
                   {/* Refracted Background Grid: exact optical continuation of the real background grid */}
-                  <g className="animate-refraction-angle-shift" filter="url(#silkyRefraction)">
-                    {/* Verticals bent by cylindrical crystal volume (Matching #1b2b3f background grid) */}
-                    <g stroke="#1b2b3f" strokeWidth="1" opacity="0.80">
-                      <path d="M 52,60 C 48,95 54,135 72,165" fill="none" />
-                      <path d="M 76,32 C 66,75 64,125 84,175" fill="none" />
-                      <path d="M 100,32 L 100,185" fill="none" strokeWidth="1.1" />
-                      <path d="M 124,32 C 134,75 136,125 116,175" fill="none" />
-                      <path d="M 148,60 C 152,95 146,135 128,165" fill="none" />
-                    </g>
-                    {/* Subtle crystal dispersion / chromatic sheen on refracted verticals */}
-                    <g stroke="rgba(56, 189, 248, 0.22)" strokeWidth="0.8" opacity="0.55">
-                      <path d="M 76,32 C 66,75 64,125 84,175" fill="none" />
-                      <path d="M 124,32 C 134,75 136,125 116,175" fill="none" />
-                    </g>
+                  <g filter="url(#silkyRefraction)">
+                    {/* Dynamic Rotating Back Facets / Refracted Longitudinal Curves (Nintendo/Rare 2.5D) */}
+                    {crystalLines.filter(l => !l.isFront && l.opacity > 0.01).map(l => (
+                      <g key={`back-${l.id}`}>
+                        {/* Darker background grid continuation */}
+                        <path
+                          d={l.path}
+                          fill="none"
+                          stroke="#1b2b3f"
+                          strokeWidth={l.strokeWidth}
+                          opacity={l.opacity}
+                        />
+                        {/* Subtle cyan refractive dispersion */}
+                        <path
+                          d={l.path}
+                          fill="none"
+                          stroke="rgba(56, 189, 248, 0.35)"
+                          strokeWidth={l.strokeWidth * 0.75}
+                          opacity={l.opacity * 0.75}
+                        />
+                      </g>
+                    ))}
 
                     {/* Horizontals bowed downward by spherical lens curvature (Connecting to background grid lines at edges) */}
                     <g stroke="#1b2b3f" strokeWidth="1" opacity="0.80">
@@ -541,46 +630,43 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeLinecap="round"
                 />
 
-                {/* 9. Specular Caustics - Cylindrical Surface Glint (Strictly Clipped Inside Bowl) */}
+                {/* 9. Dynamic Rotating Front Facets / Specular Glare (Nintendo/Rare 2.5D Volumetric Surface) */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  <g 
-                    className={isInteracting ? '' : 'animate-caustic-rotate-shift'}
-                    style={isInteracting ? {
-                      transform: `translateY(${tiltX * 0.15}px)`,
-                      opacity: causticAlpha,
-                      transition: isDraggingRef.current ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
-                    } : undefined}
-                  >
-                    {/* Wide ambient bloom */}
-                    <path
-                      d="M 68,44 C 64,82 62,120 78,148"
-                      fill="none"
-                      stroke="url(#softAmbientGlare)"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      opacity="0.4"
-                      filter="url(#diffuseGlow)"
-                    />
-                    {/* Mid-feathered glare strip */}
-                    <path
-                      d="M 64,40 C 60,80 57,126 76,155 C 83,165 89,173 95,182"
-                      fill="none"
-                      stroke="url(#primaryLeftGlare)"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      opacity="0.80"
-                      filter="url(#subtleBlur)"
-                    />
-                    {/* Soft core highlight */}
-                    <path
-                      d="M 65,42 C 62,78 59,122 75,150"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      opacity="0.75"
-                    />
-                  </g>
+                  {crystalLines.filter(l => l.isFront && l.opacity > 0.01).map(l => (
+                    <g key={`front-${l.id}`}>
+                      {/* Wide ambient bloom when crossing key studio light */}
+                      {l.isFlare && (
+                        <path
+                          d={l.path}
+                          fill="none"
+                          stroke="url(#softAmbientGlare)"
+                          strokeWidth={l.strokeWidth * 3.4}
+                          strokeLinecap="round"
+                          opacity={l.flareOpacity * 0.50}
+                          filter="url(#diffuseGlow)"
+                        />
+                      )}
+                      {/* Feathered glare strip */}
+                      <path
+                        d={l.path}
+                        fill="none"
+                        stroke="url(#primaryLeftGlare)"
+                        strokeWidth={l.strokeWidth * 1.8}
+                        strokeLinecap="round"
+                        opacity={l.opacity * 0.85}
+                        filter="url(#subtleBlur)"
+                      />
+                      {/* Crisp bright white core reflection */}
+                      <path
+                        d={l.path}
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth={l.strokeWidth * 0.85}
+                        strokeLinecap="round"
+                        opacity={l.opacity}
+                      />
+                    </g>
+                  ))}
                 </g>
 
                 {/* 10. Right Side Soft Rim Ambient Refraction */}
@@ -618,6 +704,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   filter="url(#subtleBlur)"
+                  style={{ opacity: 0.60 + 0.30 * Math.cos((surfaceAngle * Math.PI) / 180) }}
                 />
 
                 {/* 12. Soft Beveled Crystal Foot Base */}
@@ -657,6 +744,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   stroke="rgba(255,255,255,0.85)"
                   strokeWidth="1.8"
                   strokeLinecap="round"
+                  style={{ opacity: 0.70 + 0.20 * Math.sin((surfaceAngle * Math.PI) / 180) }}
                 />
 
                 {/* 13. Sound Resonance Waves (Pulsing when singing into microphone) */}
