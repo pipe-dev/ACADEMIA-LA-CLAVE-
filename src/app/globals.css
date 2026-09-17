@@ -971,13 +971,4 @@ nextjs-portal,
   transform-origin: 50% 90%;
 }
 
-/* Fluid Progress Bar Shimmer & Flowing Liquid Waves */
-@keyframes fluidStream {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(200%); }
-}
-
-.animate-fluid-stream {
-  animation: fluidStream 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
 

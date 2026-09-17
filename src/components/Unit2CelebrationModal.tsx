@@ -820,7 +820,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           <div className="w-full max-w-sm flex flex-col items-center mb-6 px-1">
             <div className="w-full h-5 sm:h-6 bg-[#071322]/95 border border-cyan-400/40 rounded-full p-1 relative shadow-[inset_0_2px_8px_rgba(0,0,0,0.9),_0_0_20px_rgba(6,182,212,0.2)] overflow-hidden">
               {/* Internal Chamber Calibration Ticks (25%, 50%, 75%) */}
-              <div className="absolute inset-0 flex justify-between items-center px-6 pointer-events-none opacity-20">
+              <div className="absolute inset-0 flex justify-between items-center px-6 pointer-events-none opacity-25 z-0">
                 <div className="w-[1px] h-2 bg-cyan-200" />
                 <div className="w-[1px] h-3 bg-cyan-200" />
                 <div className="w-[1px] h-2 bg-cyan-200" />
@@ -828,21 +828,17 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
               {/* Fluid Liquid Fill */}
               <div 
-                className="h-full rounded-full relative overflow-hidden transition-[width] duration-150 ease-out shadow-[0_0_16px_rgba(34,211,238,0.85)]"
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-sky-400 to-white transition-all duration-150 ease-out shadow-[0_0_15px_rgba(34,211,238,0.85)] relative z-10"
                 style={{ 
-                  width: `${Math.max(progress > 0 ? 4 : 0, progress)}%`,
-                  background: 'linear-gradient(90deg, #0284c7 0%, #06b6d4 40%, #38bdf8 75%, #ffffff 100%)'
+                  width: `${Math.max(progress > 0 ? 3 : 0, Math.min(100, progress))}%`
                 }}
               >
                 {/* 3D Cylindrical Liquid Meniscus (Top Specular Sheen) */}
-                <div className="absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/60 to-transparent rounded-t-full pointer-events-none" />
-
-                {/* Continuous Flowing Liquid Shimmer Stream */}
-                <div className="absolute inset-0 w-full h-full bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.75)_50%,transparent_100%)] animate-fluid-stream pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/50 to-transparent rounded-t-full pointer-events-none" />
 
                 {/* Glowing Leading Meniscus Bead (Surging Crest) */}
                 {progress > 0 && (
-                  <div className="absolute right-0 top-0 bottom-0 w-2.5 sm:w-3 rounded-full bg-white shadow-[0_0_10px_#ffffff,0_0_20px_#38bdf8] opacity-95" />
+                  <div className="absolute right-0 top-0 bottom-0 w-2.5 rounded-full bg-white shadow-[0_0_8px_#ffffff,0_0_15px_#38bdf8]" />
                 )}
               </div>
             </div>
