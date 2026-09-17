@@ -142,28 +142,28 @@ export async function shareUserAchievement(title: string, text: string, url?: st
 export const PRACTICE_NOTIFICATION_MESSAGES = [
   // Motivacionales / Variados
   (streak: number) => ({
-    title: '🔥 ¡Salva tu racha en La Clave!',
-    body: `¡Llevas ${streak} días seguidos! Solo 5 minutos de vocalización hoy para mantener tu racha viva. 🎤`
+    title: 'Salva tu racha en La Clave',
+    body: `¡Llevas ${streak} días seguidos! Solo 5 minutos de vocalización hoy para mantener tu racha viva.`
   }),
   (streak: number) => ({
-    title: '🎵 La constancia hace al artista',
-    body: `Los grandes cantantes no nacen, se entrenan. ¡Tu afinador y ejercicios te esperan hoy! 🌟`
+    title: 'La constancia hace al artista',
+    body: 'Los grandes cantantes no nacen, se entrenan. ¡Tu afinador y ejercicios te esperan hoy!'
   }),
   (streak: number) => ({
-    title: '🎙️ Ejercicio vocal del día',
-    body: `Tu voz es un músculo. ¡No la dejes enfriar hoy! Entra a hacer tu práctica diaria. 💪`
+    title: 'Ejercicio vocal del día',
+    body: 'Tu voz es un músculo. ¡No la dejes enfriar hoy! Entra a hacer tu práctica diaria.'
   }),
   (streak: number) => ({
-    title: '🚀 Desbloquea tu voz',
-    body: `Tu próximo gran agudo empieza con 5 minutos de práctica. ¡Entra ya a ensayar! ✨`
+    title: 'Desbloquea tu voz',
+    body: 'Tu próximo gran agudo empieza con 5 minutos de práctica. ¡Entra ya a ensayar!'
   }),
   (streak: number) => ({
-    title: '🎯 Afinación perfecta',
-    body: `¿Listo para afinar como un profesional? Solo te tomará unos minutos de ejercicio. 🎶`
+    title: 'Afinación perfecta',
+    body: '¿Listo para afinar como un profesional? Solo te tomará unos minutos de ejercicio.'
   }),
   (streak: number) => ({
-    title: '⭐ Tu racha brilla',
-    body: `¡Tu racha de ${streak} días se ve espectacular! Haz que dure un día más cantando hoy. 🔥`
+    title: 'Tu racha brilla',
+    body: `¡Tu racha de ${streak} días se ve espectacular! Haz que dure un día más cantando hoy.`
   }),
   (streak: number) => ({
     title: 'Hora de calentar',

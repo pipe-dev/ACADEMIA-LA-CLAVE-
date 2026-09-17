@@ -373,6 +373,7 @@ const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
 
   return (
     <div className="pb-36 pt-4 px-4 max-w-lg mx-auto space-y-6 animate-fadeIn">
+
       {/* Welcome Section - Interactive Rotating Card */}
       <section id="tour-academia-welcome" className="mb-2">
         <div

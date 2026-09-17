@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { audioService } from '../utils/audioService';
 import { triggerHapticFeedback } from '../utils/pwaFeatures';
+import { getTodayStr } from '../utils/streakPrompt';
 
 interface StreakFlameViewProps {
   currentStreak: number;
@@ -37,10 +38,9 @@ export const StreakFlameView: React.FC<StreakFlameViewProps> = ({
 
   const [dragProgress, setDragProgress] = useState<number>(0); // 0 to 1
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [isIgnited, setIsIgnited] = useState<boolean>(() => {
+const [isIgnited, setIsIgnited] = useState<boolean>(() => {
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      return localStorage.setItem ? localStorage.getItem('laclave_last_streak_date') === today : false;
+      return typeof window !== 'undefined' ? localStorage.getItem('laclave_last_streak_date') === getTodayStr() : false;
     } catch {
       return false;
     }
@@ -83,9 +83,8 @@ export const StreakFlameView: React.FC<StreakFlameViewProps> = ({
     setDragProgress(1);
     setDisplayStreak(newStreak);
 
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      localStorage.setItem('laclave_last_streak_date', today);
+try {
+      localStorage.setItem('laclave_last_streak_date', getTodayStr());
     } catch {}
 
     audioService.playStreakIgnitionSound();
@@ -396,7 +395,7 @@ export const StreakFlameView: React.FC<StreakFlameViewProps> = ({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[70] bg-[#f8faff] dark:bg-[#0a121e] text-[#0b1c30] dark:text-[#d3e4fe] flex flex-col justify-between overflow-hidden touch-none overscroll-none select-none p-4 pb-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-0 z-[150] bg-[#f8faff] dark:bg-[#0a121e] text-[#0b1c30] dark:text-[#d3e4fe] flex flex-col justify-between overflow-hidden touch-none overscroll-none select-none p-4 pb-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]">
       {/* Header with Back Button */}
       <div className="z-50 flex items-center justify-between pointer-events-none pt-2 px-2 shrink-0">
         <button

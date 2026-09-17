@@ -31,6 +31,7 @@ const StreakFlameView = dynamic(() => import('./StreakFlameView').then(m => m.St
 // Code-split dynamic modals (loaded on-demand or preheated by SplashScreen)
 const LessonModal = dynamic(() => import('./LessonModal').then(m => m.LessonModal), { ssr: false });
 const UnitCelebrationModal = dynamic(() => import('./UnitCelebrationModal').then(m => m.UnitCelebrationModal), { ssr: false });
+const Unit2CelebrationModal = dynamic(() => import('./Unit2CelebrationModal').then(m => m.Unit2CelebrationModal), { ssr: false });
 const VoiceEvalModal = dynamic(() => import('./VoiceEvalModal').then(m => m.VoiceEvalModal), { ssr: false });
 const VocalRangeModal = dynamic(() => import('./VocalRangeModal').then(m => m.VocalRangeModal), { ssr: false });
 const StoreModal = dynamic(() => import('./StoreModal').then(m => m.StoreModal), { ssr: false });
@@ -177,6 +178,7 @@ export default function App() {
   const [unlockedUnitAnimationId, setUnlockedUnitAnimationId] = useState<number | null>(null);
   const [justUnlockedNodeId, setJustUnlockedNodeId] = useState<string | null>(null);
   const [showUnitCelebration, setShowUnitCelebration] = useState<boolean>(false);
+  const [showUnit2Celebration, setShowUnit2Celebration] = useState<boolean>(false);
 
   // Global haptic and auditory feedback listener for 3D buttons and interactive elements
   useEffect(() => {
@@ -422,13 +424,23 @@ export default function App() {
 
     // Unit 1 Completion Trigger: Open Unit Celebratory Balloon Modal first
     const isLastNodeOfUnit1 = nodeId === 'u1-node12.5' || 
-                              targetNode?.type === 'exam' ||
-                              Boolean(targetNode?.title?.toLowerCase().includes('evaluaci')) ||
+                              (targetUnit?.id === 1 && (targetNode?.type === 'exam' || Boolean(targetNode?.title?.toLowerCase().includes('evaluaci')))) ||
                               (targetUnit?.id === 1 && targetUnit.nodes[targetUnit.nodes.length - 1]?.id === nodeId);
+    const isLastNodeOfUnit2 = nodeId === 'u2-node20.5' || 
+                              (targetUnit?.id === 2 && (targetNode?.type === 'exam' || Boolean(targetNode?.title?.toLowerCase().includes('evaluaci')))) ||
+                              (targetUnit?.id === 2 && targetUnit.nodes[targetUnit.nodes.length - 1]?.id === nodeId);
+
     if (isLastNodeOfUnit1) {
       setUnlockedUnitAnimationId(null);
       setSelectedNode(null);
       setShowUnitCelebration(true);
+      return;
+    }
+
+    if (isLastNodeOfUnit2) {
+      setUnlockedUnitAnimationId(null);
+      setSelectedNode(null);
+      setShowUnit2Celebration(true);
       return;
     }
 
@@ -456,7 +468,7 @@ export default function App() {
       }
     }
 
-    if (newlyUnlockedNodeId && !isLastNodeOfUnit1) {
+    if (newlyUnlockedNodeId && !isLastNodeOfUnit1 && !isLastNodeOfUnit2) {
       setJustUnlockedNodeId(null);
       setTimeout(() => {
         setJustUnlockedNodeId(newlyUnlockedNodeId);
@@ -653,6 +665,72 @@ export default function App() {
     setUnlockedUnitAnimationId(null);
     setTimeout(() => {
       setUnlockedUnitAnimationId(2);
+    }, 60);
+  };
+
+  const handleContinueToUnit3 = () => {
+    setShowUnit2Celebration(false);
+    setUnits((prevUnits) => {
+      const updated = prevUnits.map((u) => {
+        if (u.id === 2) {
+          return {
+            ...u,
+            nodes: u.nodes.map((n) => ({ ...n, status: 'completed' as const }))
+          };
+        }
+        if (u.id === 3) {
+          const hasCompletedInUnit3 = u.nodes.some((n) => n.status === 'completed');
+          const hasCurrentInUnit3 = u.nodes.some((n) => n.status === 'current');
+
+          return {
+            ...u,
+            nodes: u.nodes.map((n, idx) => {
+              if (n.status === 'completed') return n;
+              if (idx === 0 && !hasCompletedInUnit3 && !hasCurrentInUnit3) {
+                return { ...n, status: 'current' as const };
+              }
+              return n;
+            })
+          };
+        }
+        return u;
+      });
+      try {
+        localStorage.setItem('laclave_units_v8', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    const targetNode = units.flatMap((u) => u.nodes).find((n) => n.id === 'u2-node20.5');
+    if (targetNode?.status !== 'completed') {
+      setUserStats((prev) => {
+        const newXP = prev.xp + 100;
+        let newLevel = prev.level;
+        let newMaxXP = prev.maxXP;
+        if (newXP >= prev.maxXP) {
+          newLevel += 1;
+          newMaxXP += 500;
+        }
+        const updatedStats = {
+          ...prev,
+          xp: newXP,
+          level: newLevel,
+          maxXP: newMaxXP,
+          levelTitle: getLevelTitle(newLevel),
+          lessonsCompleted: (prev.lessonsCompleted || 0) + 1,
+          practiceMinutes: (prev.practiceMinutes || 0) + 10
+        };
+        try {
+          localStorage.setItem('laclave_user_stats_v5', JSON.stringify(updatedStats));
+        } catch {}
+        return updatedStats;
+      });
+    }
+
+    setActiveTab('academia');
+    setUnlockedUnitAnimationId(null);
+    setTimeout(() => {
+      setUnlockedUnitAnimationId(3);
     }, 60);
   };
 
@@ -1095,6 +1173,13 @@ export default function App() {
         <UnitCelebrationModal
           isOpen={showUnitCelebration}
           onContinueToUnit2={handleContinueToUnit2}
+        />
+      )}
+
+      {showUnit2Celebration && (
+        <Unit2CelebrationModal
+          isOpen={showUnit2Celebration}
+          onContinue={handleContinueToUnit3}
         />
       )}
 

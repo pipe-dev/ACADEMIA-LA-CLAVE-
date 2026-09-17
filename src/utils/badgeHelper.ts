@@ -2,10 +2,16 @@ import { Badge, UserStats } from '../types';
 import { ALL_200_SINGING_BADGES } from '../data/badgesData';
 
 export function evaluateBadges(stats: UserStats): Badge[] {
-  const baseBadges = stats.badges && stats.badges.length >= 200 ? stats.badges : ALL_200_SINGING_BADGES;
+  // Siempre usar la fuente de verdad para los requerimientos (maxProgress)
+  const baseBadges = [...ALL_200_SINGING_BADGES];
+  const userBadgesMap = new Map((stats.badges || []).map(b => [b.id, b]));
 
   return baseBadges.map((badge) => {
+    const userBadge = userBadgesMap.get(badge.id);
     let currentProgress = 0;
+    // Si ya estaba desbloqueada por el usuario (y no es un falso positivo), lo respetamos.
+    // Sin embargo, para arreglar el bug de los que ya se les desbloqueó por error, 
+    // reevaluaremos todo desde 0 usando el nuevo maxProgress.
     let unlocked = false;
 
     // Evaluate progress dynamically based on user stats
@@ -35,7 +41,7 @@ export function evaluateBadges(stats: UserStats): Badge[] {
     }
 
     const unlockedAt = unlocked
-      ? (badge.unlockedAt && badge.unlockedAt !== '¡Hoy!' ? badge.unlockedAt : new Date().toISOString())
+      ? (userBadge?.unlockedAt && userBadge.unlockedAt !== '¡Hoy!' ? userBadge.unlockedAt : new Date().toISOString())
       : undefined;
 
     return {

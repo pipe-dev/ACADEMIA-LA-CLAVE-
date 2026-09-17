@@ -26,6 +26,7 @@ interface ProgresoViewProps {
   onOpenSettings: () => void;
   onUpdateStats?: (updated: Partial<UserStats>) => void;
   onOpenVocalRangeModal?: () => void;
+  zenMode?: boolean;
 }
 
 const getBadgeIcon = (iconName: string, unlocked: boolean) => {
@@ -40,21 +41,35 @@ const getBadgeIcon = (iconName: string, unlocked: boolean) => {
   }
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, zenMode }: any) => {
   if (active && payload && payload.length) {
     const xpVal = payload[0].value;
     const dayLabel = label || payload[0].payload?.day || 'Día';
     return (
-      <div className="bg-slate-900/95 dark:bg-[#0f1d2e] text-white p-3 rounded-2xl shadow-xl border-2 border-indigo-500/80 backdrop-blur-md text-xs space-y-1">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-1">
-          <span className="font-extrabold text-indigo-300 uppercase tracking-wider">{dayLabel}</span>
-          <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full">
+      <div className={`p-3 rounded-2xl shadow-xl text-xs space-y-1 backdrop-blur-md ${
+        zenMode
+          ? 'bg-[#1b1c1e]/95 text-[#f0ebe1] border-2 border-[#e5b83b]/60'
+          : 'bg-slate-900/95 dark:bg-[#0f1d2e] text-white border-2 border-indigo-500/80'
+      }`}>
+        <div className={`flex items-center justify-between gap-3 border-b pb-1 ${
+          zenMode ? 'border-[#2e3138]' : 'border-slate-800/80'
+        }`}>
+          <span className={`font-extrabold uppercase tracking-wider ${
+            zenMode ? 'text-[#e5b83b]' : 'text-indigo-300'
+          }`}>{dayLabel}</span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            zenMode ? 'bg-[#26292f] text-[#e5b83b]' : 'bg-indigo-500/30 text-indigo-200'
+          }`}>
             Día de práctica
           </span>
         </div>
         <div className="flex items-baseline gap-1.5 pt-0.5">
-          <span className="font-heading font-extrabold text-lg text-emerald-400">{xpVal.toLocaleString()}</span>
-          <span className="font-bold text-slate-300 text-[11px]">XP Total</span>
+          <span className={`font-heading font-extrabold text-lg ${
+            zenMode ? 'text-[#e5b83b]' : 'text-emerald-400'
+          }`}>{xpVal.toLocaleString()}</span>
+          <span className={`font-bold text-[11px] ${
+            zenMode ? 'text-[#9ea3ae]' : 'text-slate-300'
+          }`}>XP Total</span>
         </div>
         <p className="text-[10px] text-slate-400 font-medium">
           Toca o pasa el cursor para inspeccionar
@@ -65,21 +80,35 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const MinutesTooltip = ({ active, payload, label }: any) => {
+const MinutesTooltip = ({ active, payload, label, zenMode }: any) => {
   if (active && payload && payload.length) {
     const mins = payload[0].value;
     const dayLabel = label || payload[0].payload?.day || 'Día';
     return (
-      <div className="bg-slate-900/95 dark:bg-[#0f1d2e] text-white p-3 rounded-2xl shadow-xl border-2 border-emerald-500/80 backdrop-blur-md text-xs space-y-1">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-1">
-          <span className="font-extrabold text-emerald-300 uppercase tracking-wider">{dayLabel}</span>
-          <span className="text-[10px] font-bold bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-full">
+      <div className={`p-3 rounded-2xl shadow-xl text-xs space-y-1 backdrop-blur-md ${
+        zenMode
+          ? 'bg-[#1b1c1e]/95 text-[#f0ebe1] border-2 border-[#e5b83b]/60'
+          : 'bg-slate-900/95 dark:bg-[#0f1d2e] text-white border-2 border-emerald-500/80'
+      }`}>
+        <div className={`flex items-center justify-between gap-3 border-b pb-1 ${
+          zenMode ? 'border-[#2e3138]' : 'border-slate-800/80'
+        }`}>
+          <span className={`font-extrabold uppercase tracking-wider ${
+            zenMode ? 'text-[#e5b83b]' : 'text-emerald-300'
+          }`}>{dayLabel}</span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            zenMode ? 'bg-[#26292f] text-[#e5b83b]' : 'bg-emerald-500/30 text-emerald-200'
+          }`}>
             Tiempo de Canto
           </span>
         </div>
         <div className="flex items-baseline gap-1.5 pt-0.5">
-          <span className="font-heading font-extrabold text-lg text-emerald-400">{mins} min</span>
-          <span className="font-bold text-slate-300 text-[11px]">practicados</span>
+          <span className={`font-heading font-extrabold text-lg ${
+            zenMode ? 'text-[#e5b83b]' : 'text-emerald-400'
+          }`}>{mins} min</span>
+          <span className={`font-bold text-[11px] ${
+            zenMode ? 'text-[#9ea3ae]' : 'text-slate-300'
+          }`}>practicados</span>
         </div>
       </div>
     );
@@ -87,24 +116,34 @@ const MinutesTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const VocalRangeTooltip = ({ active, payload, label }: any) => {
+const VocalRangeTooltip = ({ active, payload, label, zenMode }: any) => {
   if (active && payload && payload.length) {
     const dataItem = payload[0]?.payload;
     if (!dataItem) return null;
     return (
-      <div className="bg-[#0b1828]/95 border border-indigo-500/40 p-3 rounded-2xl shadow-xl text-xs space-y-1 text-white backdrop-blur-md">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-700/80 pb-1">
-          <span className="font-heading font-extrabold text-indigo-300">{label}</span>
-          <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full">
+      <div className={`p-3 rounded-2xl shadow-xl text-xs space-y-1 backdrop-blur-md ${
+        zenMode
+          ? 'bg-[#1b1c1e]/95 text-[#f0ebe1] border border-[#e5b83b]/50'
+          : 'bg-[#0b1828]/95 border border-indigo-500/40 text-white'
+      }`}>
+        <div className={`flex items-center justify-between gap-3 border-b pb-1 ${
+          zenMode ? 'border-[#2e3138]' : 'border-slate-700/80'
+        }`}>
+          <span className={`font-heading font-extrabold ${
+            zenMode ? 'text-[#e5b83b]' : 'text-indigo-300'
+          }`}>{label}</span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            zenMode ? 'bg-[#26292f] text-[#e5b83b]' : 'bg-indigo-500/30 text-indigo-200'
+          }`}>
             {dataItem.rangeLabel}
           </span>
         </div>
         <div className="pt-1 space-y-0.5">
-          <p className="text-slate-300">
-            Nota Grave: <strong className="text-indigo-400 font-extrabold">{dataItem.noteMin}</strong>
+          <p className={zenMode ? 'text-[#ded9cf]' : 'text-slate-300'}>
+            Nota Grave: <strong className={`font-extrabold ${zenMode ? 'text-[#ded9cf]' : 'text-indigo-400'}`}>{dataItem.noteMin}</strong>
           </p>
-          <p className="text-slate-300">
-            Nota Aguda: <strong className="text-purple-400 font-extrabold">{dataItem.noteMax}</strong>
+          <p className={zenMode ? 'text-[#ded9cf]' : 'text-slate-300'}>
+            Nota Aguda: <strong className={`font-extrabold ${zenMode ? 'text-[#e5b83b]' : 'text-purple-400'}`}>{dataItem.noteMax}</strong>
           </p>
         </div>
       </div>
@@ -149,7 +188,8 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
   onOpenStore,
   onOpenSettings,
   onUpdateStats,
-  onOpenVocalRangeModal
+  onOpenVocalRangeModal,
+  zenMode = false,
 }) => {
   const [claimedNotice, setClaimedNotice] = useState<string | null>(null);
 
@@ -325,21 +365,31 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
   const recentLessons = userStats.recentLessons || [];
 
   return (
-    <div className="pb-36 pt-4 px-4 max-w-md mx-auto space-y-5 animate-fadeIn">
+    <div className={`pb-36 pt-4 px-4 max-w-md mx-auto space-y-5 animate-fadeIn ${zenMode ? 'text-[#ded9cf]' : ''}`}>
       {/* Level & XP Card */}
-      <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors relative overflow-hidden">
+      <div className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors relative overflow-hidden ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
         <div className="flex items-start justify-between">
           <div>
-            <span className="text-xs font-bold text-slate-500 dark:text-[#c6c5d7] uppercase tracking-wider">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              zenMode ? 'text-[#e5b83b]' : 'text-slate-500 dark:text-[#c6c5d7]'
+            }`}>
               Nivel {userStats.level}
             </span>
-            <h2 className="font-heading font-extrabold text-2xl text-[#0b1c30] dark:text-[#d3e4fe] leading-snug mt-0.5">
+            <h2 className={`font-heading font-extrabold text-2xl leading-snug mt-0.5 ${
+              zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+            }`}>
               {userStats.levelTitle}
             </h2>
           </div>
 
           <div className="text-right flex flex-col items-end">
-            <span className="font-heading font-bold text-sm text-[#2c2abc] dark:text-[#c0c1ff]">
+            <span className={`font-heading font-bold text-sm ${
+              zenMode ? 'text-[#e5b83b]' : 'text-[#2c2abc] dark:text-[#c0c1ff]'
+            }`}>
               {userStats.xp} / {userStats.maxXP}
             </span>
             <span className="text-xs text-slate-400 font-bold block mb-2">XP</span>
@@ -348,7 +398,11 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
             <button
               type="button"
               onClick={handleShareProgress}
-              className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+              className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer ${
+                zenMode
+                  ? 'bg-[#2e3138] text-[#e5b83b] hover:bg-[#383c44] border border-[#383c44]'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
               title="Compartir tus logros con Web Share API"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -358,33 +412,53 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full h-3.5 bg-indigo-50 dark:bg-slate-800 rounded-full overflow-hidden border border-indigo-100/80 dark:border-slate-700">
+        <div className={`w-full h-3.5 rounded-full overflow-hidden border ${
+          zenMode
+            ? 'bg-[#141619] border-[#2e3138]'
+            : 'bg-indigo-50 dark:bg-slate-800 border-indigo-100/80 dark:border-slate-700'
+        }`}>
           <div 
-            className="h-full bg-[#4648d4] dark:bg-[#4648d4] rounded-full transition-all duration-500 shadow-xs"
+            className={`h-full rounded-full transition-all duration-500 shadow-xs ${
+              zenMode ? 'bg-[#e5b83b]' : 'bg-[#4648d4]'
+            }`}
             style={{ width: `${xpPercentage}%` }}
           />
         </div>
       </div>
 
       {/* Meta de Entrenamiento Diaria con Progreso Circular */}
-      <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4 transition-colors">
+      <div className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4 transition-colors ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-[#4648d4] dark:text-[#c0c1ff]">
+            <div className={`p-2 rounded-xl ${
+              zenMode
+                ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+                : 'bg-indigo-50 dark:bg-indigo-950/60 text-[#4648d4] dark:text-[#c0c1ff]'
+            }`}>
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-heading font-extrabold text-base text-[#0b1c30] dark:text-[#d3e4fe]">
+              <h3 className={`font-heading font-extrabold text-base ${
+                zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+              }`}>
                 Meta de Práctica Diaria
               </h3>
-              <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-400 font-medium">
                 Tu objetivo de minutos hoy
               </p>
             </div>
           </div>
           {isGoalReached && (
-            <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-[11px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 border border-emerald-300 dark:border-emerald-700 animate-pulse">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Meta lograda
+            <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 border animate-pulse ${
+              zenMode
+                ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/40'
+                : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+            }`}>
+              <CheckCircle2 className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-600 dark:text-emerald-400'}`} /> Meta lograda
             </span>
           )}
         </div>
@@ -399,7 +473,8 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 cx="50"
                 cy="50"
                 r={circleRadius}
-                className="stroke-slate-100 dark:stroke-slate-800"
+                className={zenMode ? '' : 'stroke-slate-100 dark:stroke-slate-800'}
+                stroke={zenMode ? '#2e3138' : undefined}
                 strokeWidth="8"
                 fill="transparent"
               />
@@ -408,7 +483,8 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 cx="50"
                 cy="50"
                 r={circleRadius}
-                className="stroke-[#4648d4] dark:stroke-[#6063ee] transition-all duration-700 ease-out"
+                className={`transition-all duration-700 ease-out ${zenMode ? '' : 'stroke-[#4648d4] dark:stroke-[#6063ee]'}`}
+                stroke={zenMode ? '#e5b83b' : undefined}
                 strokeWidth="8"
                 strokeDasharray={circleCircumference}
                 strokeDashoffset={strokeDashoffset}
@@ -419,7 +495,9 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
 
             {/* Inner Content inside Circle */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
-              <span className="font-heading font-extrabold text-xl text-[#0b1c30] dark:text-[#d3e4fe] leading-tight">
+              <span className={`font-heading font-extrabold text-xl leading-tight ${
+                zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+              }`}>
                 {currentPracticeMinutes}
               </span>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
@@ -430,7 +508,7 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
 
           {/* Goal Selector Buttons */}
           <div className="flex-1 space-y-2">
-            <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
+            <div className={`text-xs font-bold ${zenMode ? 'text-[#ded9cf]' : 'text-slate-600 dark:text-slate-300'}`}>
               Ajusta tu meta diaria:
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -442,8 +520,12 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                     onClick={() => handleSelectGoal(mins)}
                     className={`py-2 px-2.5 rounded-2xl text-xs font-heading font-bold border press-effect transition-all cursor-pointer flex items-center justify-center gap-1 ${
                       isSelected
-                        ? 'bg-[#4648d4] text-white border-[#3b3dbf] shadow-md shadow-indigo-500/20'
-                        : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        ? (zenMode
+                            ? 'bg-[#e5b83b] text-[#161719] border-[#f5d56b] shadow-xs font-black'
+                            : 'bg-[#4648d4] text-white border-[#3b3dbf] shadow-md shadow-indigo-500/20')
+                        : (zenMode
+                            ? 'bg-[#22252a] text-[#ded9cf] border-[#2e3138] hover:bg-[#2c2f35]'
+                            : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800')
                     }`}
                   >
                     <Clock className="w-3 h-3" />
@@ -457,10 +539,16 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
       </div>
 
       {/* Racha Semanal - Registro de Días Consecutivos */}
-      <div className="bg-white dark:bg-[#102034] rounded-3xl p-4 border border-slate-100 dark:border-[#1b2b3f] shadow-sm space-y-2">
-        <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 px-1">
-          <span className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400">
-            <Flame className="w-4 h-4 fill-orange-500" />
+      <div className={`rounded-3xl p-4 shadow-sm space-y-2 ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
+        <div className="flex items-center justify-between text-xs font-bold px-1">
+          <span className={`flex items-center gap-1.5 ${
+            zenMode ? 'text-[#e5b83b]' : 'text-orange-600 dark:text-orange-400'
+          }`}>
+            <Flame className={`w-4 h-4 ${zenMode ? 'fill-[#e5b83b] text-[#e5b83b]' : 'fill-orange-500'}`} />
             <span>Constancia Semanal</span>
           </span>
           <span className="text-slate-400 font-medium">
@@ -477,17 +565,27 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 key={dayLabel + idx}
                 className={`flex flex-col items-center justify-center py-2.5 rounded-2xl border transition-all ${
                   isToday
-                    ? 'bg-gradient-to-b from-orange-500 to-amber-500 text-white border-orange-600 shadow-md scale-105'
+                    ? (zenMode
+                        ? 'bg-[#e5b83b] text-[#161719] border-[#f5d56b] shadow-xs font-black'
+                        : 'bg-gradient-to-b from-orange-500 to-amber-500 text-white border-orange-600 shadow-md scale-105')
                     : isCompletedDay
-                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                    : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800'
+                    ? (zenMode
+                        ? 'bg-[#26292f] text-[#e5b83b] border-[#383c44]'
+                        : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700')
+                    : (zenMode
+                        ? 'bg-[#161719] text-[#555a64] border-[#2e3138]'
+                        : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800')
                 }`}
               >
                 <span className="text-[10px] font-extrabold opacity-80">{dayLabel}</span>
                 {isCompletedDay ? (
-                  <Flame className={`w-4 h-4 mt-1 ${isToday ? 'fill-white text-white' : 'fill-orange-500 text-orange-500'}`} />
+                  <Flame className={`w-4 h-4 mt-1 ${
+                    zenMode
+                      ? (isToday ? 'fill-[#161719] text-[#161719]' : 'fill-[#e5b83b] text-[#e5b83b]')
+                      : (isToday ? 'fill-white text-white' : 'fill-orange-500 text-orange-500')
+                  }`} />
                 ) : (
-                  <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700 mt-2" />
+                  <div className={`w-2 h-2 rounded-full mt-2 ${zenMode ? 'bg-[#2e3138]' : 'bg-slate-300 dark:bg-slate-700'}`} />
                 )}
               </div>
             );
@@ -496,23 +594,35 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
       </div>
 
       {/* Resumen Semanal de Práctica con Gráfica de Barras */}
-      <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4 transition-colors">
+      <div className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4 transition-colors ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#0b1c30] dark:text-[#d3e4fe]">
-            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-xl ${
+              zenMode
+                ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+                : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+            }`}>
               <BarChart2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-heading font-bold text-base text-[#0b1c30] dark:text-[#d3e4fe]">
+              <h3 className={`font-heading font-bold text-base ${
+                zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+              }`}>
                 Resumen Semanal
               </h3>
-              <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-400 font-medium">
                 Minutos de práctica por día
               </p>
             </div>
           </div>
           <div className="text-right">
-            <span className="font-heading font-extrabold text-lg text-emerald-600 dark:text-emerald-400 block leading-none">
+            <span className={`font-heading font-extrabold text-lg block leading-none ${
+              zenMode ? 'text-[#e5b83b]' : 'text-emerald-600 dark:text-emerald-400'
+            }`}>
               {totalWeeklyMinutes} min
             </span>
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
@@ -525,26 +635,26 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
         <div className="h-40 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={weeklyMinutesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:opacity-10" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={zenMode ? '#2e3138' : '#e2e8f0'} className={zenMode ? '' : 'dark:opacity-10'} />
               <XAxis 
                 dataKey="day" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 11, fontWeight: 600, fill: '#94a3b8' }} 
+                tick={{ fontSize: 11, fontWeight: 600, fill: zenMode ? '#8e95a5' : '#94a3b8' }} 
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 10, fill: '#94a3b8' }} 
+                tick={{ fontSize: 10, fill: zenMode ? '#8e95a5' : '#94a3b8' }} 
               />
-              <Tooltip content={<MinutesTooltip />} />
+              <Tooltip content={<MinutesTooltip zenMode={zenMode} />} />
               <Bar dataKey="minutes" radius={[6, 6, 0, 0]}>
                 {weeklyMinutesData.map((_entry, index) => {
                   const isToday = index === weeklyMinutesData.length - 1;
                   return (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={isToday ? '#10b981' : '#4648d4'} 
+                      fill={zenMode ? (isToday ? '#e5b83b' : '#3d434f') : (isToday ? '#10b981' : '#4648d4')} 
                       opacity={isToday ? 1 : 0.85}
                     />
                   );
@@ -556,22 +666,36 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
       </div>
 
       {/* XP Evolution Chart (Últimos 7 días) */}
-      <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors">
+      <div className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#0b1c30] dark:text-[#d3e4fe]">
-            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-[#4648d4] dark:text-[#c0c1ff]">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-xl ${
+              zenMode
+                ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+                : 'bg-indigo-50 dark:bg-indigo-950/50 text-[#4648d4] dark:text-[#c0c1ff]'
+            }`}>
               <TrendingUp className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-heading font-bold text-base text-[#0b1c30] dark:text-[#d3e4fe]">
+              <h3 className={`font-heading font-bold text-base ${
+                zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+              }`}>
                 Evolución de XP
               </h3>
-              <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-400 font-medium">
                 Últimos 7 días
               </p>
             </div>
           </div>
-          <span className="text-xs font-extrabold text-[#4648d4] dark:text-[#c0c1ff] bg-indigo-50 dark:bg-indigo-900/40 px-2.5 py-1 rounded-full">
+          <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full ${
+            zenMode
+              ? 'text-[#e5b83b] bg-[#26292f] border border-[#e5b83b]/30'
+              : 'text-[#4648d4] dark:text-[#c0c1ff] bg-indigo-50 dark:bg-indigo-900/40'
+          }`}>
             +{xpData[xpData.length - 1].xp - xpData[0].xp} XP
           </span>
         </div>
@@ -581,33 +705,33 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
             <AreaChart data={xpData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="xpGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4648d4" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#4648d4" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor={zenMode ? '#e5b83b' : '#4648d4'} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={zenMode ? '#e5b83b' : '#4648d4'} stopOpacity={0.0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:opacity-10" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={zenMode ? '#2e3138' : '#e2e8f0'} className={zenMode ? '' : 'dark:opacity-10'} />
               <XAxis 
                 dataKey="day" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 11, fontWeight: 600, fill: '#94a3b8' }} 
+                tick={{ fontSize: 11, fontWeight: 600, fill: zenMode ? '#8e95a5' : '#94a3b8' }} 
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 10, fill: '#94a3b8' }} 
+                tick={{ fontSize: 10, fill: zenMode ? '#8e95a5' : '#94a3b8' }} 
                 domain={['dataMin - 50', 'dataMax + 50']}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip zenMode={zenMode} />} />
               <Area 
                 type="monotone" 
                 dataKey="xp" 
-                stroke="#4648d4" 
+                stroke={zenMode ? '#e5b83b' : '#4648d4'} 
                 strokeWidth={3} 
                 fillOpacity={1} 
                 fill="url(#xpGradient)"
-                dot={{ r: 4, fill: '#4648d4', strokeWidth: 2, stroke: '#ffffff' }}
-                activeDot={{ r: 7, fill: '#6cf8bb', strokeWidth: 3, stroke: '#005236' }}
+                dot={{ r: 4, fill: zenMode ? '#e5b83b' : '#4648d4', strokeWidth: 2, stroke: zenMode ? '#161719' : '#ffffff' }}
+                activeDot={{ r: 7, fill: zenMode ? '#f5d56b' : '#6cf8bb', strokeWidth: 3, stroke: zenMode ? '#161719' : '#005236' }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -615,37 +739,59 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
       </div>
 
       {/* Evolución de Rango Vocal (Tesitura) Chart */}
-      <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors">
+      <div className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#0b1c30] dark:text-[#d3e4fe]">
-            <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-xl ${
+              zenMode
+                ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+                : 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400'
+            }`}>
               <Mic className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-heading font-bold text-base text-[#0b1c30] dark:text-[#d3e4fe]">
+              <h3 className={`font-heading font-bold text-base ${
+                zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+              }`}>
                 Progreso de Tesitura Vocal
               </h3>
-              <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-400 font-medium">
                 Expansión de notas graves a agudas
               </p>
             </div>
           </div>
-          <span className="text-[11px] font-extrabold text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 px-2.5 py-1 rounded-full border border-purple-200 dark:border-purple-800">
+          <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full border ${
+            zenMode
+              ? 'text-[#e5b83b] bg-[#26292f] border-[#e5b83b]/40'
+              : 'text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border-purple-200 dark:border-purple-800'
+          }`}>
             2.8 Octavas
           </span>
         </div>
 
         {/* Current Range Highlights */}
-        <div className="grid grid-cols-2 gap-2 bg-[#f8fafc] dark:bg-[#0b1828] p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+        <div className={`grid grid-cols-2 gap-2 p-3 rounded-2xl border ${
+          zenMode
+            ? 'bg-[#22252a] border-[#2e3138]'
+            : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-100 dark:border-slate-800'
+        }`}>
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nota Más Grave</span>
-            <span className="font-heading font-extrabold text-sm text-indigo-600 dark:text-indigo-400">
+            <span className={`font-heading font-extrabold text-sm ${
+              zenMode ? 'text-[#ded9cf]' : 'text-indigo-600 dark:text-indigo-400'
+            }`}>
               {savedVocalRange ? savedVocalRange.noteMin : 'Sol2'}
             </span>
           </div>
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nota Más Aguda</span>
-            <span className="font-heading font-extrabold text-sm text-purple-600 dark:text-purple-400">
+            <span className={`font-heading font-extrabold text-sm ${
+              zenMode ? 'text-[#e5b83b]' : 'text-purple-600 dark:text-purple-400'
+            }`}>
               {savedVocalRange ? savedVocalRange.noteMax : 'Do5'}
             </span>
           </div>
@@ -658,7 +804,11 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
               audioService.playClickSound();
               onOpenVocalRangeModal();
             }}
-            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-heading font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md hover:shadow-indigo-500/20 active:scale-98"
+            className={`w-full py-3 px-4 rounded-2xl font-heading font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 ${
+              zenMode
+                ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
+                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white hover:shadow-indigo-500/20'
+            }`}
           >
             <Mic className="w-4 h-4 animate-bounce" />
             <span>{savedVocalRange ? `Clasificación: ${savedVocalRange.classification} (Volver a evaluar)` : '¡Evaluar mi Tesitura en Vivo con Micrófono!'}</span>
@@ -678,32 +828,32 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
             >
               <defs>
                 <linearGradient id="vocalMaxGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor={zenMode ? '#e5b83b' : '#a855f7'} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={zenMode ? '#e5b83b' : '#a855f7'} stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="vocalMinGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor={zenMode ? '#525968' : '#6366f1'} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={zenMode ? '#525968' : '#6366f1'} stopOpacity={0.0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:opacity-10" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={zenMode ? '#2e3138' : '#e2e8f0'} className={zenMode ? '' : 'dark:opacity-10'} />
               <XAxis 
                 dataKey="week" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 11, fontWeight: 600, fill: '#94a3b8' }} 
+                tick={{ fontSize: 11, fontWeight: 600, fill: zenMode ? '#8e95a5' : '#94a3b8' }} 
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{ fontSize: 10, fill: '#94a3b8' }} 
+                tick={{ fontSize: 10, fill: zenMode ? '#8e95a5' : '#94a3b8' }} 
               />
-              <Tooltip content={<VocalRangeTooltip />} />
+              <Tooltip content={<VocalRangeTooltip zenMode={zenMode} />} />
               <Area 
                 type="monotone" 
                 dataKey="maxPitch" 
                 name="Nota Aguda"
-                stroke="#a855f7" 
+                stroke={zenMode ? '#e5b83b' : '#a855f7'} 
                 strokeWidth={3} 
                 fillOpacity={1} 
                 fill="url(#vocalMaxGradient)" 
@@ -712,7 +862,7 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 type="monotone" 
                 dataKey="minPitch" 
                 name="Nota Grave"
-                stroke="#6366f1" 
+                stroke={zenMode ? '#8e95a5' : '#6366f1'} 
                 strokeWidth={2} 
                 fillOpacity={1} 
                 fill="url(#vocalMinGradient)" 
@@ -744,11 +894,13 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
         </div>
 
         {recentLessons.length === 0 ? (
-          <div className="bg-white dark:bg-[#102034] rounded-2xl p-5 border border-slate-100 dark:border-[#1b2b3f] text-center space-y-1">
+          <div className={`p-5 rounded-2xl border text-center space-y-1 ${
+            zenMode ? 'bg-[#1b1c1e] border-[#2e3138]' : 'bg-white dark:bg-[#102034] border-slate-100 dark:border-[#1b2b3f]'
+          }`}>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Aún no has completado lecciones recientes.
             </p>
-            <p className="text-[11px] text-[#4648d4] dark:text-[#c0c1ff] font-bold">
+            <p className={`text-[11px] font-bold ${zenMode ? 'text-[#e5b83b]' : 'text-[#4648d4] dark:text-[#c0c1ff]'}`}>
               ¡Comienza tu primera lección en la pestaña 'Academia'!
             </p>
           </div>
@@ -757,14 +909,24 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
             {recentLessons.slice(0, 5).map((lesson) => (
               <div
                 key={lesson.id}
-                className="bg-white dark:bg-[#102034] rounded-2xl p-3.5 border border-slate-100 dark:border-[#1b2b3f] shadow-xs flex items-center justify-between gap-3 hover:border-indigo-200 dark:hover:border-indigo-900 transition-colors"
+                className={`rounded-2xl p-3.5 border shadow-xs flex items-center justify-between gap-3 transition-colors ${
+                  zenMode
+                    ? 'bg-[#1b1c1e] border-[#2e3138] hover:border-[#e5b83b]/40'
+                    : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f] hover:border-indigo-200 dark:hover:border-indigo-900'
+                }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    zenMode
+                      ? 'bg-[#26292f] text-[#e5b83b]'
+                      : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                  }`}>
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                   <div className="min-w-0 space-y-0.5">
-                    <h4 className="font-heading font-bold text-xs text-[#0b1c30] dark:text-[#d3e4fe] truncate">
+                    <h4 className={`font-heading font-bold text-xs truncate ${
+                      zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+                    }`}>
                       {lesson.title}
                     </h4>
                     <div className="flex items-center gap-2 text-[10px] text-slate-400">
@@ -776,11 +938,15 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 </div>
 
                 <div className="flex flex-col items-end shrink-0 gap-1">
-                  <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-emerald-500" />
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 border ${
+                    zenMode
+                      ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/40'
+                      : 'bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  }`}>
+                    <Sparkles className={`w-3 h-3 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'}`} />
                     {lesson.score}%
                   </span>
-                  <span className="text-[10px] font-extrabold text-[#4648d4] dark:text-[#c0c1ff]">
+                  <span className={`text-[10px] font-extrabold ${zenMode ? 'text-[#e5b83b]' : 'text-[#4648d4] dark:text-[#c0c1ff]'}`}>
                     +{lesson.xpEarned} XP
                   </span>
                 </div>
@@ -894,27 +1060,41 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleOpenBadgeDetails(badge)}
                   className={`rounded-2xl p-4 transition-all flex items-start gap-3.5 border cursor-pointer relative overflow-hidden group ${
-                    badge.unlocked
-                      ? 'bg-gradient-to-br from-amber-50/90 via-amber-100/40 to-yellow-50/30 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-900/20 border-amber-400/80 dark:border-amber-500/60 shadow-md'
-                      : 'bg-white dark:bg-[#102034] border-slate-200/80 dark:border-[#1b2b3f] opacity-90'
+                    zenMode
+                      ? (badge.unlocked
+                          ? 'bg-[#22252a] border border-[#e5b83b]/50 shadow-md'
+                          : 'bg-[#1b1c1e] border border-[#2e3138] opacity-90')
+                      : (badge.unlocked
+                          ? 'bg-gradient-to-br from-amber-50/90 via-amber-100/40 to-yellow-50/30 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-900/20 border-amber-400/80 dark:border-amber-500/60 shadow-md'
+                          : 'bg-white dark:bg-[#102034] border-slate-200/80 dark:border-[#1b2b3f] opacity-90')
                   }`}
                 >
                   {/* Subtle Glow backdrop for unlocked badge */}
                   {badge.unlocked && (
-                    <div className="absolute -top-12 -left-12 w-28 h-28 bg-amber-400/10 rounded-full blur-xl pointer-events-none animate-pulse" />
+                    <div className={`absolute -top-12 -left-12 w-28 h-28 rounded-full blur-xl pointer-events-none animate-pulse ${
+                      zenMode ? 'bg-[#e5b83b]/10' : 'bg-amber-400/10'
+                    }`} />
                   )}
 
                   {/* Badge Icon Container */}
                   <div className="relative shrink-0">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 ${
-                      badge.unlocked
-                        ? 'bg-gradient-to-tr from-amber-400 to-amber-300 text-amber-950 border-2 border-amber-200 dark:border-amber-400 shadow-amber-300/30'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+                      zenMode
+                        ? (badge.unlocked
+                            ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/40 shadow-xs'
+                            : 'bg-[#161719] text-[#6d7482] border border-[#2e3138]')
+                        : (badge.unlocked
+                            ? 'bg-gradient-to-tr from-amber-400 to-amber-300 text-amber-950 border-2 border-amber-200 dark:border-amber-400 shadow-amber-300/30'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700')
                     }`}>
                       {getBadgeIcon(badge.iconName, badge.unlocked)}
                     </div>
                     {badge.unlocked && (
-                      <span className="absolute -bottom-1 -right-1 bg-amber-500 text-white p-0.5 rounded-full border border-white dark:border-slate-900 shadow-xs">
+                      <span className={`absolute -bottom-1 -right-1 p-0.5 rounded-full border shadow-xs ${
+                        zenMode
+                          ? 'bg-[#e5b83b] text-[#161719] border-[#161719]'
+                          : 'bg-amber-500 text-white border-white dark:border-slate-900'
+                      }`}>
                         <Sparkles className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '4s' }} />
                       </span>
                     )}
@@ -923,33 +1103,39 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                   {/* Details & Progress */}
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-heading font-bold text-sm text-[#0b1c30] dark:text-[#d3e4fe] truncate flex items-center gap-1.5">
+                      <h4 className={`font-heading font-bold text-sm truncate flex items-center gap-1.5 ${
+                        zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+                      }`}>
                         <span>{badge.title}</span>
                         {badge.unlocked && (
-                          <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0 inline" />
+                          <Trophy className={`w-3.5 h-3.5 shrink-0 inline ${zenMode ? 'text-[#e5b83b]' : 'text-amber-500'}`} />
                         )}
                       </h4>
-                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 ${
-                        badge.unlocked
-                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 border ${
+                        zenMode
+                          ? (badge.unlocked
+                              ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/40'
+                              : 'bg-[#161719] text-[#8e95a5] border-[#2e3138]')
+                          : (badge.unlocked
+                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent')
                       }`}>
                         {badge.unlocked ? '¡Obtenida!' : `${badge.progress} / ${badge.maxProgress}`}
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug line-clamp-2">
+                    <p className={`text-xs leading-snug line-clamp-2 ${zenMode ? 'text-[#9ea3ae]' : 'text-slate-600 dark:text-slate-400'}`}>
                       {badge.description}
                     </p>
 
                     {/* Progress bar */}
-                    <div className="w-full h-2 bg-slate-200/80 dark:bg-slate-800 rounded-full overflow-hidden mt-1.5">
+                    <div className={`w-full h-2 rounded-full overflow-hidden mt-1.5 ${zenMode ? 'bg-[#141619]' : 'bg-slate-200/80 dark:bg-slate-800'}`}>
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
                         transition={{ duration: 0.6, ease: 'easeOut' }}
                         className={`h-full rounded-full ${
-                          badge.unlocked ? 'bg-gradient-to-r from-amber-500 to-amber-300' : 'bg-[#4648d4]'
+                          zenMode ? 'bg-[#e5b83b]' : (badge.unlocked ? 'bg-gradient-to-r from-amber-500 to-amber-300' : 'bg-[#4648d4]')
                         }`}
                       />
                     </div>
@@ -994,10 +1180,16 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
               exit={{ opacity: 0, scale: 0.88, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-[#102034] rounded-3xl border-2 border-amber-400/80 dark:border-amber-500/60 p-6 max-w-sm w-full shadow-2xl relative overflow-hidden space-y-4 cursor-default"
+              className={`rounded-3xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden space-y-4 cursor-default ${
+                zenMode
+                  ? 'bg-[#1b1c1e] border-2 border-[#e5b83b]/60'
+                  : 'bg-white dark:bg-[#102034] border-2 border-amber-400/80 dark:border-amber-500/60'
+              }`}
             >
               {/* Glow backdrop behind badge */}
-              <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-400/20 rounded-full blur-3xl pointer-events-none" />
+              <div className={`absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 rounded-full blur-3xl pointer-events-none ${
+                zenMode ? 'bg-[#e5b83b]/10' : 'bg-amber-400/20'
+              }`} />
 
               {/* Close Button */}
               <button
@@ -1006,7 +1198,11 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                   audioService.playClickSound();
                   setSelectedBadgeModal(null);
                 }}
-                className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors z-10 cursor-pointer"
+                className={`absolute top-4 right-4 p-1.5 rounded-full transition-colors z-10 cursor-pointer ${
+                  zenMode
+                    ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#383c44]'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1019,7 +1215,9 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
-                      className="absolute -inset-3 rounded-full border-2 border-dashed border-amber-400/60 dark:border-amber-300/40 pointer-events-none"
+                      className={`absolute -inset-3 rounded-full border-2 border-dashed pointer-events-none ${
+                        zenMode ? 'border-[#e5b83b]/50' : 'border-amber-400/60 dark:border-amber-300/40'
+                      }`}
                     />
                   )}
 
@@ -1028,9 +1226,13 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                     animate={{ scale: [0.9, 1.1, 1] }}
                     transition={{ duration: 0.5, ease: 'backOut' }}
                     className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg relative ${
-                      selectedBadgeModal.unlocked
-                        ? 'bg-gradient-to-tr from-amber-400 via-amber-300 to-yellow-200 text-amber-950 border-4 border-amber-200 shadow-amber-400/50'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-2 border-slate-200 dark:border-slate-700'
+                      zenMode
+                        ? (selectedBadgeModal.unlocked
+                            ? 'bg-[#26292f] text-[#e5b83b] border-2 border-[#e5b83b]/60 shadow-[#e5b83b]/20'
+                            : 'bg-[#161719] text-[#6d7482] border-2 border-[#2e3138]')
+                        : (selectedBadgeModal.unlocked
+                            ? 'bg-gradient-to-tr from-amber-400 via-amber-300 to-yellow-200 text-amber-950 border-4 border-amber-200 shadow-amber-400/50'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-2 border-slate-200 dark:border-slate-700')
                     }`}
                   >
                     {getBadgeIcon(selectedBadgeModal.iconName, selectedBadgeModal.unlocked)}
@@ -1038,46 +1240,58 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-800">
+                  <span className={`text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border ${
+                    zenMode
+                      ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/30'
+                      : 'text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 border-amber-200 dark:border-amber-800'
+                  }`}>
                     {selectedBadgeModal.category}
                   </span>
-                  <h3 className="font-heading font-extrabold text-xl text-[#0b1c30] dark:text-[#d3e4fe] mt-2 leading-tight">
+                  <h3 className={`font-heading font-extrabold text-xl mt-2 leading-tight ${
+                    zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+                  }`}>
                     {selectedBadgeModal.title}
                   </h3>
                 </div>
               </div>
 
               {/* Status Banner */}
-              <div className={`p-3 rounded-2xl flex items-center justify-between text-xs font-bold ${
-                selectedBadgeModal.unlocked
-                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                  : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              <div className={`p-3 rounded-2xl flex items-center justify-between text-xs font-bold border ${
+                zenMode
+                  ? 'bg-[#22252a] text-[#ded9cf] border-[#2e3138]'
+                  : (selectedBadgeModal.unlocked
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                      : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700')
               }`}>
                 <div className="flex items-center gap-2">
                   {selectedBadgeModal.unlocked ? (
-                    <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <Trophy className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-600 dark:text-emerald-400'}`} />
                   ) : (
                     <Lock className="w-4 h-4 text-slate-400" />
                   )}
-                  <span>
+                  <span className={zenMode && selectedBadgeModal.unlocked ? 'text-[#e5b83b]' : undefined}>
                     {selectedBadgeModal.unlocked ? '¡Insignia Obtenida!' : 'En Progreso'}
                   </span>
                 </div>
-                <span>
+                <span className={zenMode && selectedBadgeModal.unlocked ? 'text-[#e5b83b]' : undefined}>
                   {selectedBadgeModal.progress} / {selectedBadgeModal.maxProgress}
                 </span>
               </div>
 
               {/* Description & Progress */}
               <div className="space-y-2 text-xs">
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                <p className={`leading-relaxed font-medium ${zenMode ? 'text-[#9ea3ae]' : 'text-slate-600 dark:text-slate-300'}`}>
                   {selectedBadgeModal.description}
                 </p>
 
-                <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
+                <div className={`w-full h-3 rounded-full overflow-hidden border ${
+                  zenMode ? 'bg-[#141619] border-[#2e3138]' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                }`}>
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      selectedBadgeModal.unlocked ? 'bg-gradient-to-r from-amber-500 to-amber-300' : 'bg-[#4648d4]'
+                      zenMode
+                        ? 'bg-[#e5b83b]'
+                        : (selectedBadgeModal.unlocked ? 'bg-gradient-to-r from-amber-500 to-amber-300' : 'bg-[#4648d4]')
                     }`}
                     style={{
                       width: `${Math.min(100, Math.round((selectedBadgeModal.progress / selectedBadgeModal.maxProgress) * 100))}%`
@@ -1091,7 +1305,11 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleShareSingleBadge(selectedBadgeModal)}
-                  className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-heading font-extrabold text-xs shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className={`w-full py-3 px-4 rounded-2xl font-heading font-extrabold text-xs shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    zenMode
+                      ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] font-black'
+                      : 'bg-amber-500 hover:bg-amber-600 text-white'
+                  }`}
                 >
                   <Share2 className="w-4 h-4" />
                   <span>Compartir Insignia</span>
@@ -1104,9 +1322,17 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
 
       {/* Misiones Diarias Section */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 text-[#0b1c30] dark:text-[#d3e4fe]">
-          <ClipboardList className="w-5 h-5 text-[#4648d4] dark:text-[#c0c1ff]" />
-          <h3 className="font-heading font-bold text-lg">
+        <div className="flex items-center gap-2">
+          <div className={`p-1.5 rounded-xl ${
+            zenMode
+              ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+              : 'bg-indigo-50 dark:bg-indigo-950/50 text-[#4648d4] dark:text-[#c0c1ff]'
+          }`}>
+            <ClipboardList className="w-5 h-5" />
+          </div>
+          <h3 className={`font-heading font-bold text-lg ${
+            zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+          }`}>
             Misiones Diarias
           </h3>
         </div>
@@ -1128,35 +1354,45 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
                 whileTap={{ scale: 0.99 }}
                 className={`rounded-3xl p-4 transition-all ${
                   quest.completed
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-2 border-emerald-400/80 dark:border-emerald-600/80 shadow-xs'
-                    : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f] shadow-sm'
+                    ? (zenMode
+                        ? 'bg-[#22252a] border border-[#e5b83b]/40 shadow-xs'
+                        : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-2 border-emerald-400/80 dark:border-emerald-600/80 shadow-xs')
+                    : (zenMode
+                        ? 'bg-[#1b1c1e] border border-[#2e3138] shadow-sm'
+                        : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f] shadow-sm')
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-heading font-bold text-sm text-[#0b1c30] dark:text-[#d3e4fe]">
+                  <span className={`font-heading font-bold text-sm ${
+                    zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+                  }`}>
                     {quest.title}
                   </span>
 
                   {quest.completed ? (
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/50 px-2.5 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span className={`text-xs font-bold flex items-center gap-1 px-2.5 py-0.5 rounded-full ${
+                      zenMode
+                        ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/30'
+                        : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300'
+                    }`}>
+                      <CheckCircle2 className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-600 dark:text-emerald-400'}`} />
                       ¡COMPLETADO!
                     </span>
                   ) : (
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-bold text-slate-400">
                       {quest.progress} / {quest.max}
                     </span>
                   )}
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className={`w-full h-2.5 rounded-full overflow-hidden ${zenMode ? 'bg-[#141619]' : 'bg-slate-100 dark:bg-slate-800'}`}>
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${pct}%` }}
                     transition={{ duration: 0.6, ease: 'easeOut' }}
                     className={`h-full rounded-full ${
-                      quest.completed ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-[#4648d4]'
+                      zenMode ? 'bg-[#e5b83b]' : (quest.completed ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-[#4648d4]')
                     }`}
                   />
                 </div>
@@ -1167,7 +1403,11 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
 
         {/* Claim Notice banner */}
         {claimedNotice && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-2xl text-xs font-bold text-center animate-bounce">
+          <div className={`p-3 rounded-2xl text-xs font-bold text-center animate-bounce border ${
+            zenMode
+              ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/40'
+              : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+          }`}>
             {claimedNotice}
           </div>
         )}
@@ -1175,15 +1415,19 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
         {/* Claim Reward Primary Button */}
         <button
           onClick={handleClaim}
-          className="w-full py-4 rounded-full tactile-btn-primary font-heading font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2"
+          className={`w-full py-4 rounded-full font-heading font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2 transition-all ${
+            zenMode
+              ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
+              : 'tactile-btn-primary'
+          }`}
         >
-          <Gift className="w-5 h-5 text-amber-300" />
+          <Gift className={`w-5 h-5 ${zenMode ? 'text-[#161719]' : 'text-amber-300'}`} />
           <span>Reclamar Recompensa</span>
         </button>
       </div>
 
       {/* Sección Amigos y Retos */}
-      <FriendsSection userXp={userStats.xp} userLevel={userStats.level} />
+      <FriendsSection userXp={userStats.xp} userLevel={userStats.level} zenMode={zenMode} />
 
       {/* Secondary Actions (Tienda & Configuración) */}
       <div className="grid grid-cols-2 gap-3 pt-2">
@@ -1192,9 +1436,13 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
             audioService.playClickSound();
             onOpenStore();
           }}
-          className="py-3.5 px-4 rounded-full bg-white dark:bg-[#102034] border border-slate-200 dark:border-[#1b2b3f] text-[#0b1c30] dark:text-[#d3e4fe] font-heading font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-[#1b2b3f] active:scale-95 transition-all cursor-pointer shadow-2xs"
+          className={`py-3.5 px-4 rounded-full border font-heading font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-2xs ${
+            zenMode
+              ? 'bg-[#1b1c1e] border-[#2e3138] text-[#f0ebe1] hover:bg-[#26292f]'
+              : 'bg-white dark:bg-[#102034] border-slate-200 dark:border-[#1b2b3f] text-[#0b1c30] dark:text-[#d3e4fe] hover:bg-slate-50 dark:hover:bg-[#1b2b3f]'
+          }`}
         >
-          <ShoppingBag className="w-4 h-4 text-[#4648d4] dark:text-[#c0c1ff]" />
+          <ShoppingBag className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-[#4648d4] dark:text-[#c0c1ff]'}`} />
           <span>Tienda</span>
         </button>
 
@@ -1203,9 +1451,13 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
             audioService.playClickSound();
             onOpenSettings();
           }}
-          className="py-3.5 px-4 rounded-full bg-white dark:bg-[#102034] border border-slate-200 dark:border-[#1b2b3f] text-[#0b1c30] dark:text-[#d3e4fe] font-heading font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-[#1b2b3f] active:scale-95 transition-all cursor-pointer shadow-2xs"
+          className={`py-3.5 px-4 rounded-full border font-heading font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-2xs ${
+            zenMode
+              ? 'bg-[#1b1c1e] border-[#2e3138] text-[#f0ebe1] hover:bg-[#26292f]'
+              : 'bg-white dark:bg-[#102034] border-slate-200 dark:border-[#1b2b3f] text-[#0b1c30] dark:text-[#d3e4fe] hover:bg-slate-50 dark:hover:bg-[#1b2b3f]'
+          }`}
         >
-          <Settings className="w-4 h-4 text-[#4648d4] dark:text-[#c0c1ff]" />
+          <Settings className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-[#4648d4] dark:text-[#c0c1ff]'}`} />
           <span>Configuración</span>
         </button>
       </div>

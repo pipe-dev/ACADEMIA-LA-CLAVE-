@@ -32,7 +32,7 @@ export function PushReminderCard() {
           }
         }
         // Show a test notification
-        new Notification('🔥 ¡Recordatorios Activados!', {
+        new Notification('¡Recordatorios Activados!', {
           body: 'Te avisaremos todos los días para que no pierdas tu racha de práctica.',
           icon: '/favicon.ico',
         });

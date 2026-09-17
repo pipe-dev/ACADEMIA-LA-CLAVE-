@@ -253,21 +253,6 @@ export const TunerPitchChallengeView: React.FC<TunerPitchChallengeViewProps> = (
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => {
-                  voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
-                }}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
-                  zenMode
-                    ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#2e323a] border border-[#383c44]'
-                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
-                }`}
-                title="Escuchar audio de la nota"
-              >
-                <Volume2 className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'}`} />
-                <span>Escuchar</span>
-              </button>
-
               {isTuningActive ? (
                 <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl font-bold whitespace-nowrap border ${
                   zenMode

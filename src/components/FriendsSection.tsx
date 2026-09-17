@@ -97,9 +97,10 @@ const DEMO_FRIEND_DIRECTORY: Record<string, Omit<FriendItem, 'id'>> = {
 interface FriendsSectionProps {
   userXp: number;
   userLevel: number;
+  zenMode?: boolean;
 }
 
-export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLevel }) => {
+export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLevel, zenMode = false }) => {
   // Generate or read persistent My Friend Code
   const [myCode] = useState<string>(() => {
     try {
@@ -262,11 +263,17 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
       {/* Title & Section Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-2xl bg-indigo-50 dark:bg-indigo-950/70 text-[#4648d4] dark:text-[#c0c1ff]">
+          <div className={`p-2 rounded-2xl ${
+            zenMode
+              ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+              : 'bg-indigo-50 dark:bg-indigo-950/70 text-[#4648d4] dark:text-[#c0c1ff]'
+          }`}>
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-heading font-extrabold text-base text-[#0b1c30] dark:text-[#d3e4fe]">
+            <h3 className={`font-heading font-extrabold text-base ${
+              zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+            }`}>
               Amigos y Retos
             </h3>
             <p className="text-xs text-slate-400 font-medium">
@@ -275,18 +282,28 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
           </div>
         </div>
 
-        <span className="text-xs font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full">
+        <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${
+          zenMode
+            ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/30'
+            : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+        }`}>
           {friends.length} {friends.length === 1 ? 'Amigo' : 'Amigos'}
         </span>
       </div>
 
       {/* MY FRIEND CODE CARD */}
-      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-3xl p-5 shadow-md space-y-3 relative overflow-hidden">
-        <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+      <div className={`rounded-3xl p-5 shadow-md space-y-3 relative overflow-hidden transition-all ${
+        zenMode
+          ? 'bg-[#22252a] text-[#f0ebe1] border border-[#2e3138]'
+          : 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white'
+      }`}>
+        <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/5 rounded-full blur-xl pointer-events-none" />
 
         <div className="flex items-center justify-between relative z-10">
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-200 block">
+            <span className={`text-[10px] font-extrabold uppercase tracking-wider block ${
+              zenMode ? 'text-[#e5b83b]' : 'text-purple-200'
+            }`}>
               Tu Código de Cantante
             </span>
             <span className="font-heading font-extrabold text-2xl tracking-wider text-white">
@@ -297,12 +314,16 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyCode}
-              className="p-2.5 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 text-white transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+              className={`p-2.5 rounded-2xl active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                zenMode
+                  ? 'bg-[#2e3138] text-[#e5b83b] hover:bg-[#383c44] border border-[#383c44]'
+                  : 'bg-white/15 hover:bg-white/25 text-white'
+              }`}
               title="Copiar código"
             >
               {copied ? (
                 <>
-                  <Check className="w-4 h-4 text-emerald-300" />
+                  <Check className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-300'}`} />
                   <span>¡Copiado!</span>
                 </>
               ) : (
@@ -315,7 +336,11 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
 
             <button
               onClick={handleShareCode}
-              className="p-2.5 rounded-2xl bg-white text-indigo-900 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer shadow-xs"
+              className={`p-2.5 rounded-2xl active:scale-95 transition-all cursor-pointer shadow-xs ${
+                zenMode
+                  ? 'bg-[#2e3138] text-[#e5b83b] hover:bg-[#383c44] border border-[#383c44]'
+                  : 'bg-white text-indigo-900 hover:bg-slate-100'
+              }`}
               title="Compartir código"
             >
               <Share2 className="w-4 h-4" />
@@ -323,14 +348,20 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
           </div>
         </div>
 
-        <p className="text-[11px] text-purple-100/90 font-medium leading-relaxed relative z-10">
+        <p className={`text-[11px] font-medium leading-relaxed relative z-10 ${
+          zenMode ? 'text-[#9ea3ae]' : 'text-purple-100/90'
+        }`}>
           Comparte este código con tus compañeros de canto para que te agreguen y puedan ver sus posiciones en el ranking semanal.
         </p>
       </div>
 
       {/* ADD FRIEND BY CODE INPUT FORM */}
-      <form onSubmit={handleAddFriendByCode} className="bg-white dark:bg-[#102034] rounded-3xl p-4 border border-slate-100 dark:border-[#1b2b3f] shadow-xs space-y-3 transition-colors">
-        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+      <form onSubmit={handleAddFriendByCode} className={`rounded-3xl p-4 shadow-xs space-y-3 transition-colors ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
+        <label className={`block text-xs font-bold ${zenMode ? 'text-[#ded9cf]' : 'text-slate-700 dark:text-slate-300'}`}>
           Agregar Amigo por Código
         </label>
 
@@ -342,13 +373,21 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
               value={inputCode}
               onChange={(e) => setInputCode(e.target.value)}
               placeholder="Ej: CANTO-9941 o VOCAL-2026"
-              className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#f8fafc] dark:bg-[#0b1828] border border-slate-200 dark:border-slate-800 text-xs text-[#0b1c30] dark:text-[#d3e4fe] placeholder:text-slate-400 focus:outline-hidden focus:border-indigo-500 uppercase font-mono tracking-wide"
+              className={`w-full pl-9 pr-3 py-2.5 rounded-2xl text-xs placeholder:text-slate-400 focus:outline-hidden uppercase font-mono tracking-wide ${
+                zenMode
+                  ? 'bg-[#161719] border border-[#2e3138] text-[#f0ebe1] focus:border-[#e5b83b]'
+                  : 'bg-[#f8fafc] dark:bg-[#0b1828] border border-slate-200 dark:border-slate-800 text-[#0b1c30] dark:text-[#d3e4fe] focus:border-indigo-500'
+              }`}
             />
           </div>
 
           <button
             type="submit"
-            className="py-2.5 px-4 rounded-2xl bg-[#4648d4] hover:bg-indigo-600 text-white font-heading font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-xs active:scale-95"
+            className={`py-2.5 px-4 rounded-2xl font-heading font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-xs active:scale-95 ${
+              zenMode
+                ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] font-black'
+                : 'bg-[#4648d4] hover:bg-indigo-600 text-white'
+            }`}
           >
             <UserPlus className="w-4 h-4" />
             <span>Agregar</span>
@@ -376,15 +415,19 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
           <button
             type="button"
             onClick={() => setInputCode('VOCAL-2026')}
-            className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 underline hover:text-indigo-800 cursor-pointer"
+            className={`text-[10px] font-bold underline cursor-pointer ${
+              zenMode ? 'text-[#e5b83b] hover:text-[#f5d56b]' : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-800'
+            }`}
           >
             VOCAL-2026
           </button>
-          <span className="text-slate-300 text-[10px]">|</span>
+          <span className="text-slate-500 text-[10px]">|</span>
           <button
             type="button"
             onClick={() => setInputCode('CANTO-9941')}
-            className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 underline hover:text-indigo-800 cursor-pointer"
+            className={`text-[10px] font-bold underline cursor-pointer ${
+              zenMode ? 'text-[#e5b83b] hover:text-[#f5d56b]' : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-800'
+            }`}
           >
             CANTO-9941
           </button>
@@ -392,11 +435,17 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
       </form>
 
       {/* FRIENDS LIST & WEEKLY RANKING */}
-      <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4 transition-colors">
+      <div className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-4 transition-colors ${
+        zenMode
+          ? 'bg-[#1b1c1e] border border-[#2e3138]'
+          : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]'
+      }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <h4 className="font-heading font-bold text-sm text-[#0b1c30] dark:text-[#d3e4fe]">
+            <Trophy className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-amber-500'}`} />
+            <h4 className={`font-heading font-bold text-sm ${
+              zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+            }`}>
               Tabla de Amigos de Cantar
             </h4>
           </div>
@@ -406,26 +455,38 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
         </div>
 
         {/* User's Own Standing Banner */}
-        <div className="bg-indigo-50/80 dark:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/80 p-3 rounded-2xl flex items-center justify-between text-xs">
+        <div className={`p-3 rounded-2xl flex items-center justify-between text-xs border ${
+          zenMode
+            ? 'bg-[#22252a] border border-[#e5b83b]/40 text-[#f0ebe1]'
+            : 'bg-indigo-50/80 dark:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/80'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-extrabold flex items-center justify-center text-xs">
+            <div className={`w-8 h-8 rounded-full font-extrabold flex items-center justify-center text-xs ${
+              zenMode ? 'bg-[#e5b83b] text-[#161719]' : 'bg-indigo-600 text-white'
+            }`}>
               TÚ
             </div>
             <div>
-              <span className="font-heading font-extrabold text-indigo-950 dark:text-indigo-100 block">
+              <span className={`font-heading font-extrabold block ${
+                zenMode ? 'text-[#f0ebe1]' : 'text-indigo-950 dark:text-indigo-100'
+              }`}>
                 Tu Puntuación
               </span>
-              <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-semibold">
+              <span className={`text-[10px] font-semibold ${
+                zenMode ? 'text-[#e5b83b]' : 'text-indigo-700 dark:text-indigo-300'
+              }`}>
                 Nivel {userLevel}
               </span>
             </div>
           </div>
 
           <div className="text-right">
-            <span className="font-heading font-extrabold text-sm text-indigo-600 dark:text-indigo-300 block">
+            <span className={`font-heading font-extrabold text-sm block ${
+              zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-300'
+            }`}>
               {userXp.toLocaleString()} XP
             </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            <span className="text-[10px] text-slate-400">
               Esta semana
             </span>
           </div>
@@ -433,9 +494,11 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
 
         {/* Friends Cards */}
         {sortedFriends.length === 0 ? (
-          <div className="p-6 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-1">
-            <Users className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+          <div className={`p-6 text-center border border-dashed rounded-2xl space-y-1 ${
+            zenMode ? 'border-[#2e3138] bg-[#161719]' : 'border-slate-200 dark:border-slate-800'
+          }`}>
+            <Users className="w-8 h-8 text-slate-400 mx-auto" />
+            <p className={`text-xs font-bold ${zenMode ? 'text-[#9ea3ae]' : 'text-slate-500 dark:text-slate-400'}`}>
               Aún no tienes amigos agregados
             </p>
             <p className="text-[11px] text-slate-400">
@@ -452,13 +515,17 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
                   key={friend.id}
                   whileHover={{ y: -2, scale: 1.01 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                  className="bg-[#f8fafc] dark:bg-[#0b1828] p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all space-y-2 shadow-2xs"
+                  className={`p-3.5 rounded-2xl border transition-all space-y-2 shadow-2xs ${
+                    zenMode
+                      ? 'bg-[#22252a] border-[#2e3138] hover:border-[#e5b83b]/40'
+                      : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200/70 dark:border-slate-800/80 hover:border-indigo-300 dark:hover:border-indigo-700'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
                       {/* Rank Position Badge */}
                       <span className={`w-5 text-center font-heading font-extrabold text-xs ${
-                        idx === 0 ? 'text-amber-500 font-black scale-110' : idx === 1 ? 'text-slate-400' : 'text-slate-400'
+                        idx === 0 ? (zenMode ? 'text-[#e5b83b] font-black scale-110' : 'text-amber-500 font-black scale-110') : 'text-slate-400'
                       }`}>
                         #{idx + 1}
                       </span>
@@ -468,20 +535,28 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
                         <img
                           src={friend.avatar}
                           alt={friend.name}
-                          className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-slate-700 shadow-xs"
+                          className={`w-10 h-10 rounded-full object-cover border-2 shadow-xs ${
+                            zenMode ? 'border-[#383c44] grayscale' : 'border-white dark:border-slate-700'
+                          }`}
                         />
                         {friend.isOnline && (
-                          <span className="w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full absolute bottom-0 right-0" />
+                          <span className={`w-3 h-3 border-2 rounded-full absolute bottom-0 right-0 ${
+                            zenMode ? 'bg-[#e5b83b] border-[#161719]' : 'bg-emerald-500 border-white dark:border-slate-900'
+                          }`} />
                         )}
                       </div>
 
                       {/* Info */}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h5 className="font-heading font-extrabold text-xs text-[#0b1c30] dark:text-[#d3e4fe] truncate">
+                          <h5 className={`font-heading font-extrabold text-xs truncate ${
+                            zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+                          }`}>
                             {friend.name}
                           </h5>
-                          <span className="text-[9px] font-extrabold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.2 rounded-full">
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                            zenMode ? 'bg-[#2e3138] text-[#ded9cf]' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}>
                             {friend.code}
                           </span>
                         </div>
@@ -489,8 +564,10 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium mt-0.5">
                           <span>Nivel {friend.level}</span>
                           <span>•</span>
-                          <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-bold">
-                            <Flame className="w-3 h-3 fill-amber-500 text-amber-500 animate-pulse" />
+                          <span className={`flex items-center gap-0.5 font-bold ${
+                            zenMode ? 'text-[#e5b83b]' : 'text-amber-600 dark:text-amber-400'
+                          }`}>
+                            <Flame className={`w-3 h-3 ${zenMode ? 'fill-[#e5b83b] text-[#e5b83b]' : 'fill-amber-500 text-amber-500 animate-pulse'}`} />
                             {friend.streak} días
                           </span>
                         </div>
@@ -499,7 +576,9 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
 
                     {/* XP Right Column */}
                     <div className="text-right shrink-0">
-                      <span className="font-heading font-extrabold text-xs text-indigo-600 dark:text-indigo-400 block">
+                      <span className={`font-heading font-extrabold text-xs block ${
+                        zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-400'
+                      }`}>
                         {friend.xpThisWeek.toLocaleString()} XP
                       </span>
                       <span className="text-[9px] text-slate-400 font-semibold block">
@@ -509,8 +588,10 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
                   </div>
 
                   {/* Status & Nudge Action Footer */}
-                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60 text-[11px]">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate italic max-w-[140px]">
+                  <div className={`flex items-center justify-between pt-1.5 border-t text-[11px] ${
+                    zenMode ? 'border-[#2e3138]' : 'border-slate-200/60 dark:border-slate-800/60'
+                  }`}>
+                    <span className="text-[10px] text-slate-400 font-medium truncate italic max-w-[140px]">
                       {friend.statusText}
                     </span>
 
@@ -519,7 +600,11 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
                         onClick={() => handleOpenDuel(friend)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.92 }}
-                        className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                        className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold flex items-center gap-1 shadow-2xs transition-all cursor-pointer ${
+                          zenMode
+                            ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] font-black'
+                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                        }`}
                       >
                         <Swords className="w-3 h-3" />
                         <span>Retar Duelo</span>
@@ -532,18 +617,22 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
                         whileTap={!hasNudge ? { scale: 0.92 } : undefined}
                         className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
                           hasNudge
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/80'
+                            ? (zenMode
+                                ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/30'
+                                : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300')
+                            : (zenMode
+                                ? 'bg-[#2e3138] text-[#ded9cf] hover:bg-[#383c44]'
+                                : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/80')
                         }`}
                       >
                         {hasNudge ? (
                           <>
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            <CheckCircle2 className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'}`} />
                             <span>¡Ánimo!</span>
                           </>
                         ) : (
                           <>
-                            <Zap className="w-3 h-3 text-amber-500" />
+                            <Zap className={`w-3 h-3 ${zenMode ? 'text-[#e5b83b]' : 'text-amber-500'}`} />
                             <span>Ánimo</span>
                           </>
                         )}

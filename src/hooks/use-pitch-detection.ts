@@ -128,6 +128,8 @@ export const usePitchDetection = () => {
   const audioChunksRef = useRef<Blob[]>([]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
+  const isSharedContextRef = useRef<boolean>(false);
+  const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -138,13 +140,21 @@ export const usePitchDetection = () => {
   const bufferRef = useRef<Float32Array | null>(null);
   const isMicEmittedRef = useRef<boolean>(false);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (externalCtx?: AudioContext | null) => {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
-        // Desactivar echoCancellation, noiseSuppression y autoGainControl evita que iOS/Android
-        // conmuten el audio a modo 'VoiceChat/Llamada', bloqueen el control de volumen multimedia,
-        // bajen la calidad a mono 16kHz o silencien la música de fondo del karaoke.
+        // 1. AudioSession Preparation (WebKit/iOS):
+        // Primero señalizar 'playback' y luego 'play-and-record' fuerza la salida
+        // al ALTAVOZ PRINCIPAL (evitando el auricular telefónico de llamadas)
+        // a la vez que habilita el acceso de captura de micrófono sin restricciones.
+        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'playback';
+            (navigator as any).audioSession.type = 'play-and-record';
+          } catch {}
+        }
+
+        // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
         let stream: MediaStream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -156,26 +166,46 @@ export const usePitchDetection = () => {
             video: false
           });
         } catch {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         }
         streamRef.current = stream;
+
+        // 3. Confirmar sesión activa de captura
+        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'play-and-record';
+          } catch {}
+        }
         
-        const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // 4. Conexión de AudioContext Compartido o Nuevo:
+        // Compartir el MISMO AudioContext que reproduce la música evita que el S.O.
+        // detecte dos contextos compitiendo y atenúe (duck) la canción de fondo.
+        let context: AudioContext;
+        if (externalCtx && externalCtx.state !== 'closed') {
+          context = externalCtx;
+          isSharedContextRef.current = true;
+        } else {
+          context = new (window.AudioContext || (window as any).webkitAudioContext)();
+          isSharedContextRef.current = false;
+        }
+
         if (context.state === 'suspended') {
-            await context.resume();
+          await context.resume();
         }
         audioContextRef.current = context;
 
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.fftSize = 2048; // Reduced fftSize for mobile performance
+        analyserRef.current = context.createAnalyser();
+        analyserRef.current.fftSize = 2048; // Reducido para óptimo rendimiento móvil
 
-        const source = audioContextRef.current.createMediaStreamSource(stream);
+        const source = context.createMediaStreamSource(stream);
+        mediaStreamSourceRef.current = source;
         
         const lowpassFilter = context.createBiquadFilter();
         lowpassFilter.type = 'lowpass';
         lowpassFilter.frequency.setValueAtTime(800, context.currentTime);
         lowpassFilterRef.current = lowpassFilter;
 
+        // Conectar micrófono SOLO al analizador (NUNCA a destination para evitar feedback acústico)
         source.connect(lowpassFilter).connect(analyserRef.current);
         
         // Setup MediaRecorder for RAM Audio Recording
@@ -184,24 +214,28 @@ export const usePitchDetection = () => {
           setAudioBlobUrl(null);
         }
         audioChunksRef.current = [];
-        const mediaRecorder = new MediaRecorder(stream, {
-           mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-        });
-        
-        mediaRecorder.ondataavailable = (e) => {
-           if (e.data.size > 0) {
+        try {
+          const mediaRecorder = new MediaRecorder(stream, {
+            mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+          });
+          
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
               audioChunksRef.current.push(e.data);
-           }
-        };
-        
-        mediaRecorder.onstop = () => {
-           const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
-           const url = URL.createObjectURL(blob);
-           setAudioBlobUrl(url);
-        };
-        
-        mediaRecorder.start(1000); // chunk every 1 second
-        mediaRecorderRef.current = mediaRecorder;
+            }
+          };
+          
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+            const url = URL.createObjectURL(blob);
+            setAudioBlobUrl(url);
+          };
+          
+          mediaRecorder.start(1000); // fragmentar cada 1s
+          mediaRecorderRef.current = mediaRecorder;
+        } catch (recErr) {
+          console.warn('[usePitchDetection] MediaRecorder no disponible en este dispositivo:', recErr);
+        }
         
         isSilent.current = true;
         smoothedCentsRef.current = 0;
@@ -218,7 +252,6 @@ export const usePitchDetection = () => {
       }
     } catch (err) {
       console.error(err);
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       toast({
         variant: "destructive",
         title: "Acceso al Micrófono Denegado",
@@ -226,28 +259,55 @@ export const usePitchDetection = () => {
       });
       setIsDetecting(false);
     }
-  }, [toast]);
+  }, [audioBlobUrl, toast]);
 
   const stop = useCallback(() => {
     if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = null;
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
     }
     
     // Stop MediaRecorder first so onstop fires and builds the Blob
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
         mediaRecorderRef.current.stop();
+      } catch {}
     }
     
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
+
+    // Desconectar nodos de audio
+    if (mediaStreamSourceRef.current) {
+      try { mediaStreamSourceRef.current.disconnect(); } catch {}
+      mediaStreamSourceRef.current = null;
     }
+    if (lowpassFilterRef.current) {
+      try { lowpassFilterRef.current.disconnect(); } catch {}
+      lowpassFilterRef.current = null;
+    }
+    if (analyserRef.current) {
+      try { analyserRef.current.disconnect(); } catch {}
+      analyserRef.current = null;
+    }
+
+    // Si el contexto era compartido (p. ej. de vocalRemover), NO cerrarlo para no cortar la música
+    if (!isSharedContextRef.current && audioContextRef.current && audioContextRef.current.state !== "closed") {
+      audioContextRef.current.close().catch(() => {});
+    }
+    audioContextRef.current = null;
+    isSharedContextRef.current = false;
     
+    // Restaurar sesión de audio a reproducción estéreo de alta fidelidad por altavoz
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'playback';
+        (navigator as any).audioSession.type = 'auto';
+      } catch {}
+    }
+
     if (isMicEmittedRef.current) {
       isMicEmittedRef.current = false;
       emitMicActive(false);

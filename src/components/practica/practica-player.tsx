@@ -8,6 +8,7 @@ import { usePitchDetection } from "@/hooks/use-pitch-detection";
 import { saveKaraokeScore } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { X, Loader2 } from "lucide-react";
+import { emitStreakEligibleAction } from "@/utils/streakPrompt";
 import { PlayerControls } from "./player-controls";
 import YouTube, { YouTubeEvent, YouTubePlayer } from "react-youtube";
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from "framer-motion";
@@ -30,7 +31,7 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
       "🎵\n\nSigue el ritmo de la melodía\n¡Tu voz es el instrumento principal!\n\n(Disfruta la pista)",
       "🎤\n\nCanta con el corazón\nDéjate llevar por la música\n\n(Improvisa tu propia versión)",
       "✨\n\nSiente la música correr por tus venas\n¡Es tu momento de brillar!\n\n(No necesitas la letra)",
-      "🌟\n\nCierra los ojos y afina el alma\nEl polígrafo guiará tu voz\n\n(Tú eres el artista)",
+      "🌟\n\nCierra los ojos y afina el alma\nLa melodía guiará tu voz\n\n(Tú eres el artista)",
       "🎶\n\nLa melodía es tu lienzo\nY tu voz es el pincel\n\n(Dibuja con tu canto)",
       "🔥\n\nConecta con la emoción del momento\nY canta sin miedo a equivocarte\n\n(Sigue la curva de tono)",
       "💡\n\nLas letras son solo palabras\n¡La afinación es la magia pura!\n\n(Tararea con sentimiento)",
@@ -98,7 +99,7 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
       
       let newMult = 1;
       let comboMsg = "";
-      if (streakRef.current === 150) { newMult = 4; comboMsg = "¡FUEGO! x4"; }
+      if (streakRef.current === 150) { newMult = 4; comboMsg = "¡RAYO! x4 ⚡"; }
       else if (streakRef.current === 90) { newMult = 3; comboMsg = "¡Racha x3!"; }
       else if (streakRef.current === 30) { newMult = 2; comboMsg = "¡Perfecto! x2"; }
       else {
@@ -303,6 +304,8 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
           stars,
           date: Date.now()
         }).catch(err => console.error("Error guardando historial:", err));
+
+        emitStreakEligibleAction();
       }
 
       // Guardar la melodía colaborativa si la pista estaba vacía
@@ -439,7 +442,7 @@ export function PracticaPlayer({ track, videoId, onClose }: PracticaPlayerProps)
                       animate={{ opacity: [0, 1, 0], y: -50, scale: 1.2, x: ct.x }}
                       transition={{ duration: 1.2, ease: "easeOut" }}
                       className={`absolute whitespace-nowrap font-black text-lg drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] ${
-                        ct.text.includes('FUEGO') ? 'text-orange-400' :
+                        ct.text.includes('RAYO') ? 'text-amber-300' :
                         ct.text.includes('Racha') ? 'text-amber-400' :
                         'text-emerald-400'
                       }`}

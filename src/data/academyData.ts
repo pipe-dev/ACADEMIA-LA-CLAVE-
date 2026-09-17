@@ -423,7 +423,7 @@ export const INITIAL_UNITS: Unit[] = [
         'iconName': 'Trophy',
         'offsetPercentage': 0,
         'xpReward': 100,
-        'instructions': 'Pon a prueba tu afinación y oído musical superando 5 niveles secuenciales de precisión vocal.',
+        'instructions': 'Supera el nivel 1 de afinación en Modo Fácil afinando correctamente cada una de las 3 notas para certificar tu oído en esta unidad.',
         'youtubeId': '',
         'duration': '10:00'
       }

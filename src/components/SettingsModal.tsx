@@ -349,7 +349,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {/* Dark Mode Toggle Item */}
-          {onToggleDarkMode && (
+          {zenMode ? (
+            <div className="flex items-center justify-between gap-3 bg-[#f8f9ff] dark:bg-[#0b1828] p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs opacity-80">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <Moon className="w-5 h-5 text-[#e5b83b] shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#d3e4fe]">
+                    Modo Oscuro
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Fijado en oscuro por Modo Zen
+                  </div>
+                </div>
+              </div>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-[#e5b83b] border border-amber-500/30">
+                Fijo
+              </span>
+            </div>
+          ) : onToggleDarkMode ? (
             <div className="flex items-center justify-between gap-3 bg-[#f8f9ff] dark:bg-[#0b1828] p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {darkMode ? (
@@ -377,7 +394,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="w-5.5 h-5.5 rounded-full bg-white shadow-xs" />
               </button>
             </div>
-          )}
+          ) : null}
 
           {/* Single Install App Button */}
           {onInstallApp && (

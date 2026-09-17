@@ -49,7 +49,7 @@ class AudioService {
 
       const now = this.ctx.currentTime;
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+      gain.gain.linearRampToValueAtTime(0.85, now + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       osc.connect(gain);
@@ -932,10 +932,18 @@ class AudioService {
         return false;
       }
 
-      // Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
-      // Desactivar echoCancellation, noiseSuppression y autoGainControl evita que iOS/Android
-      // conmuten el audio a modo 'VoiceChat/Llamada', bloqueen el control de volumen multimedia,
-      // bajen la calidad a mono 16kHz o silencien la música de fondo del karaoke.
+      // 1. AudioSession Preparation (WebKit/iOS):
+      // Primero señalizar 'playback' y luego 'play-and-record' fuerza la salida
+      // al ALTAVOZ PRINCIPAL (evitando el auricular telefónico de llamadas)
+      // a la vez que habilita el acceso de captura de micrófono sin restricciones.
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'playback';
+          (navigator as any).audioSession.type = 'play-and-record';
+        } catch {}
+      }
+
+      // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
       try {
         this.micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -948,6 +956,14 @@ class AudioService {
       } catch {
         this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       }
+
+      // 3. Confirmar sesión activa de captura
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'play-and-record';
+        } catch {}
+      }
+
       const source = this.ctx.createMediaStreamSource(this.micStream);
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 2048;
@@ -975,6 +991,13 @@ class AudioService {
     if (this.micStream) {
       this.micStream.getTracks().forEach(track => track.stop());
       this.micStream = null;
+    }
+    // Restaurar sesión de audio a modo reproducción estéreo por altavoz
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'playback';
+        (navigator as any).audioSession.type = 'auto';
+      } catch {}
     }
   }
 

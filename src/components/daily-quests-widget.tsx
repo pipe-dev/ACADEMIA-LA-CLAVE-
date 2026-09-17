@@ -2,16 +2,22 @@
 
 import { cn } from '@/lib/utils';
 import type { Quest } from '@/hooks/use-daily-quests';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircle2, Target, Sparkles } from 'lucide-react';
 
 export function DailyQuestsWidget({ quests, allComplete }: { quests: Quest[]; allComplete: boolean }) {
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="flex items-center justify-between mb-2 px-1">
         <h3 className="font-black text-sm sm:text-base flex items-center gap-1.5">
-          🎯 Misiones del Día
+          <Target className="w-4 h-4 text-indigo-500" />
+          <span>Misiones del Día</span>
         </h3>
-        {allComplete && <span className="text-[10px] bg-emerald-500/20 text-emerald-500 font-bold px-2 py-0.5 rounded-full">✨ ¡Completadas!</span>}
+        {allComplete && (
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-500 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-emerald-500" />
+            <span>¡Completadas!</span>
+          </span>
+        )}
       </div>
       <div className="flex flex-col gap-2">
         {quests.map(q => {

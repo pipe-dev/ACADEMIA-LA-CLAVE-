@@ -100,30 +100,30 @@ export const lessons: Lesson[] = [
   },
   {
     id: 5,
-    title: "Clase 5: Ejercicios de Respiración Guiada (Apoyo y Estabilidad)",
-    description: "Rutina corta intensiva de respiración para fortalecer los músculos abdominales e intercostales de apoyo (4 repeticiones).",
-    youtubeId: "dv97n1Hl0XM",
-    duration: "11:10",
-    focus: "Respiración",
-    exercises: [] // YouTube Short, loops 4 times
-  },
-  {
-    id: 6,
-    title: "Clase 6: Rutina Avanzada de Control de Aire",
+    title: "Clase 5: Rutina Avanzada de Control de Aire",
     description: "Ejercicios de resistencia para prolongar tu capacidad respiratoria y mantener la presión de aire de forma estable.",
     youtubeId: "gkUIJ2x79vU",
     duration: "14:05",
     focus: "Respiración",
-    exercises: [] // Rutina Avanzada (Sin ejercicios prácticos, incluye cuestionario)
+    exercises: [] // Rutina Avanzada
+  },
+  {
+    id: 6,
+    title: "Clase 6: Ejercicios de Respiración Guiada (Apoyo y Estabilidad)",
+    description: "Rutina corta intensiva de respiración para fortalecer los músculos abdominales e intercostales de apoyo (2 repeticiones).",
+    youtubeId: "dv97n1Hl0XM",
+    duration: "11:10",
+    focus: "Respiración",
+    exercises: [] // YouTube Short, loops 2 times
   },
   {
     id: 7,
     title: "Clase 7: Fisiología Vocal y Funcionamiento de la Voz",
-    description: "Conoce cómo funcionan tus cuerdas vocales, la laringe y los resonadores para entender tu instrumento desde adentro.",
+    description: "Conoce cómo funcionan tus cuerdas vocales, la laringe y los resonadores. Al finalizar la clase, realizarás tu Diagnóstico Vocal Rápido para descubrir tu tipo de voz y personalizar toda la app a tu rango vocal.",
     youtubeId: "CR5fWk5qbCk",
     duration: "08:50",
     focus: "Técnica Vocal",
-    exercises: [] // Fisiología Vocal (Sin ejercicios)
+    exercises: [] // Fisiología Vocal + Diagnóstico Vocal Rápido
   },
   {
     id: 8,
@@ -145,17 +145,17 @@ export const lessons: Lesson[] = [
   },
   {
     id: 10,
-    title: "Clase 10: Afinación de Intervalos Simples",
-    description: "Aprende a pasar de una nota a otra de forma limpia y afinada controlando la presión de aire de apoyo.",
+    title: "Clase 10: Vocalización y Entonación con Vocales",
+    description: "Ejercicio práctico de vocalización para afinar notas e intervalos entonando con las vocales (A, E, I, O, U), manteniendo una colocación y resonancia vocal limpia.",
     youtubeId: "tHe_dL7ujW0",
     duration: "11:45",
-    focus: "Afinación",
+    focus: "Técnica Vocal",
     exercises: [] // Vídeo práctico como ejercicio
   },
   {
     id: 11,
     title: "Clase 11: Respiración Diafragmática Compleja",
-    description: "Ejercicios de respiración y apoyo avanzados con tiempos de retención y exhalación muy exigentes para mayor estabilidad.",
+    description: "Ejercicios avanzados de resistencia pulmonar y vocalización intensa con tiempos de retención y exhalación muy exigentes para maximizar la estabilidad y potencia vocal.",
     youtubeId: "v3dcyo4_Q8M",
     duration: "18:30",
     focus: "Respiración",

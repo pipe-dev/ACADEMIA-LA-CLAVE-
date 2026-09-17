@@ -2,13 +2,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { audioService } from '../utils/audioService';
+import { voicePlayback } from '../utils/voicePlaybackService';
 import { Mic, Volume2, CheckCircle2, RefreshCw, Sparkles, Award, Music, ArrowDown, ArrowUp, ArrowLeft } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { emitStreakEligibleAction } from '../utils/streakPrompt';
 
 interface VocalRangeModalProps {
   isOpen?: boolean;
   onClose: () => void;
-  onSaveRange?: (rangeData: { minHz: number; maxHz: number; noteMin: string; noteMax: string; classification: string }) => void;
+  onSaveRange?: (rangeData: { minHz: number; maxHz: number; noteMin: string; noteMax: string; classification: string; gender?: 'masculino' | 'femenino' }) => void;
   isEmbeddedView?: boolean;
 }
 
@@ -29,63 +31,67 @@ function hzToNoteName(freq: number): { noteName: string; octave: number; fullNam
   };
 }
 
-// Determine Vocal Classification based on lowest and highest pitch in Hz
-function classifyVoice(minHz: number, maxHz: number): { classification: string; description: string; tips: string[] } {
-  // Frequency bounds for classical/pop vocal types
-  if (maxHz >= 880) { // C6+ (Soprano coloratura / Silbido)
-    return {
-      classification: 'Soprano Ligera / Aguda',
-      description: 'Tesitura brillante con un registro agudo extendido. Excelente capacidad para sobreagudos.',
-      tips: [
-        'Utiliza el apoyo abdominal para estabilizar notas por encima de Do5.',
-        'Practica escalas staccato para mantener agilidad en agudos.'
-      ]
-    };
-  } else if (minHz >= 180 && maxHz >= 580) { // F3 - C6
-    return {
-      classification: 'Soprano',
-      description: 'Voz femenina o voz blanca aguda, con timbre claro y amplio alcance en la zona superior.',
-      tips: [
-        'Asegura la transición fluida de voz de pecho a voz de cabeza.',
-        'Evita forzar el volumen al subir en intensidad.'
-      ]
-    };
-  } else if (minHz >= 140 && maxHz >= 480) { // A2 - A5
-    return {
-      classification: 'Mezzosoprano / Contralto',
-      description: 'Voz intermedia-grave con gran calidez en tonos medios y de pecho.',
-      tips: [
-        'Aprovecha la riqueza de tu voz de pecho sin ahogar el aire.',
-        'Fortalece la voz mixta para agudos redondeados.'
-      ]
-    };
-  } else if (minHz >= 110 && maxHz >= 390) { // A2 - G4+
-    return {
-      classification: 'Tenor',
-      description: 'Voz masculina aguda. Gran flexibilidad en tonos medios-altos con voz mixta.',
-      tips: [
-        'Manten la mandíbula relajada en la zona de paso (Fa4 - Sol4).',
-        'Usa el sonido "messa di voce" para dominar la presión de aire.'
-      ]
-    };
-  } else if (minHz >= 80 && maxHz >= 330) { // E2 - E4
-    return {
-      classification: 'Barítono',
-      description: 'La voz masculina más común. Equilibrio perfecto entre resonancia grave y potencia media.',
-      tips: [
-        'Desarrolla la resonancia en la máscara para facilitar sobreagudos sin fatiga.',
-        'Evita empujar aire excesivo al buscar notas graves.'
-      ]
-    };
-  } else { // Below 80Hz
-    return {
-      classification: 'Bajo',
-      description: 'Voz masculina muy grave con graves profundos y resonantes.',
-      tips: [
-        'Mantén el diafragma relajado y profundo.',
-        'Cuida la hidratación constante para proteger los pliegues vocales gruesos.'
-      ]
-    };
+// Determine Vocal Classification based on lowest and highest pitch in Hz and voice gender
+function classifyVoice(minHz: number, maxHz: number, gender: 'male' | 'female' = 'male'): { classification: string; description: string; tips: string[] } {
+  if (gender === 'female') {
+    if (minHz >= 200 || maxHz >= 700) {
+      return {
+        classification: 'Soprano',
+        description: 'Voz femenina brillante y aguda, con gran capacidad en el registro superior.',
+        tips: [
+          'Utiliza el apoyo abdominal constante para proyectar sobreagudos.',
+          'Practica vocalizaciones ligadas sin tensionar el cuello.'
+        ]
+      };
+    } else if (minHz >= 155) {
+      return {
+        classification: 'Mezzosoprano',
+        description: 'Voz femenina intermedia muy versátil, con graves cálidos y agudos expresivos.',
+        tips: [
+          'Desarrolla la voz mixta para transiciones suaves.',
+          'Cuida la resonancia de pecho en pasajes medios.'
+        ]
+      };
+    } else {
+      return {
+        classification: 'Contralto',
+        description: 'Voz femenina grave y profunda, de timbre oscuro, cálido y resonante.',
+        tips: [
+          'Aprovecha la sonoridad de tu registro de pecho.',
+          'Mantén el diafragma relajado para dar cuerpo a las notas graves.'
+        ]
+      };
+    }
+  } else {
+    // Male vocal classifications
+    if (minHz < 82) { // Below E2 (< 82 Hz) -> True Bass
+      return {
+        classification: 'Bajo',
+        description: 'Voz masculina muy grave con graves profundos y resonantes en registro inferior.',
+        tips: [
+          'Mantén el diafragma relajado y profundo.',
+          'Cuida la hidratación constante para proteger los pliegues vocales.'
+        ]
+      };
+    } else if (minHz <= 135) { // F2 to C3 (82 Hz - 135 Hz) -> Barítono (includes Fa2, Fa#2, Sol2, La2, Si2, Do3)
+      return {
+        classification: 'Barítono',
+        description: 'La voz masculina más versátil. Equilibrio perfecto entre graves cálidos y medios potentes.',
+        tips: [
+          'Desarrolla la resonancia en la máscara para facilitar tonos medios sin fatiga.',
+          'Evita empujar aire excesivo al buscar notas agudas.'
+        ]
+      };
+    } else { // Above C3 (> 135 Hz) -> Tenor
+      return {
+        classification: 'Tenor',
+        description: 'Voz masculina aguda. Gran flexibilidad en tonos medios-altos y registro agudo.',
+        tips: [
+          'Mantén la mandíbula relajada en la zona de paso (Fa4 - Sol4).',
+          'Usa el apoyo de aire para mantener agudos limpios.'
+        ]
+      };
+    }
   }
 }
 
@@ -96,6 +102,15 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
   isEmbeddedView = false
 }) => {
   const [step, setStep] = useState<'intro' | 'lowest' | 'highest' | 'result'>('intro');
+  const [voiceGender, setVoiceGender] = useState<'male' | 'female' | null>(() => {
+    try {
+      const saved = localStorage.getItem('laclave_voice_gender');
+      if (saved === 'masculino') return 'male';
+      if (saved === 'femenino') return 'female';
+    } catch {}
+    return null;
+  });
+  const [genderErrorToast, setGenderErrorToast] = useState<string | null>(null);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isSavedSuccess, setIsSavedSuccess] = useState<boolean>(false);
   
@@ -113,7 +128,10 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
   useEffect(() => {
     audioService.playOpenSound();
-  }, []);
+    if (voiceGender) {
+      voicePlayback.preloadNotes(voiceGender === 'female' ? 'femenino' : 'masculino');
+    }
+  }, [voiceGender]);
 
   const handleClose = () => {
     audioService.stopMicrophone();
@@ -178,33 +196,58 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
     setIsListening(true);
   };
 
-  const playReferenceTone = (hz: number) => {
-    audioService.playFrequency(hz, 1.0);
+  // Reproduce SIEMPRE la voz real de la carpeta /public/sounds/ correspondiente al género del usuario
+  const playLowestGuide = () => {
+    const isFemale = voiceGender === 'female';
+    if (isFemale) {
+      // Guía grave femenina: La3 (220 Hz)
+      voicePlayback.playVoiceNote({ name: 'La', midi: 57, frequency: 220.00, octave: 3 }, 'femenino', 2.2);
+    } else {
+      // Guía grave masculina: Do3 (130.81 Hz)
+      voicePlayback.playVoiceNote({ name: 'Do', midi: 48, frequency: 130.81, octave: 3 }, 'masculino', 2.2);
+    }
   };
 
-  // Calculations for final result step
-  const minHzVal = lowestHz || 110;
-  const maxHzVal = highestHz || 440;
+  const playHighestGuide = () => {
+    const isFemale = voiceGender === 'female';
+    if (isFemale) {
+      // Guía aguda femenina: Do5 (523.25 Hz)
+      voicePlayback.playVoiceNote({ name: 'Do', midi: 72, frequency: 523.25, octave: 5 }, 'femenino', 2.2);
+    } else {
+      // Guía aguda masculina: Sol4 (392.00 Hz)
+      voicePlayback.playVoiceNote({ name: 'Sol', midi: 67, frequency: 392.00, octave: 4 }, 'masculino', 2.2);
+    }
+  };
+
+  // Calculations for final result step (Auto-sort min and max Hz to prevent negative octaves if sung in reverse)
+  const rawLowest = lowestHz || (voiceGender === 'female' ? 196 : 110);
+  const rawHighest = highestHz || (voiceGender === 'female' ? 659 : 440);
+  const minHzVal = Math.min(rawLowest, rawHighest);
+  const maxHzVal = Math.max(rawLowest, rawHighest);
+
   const lowestNoteInfo = hzToNoteName(minHzVal);
   const highestNoteInfo = hzToNoteName(maxHzVal);
   const octavesRange = (Math.log2(maxHzVal / minHzVal)).toFixed(1);
-  const vocalEval = classifyVoice(minHzVal, maxHzVal);
+  const vocalEval = classifyVoice(minHzVal, maxHzVal, voiceGender || 'male');
 
   const handleSaveAndClose = () => {
     if (isSavedSuccess) return;
     audioService.playClickSound();
 
+    const finalGender: 'masculino' | 'femenino' = voiceGender === 'female' ? 'femenino' : 'masculino';
     const rangeData = {
       minHz: minHzVal,
       maxHz: maxHzVal,
       noteMin: lowestNoteInfo.fullName,
       noteMax: highestNoteInfo.fullName,
-      classification: vocalEval.classification
+      classification: vocalEval.classification,
+      gender: finalGender
     };
 
     try {
       localStorage.setItem('laclave_vocal_range_saved', JSON.stringify(rangeData));
       localStorage.setItem('laclave_vocal_range_classification', vocalEval.classification);
+      localStorage.setItem('laclave_voice_gender', finalGender);
     } catch (e) {
       console.warn('Could not save vocal range:', e);
     }
@@ -224,7 +267,8 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
       });
     } catch {}
 
-    setIsSavedSuccess(true);
+setIsSavedSuccess(true);
+    emitStreakEligibleAction();
 
     setTimeout(() => {
       handleClose();
@@ -295,17 +339,89 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
                   <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-extrabold flex items-center justify-center shrink-0">
                     3
                   </div>
-                  <span>Calcularemos tus octavas y tu clasificación de voz (Tenor, Soprano, Barítono, etc.).</span>
+                  <span>Calcularemos tus octavas y tu clasificación exacta.</span>
                 </div>
               </div>
             </div>
 
+            {/* Voice Gender Category Selector - Prominent Card with Border Glow */}
+            <div className={`p-4 rounded-2xl border-2 transition-all duration-300 space-y-3 ${
+              !voiceGender
+                ? 'bg-[#eff2fe] dark:bg-[#0b1b30] border-indigo-500 shadow-[0_0_18px_rgba(99,102,241,0.45)]'
+                : 'bg-[#eff2fe] dark:bg-[#0b1b30] border-indigo-200/90 dark:border-indigo-800/80 shadow-sm'
+            }`}>
+              <h4 className="font-heading font-black text-xs sm:text-sm text-[#0b1c30] dark:text-[#d3e4fe] flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600 dark:bg-indigo-400"></span>
+                </span>
+                <span>Paso inicial: Selecciona tu tipo de voz principal</span>
+              </h4>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioService.playClickSound();
+                    setVoiceGender('male');
+                    try {
+                      localStorage.setItem('laclave_voice_gender', 'masculino');
+                    } catch {}
+                    voicePlayback.preloadNotes('masculino');
+                  }}
+                  className={`py-3 px-4 rounded-xl border-2 text-xs sm:text-sm font-black font-heading transition-all cursor-pointer text-center ${
+                    voiceGender === 'male'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-slate-700/50'
+                  }`}
+                >
+                  Voz Masculina
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioService.playClickSound();
+                    setVoiceGender('female');
+                    try {
+                      localStorage.setItem('laclave_voice_gender', 'femenino');
+                    } catch {}
+                    voicePlayback.preloadNotes('femenino');
+                  }}
+                  className={`py-3 px-4 rounded-xl border-2 text-xs sm:text-sm font-black font-heading transition-all cursor-pointer text-center ${
+                    voiceGender === 'female'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-slate-700/50'
+                  }`}
+                >
+                  Voz Femenina
+                </button>
+              </div>
+            </div>
+
+            {genderErrorToast && (
+              <p className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center animate-shake px-1">
+                {genderErrorToast}
+              </p>
+            )}
+
             <button
               onClick={() => {
+                if (!voiceGender) {
+                  audioService.vibrate(18);
+                  setGenderErrorToast('Selecciona si tu voz es Masculina o Femenina para comenzar.');
+                  setTimeout(() => setGenderErrorToast(null), 3000);
+                  return;
+                }
+                audioService.playClickSound();
                 setStep('lowest');
                 startPitchDetection('lowest');
               }}
-              className="w-full py-3 sm:py-3.5 px-3 sm:px-4 rounded-2xl tactile-btn-primary font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-lg text-center"
+              className={`w-full py-3 sm:py-3.5 px-3 sm:px-4 rounded-2xl font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg text-center transition-all ${
+                !voiceGender
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed'
+                  : 'tactile-btn-primary cursor-pointer'
+              }`}
             >
               <Mic className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse shrink-0" />
               <span>Comenzar Detección (Nota Grave)</span>
@@ -352,11 +468,11 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <button
-                onClick={() => playReferenceTone(130.81)} // C3 reference
+                onClick={playLowestGuide}
                 className="flex-1 py-2.5 sm:py-3 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer text-center"
               >
-                <Volume2 className="w-4 h-4 shrink-0" />
-                <span>Oír Guía (Do3)</span>
+                <Volume2 className="w-4 h-4 shrink-0 text-indigo-500" />
+                <span>Oír Guía ({voiceGender === 'female' ? 'La3' : 'Do3'})</span>
               </button>
 
               <button
@@ -422,11 +538,11 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
             ) : (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <button
-                  onClick={() => playReferenceTone(440)} // A4 reference
+                  onClick={playHighestGuide}
                   className="flex-1 py-2.5 sm:py-3 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer text-center"
                 >
-                  <Volume2 className="w-4 h-4 shrink-0" />
-                  <span>Oír Guía (La4)</span>
+                  <Volume2 className="w-4 h-4 shrink-0 text-purple-500" />
+                  <span>Oír Guía ({voiceGender === 'female' ? 'Do5' : 'Sol4'})</span>
                 </button>
 
                 <button

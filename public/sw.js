@@ -1,4 +1,4 @@
-const CACHE_NAME = 'afinapp-v35';
+const CACHE_NAME = 'afinapp-v38';
 const PRECACHE_URLS = [
   '/',
   '/manifest.json',
@@ -27,31 +27,22 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Check if we are in a development or tunnel environment
+  const isLocalOrTunnelDev = url.hostname === 'localhost' || 
+                             url.hostname === '127.0.0.1' || 
+                             url.hostname.includes('trycloudflare.com');
+
+  // For dev / tunnel, ALWAYS bypass service worker cache completely
+  if (isLocalOrTunnelDev) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // For navigation requests, always go to network
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request));
     return;
   }
-
-  // Check if we are in a production environment with immutable hashed assets
-  const isLocalOrTunnelDev = url.hostname === 'localhost' || 
-                             url.hostname === '127.0.0.1' || 
-                             url.hostname.includes('trycloudflare.com');
-
-  // Next.js static assets with immutable content hashes (/next/static/chunks/...)
-  // In production (300k users): CACHE-FIRST for instant 0ms offline performance.
-  // In dev / live pair-programming: NETWORK-FIRST so edits reflect immediately.
-  if (url.pathname.startsWith('/_next/static/')) {
-    if (isLocalOrTunnelDev) {
-      event.respondWith(
-        fetch(request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        }).catch(() => caches.match(request))
-      );
-      return;
-    }
 
     // Production: Cache-First (Hashed filenames never change)
     event.respondWith(

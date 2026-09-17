@@ -263,7 +263,7 @@ export function ProgressDashboard({ vocalRangeKey, onClose }: { vocalRangeKey: s
                     <div className={cn("w-2.5 h-2.5 rounded-full", dotColor)} />
                     <span className="font-bold text-sm sm:text-base">{label}</span>
                   </div>
-                  <span className="text-xs sm:text-sm text-muted-foreground">{completed}/{levels} · {stars}⭐</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground">{completed}/{levels} · {stars} Estrellas</span>
                 </div>
                 
                 {/* Level Grid with Stars */}

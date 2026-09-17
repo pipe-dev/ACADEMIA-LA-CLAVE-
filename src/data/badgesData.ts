@@ -117,9 +117,30 @@ function generate200SingingBadges(): Badge[] {
 
   for (const group of categoryConfigs) {
     group.titles.forEach((title, idx) => {
-      const isInitialUnlocked = idCounter <= 18 || (idCounter % 9 === 0 && idCounter <= 150);
+      let maxVal = (idx + 1) * 10; // Default scaled fallback
+
+      if (group.cat === 'Constancia y Racha') {
+        const numMatch = title.match(/\d+/);
+        maxVal = numMatch ? parseInt(numMatch[0], 10) : (idx === 0 ? 1 : (idx + 1) * 10);
+      } else if (group.cat === 'Maestría Vocal') {
+        const numMatch = title.match(/[\d,]+/);
+        if (numMatch) {
+          maxVal = parseInt(numMatch[0].replace(/,/g, ''), 10);
+        } else {
+          maxVal = (idx + 1) * 10; // Leyenda Suprema, Canto Perfecto
+        }
+      } else if (group.cat === 'Respiración y Diafragma' || group.cat === 'Salud Vocal') {
+        // Tracks practiceMinutes
+        maxVal = (idx + 1) * 30; 
+      } else if (group.cat === 'Afinación y Solfeo') {
+        // Tracks lessonsCompleted * 2
+        maxVal = (idx + 1) * 10;
+      } else {
+        // General category tracking (lessons + minutes/3)
+        maxVal = (idx + 1) * 15;
+      }
+
       const icon = group.iconNames[idx % group.iconNames.length];
-      const maxVal = (idx + 1) * 5;
 
       badges.push({
         id: `badge_vocal_${idCounter}`,
@@ -127,7 +148,7 @@ function generate200SingingBadges(): Badge[] {
         description: `Objetivo ${idCounter}: Ejercicio de ${group.cat.toLowerCase()} para perfeccionar la técnica vocal.`,
         category: group.cat,
         iconName: icon,
-        unlocked: isInitialUnlocked,
+        unlocked: false,
         unlockedAt: undefined,
         progress: 0,
         maxProgress: maxVal,

@@ -5,6 +5,9 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { LessonNode, UserStats } from '../types';
 import { audioService } from '../utils/audioService';
 import { VocalRangeModal } from './VocalRangeModal';
+import { TunerPitchChallengeView } from './TunerPitchChallengeView';
+import { generateUserNotePool } from '../utils/voicePlaybackService';
+import { generateChallenge } from '../data/tunerLevelsData';
 import { X, CheckCircle2, Wind, Sparkles, Trophy, AlertTriangle, Play, Pause, ArrowLeft, RotateCcw, RotateCw, Zap, Star } from 'lucide-react';
 
 interface LessonModalProps {
@@ -93,11 +96,32 @@ export const LessonModal: React.FC<LessonModalProps> = ({
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
   
+  const stepRef = useRef(step);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
   // Custom Video Player State
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const playerRef = useRef<any>(null);
+  const userRequestedPlayRef = useRef<boolean>(false);
+
+  // Loop Repetition Logic for Exercise Videos
+  const getTargetLoopCount = (): number => {
+    if (node.id === 'u1-node6' || node.title?.includes('Apoyo y Estabilidad')) return 2;
+    if (node.id === 'u1-node3' || node.title?.includes('Capacidad Pulmonar')) return 3;
+    if (typeof node.loopCount === 'number') return node.loopCount;
+    if (node.instructions?.includes('2 repeticiones') || node.instructions?.includes('2 veces')) return 2;
+    if (node.instructions?.includes('3 repeticiones') || node.instructions?.includes('3 veces')) return 3;
+    if (node.instructions?.includes('4 repeticiones') || node.instructions?.includes('4 veces')) return 4;
+    return 1;
+  };
+
+  const targetLoopCount = getTargetLoopCount();
+  const [currentLoop, setCurrentLoop] = useState<number>(1);
+  const [loopToastMsg, setLoopToastMsg] = useState<string | null>(null);
 
   // Auto-hide controls timer
   const [showControls, setShowControls] = useState<boolean>(true);
@@ -262,10 +286,34 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     }
   ];
 
-  const isExamNode = node.type === 'exam' || 
-                     node.id === 'u1-node12.5' || 
-                     Boolean(node.title?.toLowerCase().includes('evaluaci'));
+  const isUnit2Exam = node.id === 'u2-node20.5' || 
+                      (node.unitId === 2 && (node.type === 'exam' || Boolean(node.title?.toLowerCase().includes('evaluaci'))));
+  const isExamNode = !isUnit2Exam && (
+    node.type === 'exam' || 
+    node.id === 'u1-node12.5' || 
+    Boolean(node.title?.toLowerCase().includes('evaluaci'))
+  );
+  const isAnyEvaluationNode = node.type === 'exam' || Boolean(node.title?.toLowerCase().includes('evaluaci'));
   const activeQuestions = isExamNode ? UNIT_1_EXAM_QUESTIONS : CLASS_1_QUIZ_QUESTIONS;
+
+  // ─── Unit 2 Exam: Exactly Level 1 of Modo Fácil (3 comfortable notes from vocal pool) ───
+  const gender = useMemo<'masculino' | 'femenino'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('laclave_voice_gender');
+      if (saved === 'masculino' || saved === 'femenino') return saved;
+    }
+    return 'femenino';
+  }, []);
+
+  const userNotePool = useMemo(() => {
+    return generateUserNotePool(userStats?.vocalRangeData, gender);
+  }, [userStats?.vocalRangeData, gender]);
+
+  const unit2ExamNotes = useMemo(() => {
+    const pool = userNotePool.length > 0 ? userNotePool : generateUserNotePool(undefined, gender);
+    const challenge = generateChallenge(3, pool);
+    return challenge.length > 0 ? challenge : pool.slice(0, 3);
+  }, [userNotePool, gender]);
 
   // State triggers
   const [examStage, setExamStage] = useState<'questions_part1' | 'balloon' | 'questions_part2'>('questions_part1');
@@ -283,34 +331,47 @@ export const LessonModal: React.FC<LessonModalProps> = ({
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying && step === 'video') {
-      interval = setInterval(() => {
-        if (playerRef.current && playerRef.current.getCurrentTime) {
-          const time = playerRef.current.getCurrentTime();
-          setCurrentTime(time);
-          setDuration(playerRef.current.getDuration());
+      interval = setInterval(async () => {
+        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+          try {
+            const rawTime = playerRef.current.getCurrentTime();
+            const time = typeof rawTime?.then === 'function' ? await rawTime : rawTime;
+            if (typeof time === 'number' && !isNaN(time)) {
+              setCurrentTime(time);
 
-          // Class 1 (u1-node1) specific timing triggers for audio ding and confetti
-          if (node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')) {
-            if (time >= 434 && !node1CompletedTriggered) {
-              setNode1CompletedTriggered(true);
-              audioService.playSoftDing();
-              fireVideoConfetti(60);
-              onCompleteNode(node.id, node.xpReward);
+              // Class 1 (u1-node1) specific timing triggers for audio ding and confetti
+              if (node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')) {
+                if (time >= 434 && !node1CompletedTriggered) {
+                  setNode1CompletedTriggered(true);
+                  audioService.playSoftDing();
+                  fireVideoConfetti(60);
+                  onCompleteNode(node.id, node.xpReward);
+                }
+              }
             }
-          }
 
-          // Universal Video Fade Out: Trigger 3.2 seconds before video ends on the final loop
-          const dur = playerRef.current.getDuration();
-          if (dur > 0 && dur - time <= 3.2 && !isVideoFadingOut) {
-            if (currentLoop >= targetLoopCount) {
-              setIsVideoFadingOut(true);
+            if (typeof playerRef.current.getDuration === 'function') {
+              const rawDur = playerRef.current.getDuration();
+              const dur = typeof rawDur?.then === 'function' ? await rawDur : rawDur;
+              if (typeof dur === 'number' && !isNaN(dur) && dur > 0) {
+                setDuration(dur);
+
+                // Universal Video Fade Out: Trigger 3.2 seconds before video ends on the final loop
+                if (dur - (typeof time === 'number' ? time : 0) <= 3.2 && !isVideoFadingOut) {
+                  if (currentLoop >= targetLoopCount) {
+                    setIsVideoFadingOut(true);
+                  }
+                }
+              }
             }
+          } catch (e) {
+            // Silently ignore polling errors
           }
         }
-      }, 1000);
+      }, 500);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, step, node1CompletedTriggered, isVideoFadingOut, quizResolved, node.id]);
+  }, [isPlaying, step, node1CompletedTriggered, isVideoFadingOut, currentLoop, targetLoopCount, node.id, node.title, node.xpReward, onCompleteNode]);
 
   // Balloon exercise single timeline state (0 to 40s or 0 to 24s)
   const [balloonActive, setBalloonActive] = useState<boolean>(false);
@@ -397,7 +458,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
   const balloonCycles = currentBalloonState.completedCycles;
   const balloonScale = currentBalloonState.scale;
 
-  // Auto-reset video fade state
+  // Auto-reset video state
   useEffect(() => {
     if (step === 'video') {
       setIsVideoFadingOut(false);
@@ -560,6 +621,16 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     }
   }, [isExamNode, onLoseLife]);
 
+  const handleUnit2ExamSuccess = useCallback(() => {
+    audioService.playBadgeUnlockedSound();
+    audioService.playSuccessBellSound();
+    fireVideoConfetti(100);
+    setTimeout(() => fireVideoConfetti(60), 400);
+
+    // Trigger full 3-star victory celebration
+    triggerStarRatingResults(4);
+  }, [triggerStarRatingResults]);
+
   const handleNextQuizQuestion = () => {
     audioService.playClickSound();
 
@@ -675,32 +746,117 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     }
   };
 
-  // Loop Repetition Logic for Exercise Videos
-  const getTargetLoopCount = (): number => {
-    if (node.id === 'u1-node6' || node.title?.includes('Apoyo y Estabilidad')) return 2;
-    if (node.id === 'u1-node3' || node.title?.includes('Capacidad Pulmonar')) return 3;
-    if (typeof node.loopCount === 'number') return node.loopCount;
-    if (node.instructions?.includes('2 repeticiones') || node.instructions?.includes('2 veces')) return 2;
-    if (node.instructions?.includes('3 repeticiones') || node.instructions?.includes('3 veces')) return 3;
-    if (node.instructions?.includes('4 repeticiones') || node.instructions?.includes('4 veces')) return 4;
-    return 1;
-  };
 
-  const targetLoopCount = getTargetLoopCount();
-  const [currentLoop, setCurrentLoop] = useState<number>(1);
-  const [loopToastMsg, setLoopToastMsg] = useState<string | null>(null);
+
+  // Active "Eyes": Detects the exact millisecond the video finishes loading/cueing and dispatches autoplay
+  const autoPlayFiredRef = useRef<boolean>(false);
+  const autoPlayWatcherRef = useRef<NodeJS.Timeout | null>(null);
+
+  const attemptAutoPlay = useCallback((player: any) => {
+    if (!player) return;
+    try {
+      player.unMute?.();
+      player.setVolume?.(100);
+      player.playVideo?.();
+    } catch (e) {}
+  }, []);
+
+  // Continuous active watcher: checks every 100ms and triggers play the instant player is ready
+  useEffect(() => {
+    if (step !== 'video' && !userRequestedPlayRef.current) {
+      if (autoPlayWatcherRef.current) {
+        clearInterval(autoPlayWatcherRef.current);
+        autoPlayWatcherRef.current = null;
+      }
+      return;
+    }
+
+    autoPlayFiredRef.current = false;
+    let ticks = 0;
+
+    autoPlayWatcherRef.current = setInterval(async () => {
+      ticks++;
+      if (ticks > 50 || autoPlayFiredRef.current) {
+        if (autoPlayWatcherRef.current) {
+          clearInterval(autoPlayWatcherRef.current);
+          autoPlayWatcherRef.current = null;
+        }
+        return;
+      }
+
+      const player = playerRef.current;
+      if (!player) return;
+
+      try {
+        const rawState = typeof player.getPlayerState === 'function' ? player.getPlayerState() : null;
+        const state = typeof rawState?.then === 'function' ? await rawState : rawState;
+
+        if (state === 1) {
+          setIsPlaying(true);
+          autoPlayFiredRef.current = true;
+          if (autoPlayWatcherRef.current) {
+            clearInterval(autoPlayWatcherRef.current);
+            autoPlayWatcherRef.current = null;
+          }
+          return;
+        }
+
+        // State 5 = CUED, -1 = UNSTARTED, 2 = PAUSED before first playback
+        if (state === 5 || state === -1 || (state === 2 && !autoPlayFiredRef.current)) {
+          attemptAutoPlay(player);
+        }
+      } catch (e) {}
+    }, 100);
+
+    return () => {
+      if (autoPlayWatcherRef.current) {
+        clearInterval(autoPlayWatcherRef.current);
+        autoPlayWatcherRef.current = null;
+      }
+    };
+  }, [step, attemptAutoPlay]);
 
   const onPlayerReady: YouTubeProps['onReady'] = (event) => {
     playerRef.current = event.target;
-    setIsPlaying(true);
+    try {
+      const iframe = event.target.getIframe?.();
+      if (iframe) {
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      }
+      event.target.unMute?.();
+      event.target.setVolume?.(100);
+    } catch {}
+
+    if (stepRef.current === 'video' || userRequestedPlayRef.current) {
+      attemptAutoPlay(event.target);
+    }
   };
 
   const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
     if (event.data === 1) {
       setIsPlaying(true); // Playing
+      autoPlayFiredRef.current = true;
+      if (autoPlayWatcherRef.current) {
+        clearInterval(autoPlayWatcherRef.current);
+        autoPlayWatcherRef.current = null;
+      }
     } else if (event.data === 2) {
       setIsPlaying(false); // Paused
-    } else if (event.data === 0) { // Video ENDED (0)
+      if (!autoPlayFiredRef.current && (stepRef.current === 'video' || userRequestedPlayRef.current)) {
+        try {
+          event.target.unMute?.();
+          event.target.setVolume?.(100);
+          event.target.playVideo?.();
+        } catch {}
+      }
+    } else if (event.data === 5 || event.data === -1) {
+      // 5 = CUED, -1 = UNSTARTED: Video metadata & cover are loaded and ready!
+      if (stepRef.current === 'video' || userRequestedPlayRef.current) {
+        attemptAutoPlay(event.target);
+      }
+    }
+
+    if (event.data === 0) { // Video ENDED (0)
       if (currentLoop < targetLoopCount) {
         // Intermediate Loop completion
         const completedNum = currentLoop;
@@ -720,8 +876,10 @@ export const LessonModal: React.FC<LessonModalProps> = ({
         }
 
         if (playerRef.current) {
-          playerRef.current.seekTo(0, true);
-          playerRef.current.playVideo();
+          try {
+            playerRef.current.seekTo(0, true);
+            playerRef.current.playVideo();
+          } catch {}
         }
       } else {
         // FINAL Loop completed! 5 bursts of elegant confetti strictly INSIDE video
@@ -768,38 +926,53 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     }
   };
 
-  const togglePlay = (e?: React.MouseEvent) => {
+  const togglePlay = (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) e.stopPropagation();
     resetControlsTimeout();
     if (playerRef.current) {
-      if (isPlaying) playerRef.current.pauseVideo();
-      else playerRef.current.playVideo();
+      if (isPlaying) {
+        playerRef.current.pauseVideo?.();
+        setIsPlaying(false);
+      } else {
+        try {
+          playerRef.current.unMute?.();
+          playerRef.current.setVolume?.(100);
+        } catch {}
+        playerRef.current.playVideo?.();
+        setIsPlaying(true);
+      }
     }
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     setCurrentTime(time);
-    if (playerRef.current) {
-      playerRef.current.seekTo(time, true);
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      try {
+        await Promise.resolve(playerRef.current.seekTo(time, true));
+      } catch {}
     }
   };
 
-  const seekBackward = (e: React.MouseEvent) => {
+  const seekBackward = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (playerRef.current) {
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
       const newTime = Math.max(0, currentTime - 10);
-      playerRef.current.seekTo(newTime, true);
       setCurrentTime(newTime);
+      try {
+        await Promise.resolve(playerRef.current.seekTo(newTime, true));
+      } catch {}
     }
   };
 
-  const seekForward = (e: React.MouseEvent) => {
+  const seekForward = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (playerRef.current) {
-      const newTime = Math.min(duration, currentTime + 10);
-      playerRef.current.seekTo(newTime, true);
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      const newTime = Math.min(duration || currentTime + 10, currentTime + 10);
       setCurrentTime(newTime);
+      try {
+        await Promise.resolve(playerRef.current.seekTo(newTime, true));
+      } catch {}
     }
   };
 
@@ -817,7 +990,11 @@ export const LessonModal: React.FC<LessonModalProps> = ({
   const unlockOrientation = async () => {
     try {
       if (document.fullscreenElement) {
-        await document.exitFullscreen();
+        await document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitFullscreenElement) {
+        try {
+          await (document as any).webkitExitFullscreen?.();
+        } catch {}
       }
       // @ts-ignore
       if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
@@ -831,7 +1008,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
+      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
         // Si el usuario sale de pantalla completa, desbloqueamos la orientación
         // @ts-ignore
         if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
@@ -845,10 +1022,32 @@ export const LessonModal: React.FC<LessonModalProps> = ({
       }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      userRequestedPlayRef.current = false;
+      if (playerRef.current) {
+        try {
+          playerRef.current.pauseVideo?.();
+        } catch {}
+      }
+    };
   }, []);
 
   const handleAttemptClose = () => {
+    userRequestedPlayRef.current = false;
+    if (playerRef.current) {
+      try {
+        playerRef.current.pauseVideo?.();
+      } catch {}
+    }
+    setIsPlaying(false);
     audioService.playCloseSound();
     unlockOrientation();
     onClose();
@@ -937,290 +1136,275 @@ export const LessonModal: React.FC<LessonModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn cursor-pointer overflow-y-auto" onClick={handleAttemptClose}>
-      <div className={`bg-white dark:bg-[#102034] rounded-3xl p-6 w-full space-y-5 shadow-2xl relative border border-slate-100 dark:border-[#1b2b3f] transition-all duration-300 cursor-default my-auto ${
-        step === 'video' ? 'max-w-3xl' : 'max-w-sm'
-      }`} onClick={(e) => e.stopPropagation()}>
-        {/* Close button */}
-        <button
-          onClick={handleAttemptClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer z-10"
+    <>
+      {/* 1. Pre-mounted YouTube Video Player (Always in DOM if node.youtubeId exists) */}
+      {node.youtubeId && (
+        <div
+          className={
+            step === 'video'
+              ? 'fixed inset-0 z-50 w-screen h-screen bg-black flex flex-col justify-center items-center overflow-hidden select-none animate-fadeIn'
+              : 'fixed -left-[9999px] -top-[9999px] w-[320px] h-[240px] opacity-0 pointer-events-none overflow-hidden z-[-1]'
+          }
         >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Modal Top Header Bar */}
-        {step !== 'vocal_diagnostic' && (
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff] flex items-center justify-center">
-              {node.type === 'control' ? <Wind className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
-            </div>
-            <div>
-              <span className="text-[11px] font-extrabold text-[#4648d4] dark:text-[#c0c1ff] uppercase tracking-wider">
-                Lección Práctica
-              </span>
-              <h3 className="font-heading font-bold text-lg text-[#0b1c30] dark:text-[#d3e4fe]">
-                {node.title}
-              </h3>
-            </div>
-          </div>
-        )}
-
-        {/* Step: Intro */}
-        {step === 'intro' && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-[#c6c5d7] leading-relaxed bg-[#f8f9ff] dark:bg-[#0b1828] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-              {node.instructions || 'Sigue las instrucciones para dominar el control diafragmático y mejorar tu tono vocal.'}
-            </p>
-
-            <button
-              onClick={async () => {
-                audioService.playClickSound();
-                if (node.youtubeId) {
-                  setStep('video');
-                  if (window.innerWidth < 768) {
-                    setTimeout(async () => {
-                      if (videoContainerRef.current) {
-                        try {
-                          if (videoContainerRef.current.requestFullscreen) {
-                            await videoContainerRef.current.requestFullscreen();
-                          }
-                          // @ts-ignore
-                          if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-                            // @ts-ignore
-                            await window.screen.orientation.lock('landscape');
-                          }
-                        } catch (e) {
-                          console.warn('No se pudo lanzar fullscreen u orientation lock', e);
-                        }
-                      }
-                    }, 100);
+          <div 
+            ref={videoContainerRef} 
+            onMouseMove={resetControlsTimeout}
+            onTouchStart={resetControlsTimeout}
+            onClick={resetControlsTimeout}
+            className={`relative w-full h-full flex items-center justify-center overflow-hidden bg-black select-none transition-all duration-[3000ms] ease-out ${
+              isVideoFadingOut ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+            }`}
+          >
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <YouTube
+                videoId={node.youtubeId}
+                opts={{
+                  width: '100%',
+                  height: '100%',
+                  playerVars: {
+                    autoplay: 0,
+                    controls: 0,
+                    modestbranding: 1,
+                    rel: 0,
+                    disablekb: 1,
+                    fs: 0,
+                    playsinline: 1,
+                    enablejsapi: 1,
+                    iv_load_policy: 3
                   }
-                } else {
-                  setStep('practice');
-                }
-              }}
-              className="w-full py-3.5 rounded-full tactile-btn-primary font-heading font-bold text-sm cursor-pointer shadow-md"
-            >
-              Comenzar Ejercicio
-            </button>
-          </div>
-        )}
+                }}
+                onReady={onPlayerReady}
+                onStateChange={onPlayerStateChange}
+                className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:object-cover" 
+              />
+            </div>
 
-        {/* Step: Video */}
-        {step === 'video' && (
-          <div className="space-y-4 w-full flex flex-col animate-fadeIn">
+            {/* Internal Video Confetti Overlay Canvas */}
+            <canvas 
+              ref={confettiCanvasRef} 
+              className="absolute inset-0 w-full h-full pointer-events-none z-35" 
+            />
+
+            {/* Invisible overlay to capture clicks and prevent YouTube UI interaction */}
             <div 
-              ref={videoContainerRef} 
-              onMouseMove={resetControlsTimeout}
-              onTouchStart={resetControlsTimeout}
-              onClick={resetControlsTimeout}
-              className={`relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-lg group select-none transition-all duration-[3000ms] ease-out ${
-                isVideoFadingOut ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+              className="absolute inset-0 z-10 cursor-pointer" 
+              onClick={togglePlay}
+            />
+
+            {/* Centered Large Premium Loop Toast */}
+            {loopToastMsg && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#0b1c30]/95 backdrop-blur-2xl border-2 border-[#4648d4] px-8 py-5 rounded-3xl shadow-[0px_16px_40px_rgba(70,72,212,0.6)] flex flex-col items-center justify-center text-center animate-scaleIn pointer-events-none select-none max-w-xs sm:max-w-md">
+                <span className="text-[10px] sm:text-xs font-black text-indigo-300 uppercase tracking-widest block leading-tight">
+                  PROGRESO DE EJERCICIO
+                </span>
+                <h3 className="text-base sm:text-xl font-black text-white leading-tight mt-1 drop-shadow-md">
+                  {loopToastMsg}
+                </h3>
+              </div>
+            )}
+
+            {/* Top Header Bar: Back Button + Lesson Title + Loop Counter */}
+            <div 
+              className={`absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-4 z-30 flex items-center justify-between pointer-events-none transition-opacity duration-300 ${
+                showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
               }`}
             >
-              <div className="absolute inset-0 pointer-events-none">
-                <YouTube
-                  videoId={node.youtubeId}
-                  opts={{
-                    width: '100%',
-                    height: '100%',
-                    playerVars: {
-                      autoplay: 1,
-                      controls: 0,
-                      modestbranding: 1,
-                      rel: 0,
-                      disablekb: 1,
-                      fs: 0,
-                      playsinline: 1,
-                      iv_load_policy: 3
+              <div className="flex items-center gap-2.5 md:gap-3.5 pointer-events-auto">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    audioService.playClickSound();
+                    unlockOrientation();
+                    if (playerRef.current) {
+                      try {
+                        playerRef.current.pauseVideo?.();
+                      } catch {}
+                    }
+                    setIsPlaying(false);
+                    if ((node.id === 'u1-node1' || node.type === 'concept') && !quizResolved) {
+                      setStep('practice');
+                    } else {
+                      onClose();
                     }
                   }}
-                  onReady={onPlayerReady}
-                  onStateChange={onPlayerStateChange}
-                  className="w-full h-full [&>iframe]:w-full [&>iframe]:h-[200%] [&>iframe]:absolute [&>iframe]:-top-[50%] [&>iframe]:left-0" 
-                />
+                  className="organic-shape w-10 h-10 md:w-14 md:h-14 flex items-center justify-center text-white cursor-pointer transition-all duration-300 press-effect hover:scale-105 shrink-0"
+                  style={{
+                    backgroundColor: '#ef4444',
+                    boxShadow: '0 4px 0 0 #b91c1c'
+                  }}
+                  title="Salir al mapa de la Academia"
+                >
+                  <ArrowLeft className="w-5 h-5 md:w-7 md:h-7" strokeWidth={3} />
+                </button>
+
+                {/* Lesson Title Header Pill */}
+                <div className="bg-black/60 backdrop-blur-md border border-white/20 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl shadow-lg max-w-[170px] sm:max-w-xs md:max-w-md">
+                  <span className="text-[9px] md:text-[10px] font-extrabold text-indigo-300 uppercase tracking-widest block leading-none">
+                    Lección Actual
+                  </span>
+                  <h4 className="text-xs md:text-sm font-black text-white truncate drop-shadow-sm mt-0.5">
+                    {node.title}
+                  </h4>
+                </div>
               </div>
 
-              {/* Internal Video Confetti Overlay Canvas */}
-              <canvas 
-                ref={confettiCanvasRef} 
-                className="absolute inset-0 w-full h-full pointer-events-none z-35" 
-              />
-
-              {/* Invisible overlay to capture clicks and prevent YouTube UI interaction */}
-              <div 
-                className="absolute inset-0 z-10 cursor-pointer" 
-                onClick={togglePlay}
-              />
-
-              {/* Centered Large Premium Loop Toast (NO CHEAP EMOJIS) */}
-              {loopToastMsg && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#0b1c30]/95 backdrop-blur-2xl border-2 border-[#4648d4] px-8 py-5 rounded-3xl shadow-[0px_16px_40px_rgba(70,72,212,0.6)] flex flex-col items-center justify-center text-center animate-scaleIn pointer-events-none select-none max-w-xs sm:max-w-md">
-                  <span className="text-[10px] sm:text-xs font-black text-indigo-300 uppercase tracking-widest block leading-tight">
-                    PROGRESO DE EJERCICIO
+              {/* Loop Counter Pill */}
+              {targetLoopCount > 1 && (
+                <div className="pointer-events-auto bg-indigo-600/90 backdrop-blur-md border border-indigo-300/40 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl shadow-lg flex items-center gap-1.5 text-white shrink-0">
+                  <RotateCw className="w-3.5 h-3.5 text-indigo-200" />
+                  <span className="text-[10px] md:text-xs font-black tracking-wide">
+                    Bucle {currentLoop}/{targetLoopCount}
                   </span>
-                  <h3 className="text-base sm:text-xl font-black text-white leading-tight mt-1 drop-shadow-md">
-                    {loopToastMsg}
-                  </h3>
                 </div>
               )}
-
-              {/* Top Header Bar: Back Button + Lesson Title + Loop Counter */}
-              <div 
-                className={`absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-4 z-30 flex items-center justify-between pointer-events-none transition-opacity duration-300 ${
-                  showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 md:gap-3.5 pointer-events-auto">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      audioService.playClickSound();
-                      unlockOrientation();
-                      if ((node.id === 'u1-node1' || node.type === 'concept') && !quizResolved) {
-                        setStep('practice');
-                      } else {
-                        onClose();
-                      }
-                    }}
-                    className="organic-shape w-10 h-10 md:w-14 md:h-14 flex items-center justify-center text-white cursor-pointer transition-all duration-300 press-effect hover:scale-105 shrink-0"
-                    style={{
-                      backgroundColor: '#ef4444',
-                      boxShadow: '0 4px 0 0 #b91c1c'
-                    }}
-                    title="Salir al mapa de la Academia"
-                  >
-                    <ArrowLeft className="w-5 h-5 md:w-7 md:h-7" strokeWidth={3} />
-                  </button>
-
-                  {/* Lesson Title Header Pill */}
-                  <div className="bg-black/60 backdrop-blur-md border border-white/20 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl shadow-lg max-w-[170px] sm:max-w-xs md:max-w-md">
-                    <span className="text-[9px] md:text-[10px] font-extrabold text-indigo-300 uppercase tracking-widest block leading-none">
-                      Lección Actual
-                    </span>
-                    <h4 className="text-xs md:text-sm font-black text-white truncate drop-shadow-sm mt-0.5">
-                      {node.title}
-                    </h4>
-                  </div>
-                </div>
-
-                {/* Loop Counter Pill */}
-                {targetLoopCount > 1 && (
-                  <div className="pointer-events-auto bg-indigo-600/90 backdrop-blur-md border border-indigo-300/40 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl shadow-lg flex items-center gap-1.5 text-white shrink-0">
-                    <RotateCw className="w-3.5 h-3.5 text-indigo-200" />
-                    <span className="text-[10px] md:text-xs font-black tracking-wide">
-                      Bucle {currentLoop}/{targetLoopCount}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Karaoke Center Controls Block */}
-              <div 
-                className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center transition-all duration-300 ${
-                  showControls || !isPlaying ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
-                }`}
-              >
-                <div className="bg-surface-container-high/30 dark:bg-slate-800/40 rounded-[2rem] p-4 md:p-8 flex items-center justify-center gap-6 md:gap-12 backdrop-blur-xs">
-                  <button 
-                    onClick={seekBackward}
-                    className="organic-shape w-14 h-14 md:w-28 md:h-28 bg-surface-container-high dark:bg-slate-800 text-slate-700 dark:text-[#c0c1ff] flex items-center justify-center press-effect transition-all duration-300 shadow-[0_4px_0_0_#c7c4d7] md:shadow-[0_8px_0_0_#c7c4d7] dark:shadow-[0_4px_0_0_#1b2b3f] dark:md:shadow-[0_8px_0_0_#1b2b3f] cursor-pointer"
-                    title="Retroceder 10s"
-                  >
-                    <RotateCcw className="w-6 h-6 md:w-12 md:h-12 stroke-[2.5]" />
-                  </button>
-
-                  <button
-                    onClick={togglePlay}
-                    className="organic-shape w-20 h-20 md:w-40 md:h-40 bg-[#4648d4] text-white flex items-center justify-center press-effect transition-all duration-300 shadow-[0_7px_0_0_#282a9e] md:shadow-[0_12px_0_0_#282a9e] group cursor-pointer"
-                    title={isPlaying ? 'Pausar' : 'Reproducir'}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-8 h-8 md:w-16 md:h-16 fill-white group-active:scale-90 transition-transform" />
-                    ) : (
-                      <Play className="w-8 h-8 md:w-16 md:h-16 fill-white ml-1 md:ml-3 group-active:scale-90 transition-transform" />
-                    )}
-                  </button>
-
-                  <button 
-                    onClick={seekForward}
-                    className="organic-shape w-14 h-14 md:w-28 md:h-28 bg-surface-container-high dark:bg-slate-800 text-slate-700 dark:text-[#c0c1ff] flex items-center justify-center press-effect transition-all duration-300 shadow-[0_4px_0_0_#c7c4d7] md:shadow-[0_8px_0_0_#c7c4d7] dark:shadow-[0_4px_0_0_#1b2b3f] dark:md:shadow-[0_8px_0_0_#1b2b3f] cursor-pointer"
-                    title="Adelantar 10s"
-                  >
-                    <RotateCw className="w-6 h-6 md:w-12 md:h-12 stroke-[2.5]" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Custom Bottom Progress Bar */}
-              <div 
-                className={`absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 transition-opacity duration-300 ${
-                  showControls || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-white text-[10px] md:text-xs font-bold font-mono w-8 md:w-10 drop-shadow-md">{formatTime(currentTime)}</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={duration || 100}
-                    value={currentTime}
-                    onChange={handleSeek}
-                    className="flex-1 h-1.5 md:h-2 bg-white/20 rounded-full appearance-none outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 md:[&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-3 md:[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[#4648d4] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-lg cursor-pointer transition-all hover:[&::-webkit-slider-thumb]:scale-125"
-                  />
-                  <span className="text-white text-[10px] md:text-xs font-bold font-mono w-8 md:w-10 text-right drop-shadow-md">{formatTime(duration)}</span>
-                </div>
-              </div>
             </div>
             
-            <button
-              onClick={() => {
-                audioService.playClickSound();
-                unlockOrientation();
-
-                if (targetLoopCount > 1 && currentLoop < targetLoopCount && node.type !== 'concept' && node.id !== 'u1-node1' && node.id !== 'u1-node7' && node.type !== 'control') {
-                  audioService.vibrate(18);
-                  setLoopToastMsg(`Debes completar los ${targetLoopCount} bucles del ejercicio (${currentLoop}/${targetLoopCount} en curso)`);
-                  setTimeout(() => setLoopToastMsg(null), 3000);
-                  return;
-                }
-
-                setIsVideoFadingOut(true);
-
-                setTimeout(() => {
-                  if (node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')) {
-                    setStep('vocal_diagnostic');
-                  } else if (node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')) {
-                    setStep('practice');
-                  } else if (node.type === 'control') {
-                    setStep('practice');
-                  } else {
-                    onCompleteNode(node.id, node.xpReward);
-                    onClose();
-                  }
-                }, 400);
-              }}
-              className={`w-full py-3.5 rounded-full font-heading font-bold text-sm cursor-pointer shadow-md mt-4 max-w-sm mx-auto transition-all ${
-                targetLoopCount > 1 && currentLoop < targetLoopCount
-                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
-                  : 'tactile-btn-primary'
+            {/* Karaoke Center Controls Block */}
+            <div 
+              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex items-center justify-center transition-all duration-300 ${
+                showControls || !isPlaying ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
               }`}
             >
-              {node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')
-                ? 'Iniciar Diagnóstico Vocal Rápido'
-                : node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')
-                ? 'Ir al Quiz de la Lección'
-                : node.type === 'control'
-                  ? 'Continuar a Ejercicio de Respiración'
-                  : targetLoopCount > 1
-                    ? currentLoop >= targetLoopCount
-                      ? `Completar Lección (${targetLoopCount}/${targetLoopCount} Bucles)`
-                      : `Bucle ${currentLoop} de ${targetLoopCount} en Curso...`
-                    : 'Completar Lección'}
-            </button>
+              <div className="bg-surface-container-high/30 dark:bg-slate-800/40 rounded-[2rem] p-4 md:p-8 flex items-center justify-center gap-6 md:gap-12 backdrop-blur-xs">
+                <button 
+                  onClick={seekBackward}
+                  className="organic-shape w-14 h-14 md:w-28 md:h-28 bg-surface-container-high dark:bg-slate-800 text-slate-700 dark:text-[#c0c1ff] flex items-center justify-center press-effect transition-all duration-300 shadow-[0_4px_0_0_#c7c4d7] md:shadow-[0_8px_0_0_#c7c4d7] dark:shadow-[0_4px_0_0_#1b2b3f] dark:md:shadow-[0_8px_0_0_#1b2b3f] cursor-pointer"
+                  title="Retroceder 10s"
+                >
+                  <RotateCcw className="w-6 h-6 md:w-12 md:h-12 stroke-[2.5]" />
+                </button>
+
+                <button
+                  onClick={togglePlay}
+                  className="organic-shape w-20 h-20 md:w-40 md:h-40 bg-[#4648d4] text-white flex items-center justify-center press-effect transition-all duration-300 shadow-[0_7px_0_0_#282a9e] md:shadow-[0_12px_0_0_#282a9e] group cursor-pointer"
+                  title={isPlaying ? 'Pausar' : 'Reproducir'}
+                >
+                  {isPlaying ? (
+                    <Pause className="w-8 h-8 md:w-16 md:h-16 fill-white group-active:scale-90 transition-transform" />
+                  ) : (
+                    <Play className="w-8 h-8 md:w-16 md:h-16 fill-white ml-1 md:ml-3 group-active:scale-90 transition-transform" />
+                  )}
+                </button>
+
+                <button 
+                  onClick={seekForward}
+                  className="organic-shape w-14 h-14 md:w-28 md:h-28 bg-surface-container-high dark:bg-slate-800 text-slate-700 dark:text-[#c0c1ff] flex items-center justify-center press-effect transition-all duration-300 shadow-[0_4px_0_0_#c7c4d7] md:shadow-[0_8px_0_0_#c7c4d7] dark:shadow-[0_4px_0_0_#1b2b3f] dark:md:shadow-[0_8px_0_0_#1b2b3f] cursor-pointer"
+                  title="Adelantar 10s"
+                >
+                  <RotateCw className="w-6 h-6 md:w-12 md:h-12 stroke-[2.5]" />
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Bottom Progress Bar */}
+            <div 
+              className={`absolute bottom-0 left-0 right-0 p-3 md:p-5 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 transition-opacity duration-300 ${
+                showControls || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <div className="flex items-center gap-3 max-w-3xl mx-auto">
+                <span className="text-white text-[10px] md:text-xs font-bold font-mono w-8 md:w-10 drop-shadow-md">{formatTime(currentTime)}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 100}
+                  value={currentTime}
+                  onChange={handleSeek}
+                  className="flex-1 h-1.5 md:h-2 bg-white/20 rounded-full appearance-none outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 md:[&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-3 md:[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[#4648d4] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-lg cursor-pointer transition-all hover:[&::-webkit-slider-thumb]:scale-125"
+                />
+                <span className="text-white text-[10px] md:text-xs font-bold font-mono w-8 md:w-10 text-right drop-shadow-md">{formatTime(duration)}</span>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* 2. Standard Dialog Card (When step !== 'video') */}
+      {step !== 'video' && (
+        <div 
+          className={`fixed inset-0 z-50 p-4 bg-black/60 backdrop-blur-xs flex items-center justify-center overflow-y-auto ${isAnyEvaluationNode ? 'cursor-default' : 'cursor-pointer'} animate-fadeIn`}
+          onClick={isAnyEvaluationNode ? undefined : handleAttemptClose}
+        >
+          <div 
+            className={`bg-white dark:bg-[#102034] rounded-3xl ${isUnit2Exam && step === 'practice' && !showQuizResults ? 'p-3.5 sm:p-5 max-w-md' : 'p-6 max-w-sm'} w-full space-y-5 shadow-2xl relative border border-slate-100 dark:border-[#1b2b3f] cursor-default my-auto transition-all duration-300 max-h-[96vh] overflow-y-auto`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={handleAttemptClose}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Modal Top Header Bar */}
+            {step !== 'vocal_diagnostic' && (!isUnit2Exam || step !== 'practice' || showQuizResults) && (
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-2xl ${isUnit2Exam ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-500' : 'bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff]'} flex items-center justify-center`}>
+                  {isUnit2Exam ? <Trophy className="w-6 h-6 text-amber-500" /> : node.type === 'control' ? <Wind className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
+                </div>
+                <div>
+                  <span className={`text-[11px] font-extrabold ${isUnit2Exam ? 'text-amber-600 dark:text-amber-400' : 'text-[#4648d4] dark:text-[#c0c1ff]'} uppercase tracking-wider`}>
+                    {isUnit2Exam ? 'Evaluación de Módulo' : node.type === 'concept' ? 'Lección Teórica' : 'Lección Práctica'}
+                  </span>
+                  <h3 className="font-heading font-bold text-lg text-[#0b1c30] dark:text-[#d3e4fe]">
+                    {node.title}
+                  </h3>
+                </div>
+              </div>
+            )}
+
+            {/* Step: Intro */}
+            {step === 'intro' && (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600 dark:text-[#c6c5d7] leading-relaxed bg-[#f8f9ff] dark:bg-[#0b1828] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                  {node.instructions || 'Sigue las instrucciones para dominar el control diafragmático y mejorar tu tono vocal.'}
+                </p>
+
+                <button
+                  onClick={() => {
+                    audioService.playClickSound();
+                    if (node.youtubeId) {
+                      userRequestedPlayRef.current = true;
+                      // 1. Synchronously trigger browser fullscreen on direct user gesture
+                      try {
+                        const el = document.documentElement;
+                        if (el.requestFullscreen) {
+                          el.requestFullscreen().catch(() => {});
+                        } else if ((el as any).webkitRequestFullscreen) {
+                          (el as any).webkitRequestFullscreen();
+                        }
+                      } catch (e) {}
+
+                      // 2. Synchronously lock orientation to landscape
+                      try {
+                        if (window.screen?.orientation && (window.screen.orientation as any).lock) {
+                          (window.screen.orientation as any).lock('landscape').catch(() => {});
+                        }
+                      } catch (e) {}
+
+                      // 3. Immediately trigger play in the user gesture!
+                      if (playerRef.current) {
+                        try {
+                          playerRef.current.unMute?.();
+                          playerRef.current.setVolume?.(100);
+                          playerRef.current.playVideo?.();
+                          setIsPlaying(true);
+                        } catch (e) {}
+                      }
+
+                      // 4. Set step to video
+                      setStep('video');
+                    } else {
+                      setStep('practice');
+                    }
+                  }}
+                  className="w-full py-3.5 rounded-full tactile-btn-primary font-heading font-bold text-sm cursor-pointer shadow-md"
+                >
+                  Comenzar Ejercicio
+                </button>
+              </div>
+            )}
 
         {/* Step: Vocal Diagnostic Tool (For Class 7: Fisiología Vocal) */}
         {step === 'vocal_diagnostic' && (
@@ -1241,10 +1425,31 @@ export const LessonModal: React.FC<LessonModalProps> = ({
           </div>
         )}
 
-        {/* Step: Practice (Breathing or Quiz) */}
+        {/* Step: Practice (Breathing, Quiz, or Unit 2 Tuner Pitch Challenge) */}
         {step === 'practice' && (
-          <div className="space-y-5 text-center">
-            {(node.type === 'control' || (isExamNode && examStage === 'balloon')) && !showQuizResults ? (
+          <div className="space-y-4 text-center">
+            {isUnit2Exam && !showQuizResults ? (
+              /* Unit 2 Evaluation: Exactly Level 1 of Modo Fácil */
+              <div className="space-y-3.5 text-left animate-fadeIn">
+                <div className="inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-950/50 py-1.5 px-3 rounded-xl border border-amber-200/80 dark:border-amber-800/60 max-w-[calc(100%-3rem)]">
+                  <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="text-xs font-heading font-black text-amber-800 dark:text-amber-200 uppercase tracking-wider truncate">
+                    Evaluación del Módulo 2
+                  </span>
+                </div>
+
+                <TunerPitchChallengeView
+                  difficultyLabel="Fácil"
+                  levelNumber={1}
+                  subtitle="Afinación de 3 notas"
+                  notes={unit2ExamNotes}
+                  toleranceCents={45}
+                  gender={gender}
+                  vocalRangeData={userStats?.vocalRangeData}
+                  onSuccess={handleUnit2ExamSuccess}
+                />
+              </div>
+            ) : (node.type === 'control' || (isExamNode && examStage === 'balloon')) && !showQuizResults ? (
               /* Breathing Balloon Exercise Stage */
               <div className="space-y-4 text-center animate-fadeIn">
                 {isExamNode && examStage === 'balloon' && (
@@ -1550,7 +1755,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                 {/* Score Header & Message */}
                 <div className="space-y-1.5">
                   <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">
-                    {node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')
+                    {isUnit2Exam
+                      ? '¡Afinación Perfecta!'
+                      : node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')
                       ? '¡Diagnóstico Vocal Sincronizado!'
                       : node.type === 'control'
                       ? '¡Dominio Respiratorio!'
@@ -1565,7 +1772,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                       : 'Debes Repetir el Quiz'}
                   </h3>
                   <p className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-300 px-2 leading-relaxed">
-                    {node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')
+                    {isUnit2Exam
+                      ? '¡Excelente precisión vocal! Has completado el Nivel 1 del Modo Fácil afinando cada una de las 3 notas correctamente. ¡Evaluación de Unidad 2 superada!'
+                      : node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')
                       ? '¡Excelente! Tu rango vocal y perfil tímbrico fueron registrados con éxito. Toda la app ha adaptado sus ejercicios a tu voz.'
                       : node.type === 'control'
                       ? '¡Excelente! Dominaste el anclaje intercostal y la resistencia pulmonar con técnica perfecta.'
@@ -1585,7 +1794,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                 {quizScore >= 2 ? (
                   <div className="inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 px-4 py-2 rounded-full text-xs font-black shadow-xs">
                     <Trophy className="w-4 h-4 text-amber-500" />
-                    <span>+{quizScore === 4 ? 30 : quizScore === 3 ? 25 : 20} XP Recompensados</span>
+                    <span>+{node.xpReward || (quizScore === 4 ? 30 : quizScore === 3 ? 25 : 20)} XP Recompensados</span>
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-2 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 px-4 py-2 rounded-full text-xs font-black">
@@ -1775,6 +1984,8 @@ export const LessonModal: React.FC<LessonModalProps> = ({
           </div>
         )}
       </div>
+    </div>
+  )}
 
       {/* Exit Confirmation Dialog Overlay */}
       {showExitConfirm && (
@@ -1824,7 +2035,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

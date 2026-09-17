@@ -119,6 +119,14 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     try {
       const saved = localStorage.getItem('laclave_voice_gender');
       if (saved === 'masculino' || saved === 'femenino') return saved;
+      const savedRange = localStorage.getItem('laclave_vocal_range_saved');
+      if (savedRange) {
+        const parsed = JSON.parse(savedRange);
+        if (parsed.gender === 'masculino' || parsed.gender === 'femenino') return parsed.gender;
+        if (parsed.classification === 'Bajo' || parsed.classification === 'Barítono' || parsed.classification === 'Tenor') {
+          return 'masculino';
+        }
+      }
     } catch {}
     return 'femenino';
   });
@@ -294,9 +302,11 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   const isLevelFailedRef = useRef<boolean>(false);
   const noteTransitionUntilRef = useRef<number>(0);
   const selectedDifficultyRef = useRef<Difficulty>(selectedDifficulty);
+  const currentLevelRef = useRef<number>(currentLevel);
   const onLoseLifeRef = useRef(onLoseLife);
 
   useEffect(() => { selectedDifficultyRef.current = selectedDifficulty; }, [selectedDifficulty]);
+  useEffect(() => { currentLevelRef.current = currentLevel; }, [currentLevel]);
   useEffect(() => { onLoseLifeRef.current = onLoseLife; }, [onLoseLife]);
 
   // Passive countdown for 0 lives
@@ -602,16 +612,20 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
       return;
     }
     setTunerMode('niveles');
+    tunerModeRef.current = 'niveles';
     setSelectedDifficulty(diff);
+    selectedDifficultyRef.current = diff;
     if (diff === 'Fácil') setDifficulty('facil');
     else if (diff === 'Medio') setDifficulty('medio');
     else if (diff === 'Difícil' || diff === 'Maestro') setDifficulty('dificil');
 
     setCurrentLevel(lvl);
+    currentLevelRef.current = lvl;
     setIsLevelSelectOpen(false);
     setIsWinModalOpen(false);
     setCompletedChallengeNotes(new Set());
     setChallengeIndex(0);
+    challengeIndexRef.current = 0;
     inTuneSinceRef.current = null;
     setTugOfWarProgress(50);
     tugOfWarRef.current = 50;
@@ -653,6 +667,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     }
 
     setChallengeNotes(notes);
+    challengeNotesRef.current = notes;
     startTuningMic();
 
     // In Simon Says mode (or if melody), play sequence for the user to hear
@@ -699,6 +714,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     const nextIdx = challengeIndexRef.current + 1;
     if (nextIdx < challengeNotesRef.current.length) {
       setChallengeIndex(nextIdx);
+      challengeIndexRef.current = nextIdx;
       // Play reference of next note
       setTimeout(() => {
         const nextNote = challengeNotesRef.current[nextIdx];
@@ -723,16 +739,19 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     setWinXp(xp);
     setIsWinModalOpen(true);
 
+    const activeDiff = selectedDifficultyRef.current;
+    const activeLvl = currentLevelRef.current;
+
     // Save progress in state and localStorage
-    if (selectedDifficulty !== 'Calentamiento') {
-      const challengeDiff = selectedDifficulty as ChallengeDifficulty;
+    if (activeDiff !== 'Calentamiento') {
+      const challengeDiff = activeDiff as ChallengeDifficulty;
       setLevelProgress(prev => {
-        const currentBest = prev[challengeDiff]?.[currentLevel] || 0;
+        const currentBest = prev[challengeDiff]?.[activeLvl] || 0;
         const newProgress = {
           ...prev,
           [challengeDiff]: {
             ...prev[challengeDiff],
-            [currentLevel]: Math.max(currentBest, starsEarned)
+            [activeLvl]: Math.max(currentBest, starsEarned)
           }
         };
         try {
@@ -752,17 +771,20 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   };
 
   const handleNextLevel = () => {
+    const activeDiff = selectedDifficultyRef.current;
+    const activeLvl = currentLevelRef.current;
+    const maxLvl = difficultySettings[activeDiff]?.levelCount || 12;
+
     // Show video cinematic for last level of Easy mode after clicking next
-    if (selectedDifficulty === 'Fácil' && currentLevel === difficultySettings['Fácil'].levelCount) {
+    if (activeDiff === 'Fácil' && activeLvl >= maxLvl) {
       setShowEasyWinVideo(true);
       // Don't open level select here - let the video component handle it
       setIsWinModalOpen(false);
       return; // Exit early, video component will open level select after closing
     }
     setIsWinModalOpen(false);
-    const maxLvl = difficultySettings[selectedDifficulty]?.levelCount || 12;
-    if (currentLevel < maxLvl) {
-      startLevel(selectedDifficulty, currentLevel + 1);
+    if (activeLvl < maxLvl) {
+      startLevel(activeDiff, activeLvl + 1);
     } else {
       setIsLevelSelectOpen(true);
     }
@@ -870,6 +892,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
           onClose={() => setActiveSubView(null)}
           onSaveRange={(rangeData) => {
             setEffectiveRangeData(rangeData);
+            if (rangeData.gender) {
+              setGender(rangeData.gender);
+              try {
+                localStorage.setItem('laclave_voice_gender', rangeData.gender);
+              } catch {}
+              voicePlayback.preloadNotes(rangeData.gender);
+            }
             setIsRangeRequiredModalOpen(false);
             if (onUpdateStats) {
               onUpdateStats({
@@ -921,13 +950,16 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
       {/* ─── Level Win Celebration Modal ─── */}
       <TunerWinModal
         isOpen={isWinModalOpen}
-        level={currentLevel}
-        difficulty={selectedDifficulty}
+        level={currentLevelRef.current || currentLevel}
+        difficulty={selectedDifficultyRef.current || selectedDifficulty}
         stars={winStars}
         xpEarned={winXp}
         onNextLevel={handleNextLevel}
-        onReplay={() => startLevel(selectedDifficulty, currentLevel)}
-        onClose={() => setIsWinModalOpen(false)}
+        onReplay={() => startLevel(selectedDifficultyRef.current, currentLevelRef.current)}
+        onClose={() => {
+          setIsWinModalOpen(false);
+          setIsLevelSelectOpen(true);
+        }}
       />
 
       {/* ─── Level Defeat Modal (Tug-of-War reached 0) ─── */}

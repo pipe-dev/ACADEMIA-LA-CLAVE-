@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { audioService } from '../utils/audioService';
 import { Wind, Play, Pause, RotateCcw, Sparkles, CheckCircle2, Activity } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { emitStreakEligibleAction } from '../utils/streakPrompt';
 
 export interface BreathingTechnique {
   id: string;
@@ -111,6 +112,50 @@ export const BreathingGameCard: React.FC = () => {
   const currentPhase = currentTech.phases[currentPhaseIdx];
 
   const intervalRef = useRef<number | null>(null);
+  const balloonRef = useRef<HTMLDivElement | null>(null);
+
+  // Al seleccionar un ejercicio, baja rápido y suave (centrando el módulo del globo)
+  const scrollToBalloon = () => {
+    setTimeout(() => {
+      const el = balloonRef.current;
+      if (!el) return;
+
+      const startY = window.scrollY;
+      const rect = el.getBoundingClientRect();
+      const viewportH = window.innerHeight;
+      const targetRaw = startY + rect.top - Math.max(24, (viewportH - el.offsetHeight) / 2);
+      const maxY = Math.max(0, (document.documentElement.scrollHeight || document.body.scrollHeight) - viewportH);
+      const endY = Math.min(Math.max(0, targetRaw), maxY);
+
+      if (Math.abs(endY - startY) < 2) return;
+
+      const duration = 500;
+      const t0 = performance.now();
+      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+      let rafId: number | null = null;
+      const cancelAnimation = () => {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        window.removeEventListener('wheel', cancelAnimation);
+        window.removeEventListener('touchstart', cancelAnimation);
+      };
+
+      window.addEventListener('wheel', cancelAnimation, { passive: true });
+      window.addEventListener('touchstart', cancelAnimation, { passive: true });
+
+      const step = (now: number) => {
+        const progress = Math.min(1, (now - t0) / duration);
+        window.scrollTo(0, startY + (endY - startY) * easeOutCubic(progress));
+        if (progress < 1) {
+          rafId = requestAnimationFrame(step);
+        } else {
+          cancelAnimation();
+        }
+      };
+
+      rafId = requestAnimationFrame(step);
+    }, 60);
+  };
 
   // Initialize phase when technique changes
   useEffect(() => {
@@ -135,7 +180,7 @@ export const BreathingGameCard: React.FC = () => {
           const nextIdx = (currentPhaseIdx + 1) % currentTech.phases.length;
           setCurrentPhaseIdx(nextIdx);
           
-          if (nextIdx === 0) {
+if (nextIdx === 0) {
             setCompletedCycles((c) => {
               const newCount = c + 1;
               if (newCount % 3 === 0) {
@@ -147,6 +192,7 @@ export const BreathingGameCard: React.FC = () => {
               }
               return newCount;
             });
+            emitStreakEligibleAction();
           }
 
           return currentTech.phases[nextIdx].duration;
@@ -277,9 +323,10 @@ export const BreathingGameCard: React.FC = () => {
             return (
               <button
                 key={tech.id}
-                onClick={() => {
+onClick={() => {
                   audioService.playClickSound();
                   setSelectedTechId(tech.id);
+                  scrollToBalloon();
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-1.5 ${
                   isSelected
@@ -311,8 +358,11 @@ export const BreathingGameCard: React.FC = () => {
         </div>
       </div>
 
-      {/* Visual Canvas of the Latex Balloon */}
-      <div className="bg-gradient-to-b from-[#f8fafc] to-[#eef2ff] dark:from-[#0b1828] dark:to-[#09111c] rounded-3xl p-5 sm:p-6 border border-slate-200/70 dark:border-slate-800/90 flex flex-col items-center justify-center relative min-h-[300px] overflow-hidden">
+{/* Visual Canvas of the Latex Balloon */}
+      <div
+        ref={balloonRef}
+        className="bg-gradient-to-b from-[#f8fafc] to-[#eef2ff] dark:from-[#0b1828] dark:to-[#09111c] rounded-3xl p-5 sm:p-6 border border-slate-200/70 dark:border-slate-800/90 flex flex-col items-center justify-center relative min-h-[300px] overflow-hidden"
+      >
         
         {/* Phase Badge */}
         <div 

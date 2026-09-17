@@ -12,7 +12,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const finalQuery = query.toLowerCase().includes("letra") || query.toLowerCase().includes("lyrics") || query.toLowerCase().includes("audio") ? query : `${query} letra`;
+    const normalized = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const lower = normalized.toLowerCase();
+    const isSpecial = lower.includes("letra") || lower.includes("lyrics") || lower.includes("audio") || lower.includes("karaoke") || lower.includes("instrumental") || lower.includes("pista");
+    const finalQuery = isSpecial ? normalized : `${normalized} letra`;
     const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(finalQuery)}`;
     
     const response = await fetch(searchUrl, {

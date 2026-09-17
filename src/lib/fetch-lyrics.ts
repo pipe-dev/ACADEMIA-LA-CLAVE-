@@ -15,32 +15,129 @@ export interface TrackLyrics {
   parsedLyrics: LyricLine[];
 }
 
-export async function fetchLyrics(query: string): Promise<TrackLyrics | null> {
+function cleanString(str: string): string {
+  return (str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remover tildes y acentos
+    .replace(/\(.*\)|\[.*\]/g, "") // remover paréntesis y corchetes (Video Oficial, etc.)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreLyricCandidate(targetTitle: string, targetArtist: string, candidate: any): number {
+  if (!candidate || !candidate.trackName) return 0;
+
+  const cleanTarget = cleanString(targetTitle);
+  const cleanCand = cleanString(candidate.trackName);
+  const cleanTargetArt = cleanString(targetArtist);
+  const cleanCandArt = cleanString(candidate.artistName || '');
+
+  const targetWords = cleanTarget.split(' ').filter(w => w.length > 2);
+  let wordMatches = 0;
+  for (const w of targetWords) {
+    if (cleanCand.includes(w)) wordMatches++;
+  }
+
+  // Descartar por completo si el título no comparte ninguna palabra clave con la canción solicitada
+  if (targetWords.length > 0 && wordMatches === 0) {
+    return 0;
+  }
+
+  let score = 0;
+
+  // Coincidencia exacta o parcial del título
+  if (cleanTarget === cleanCand) {
+    score += 100;
+  } else if (cleanCand.includes(cleanTarget) || cleanTarget.includes(cleanCand)) {
+    score += 70;
+  } else {
+    score += (wordMatches / Math.max(targetWords.length, 1)) * 50;
+  }
+
+  // Coincidencia del artista
+  if (cleanTargetArt && cleanCandArt) {
+    if (cleanCandArt.includes(cleanTargetArt) || cleanTargetArt.includes(cleanCandArt)) {
+      score += 40;
+    }
+  }
+
+  // Descartar si el candidato no contiene ni letra sincronizada ni estática
+  if (!candidate.syncedLyrics && !candidate.plainLyrics) {
+    return 0;
+  }
+
+  // Priorizar pistas con letras sincronizadas (lrc con timestamps), pero valorar las estáticas
+  if (candidate.syncedLyrics) {
+    score += 25;
+  } else if (candidate.plainLyrics) {
+    score += 10;
+  }
+
+  return score;
+}
+
+export async function fetchLyrics(titleOrQuery: string, artist?: string): Promise<TrackLyrics | null> {
   try {
-    const cacheKey = `lyrics_cache_${query}`;
+    const title = artist ? titleOrQuery : titleOrQuery.replace(/^.*?-/, '').trim();
+    const cleanArtist = artist || '';
+
+    // Cache key v2 para invalidar cachés erróneos anteriores en los dispositivos
+    const cacheKey = `lyrics_v2_${cleanString(title)}_${cleanString(cleanArtist)}`;
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
-           return JSON.parse(cached);
+          const parsed = JSON.parse(cached);
+          if (scoreLyricCandidate(title, cleanArtist, parsed) > 0) {
+            return parsed;
+          }
         } catch(e) {}
       }
     }
 
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const response = await fetch(`${baseUrl}/api/lyrics?q=${encodeURIComponent(query)}`);
+    let url = `${baseUrl}/api/lyrics?q=${encodeURIComponent(titleOrQuery)}`;
+    if (artist) {
+      url = `${baseUrl}/api/lyrics?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}&q=${encodeURIComponent(`${artist} ${title}`)}`;
+    }
+
+    const response = await fetch(url);
     if (!response.ok) return null;
 
     const data = await response.json();
-    if (!data || data.length === 0) return null;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
 
-    // Prioritize results that have synced lyrics
-    const bestMatch = data.find((track: any) => track.syncedLyrics != null) || data[0];
+    // Evaluar y ordenar los candidatos según similitud real con el título y artista
+    let bestMatch: any = null;
+    let highestScore = -1;
+
+    for (const candidate of data) {
+      const score = scoreLyricCandidate(title, cleanArtist, candidate);
+      if (score > highestScore) {
+        highestScore = score;
+        bestMatch = candidate;
+      }
+    }
+
+    // Si el mejor candidato tiene puntaje 0 (es otra canción sin relación), descartar
+    if (!bestMatch || highestScore <= 0) {
+      console.warn(`[fetchLyrics] Candidatos descartados por no coincidir con "${title}" de "${cleanArtist}"`);
+      return null;
+    }
 
     const parsedLyrics = bestMatch.syncedLyrics ? parseSyncedLyrics(bestMatch.syncedLyrics) : [];
 
-    const result = {
-      ...bestMatch,
+    const result: TrackLyrics = {
+      id: bestMatch.id || Date.now(),
+      trackName: bestMatch.trackName || title,
+      artistName: bestMatch.artistName || cleanArtist,
+      albumName: bestMatch.albumName || '',
+      duration: bestMatch.duration || 0,
+      instrumental: !!bestMatch.instrumental,
+      plainLyrics: bestMatch.plainLyrics || null,
+      syncedLyrics: bestMatch.syncedLyrics || null,
       parsedLyrics,
     };
     

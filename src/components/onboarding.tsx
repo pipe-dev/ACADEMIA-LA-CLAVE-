@@ -185,7 +185,7 @@ const slides: SlideConfig[] = [
     id: 'stars',
     icon: <Sparkles className="w-12 h-12 sm:w-16 sm:h-16 text-accent" />,
     title: '¡Gana Estrellas!',
-    description: 'Cada nivel te otorga de 1 a 3 estrellas ⭐ según tu rendimiento. ¡A jugar!',
+    description: 'Cada nivel te otorga de 1 a 3 estrellas según tu rendimiento. ¡A jugar!',
     bg: 'from-accent/20 to-yellow-900/10',
   },
   {
@@ -911,7 +911,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
             <p className="text-xs text-muted-foreground text-center">Las vidas se recargan cada 30 minutos</p>
             <div className="flex items-center gap-2 bg-orange-500/10 px-4 py-2 rounded-full">
               <Flame className="w-5 h-5 text-orange-500" />
-              <span className="text-sm font-bold text-orange-500">Racha: 7 días 🔥</span>
+              <span className="text-sm font-bold text-orange-500">Racha: 7 días</span>
             </div>
           </div>
         );
@@ -926,7 +926,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
               ))}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              90%+ = ⭐⭐⭐ &nbsp;|&nbsp; 80%+ = ⭐⭐ &nbsp;|&nbsp; Completar = ⭐
+              90%+ = 3 Estrellas &nbsp;|&nbsp; 80%+ = 2 Estrellas &nbsp;|&nbsp; Completar = 1 Estrella
             </p>
           </div>
         );

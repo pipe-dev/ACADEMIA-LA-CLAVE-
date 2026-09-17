@@ -1,8 +1,15 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
-import { VoiceEvaluationResult, SolfegeNote } from '../types';
-import { SOLFEGE_NOTES } from '../data/academyData';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion } from 'motion/react';
+import { VoiceEvaluationResult } from '../types';
 import { audioService } from '../utils/audioService';
+import {
+  getComfortableChromaticNotes,
+  generateUserNotePool,
+  getChromaticNoteByMidi,
+  voicePlayback,
+  ChromaticNoteButtonInfo
+} from '../utils/voicePlaybackService';
 import {
   Mic,
   Activity,
@@ -16,6 +23,7 @@ import {
   ShieldCheck,
   ArrowLeft
 } from 'lucide-react';
+import { emitStreakEligibleAction } from '../utils/streakPrompt';
 
 interface VoiceEvalModalProps {
   isOpen?: boolean;
@@ -158,7 +166,119 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
   onClose,
   isEmbeddedView = false
 }) => {
-  const [selectedTargetNote, setSelectedTargetNote] = useState<SolfegeNote>(SOLFEGE_NOTES[5]); // LA (440 Hz) default
+  const getInitialRangeState = () => {
+    try {
+      const saved = localStorage.getItem('laclave_vocal_range_saved');
+      if (saved) return JSON.parse(saved) as { noteMin?: string; noteMax?: string; minHz?: number; maxHz?: number; classification?: string } | null;
+    } catch {}
+    return null;
+  };
+
+  const getInitialGender = (): 'masculino' | 'femenino' => {
+    try {
+      const saved = localStorage.getItem('laclave_voice_gender');
+      if (saved === 'masculino' || saved === 'femenino') return saved;
+      const savedRange = localStorage.getItem('laclave_vocal_range_saved');
+      if (savedRange) {
+        const parsed = JSON.parse(savedRange);
+        if (parsed.gender === 'masculino' || parsed.gender === 'femenino') return parsed.gender;
+        if (parsed.classification === 'Bajo' || parsed.classification === 'Barítono' || parsed.classification === 'Tenor') {
+          return 'masculino';
+        }
+      }
+    } catch {}
+    return 'femenino';
+  };
+
+  // Vocal range + gender guardados en la app. Controlan qué voces suenan y qué teclas se activan.
+  const [effectiveRangeData, setEffectiveRangeData] = useState<{ noteMin?: string; noteMax?: string; minHz?: number; maxHz?: number; classification?: string } | null>(getInitialRangeState);
+  const [gender, setGender] = useState<'masculino' | 'femenino'>(getInitialGender);
+
+  // Re-lee el rango calibrado cada vez que se abre el modal para estar siempre sincronizado
+  useEffect(() => {
+    if (!isOpen && !isEmbeddedView) return;
+    try {
+      const savedRange = localStorage.getItem('laclave_vocal_range_saved');
+      if (savedRange) setEffectiveRangeData(JSON.parse(savedRange));
+    } catch {}
+    try {
+      const savedGender = localStorage.getItem('laclave_voice_gender');
+      if (savedGender === 'masculino' || savedGender === 'femenino') setGender(savedGender);
+    } catch {}
+  }, [isOpen, isEmbeddedView]);
+
+  // Precarga las grabaciones de voz real de la carpeta /public/sounds para el género del usuario
+  useEffect(() => {
+    if (isOpen || isEmbeddedView) voicePlayback.preloadNotes(gender);
+  }, [gender, isOpen, isEmbeddedView]);
+
+  // Pool completo de notas dentro del rango vocal detectado del usuario
+  const userNotePool = useMemo(
+    () => generateUserNotePool(effectiveRangeData, gender),
+    [effectiveRangeData, gender]
+  );
+
+  const chromaticData = useMemo(
+    () => getComfortableChromaticNotes(effectiveRangeData, gender),
+    [effectiveRangeData, gender]
+  );
+  const { allNotes, naturalNotes, sharpNotes } = chromaticData;
+
+  // Una nota solo suena con voz real si está dentro del rango vocal registrado
+  const isNoteInRange = (note: ChromaticNoteButtonInfo): boolean =>
+    userNotePool.some(p => p.midi === note.midi);
+
+  const blackKeyPositions = useMemo(() => [
+    { note: sharpNotes[0], left: '14.2857%' }, // DO#
+    { note: sharpNotes[1], left: '28.5714%' }, // RE#
+    { note: sharpNotes[2], left: '57.1428%' }, // FA#
+    { note: sharpNotes[3], left: '71.4285%' }, // SOL#
+    { note: sharpNotes[4], left: '85.7142%' }, // LA#
+  ], [sharpNotes]);
+
+  // Nota objetivo por defecto: LA (440 Hz) si está en rango, si no la primera nota alcanzable
+  const [selectedTargetNote, setSelectedTargetNote] = useState<ChromaticNoteButtonInfo>(() => {
+    const range = getInitialRangeState();
+    const voiceGender = getInitialGender();
+    const chrom = getComfortableChromaticNotes(range, voiceGender);
+    const pool = generateUserNotePool(range, voiceGender);
+    const pick = (n: ChromaticNoteButtonInfo) => pool.some(p => p.midi === n.midi);
+    return (
+      chrom.naturalNotes.find(n => n.semitone === 9 && pick(n)) ||
+      chrom.naturalNotes.find(pick) ||
+      chrom.naturalNotes[0] ||
+      chrom.allNotes[0]
+    );
+  });
+
+  // Si el rango cambió y la nota seleccionada ya no se alcanza, se re-ajusta solo
+  useEffect(() => {
+    if (!isNoteInRange(selectedTargetNote)) {
+      const laInRange = naturalNotes.find(n => n.semitone === 9 && isNoteInRange(n));
+      setSelectedTargetNote(
+        laInRange || naturalNotes.find(isNoteInRange) || naturalNotes[0] || allNotes[0]
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userNotePool, naturalNotes, allNotes]);
+
+  // Mini piano de arriba: notas Do...Mi (con sostenidos) una octava por encima del teclado principal.
+  // Si el principal termina en Si3, el primer Do del mini será C4 (Do4).
+  const miniPianoNotes = useMemo(() => {
+    const cMain = naturalNotes.find(n => n.semitone === 0);
+    const nextOctave = (cMain?.octave ?? (gender === 'masculino' ? 3 : 4)) + 1;
+    return [0, 1, 2, 3, 4].map(semitone => getChromaticNoteByMidi((nextOctave + 1) * 12 + semitone));
+  }, [naturalNotes, gender]);
+
+  const miniPianoWhiteKeys = useMemo(
+    () => miniPianoNotes.filter(n => !n.isSharp),
+    [miniPianoNotes]
+  );
+
+  const miniBlackKeyPositions = useMemo(() => [
+    { note: miniPianoNotes[1], left: '33.33%' }, // DO#
+    { note: miniPianoNotes[3], left: '66.67%' }, // RE#
+  ], [miniPianoNotes]);
   const [isPlayingRefTone, setIsPlayingRefTone] = useState<boolean>(false);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(5);
@@ -192,7 +312,7 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
   };
 
   const playReferenceTone = () => {
-    audioService.playFrequency(selectedTargetNote.frequency, 1.2);
+    voicePlayback.playVoiceNote(selectedTargetNote, gender, 2.0);
     setIsPlayingRefTone(true);
     setTimeout(() => setIsPlayingRefTone(false), 1200);
   };
@@ -271,6 +391,7 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
   const processEvaluationResult = () => {
     const samples = pitchSamplesRef.current;
     const targetFreq = selectedTargetNote.frequency;
+    emitStreakEligibleAction();
 
     let pitchAccuracy = 88;
     let breathSupport = 85;
@@ -463,27 +584,199 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
                 </label>
               </div>
 
-              {/* Note options grid */}
-              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                {SOLFEGE_NOTES.map((note) => {
-                  const isSelected = selectedTargetNote.name === note.name;
+              {/* 🎹 Piano Touch Strip (7 Natural White Keys + 5 Sharp Black Keys) */}
+              <div className="relative w-full max-w-sm mx-auto select-none pt-1 pb-1">
+                {/* 7 White Keys Container */}
+                <div className="flex gap-1 sm:gap-1.5 w-full h-20 sm:h-22">
+                  {naturalNotes.map((note) => {
+                    const isCurrentTarget = selectedTargetNote.name === note.name;
+                    const isReachable = isNoteInRange(note);
+
+                    return (
+                      <motion.button
+                        key={note.name}
+                        whileTap={isReachable ? { scale: 0.96 } : undefined}
+                        disabled={!isReachable}
+                        onClick={() => {
+                          if (!isReachable) return;
+                          setSelectedTargetNote(note);
+                          voicePlayback.playVoiceNote(note, gender, 1.2);
+                        }}
+                        className={`flex-1 h-full rounded-b-xl sm:rounded-b-2xl transition-all flex flex-col justify-end items-center pb-1.5 relative border ${
+                          isCurrentTarget
+                            ? 'bg-gradient-to-b from-indigo-500 to-indigo-600 text-white border-indigo-600 shadow-[0_4px_0_0_#312e81] ring-2 ring-indigo-400/80 z-0 cursor-pointer animate-pulse'
+                            : isReachable
+                            ? 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
+                            : 'bg-slate-200/70 dark:bg-slate-800/40 text-slate-400 dark:text-slate-600 border-slate-200/60 dark:border-slate-800/60 shadow-[0_4px_0_0_#e2e8f0] dark:shadow-[0_4px_0_0_#0a111c] cursor-not-allowed opacity-60'
+                        }`}
+                        title={isReachable
+                          ? (isCurrentTarget ? `Voz real: ${note.fullName} (evaluar tono)` : `Cantar ${note.fullName} (voz real en tu rango)`)
+                          : `Fuera de tu rango vocal actual`}
+                      >
+                        {/* Top Indicator for Current Target */}
+                        {isCurrentTarget && (
+                          <div className="absolute top-1 inset-x-0 flex justify-center">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                          </div>
+                        )}
+
+                        <span className="font-heading font-black text-xs sm:text-sm leading-none">
+                          {note.displayName}
+                        </span>
+                        <span className={`text-[10px] font-bold mt-0.5 leading-none ${
+                          isCurrentTarget
+                            ? 'text-indigo-100'
+                            : 'text-slate-400 dark:text-slate-500'
+                        }`}>
+                          {note.letter}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {/* 5 Black Keys (Overlapping) */}
+                {blackKeyPositions.map(({ note, left }) => {
+                  if (!note) return null;
+                  const isCurrentTarget = selectedTargetNote.name === note.name;
+                  const isReachable = isNoteInRange(note);
+
                   return (
-                    <button
+                    <motion.button
                       key={note.name}
+                      whileTap={isReachable ? { scale: 0.93 } : undefined}
+                      disabled={!isReachable}
                       onClick={() => {
+                        if (!isReachable) return;
                         setSelectedTargetNote(note);
-                        audioService.playFrequency(note.frequency, 1.2);
+                        voicePlayback.playVoiceNote(note, gender, 1.2);
                       }}
-                      className={`p-2 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center border ${
-                        isSelected
-                          ? 'bg-[#4648d4] text-white border-[#4648d4] shadow-md scale-105'
-                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+                      style={{ left }}
+                      className={`absolute top-1 z-10 -translate-x-1/2 w-[10.5%] sm:w-[11%] h-12 sm:h-13 rounded-b-lg sm:rounded-b-xl transition-all flex flex-col justify-end items-center pb-1 border ${
+                        isCurrentTarget
+                          ? 'bg-gradient-to-b from-violet-500 to-purple-700 text-white border-violet-400 shadow-[0_3px_0_0_#3b0764] ring-2 ring-violet-300 scale-105 z-20 cursor-pointer animate-pulse'
+                          : isReachable
+                          ? 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
+                          : 'bg-slate-700/70 dark:bg-slate-900/60 text-slate-500 dark:text-slate-600 border-slate-600/70 dark:border-slate-800 shadow-[0_3px_0_0_#1e293b] dark:shadow-[0_3px_0_0_#020617] cursor-not-allowed opacity-50'
                       }`}
+                      title={isReachable
+                        ? (isCurrentTarget ? `Voz real: ${note.fullName} (evaluar tono)` : `Cantar ${note.fullName} (voz real en tu rango)`)
+                        : `Fuera de tu rango vocal actual`}
                     >
-                      <span className="text-xs font-black">{note.name}</span>
-                    </button>
+                      {/* Top Indicator for Current Target */}
+                      {isCurrentTarget && (
+                        <div className="absolute top-0.5 inset-x-0 flex justify-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-200 animate-ping" />
+                        </div>
+                      )}
+
+                      <span className="font-heading font-black text-[9px] sm:text-[10px] text-white leading-none drop-shadow-xs">
+                        {note.displayName}
+                      </span>
+                      <span className={`text-[8px] sm:text-[9px] font-bold mt-0.5 leading-none ${
+                        isCurrentTarget
+                          ? 'text-violet-200'
+                          : 'text-slate-400'
+                      }`}>
+                        {note.letter}
+                      </span>
+                    </motion.button>
                   );
                 })}
+              </div>
+
+              {/* Rango vocal usado para filtrar las voces */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                  Voces filtradas por tu rango:
+                </span>
+                <span className="text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/60">
+                  {effectiveRangeData?.classification ?? (gender === 'masculino' ? 'Barítono' : 'Mezzosoprano')} · {effectiveRangeData?.noteMin ?? (gender === 'masculino' ? 'La2' : 'La3')} – {effectiveRangeData?.noteMax ?? (gender === 'masculino' ? 'Sol4' : 'La5')}
+                </span>
+              </div>
+
+              {/* Mini Piano: continúa el principal con Do...Mi una octava arriba */}
+              <div className="bg-[#f8f9ff] dark:bg-[#0b1828] p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold text-slate-600 dark:text-[#c0c1ff] uppercase tracking-wider flex items-center gap-1.5">
+                    Mini Piano Superior · amplía tu rango
+                  </span>
+                </div>
+
+                <div className="relative w-full mx-auto select-none pt-1 pb-1">
+                  {/* 3 White Keys: Do, Re, Mi */}
+                  <div className="flex gap-1 w-full h-12">
+                    {miniPianoWhiteKeys.map((note) => {
+                      const isCurrentTarget = selectedTargetNote.name === note.name;
+
+                      return (
+                        <motion.button
+                          key={note.name}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setSelectedTargetNote(note);
+                            voicePlayback.playVoiceNote(note, gender, 1.5);
+                          }}
+                          className={`flex-1 h-full rounded-b-xl transition-all flex flex-col justify-end items-center pb-1 relative border ${
+                            isCurrentTarget
+                              ? 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white border-emerald-600 shadow-[0_4px_0_0_#064e3b] ring-2 ring-emerald-400/80 z-0 cursor-pointer animate-pulse'
+                              : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
+                          }`}
+                          title={`Nota superior: ${note.fullName}`}
+                        >
+                          {isCurrentTarget && (
+                            <div className="absolute top-0.5 inset-x-0 flex justify-center">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                            </div>
+                          )}
+                          <span className="font-heading font-black text-xs leading-none">
+                            {note.displayName}
+                          </span>
+                          <span className={`text-[9px] font-bold mt-0.5 leading-none ${
+                            isCurrentTarget
+                              ? 'text-emerald-100'
+                              : 'text-slate-400 dark:text-slate-500'
+                          }`}>
+                            {note.letter}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 2 Black Keys: Do#, Re# */}
+                  {miniBlackKeyPositions.map(({ note, left }) => {
+                    if (!note) return null;
+                    const isCurrentTarget = selectedTargetNote.name === note.name;
+
+                    return (
+                      <motion.button
+                        key={note.name}
+                        whileTap={{ scale: 0.93 }}
+                        onClick={() => {
+                          setSelectedTargetNote(note);
+                          voicePlayback.playVoiceNote(note, gender, 1.5);
+                        }}
+                        style={{ left }}
+                        className={`absolute top-1 z-10 -translate-x-1/2 w-[10.5%] h-7 rounded-b-lg transition-all flex flex-col justify-end items-center pb-0.5 border ${
+                          isCurrentTarget
+                            ? 'bg-gradient-to-b from-emerald-500 to-teal-700 text-white border-emerald-300 shadow-[0_3px_0_0_#065f46] ring-2 ring-emerald-300 scale-105 z-20 cursor-pointer animate-pulse'
+                            : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
+                        }`}
+                        title={`Nota superior: ${note.fullName}`}
+                      >
+                        <span className="font-heading font-black text-[8px] text-white leading-none drop-shadow-xs">
+                          {note.displayName}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                  Continúan justo donde termina el piano principal: practícalas despacio para ir ampliando tu tesitura hacia arriba (calienta la voz antes).
+                </p>
               </div>
 
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1">
