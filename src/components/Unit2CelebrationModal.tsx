@@ -602,18 +602,20 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   filter="url(#subtleBlur)"
                 />
 
-                {/* 4. Internal Resonance Liquid / Sound Aura (Pulsing volume with tactile liquid inertia) */}
-                <path
-                  d="M 62,95 C 60,135 75,165 97,184 L 103,184 C 125,165 140,135 138,95 C 125,100 110,102 100,102 C 90,102 75,100 62,95 Z"
-                  fill="url(#glassBodyGrad)"
-                  className="transition-all duration-150"
-                  filter="url(#subtleBlur)"
-                  style={{
-                    opacity: Math.min(0.80, 0.10 + (progress / 100) * 0.70),
-                    transform: `translate(${(-tiltY * 0.35).toFixed(1)}px, ${(-tiltX * 0.30).toFixed(1)}px) scale(${1 + (progress / 100) * 0.04})`,
-                    transformOrigin: '100px 184px'
-                  }}
-                />
+                {/* 4. Internal Resonance Liquid / Sound Aura (Clipped inside bowl, with tactile liquid inertia) */}
+                <g clipPath="url(#bowlInteriorClip)">
+                  <path
+                    d="M 62,95 C 60,135 75,165 97,184 L 103,184 C 125,165 140,135 138,95 C 125,100 110,102 100,102 C 90,102 75,100 62,95 Z"
+                    fill="url(#glassBodyGrad)"
+                    className="transition-all duration-150"
+                    filter="url(#subtleBlur)"
+                    style={{
+                      opacity: Math.min(0.80, 0.10 + (progress / 100) * 0.70),
+                      transform: `translate(${(-tiltY * 0.35).toFixed(1)}px, ${(-tiltX * 0.30).toFixed(1)}px) scale(${1 + (progress / 100) * 0.04})`,
+                      transformOrigin: '100px 184px'
+                    }}
+                  />
+                </g>
 
                 {/* 5. Main Crystal Bowl Outer Volume */}
                 <path
@@ -691,62 +693,60 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   filter={frontWeight < 0.3 ? "url(#subtleBlur)" : undefined}
                 />
 
-                {/* 9. Dynamic Specular Caustic Glare (White highlight with forward surface parallax) */}
-                <g 
-                  clipPath="url(#bowlInteriorClip)"
-                  style={{
+                {/* 9. Dynamic Specular Caustic Glare (Clipped → inner transform for parallax) */}
+                <g clipPath="url(#bowlInteriorClip)">
+                  <g style={{
                     transform: `translate(${(tiltY * 0.60).toFixed(1)}px, ${(tiltX * 0.45).toFixed(1)}px)`,
                     transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
-                  }}
-                >
-                  {/* Wide ambient bloom */}
-                  <path
-                    d={whitePath}
-                    fill="none"
-                    stroke="url(#softAmbientGlare)"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    opacity={0.40}
-                    filter="url(#diffuseGlow)"
-                  />
-                  {/* Mid-feathered glare strip */}
-                  <path
-                    d={whitePath}
-                    fill="none"
-                    stroke="url(#primaryLeftGlare)"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    opacity={0.80}
-                    filter="url(#subtleBlur)"
-                  />
-                  {/* Soft core highlight */}
-                  <path
-                    d={whitePath}
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    opacity={0.75}
-                  />
+                  }}>
+                    {/* Wide ambient bloom */}
+                    <path
+                      d={whitePath}
+                      fill="none"
+                      stroke="url(#softAmbientGlare)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      opacity={0.40}
+                      filter="url(#diffuseGlow)"
+                    />
+                    {/* Mid-feathered glare strip */}
+                    <path
+                      d={whitePath}
+                      fill="none"
+                      stroke="url(#primaryLeftGlare)"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      opacity={0.80}
+                      filter="url(#subtleBlur)"
+                    />
+                    {/* Soft core highlight */}
+                    <path
+                      d={whitePath}
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                      opacity={0.75}
+                    />
+                  </g>
                 </g>
 
-                {/* 10. Opposite Side Soft Rim Ambient Refraction (Gray curve sweeping with surface parallax) */}
-                <g 
-                  clipPath="url(#bowlInteriorClip)"
-                  style={{
+                {/* 10. Opposite Side Soft Rim Ambient Refraction (Clipped → inner transform for parallax) */}
+                <g clipPath="url(#bowlInteriorClip)">
+                  <g style={{
                     transform: `translate(${(tiltY * 0.45).toFixed(1)}px, ${(tiltX * 0.35).toFixed(1)}px)`,
                     transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out'
-                  }}
-                >
-                  <path
-                    d={grayPath}
-                    fill="none"
-                    stroke="url(#rightEdgeGlare)"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    filter="url(#subtleBlur)"
-                    opacity={0.85}
-                  />
+                  }}>
+                    <path
+                      d={grayPath}
+                      fill="none"
+                      stroke="url(#rightEdgeGlare)"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      filter="url(#subtleBlur)"
+                      opacity={0.85}
+                    />
+                  </g>
                 </g>
 
                 {/* 11. Fluted Crystal Stem with Smooth Parabolic Blend */}
