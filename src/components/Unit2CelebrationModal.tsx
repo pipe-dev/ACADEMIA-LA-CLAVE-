@@ -237,12 +237,12 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       if (dist < 20 && duration < 380) {
         playCrystalChime();
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          try { navigator.vibrate([25, 20, 25]); } catch (_) {}
+          try { navigator.vibrate(12); } catch (_) {}
         }
         setTapCount(c => c + 1);
         setIsJiggling(true);
         if (jiggleTimeoutRef.current) clearTimeout(jiggleTimeoutRef.current);
-        jiggleTimeoutRef.current = setTimeout(() => setIsJiggling(false), 550);
+        jiggleTimeoutRef.current = setTimeout(() => setIsJiggling(false), 450);
       }
     }
   };
