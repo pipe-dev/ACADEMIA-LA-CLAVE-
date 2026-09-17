@@ -217,21 +217,28 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                   {/* Internal ambient depth and diffuse frosted tint */}
                   <rect x="40" y="20" width="120" height="180" fill="rgba(6, 22, 38, 0.40)" />
 
-                  {/* Refracted Grid Lines with Dynamic Angle Scaling (Smooth & Silky) */}
-                  <g className="animate-refraction-angle-shift" stroke="#38bdf8" strokeWidth="0.85" opacity="0.35" filter="url(#silkyRefraction)">
-                    {/* Verticals bowing outwards (refraction lens) */}
-                    <path d="M 64,32 C 55,75 52,120 72,165" fill="none" />
-                    <path d="M 78,32 C 70,80 66,130 84,175" fill="none" />
-                    <path d="M 100,32 L 100,185" fill="none" strokeWidth="1.1" opacity="0.5" />
-                    <path d="M 122,32 C 130,80 134,130 116,175" fill="none" />
-                    <path d="M 136,32 C 145,75 148,120 128,165" fill="none" />
+                  {/* Refracted Grid Lines with 360° Continuous Seamless Stream */}
+                  <g filter="url(#silkyRefraction)">
+                    {/* Continuous 360° Horizontal Conveyor of Vertical Refraction Lines (Periodic 24px step) */}
+                    <g className="animate-refraction-stream" stroke="#38bdf8" strokeWidth="0.85" opacity="0.32">
+                      <path d="M 28,32 C 22,75 20,120 38,165" fill="none" />
+                      <path d="M 52,32 C 45,75 42,120 60,165" fill="none" />
+                      <path d="M 76,32 C 68,80 66,130 84,175" fill="none" />
+                      <path d="M 100,32 C 98,80 98,130 100,185" fill="none" strokeWidth="1.1" opacity="0.45" />
+                      <path d="M 124,32 C 132,80 134,130 116,175" fill="none" />
+                      <path d="M 148,32 C 155,75 158,120 140,165" fill="none" />
+                      <path d="M 172,32 C 178,75 180,120 162,165" fill="none" />
+                      <path d="M 196,32 C 200,75 202,120 186,165" fill="none" />
+                    </g>
 
-                    {/* Horizontals bowing downward (spherical curve) */}
-                    <path d="M 54,56 Q 100,64 146,56" fill="none" />
-                    <path d="M 52,80 Q 100,92 148,80" fill="none" />
-                    <path d="M 52,104 Q 100,120 148,104" fill="none" strokeWidth="1.1" />
-                    <path d="M 54,128 Q 100,147 146,128" fill="none" />
-                    <path d="M 62,152 Q 100,172 138,152" fill="none" />
+                    {/* Horizontals bowing downward (Spherical lens curve, smooth breathing) */}
+                    <g className="animate-refraction-angle-shift" stroke="#38bdf8" strokeWidth="0.85" opacity="0.30">
+                      <path d="M 54,56 Q 100,64 146,56" fill="none" />
+                      <path d="M 52,80 Q 100,92 148,80" fill="none" />
+                      <path d="M 52,104 Q 100,120 148,104" fill="none" strokeWidth="1.1" />
+                      <path d="M 54,128 Q 100,147 146,128" fill="none" />
+                      <path d="M 62,152 Q 100,172 138,152" fill="none" />
+                    </g>
                   </g>
                 </g>
 
