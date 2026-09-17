@@ -133,6 +133,16 @@ const getGlarePath = (u: number) => {
   return `M ${x0.toFixed(1)},40 C ${x1.toFixed(1)},80 ${x2.toFixed(1)},125 ${x3.toFixed(1)},155 C ${((x3 + x4) / 2).toFixed(1)},168 ${x4.toFixed(1)},175 ${x4.toFixed(1)},182`;
 };
 
+// Helper to convert detected frequency in Hz to musical note name (e.g. 440 -> La4)
+const hzToNoteName = (hz: number): string => {
+  if (hz <= 0) return '';
+  const noteNamesEs = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
+  const midi = Math.round(69 + 12 * Math.log2(hz / 440));
+  const noteIdx = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  return `${noteNamesEs[noteIdx]}${octave}`;
+};
+
 // Data model for 1,000 crystal glass shards & micro-fragments
 interface Shard {
   type: 'polygon' | 'needle' | 'dust';
@@ -168,6 +178,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const reqRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
   const lastVoiceTimeRef = useRef<number>(0);
+  const consecutiveVoiceFramesRef = useRef<number>(0);
   const isActiveRef = useRef<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const shardAnimRef = useRef<number | null>(null);
@@ -361,6 +372,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       setIsShattered(false);
       setIsActive(false);
       isActiveRef.current = false;
+      consecutiveVoiceFramesRef.current = 0;
       setDetectedPitch(null);
       lastTimeRef.current = performance.now();
       lastVoiceTimeRef.current = performance.now();
@@ -369,6 +381,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     } else {
       audioService.stopMicrophone();
       isActiveRef.current = false;
+      consecutiveVoiceFramesRef.current = 0;
     }
   }, [isOpen]);
 
@@ -710,22 +723,41 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const handleStart = async () => {
     lastTimeRef.current = performance.now();
     lastVoiceTimeRef.current = performance.now();
+    consecutiveVoiceFramesRef.current = 0;
     
     const success = await audioService.startMicrophone((pitchHz, vol) => {
       const now = performance.now();
       const dt = Math.min(100, now - lastTimeRef.current);
       lastTimeRef.current = now;
 
-      // Ultra-sensitive vocal sound & musical pitch detection
-      // Catches singing note in musical range (50 - 2500 Hz) or acoustic volume > 0.002
-      const isVoiceDetected = (pitchHz > 50 && pitchHz < 2500) || vol > 0.002;
+      // --- Human Vocal Filtering Pipeline ---
+      // 1. Fundamental Pitch in Human Vocal Singing Range (75 Hz to 1400 Hz):
+      //    Ambient room noise, fan hum, typing, and turbulent breathing have NO periodic pitch (pitchHz === -1).
+      const hasVocalPitch = pitchHz >= 75 && pitchHz <= 1400;
 
-      if (isVoiceDetected) {
+      // 2. Volume threshold: must exceed the ambient room noise floor (vol >= 0.009).
+      //    Ambient room silence is ~0.001 - 0.005. Human singing into device is ~0.012 - 0.25.
+      const hasVocalVolume = vol >= 0.009;
+
+      // 3. Candidate vocal frame: requires both musical harmonic pitch and voice volume.
+      const isVocalCandidate = hasVocalPitch && hasVocalVolume;
+
+      // 4. Temporal Debounce (Continuity Filter):
+      //    Human singing sustains a vowel across consecutive frames.
+      //    Transient noise spikes (coughs, desk taps, mouse clicks) last only 1 frame (~30ms).
+      if (isVocalCandidate) {
+        consecutiveVoiceFramesRef.current = Math.min(8, consecutiveVoiceFramesRef.current + 1);
+      } else {
+        consecutiveVoiceFramesRef.current = Math.max(0, consecutiveVoiceFramesRef.current - 1);
+      }
+
+      // Voice is confirmed when sustained for at least 2 consecutive frames (~60ms)
+      const isVoiceDetected = consecutiveVoiceFramesRef.current >= 2;
+
+      if (isVoiceDetected && hasVocalPitch) {
         lastVoiceTimeRef.current = now;
-        if (pitchHz > 50 && pitchHz < 2500) {
-          setDetectedPitch(Math.round(pitchHz));
-        }
-      } else if (now - lastVoiceTimeRef.current > 800) {
+        setDetectedPitch(Math.round(pitchHz));
+      } else if (now - lastVoiceTimeRef.current > 600) {
         setDetectedPitch(null);
       }
 
@@ -734,9 +766,12 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
         let newProg = prev;
         if (isVoiceDetected) {
-          // Rapid, responsive filling in ~2.2s of singing (with extra boost if loud)
-          const voiceBoost = vol > 0.012 ? 1.4 : 1.0;
-          newProg += (dt / 2200) * 100 * voiceBoost;
+          // Acoustic resonance physics:
+          // Higher frequencies (> 350 Hz) create stronger sympathetic resonance in crystal glass!
+          const pitchBonus = pitchHz > 350 ? 1.3 : 1.0;
+          const loudnessBonus = vol > 0.025 ? 1.3 : 1.0;
+          // Fills in ~2.2s of solid singing
+          newProg += (dt / 2200) * 100 * pitchBonus * loudnessBonus;
         }
         // Progress holds steady when pausing to breathe (no frustrating drain)
 
@@ -1338,7 +1373,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 </span>
                 <span className="text-cyan-300 font-bold text-sm tracking-wide">
                   {detectedPitch 
-                    ? `¡Tono captado (${detectedPitch} Hz)! Rompiendo...` 
+                    ? `¡Voz captada: ${hzToNoteName(detectedPitch)} (${detectedPitch} Hz)! Rompiendo...` 
                     : '¡Canta ahora con tu voz más aguda!'}
                 </span>
               </div>
