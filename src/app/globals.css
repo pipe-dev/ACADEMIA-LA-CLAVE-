@@ -14,6 +14,28 @@
     --color-primary: #4648d4;
     --color-primary-container: #6063ee;
     --color-on-primary-container: #fffbff;
+    color-scheme: light;
+  }
+
+  :root.dark,
+  html.dark,
+  .dark {
+    color-scheme: dark;
+    --color-surface: #0b1c30;
+    --color-on-background: #d3e4fe;
+    --color-outline-variant: #3e4756;
+    --color-outline: #8e99a8;
+    --color-on-surface-variant: #94a3b8;
+    scrollbar-color: #1e2b40 #071322;
+  }
+
+  html {
+    background-color: #f8f9ff;
+    overflow-x: hidden;
+  }
+
+  html.dark {
+    background-color: #071322;
   }
 
   body {
@@ -21,27 +43,55 @@
     background-color: #f8f9ff;
     color: #0b1c30;
     overflow-x: hidden;
+    min-height: 100vh;
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  .dark body, body.dark {
+  .dark body, body.dark, html.dark body {
     background-color: #071322;
     color: #d3e4fe;
   }
 
-  /* Modo Zen / Enfoque Nocturno (Warm earthy grays & browns palette across all app views) */
-  html.zen-mode, body.zen-mode {
-    background-color: #171412 !important;
-    color: #dfd2c4 !important;
+  /* Dark mode scrollbars (prevents bright white scrollbar gutter on Windows Chrome/Edge) */
+  html.dark ::-webkit-scrollbar,
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  html.dark ::-webkit-scrollbar-track,
+  .dark ::-webkit-scrollbar-track {
+    background: #071322;
+  }
+
+  html.dark ::-webkit-scrollbar-thumb,
+  .dark ::-webkit-scrollbar-thumb {
+    background: #1e2b40;
+    border-radius: 4px;
+  }
+
+  html.dark ::-webkit-scrollbar-thumb:hover,
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #2b3b55;
+  }
+
+  /* ==========================================================================
+     MODO ZEN - Dark Matte Vintage Newsprint & Rotary Yellow Theme
+     Strictly dark mode palette inspired by vintage monochrome newsprint ink 
+     and warm rotary press yellow accents for maximum eye-rest and zero visual fatigue.
+     ========================================================================== */
+
+  /* Canvas & Root */
+  html.zen-mode,
+  body.zen-mode,
+  html.zen-mode body,
+  .zen-mode {
+    background-color: #161719 !important;
+    color: #ded9cf !important;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  html.zen-mode body, .zen-mode {
-    background-color: #171412 !important;
-    color: #dfd2c4 !important;
-  }
-
-  /* Structural containers in Zen Mode: headers, navbars, cards, modals, side panels */
+  /* Structural containers: headers, navbars, main wrappers, cards, modals, side panels */
   .zen-mode header,
   .zen-mode nav,
   .zen-mode main,
@@ -64,33 +114,33 @@
   .zen-mode .bg-indigo-50,
   .zen-mode .bg-indigo-900,
   .zen-mode .bg-indigo-950 {
-    background-color: #241e1a !important;
-    border-color: #3b3027 !important;
-    color: #dfd2c4 !important;
+    background-color: #1f2125 !important;
+    border-color: #2e3138 !important;
+    color: #ded9cf !important;
   }
 
-  /* Raised elements & inner cards in Zen mode */
+  /* Raised elements, sub-cards & interactive item cards in Zen mode */
   .zen-mode .bg-slate-200,
   .zen-mode .bg-slate-300,
   .zen-mode .dark\:bg-slate-800\/80,
   .zen-mode .dark\:bg-slate-700,
   .zen-mode .bg-white\/90,
   .zen-mode .bg-white\/80 {
-    background-color: #2f2721 !important;
-    border-color: #44372e !important;
-    color: #e8dbcd !important;
+    background-color: #26292f !important;
+    border-color: #383c44 !important;
+    color: #f0ebe1 !important;
   }
 
-  /* Gradients adapt to warm mocha/amber-browns in Zen Mode */
+  /* Gradients adapt to matte slate newspaper tones */
   .zen-mode .bg-gradient-to-r,
   .zen-mode .bg-gradient-to-b,
   .zen-mode .bg-gradient-to-br,
   .zen-mode .bg-gradient-to-tr {
-    background-color: #2a221c !important;
-    border-color: #42362c !important;
+    background-color: #22252a !important;
+    border-color: #2e3138 !important;
   }
 
-  /* Borders in Zen Mode */
+  /* Borders & Rule Lines in Zen Mode (vintage newspaper column dividers) */
   .zen-mode .border-slate-100,
   .zen-mode .border-slate-200,
   .zen-mode .border-slate-300,
@@ -102,10 +152,10 @@
   .zen-mode .dark\:border-slate-800,
   .zen-mode .dark\:border-slate-700,
   .zen-mode .dark\:border-\[\#1b2b3f\] {
-    border-color: #3d3128 !important;
+    border-color: #2e3138 !important;
   }
 
-  /* Headings & Text in Zen mode */
+  /* Headings & Typography (warm unbleached newsprint ink) */
   .zen-mode h1, 
   .zen-mode h2, 
   .zen-mode h3, 
@@ -117,55 +167,173 @@
   .zen-mode .text-slate-800,
   .zen-mode .text-slate-900,
   .zen-mode .text-slate-700 {
-    color: #f0e3d5 !important;
+    color: #f0ebe1 !important;
   }
 
+  /* Paragraphs, secondary & muted body text (newsprint ink gray) */
   .zen-mode p,
   .zen-mode .text-slate-500,
   .zen-mode .text-slate-400,
   .zen-mode .text-slate-600,
   .zen-mode .dark\:text-slate-400,
   .zen-mode .dark\:text-slate-300 {
-    color: #bfaea0 !important;
+    color: #99958d !important;
   }
 
-  /* Primary Action Buttons & Accents in Zen mode */
+  /* Primary Action Buttons: Rotary newsprint golden yellow accent with dark ink typography */
   .zen-mode .tactile-btn-primary,
   .zen-mode .bg-indigo-600,
   .zen-mode .bg-indigo-500,
   .zen-mode .bg-blue-600,
   .zen-mode .bg-teal-600 {
-    background-color: #8c562e !important;
-    color: #fff9f2 !important;
-    border-color: #a46738 !important;
-    box-shadow: 0 4px 14px rgba(140, 86, 46, 0.3) !important;
+    background-color: #e5b83b !important;
+    color: #161719 !important;
+    border-color: #f5d56b !important;
+    box-shadow: 0 4px 14px rgba(229, 184, 59, 0.22) !important;
   }
 
   .zen-mode .tactile-btn-primary:hover,
   .zen-mode .bg-indigo-600:hover,
   .zen-mode .bg-indigo-700 {
-    background-color: #a06336 !important;
+    background-color: #d8a728 !important;
+    color: #161719 !important;
   }
 
-  /* Accent highlights & Badges in Zen mode */
+  /* Secondary / Accent badges & chips: Warm subtle yellow tint */
   .zen-mode .bg-indigo-100,
   .zen-mode .bg-blue-100,
   .zen-mode .bg-teal-100,
   .zen-mode .bg-emerald-100,
   .zen-mode .dark\:bg-indigo-950\/80,
   .zen-mode .dark\:bg-teal-950\/80 {
-    background-color: #3a2e26 !important;
-    color: #e5c3a3 !important;
-    border-color: #524135 !important;
+    background-color: rgba(229, 184, 59, 0.12) !important;
+    color: #f5d56b !important;
+    border-color: rgba(229, 184, 59, 0.28) !important;
   }
 
+  /* Text accents & icons: Soft newsprint yellow */
   .zen-mode .text-indigo-600,
   .zen-mode .text-indigo-500,
   .zen-mode .text-indigo-400,
   .zen-mode .text-teal-600,
   .zen-mode .text-teal-400,
   .zen-mode .text-emerald-500 {
-    color: #df9f67 !important;
+    color: #e5b83b !important;
+  }
+
+  /* Inputs and search bars in Zen mode */
+  .zen-mode input,
+  .zen-mode select,
+  .zen-mode textarea {
+    background-color: #1f2125 !important;
+    border-color: #2e3138 !important;
+    color: #f0ebe1 !important;
+  }
+  .zen-mode input::placeholder,
+  .zen-mode textarea::placeholder {
+    color: #99958d !important;
+  }
+
+  /* 100% Grayscale Newspaper Photography Filter - Pure Black and White */
+  .zen-mode img,
+  .zen-mode video,
+  .zen-mode .album-cover,
+  .zen-mode [style*="background-image"] {
+    filter: grayscale(100%) contrast(108%) brightness(92%) !important;
+    transition: filter 0.3s ease;
+  }
+
+  /* Catch-all: Eradicate rogue blues, purples, violets and indigos across all components */
+  .zen-mode .bg-\[\#4648d4\],
+  .zen-mode .bg-\[\#6063EE\],
+  .zen-mode .bg-\[\#5356e8\],
+  .zen-mode .bg-\[\#383aba\],
+  .zen-mode .bg-\[\#4f52e6\],
+  .zen-mode .bg-\[\#6366f1\],
+  .zen-mode .bg-indigo-600,
+  .zen-mode .bg-indigo-500,
+  .zen-mode .bg-blue-600,
+  .zen-mode .bg-blue-500 {
+    background-color: #e5b83b !important;
+    background-image: none !important;
+    color: #161719 !important;
+    border-color: #f5d56b !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+  }
+
+  .zen-mode .text-\[\#4648d4\],
+  .zen-mode .text-indigo-600,
+  .zen-mode .text-indigo-500,
+  .zen-mode .text-indigo-400,
+  .zen-mode .text-indigo-300,
+  .zen-mode .text-indigo-200,
+  .zen-mode .text-blue-500,
+  .zen-mode .text-blue-400,
+  .zen-mode .text-purple-600,
+  .zen-mode .text-purple-400,
+  .zen-mode .text-purple-300 {
+    color: #e5b83b !important;
+  }
+
+  .zen-mode .border-\[\#4648d4\],
+  .zen-mode .border-indigo-600,
+  .zen-mode .border-indigo-500,
+  .zen-mode .border-indigo-400,
+  .zen-mode .border-indigo-300 {
+    border-color: rgba(229, 184, 59, 0.4) !important;
+  }
+
+  /* Eradicate rogue greens and emeralds (turn to monochrome slate or warm yellow) */
+  .zen-mode .bg-emerald-50,
+  .zen-mode .bg-emerald-100,
+  .zen-mode .bg-emerald-950\/40,
+  .zen-mode .bg-emerald-950\/60,
+  .zen-mode .bg-emerald-950\/90,
+  .zen-mode .bg-purple-50,
+  .zen-mode .bg-purple-950\/60 {
+    background-color: #26292f !important;
+    border-color: rgba(229, 184, 59, 0.25) !important;
+    color: #e5b83b !important;
+  }
+
+  .zen-mode .text-emerald-500,
+  .zen-mode .text-emerald-400,
+  .zen-mode .text-emerald-300,
+  .zen-mode .text-emerald-200,
+  .zen-mode .text-green-500,
+  .zen-mode .text-green-400 {
+    color: #e5b83b !important;
+  }
+
+  .zen-mode .bg-emerald-500,
+  .zen-mode .bg-emerald-600,
+  .zen-mode .bg-green-500,
+  .zen-mode [class*="from-[#00eb9c]"],
+  .zen-mode [class*="via-[#00b077]"],
+  .zen-mode [class*="to-[#005a3d]"] {
+    background-color: #2c3038 !important;
+    background-image: none !important;
+    color: #f0ebe1 !important;
+  }
+
+  /* Override pulse-ring to rotary yellow in Zen Mode */
+  .zen-mode .pulse-ring {
+    background: #e5b83b !important;
+  }
+
+  /* Reset any colored glow rings and deep shadows */
+  .zen-mode [class*="ring-indigo"],
+  .zen-mode [class*="ring-emerald"],
+  .zen-mode [class*="ring-blue"],
+  .zen-mode [class*="ring-purple"] {
+    --tw-ring-color: rgba(229, 184, 59, 0.4) !important;
+  }
+
+  /* Text overrides for arbitrary blue/indigo/emerald tokens */
+  .zen-mode [class*="text-[#2c2abc]"],
+  .zen-mode [class*="text-[#4648d4]"],
+  .zen-mode [class*="text-[#c0c1ff]"] {
+    color: #f0ebe1 !important;
   }
 
   h1, h2, h3, h4, .font-heading {
@@ -226,8 +394,18 @@
   background-color: #6cf8bb;
 }
 
+.dark .bg-secondary-container,
+.dark.bg-secondary-container {
+  background-color: #4648d4;
+}
+
 .text-on-secondary-container {
   color: #005236;
+}
+
+.dark .text-on-secondary-container,
+.dark.text-on-secondary-container {
+  color: #ffffff;
 }
 
 .bg-surface {
@@ -248,6 +426,11 @@
 
 .text-on-surface-variant {
   color: #464554;
+}
+
+.dark .text-on-surface-variant,
+.dark.text-on-surface-variant {
+  color: #94a3b8;
 }
 
 .hover\:text-primary:hover {
@@ -519,3 +702,202 @@
 .driver-popover-close-btn {
   color: #94a3b8 !important;
 }
+
+/* Liquid Tide Animation for Half Star */
+@keyframes liquidTide {
+  0%, 100% {
+    transform: scale(1.10) rotate(-1.5deg);
+  }
+  50% {
+    transform: scale(1.16) rotate(1.5deg);
+  }
+}
+
+.animate-liquidTide {
+  animation: liquidTide 2.4s ease-in-out infinite;
+}
+
+/* Star Joy Spin & Wink Idle Animations */
+@keyframes starJoySpin {
+  0% { transform: translateY(0) rotate(0deg) scale(1.1); }
+  40% { transform: translateY(-22px) rotate(180deg) scale(1.35); }
+  80% { transform: translateY(-3px) rotate(360deg) scale(1.2); }
+  100% { transform: translateY(0) rotate(360deg) scale(1.1); }
+}
+
+@keyframes starWinkEye {
+  0% { transform: scale(1.1) rotate(0deg); }
+  25% { transform: scale(1.25, 0.25) rotate(-14deg); }
+  50% { transform: scale(1.2, 1.2) rotate(10deg); }
+  75% { transform: scale(1.25, 0.3) rotate(-6deg); }
+  100% { transform: scale(1.1) rotate(0deg); }
+}
+
+.animate-starJoySpin {
+  animation: starJoySpin 0.95s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-starWinkEye {
+  animation: starWinkEye 0.85s ease-in-out;
+}
+
+/* Grand Climax Jump for Star 3 (Launches high out of the modal and lands gracefully) */
+@keyframes grandStar3Jump {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1.1);
+  }
+  35% {
+    transform: translateY(-280px) rotate(360deg) scale(1.6);
+  }
+  65% {
+    transform: translateY(-260px) rotate(540deg) scale(1.5);
+  }
+  90% {
+    transform: translateY(4px) rotate(720deg) scale(1.15);
+  }
+  100% {
+    transform: translateY(0) rotate(720deg) scale(1.1);
+  }
+}
+
+.animate-grandStar3Jump {
+  animation: grandStar3Jump 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Suppress Next.js development activity badge / dev indicators from covering bottom navigation */
+nextjs-portal,
+#nextjs-dev-indicator,
+[data-nextjs-toast],
+[data-nextjs-dev-indicator] {
+  display: none !important;
+}
+
+
+@keyframes shatter {
+  0% { transform: scale(1) translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: scale(0.5) translate(var(--tw-translate-x, 100px), var(--tw-translate-y, -100px)) rotate(var(--tw-rotate, 90deg)); opacity: 0; }
+}
+
+
+@keyframes luxuryFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(0.35deg);
+  }
+}
+
+.animate-luxury-float {
+  animation: luxuryFloat 4.5s ease-in-out infinite;
+}
+
+@keyframes luxuryShadow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+}
+
+.animate-luxury-shadow {
+  transform-origin: 100px 282px;
+  animation: luxuryShadow 4.5s ease-in-out infinite;
+}
+
+@keyframes causticSweep {
+  0%, 100% {
+    opacity: 0.75;
+    transform: translateX(0px);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translateX(2.5px);
+  }
+}
+
+.animate-caustic-sweep {
+  animation: causticSweep 3.8s ease-in-out infinite;
+}
+
+@keyframes gridDistortBreathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.65;
+  }
+}
+
+.animate-grid-distort {
+  transform-origin: 100px 110px;
+  animation: gridDistortBreathe 5s ease-in-out infinite;
+}
+
+
+@keyframes luxuryRotateY {
+  0%, 100% {
+    transform: perspective(1000px) rotateY(-18deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1000px) rotateY(18deg) translateY(-6px);
+  }
+}
+
+.animate-luxury-rotate-y {
+  transform-style: preserve-3d;
+  animation: luxuryRotateY 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes causticRotateShift {
+  0%, 100% {
+    transform: translateX(-5px);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translateX(6px);
+    opacity: 0.92;
+  }
+}
+
+.animate-caustic-rotate-shift {
+  animation: causticRotateShift 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes luxuryShadowSync {
+  0%, 100% {
+    transform: scaleX(0.92) scaleY(0.95);
+    opacity: 0.70;
+  }
+  50% {
+    transform: scaleX(1.08) scaleY(1.02);
+    opacity: 0.52;
+  }
+}
+
+.animate-luxury-shadow-sync {
+  transform-origin: 100px 282px;
+  animation: luxuryShadowSync 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes refractionAngleShift {
+  0%, 100% {
+    transform: scaleX(1.18) scaleY(1.08);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleX(0.98) scaleY(1.0);
+    opacity: 0.35;
+  }
+}
+
+.animate-refraction-angle-shift {
+  transform-origin: 100px 110px;
+  animation: refractionAngleShift 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
