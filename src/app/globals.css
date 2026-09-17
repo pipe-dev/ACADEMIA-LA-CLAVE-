@@ -934,32 +934,26 @@ nextjs-portal,
   animation: luxuryShadowSync360 8s linear infinite;
 }
 
-@keyframes refractionStream360 {
-  0% {
-    transform: translateX(0px);
-  }
-  100% {
-    transform: translateX(-24px);
-  }
-}
-
-.animate-refraction-stream {
-  animation: refractionStream360 4.5s linear infinite;
-}
-
 @keyframes refractionAngleShift {
-  0%, 100% {
-    transform: scaleX(1.05) scaleY(1.02);
-    opacity: 0.40;
+  0% {
+    transform: scale(1.0, 1.0) skewX(0deg);
+  }
+  25% {
+    transform: scale(1.04, 1.02) skewX(1.4deg);
   }
   50% {
-    transform: scaleX(0.96) scaleY(0.98);
-    opacity: 0.28;
+    transform: scale(0.98, 0.98) skewX(0deg);
+  }
+  75% {
+    transform: scale(1.04, 1.02) skewX(-1.4deg);
+  }
+  100% {
+    transform: scale(1.0, 1.0) skewX(0deg);
   }
 }
 
 .animate-refraction-angle-shift {
-  transform-origin: 100px 110px;
-  animation: refractionAngleShift 4s ease-in-out infinite;
+  transform-origin: 100px 104px;
+  animation: refractionAngleShift 8s linear infinite;
 }
 

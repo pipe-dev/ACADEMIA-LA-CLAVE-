@@ -61,7 +61,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0b1828] overflow-hidden select-none">
       {/* Technical Grid Background from AfinadorView */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1b2b3f_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f_1px,transparent_1px)] bg-[size:24px_24px] opacity-60 pointer-events-none" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1b2b3f_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f_1px,transparent_1px)] bg-[size:24px_24px] bg-center opacity-60 pointer-events-none" />
 
       {/* Subtle Central Glow Behind Glass */}
       <div className="absolute w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none -translate-y-6" />
@@ -84,7 +84,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           <div className={`relative flex flex-col items-center select-none my-2 ${progress > 60 ? 'animate-shake' : ''}`}>
             <svg
               viewBox="0 0 200 310"
-              className="w-52 h-80 overflow-visible filter drop-shadow-[0_20px_45px_rgba(0,0,0,0.85)]"
+              className="w-[200px] h-[310px] overflow-visible filter drop-shadow-[0_20px_45px_rgba(0,0,0,0.85)]"
             >
               <defs>
                 {/* Floor Drop Shadow Blur */}
@@ -212,32 +212,42 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
               {/* 3D FLOATING LUXURY GLASS VESSEL WITH Y-AXIS ROTATION */}
               <g className="animate-luxury-rotate-y">
-                {/* 2. OPTICAL BACKGROUND REFRACTION (Silky soft, scales distortion dynamically with rotation) */}
+                {/* 2. OPTICAL BACKGROUND REFRACTION (Realistic glass volume bending actual background) */}
                 <g clipPath="url(#bowlInteriorClip)">
-                  {/* Internal ambient depth and diffuse frosted tint */}
-                  <rect x="40" y="20" width="120" height="180" fill="rgba(6, 22, 38, 0.40)" />
+                  {/* Dense background occlusion: completely blocks straight background grid from passing straight through */}
+                  <rect x="40" y="20" width="120" height="180" fill="#0b1828" opacity="0.94" />
+                  {/* Soft crystal cavity depth */}
+                  <rect x="40" y="20" width="120" height="180" fill="url(#glassBodyGrad)" opacity="0.40" />
 
-                  {/* Refracted Grid Lines with 360° Continuous Seamless Stream */}
-                  <g filter="url(#silkyRefraction)">
-                    {/* Continuous 360° Horizontal Conveyor of Vertical Refraction Lines (Periodic 24px step) */}
-                    <g className="animate-refraction-stream" stroke="#38bdf8" strokeWidth="0.85" opacity="0.32">
-                      <path d="M 28,32 C 22,75 20,120 38,165" fill="none" />
-                      <path d="M 52,32 C 45,75 42,120 60,165" fill="none" />
-                      <path d="M 76,32 C 68,80 66,130 84,175" fill="none" />
-                      <path d="M 100,32 C 98,80 98,130 100,185" fill="none" strokeWidth="1.1" opacity="0.45" />
-                      <path d="M 124,32 C 132,80 134,130 116,175" fill="none" />
-                      <path d="M 148,32 C 155,75 158,120 140,165" fill="none" />
-                      <path d="M 172,32 C 178,75 180,120 162,165" fill="none" />
-                      <path d="M 196,32 C 200,75 202,120 186,165" fill="none" />
+                  {/* Refracted Background Grid: exact optical continuation of the real background grid */}
+                  <g className="animate-refraction-angle-shift" filter="url(#silkyRefraction)">
+                    {/* Verticals bent by cylindrical crystal volume (Matching #1b2b3f background grid) */}
+                    <g stroke="#1b2b3f" strokeWidth="1" opacity="0.80">
+                      <path d="M 52,60 C 48,95 54,135 72,165" fill="none" />
+                      <path d="M 76,32 C 66,75 64,125 84,175" fill="none" />
+                      <path d="M 100,32 L 100,185" fill="none" strokeWidth="1.1" />
+                      <path d="M 124,32 C 134,75 136,125 116,175" fill="none" />
+                      <path d="M 148,60 C 152,95 146,135 128,165" fill="none" />
+                    </g>
+                    {/* Subtle crystal dispersion / chromatic sheen on refracted verticals */}
+                    <g stroke="rgba(56, 189, 248, 0.22)" strokeWidth="0.8" opacity="0.55">
+                      <path d="M 76,32 C 66,75 64,125 84,175" fill="none" />
+                      <path d="M 124,32 C 134,75 136,125 116,175" fill="none" />
                     </g>
 
-                    {/* Horizontals bowing downward (Spherical lens curve, smooth breathing) */}
-                    <g className="animate-refraction-angle-shift" stroke="#38bdf8" strokeWidth="0.85" opacity="0.30">
-                      <path d="M 54,56 Q 100,64 146,56" fill="none" />
-                      <path d="M 52,80 Q 100,92 148,80" fill="none" />
-                      <path d="M 52,104 Q 100,120 148,104" fill="none" strokeWidth="1.1" />
-                      <path d="M 54,128 Q 100,147 146,128" fill="none" />
-                      <path d="M 62,152 Q 100,172 138,152" fill="none" />
+                    {/* Horizontals bowed downward by spherical lens curvature (Connecting to background grid lines at edges) */}
+                    <g stroke="#1b2b3f" strokeWidth="1" opacity="0.80">
+                      <path d="M 57,56 Q 100,66 143,56" fill="none" />
+                      <path d="M 53,80 Q 100,94 147,80" fill="none" />
+                      <path d="M 53,104 Q 100,122 147,104" fill="none" strokeWidth="1.1" />
+                      <path d="M 56,128 Q 100,148 144,128" fill="none" />
+                      <path d="M 65,152 Q 100,170 135,152" fill="none" />
+                    </g>
+                    {/* Subtle crystal dispersion edge on refracted horizontals */}
+                    <g stroke="rgba(56, 189, 248, 0.20)" strokeWidth="0.8" opacity="0.55">
+                      <path d="M 53,80 Q 100,94 147,80" fill="none" />
+                      <path d="M 53,104 Q 100,122 147,104" fill="none" />
+                      <path d="M 56,128 Q 100,148 144,128" fill="none" />
                     </g>
                   </g>
                 </g>
