@@ -290,16 +290,16 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1b2b3f_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f_1px,transparent_1px)] bg-[size:24px_24px] bg-center opacity-60 pointer-events-none" />
 
       {/* Subtle Central Glow Behind Glass */}
-      <div className="absolute w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none -translate-y-6" />
+      <div className="absolute w-96 h-96 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none -translate-y-6" />
 
       {!isShattered ? (
-        <div className="relative z-10 flex flex-col items-center w-full max-w-sm px-6">
-          <h2 className="text-white font-heading font-black text-2xl mb-8 text-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-tight tracking-wide">
+        <div className="relative z-10 flex flex-col items-center w-full max-w-md px-6">
+          <h2 className="text-white font-heading font-black text-2xl sm:text-3xl mb-4 text-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-tight tracking-wide">
             Rompe la copa con tu nota más aguda
           </h2>
           
           {/* Progress / Tension Bar */}
-          <div className="w-full h-3.5 bg-slate-900/80 border border-slate-700/80 rounded-full overflow-hidden mb-12 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] p-0.5">
+          <div className="w-full h-3.5 bg-slate-900/80 border border-slate-700/80 rounded-full overflow-hidden mb-6 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] p-0.5">
             <div 
               className="h-full bg-gradient-to-r from-cyan-500 to-cyan-300 rounded-full transition-all duration-75 shadow-[0_0_12px_rgba(34,211,238,0.8)]"
               style={{ width: `${progress}%` }}
@@ -308,7 +308,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
 
           {/* 3D Crystal Wine Glass Container with Progressive Cracking & Direct Touch Interaction */}
           <div 
-            className={`relative flex flex-col items-center select-none my-2 cursor-grab active:cursor-grabbing touch-none ${progress > 60 ? 'animate-shake' : ''} ${isJiggling ? 'animate-crystal-ping' : ''}`}
+            className={`relative flex flex-col items-center select-none my-1 cursor-grab active:cursor-grabbing touch-none ${progress > 60 ? 'animate-shake' : ''} ${isJiggling ? 'animate-crystal-ping' : ''}`}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -316,7 +316,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           >
             <svg
               viewBox="0 0 200 310"
-              className="w-[200px] h-[310px] overflow-visible filter drop-shadow-[0_20px_45px_rgba(0,0,0,0.85)]"
+              className="w-[260px] h-[403px] sm:w-[285px] sm:h-[442px] overflow-visible filter drop-shadow-[0_25px_50px_rgba(0,0,0,0.9)]"
             >
               <defs>
                 {/* Floor Drop Shadow Blur */}
@@ -829,12 +829,12 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
           {!isActive ? (
             <button 
               onClick={handleStart} 
-              className="mt-14 px-8 py-4 rounded-full font-heading font-black text-base uppercase tracking-wider text-white bg-[#00b4d8] hover:bg-[#0096c7] shadow-[0_5px_0_0_#0077b6] active:translate-y-1 active:shadow-[0_1px_0_0_#0077b6] transition-all cursor-pointer"
+              className="mt-6 sm:mt-8 px-8 py-3.5 sm:py-4 rounded-full font-heading font-black text-base uppercase tracking-wider text-white bg-[#00b4d8] hover:bg-[#0096c7] shadow-[0_5px_0_0_#0077b6] active:translate-y-1 active:shadow-[0_1px_0_0_#0077b6] transition-all cursor-pointer"
             >
               Activar Micrófono
             </button>
           ) : (
-            <div className="mt-12 flex flex-col items-center gap-1.5 animate-pulse">
+            <div className="mt-6 sm:mt-8 flex flex-col items-center gap-1.5 animate-pulse">
               <span className="text-cyan-300 font-bold text-sm tracking-wide">
                 ¡Canta ahora con tu voz más aguda!
               </span>
