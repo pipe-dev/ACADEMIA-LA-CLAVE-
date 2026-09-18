@@ -6,8 +6,9 @@ import { LessonNode, UserStats } from '../types';
 import { audioService } from '../utils/audioService';
 import { VocalRangeModal } from './VocalRangeModal';
 import { TunerPitchChallengeView } from './TunerPitchChallengeView';
+import { TunerRhythmView } from './TunerRhythmView';
 import { generateUserNotePool } from '../utils/voicePlaybackService';
-import { generateChallenge } from '../data/tunerLevelsData';
+import { generateChallenge, rhythmPatterns } from '../data/tunerLevelsData';
 import { X, CheckCircle2, Wind, Sparkles, Trophy, AlertTriangle, Play, Pause, ArrowLeft, RotateCcw, RotateCw, Zap, Star, Drum, Mic } from 'lucide-react';
 
 interface LessonModalProps {
@@ -288,7 +289,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
 
   const isUnit2Exam = node.id === 'u2-node20.5' || 
                       (node.unitId === 2 && (node.type === 'exam' || Boolean(node.title?.toLowerCase().includes('evaluaci'))));
-  const isExamNode = !isUnit2Exam && (
+  const isUnit3Exam = node.id === 'u3-node28.5' || 
+                      (node.unitId === 3 && (node.type === 'exam' || Boolean(node.title?.toLowerCase().includes('evaluaci'))));
+  const isExamNode = !isUnit2Exam && !isUnit3Exam && (
     node.type === 'exam' || 
     node.id === 'u1-node12.5' || 
     Boolean(node.title?.toLowerCase().includes('evaluaci'))
@@ -314,6 +317,14 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     const challenge = generateChallenge(3, pool);
     return challenge.length > 0 ? challenge : pool.slice(0, 3);
   }, [userNotePool, gender]);
+
+  // ─── Unit 3 Exam: Levels 9 to 12 of Modo Fácil (Tempo & Rhythm) ───
+  const UNIT_3_EXAM_LEVELS = [9, 10, 11, 12] as const;
+  const [unit3ExamLevelIndex, setUnit3ExamLevelIndex] = useState<number>(0);
+  const [unit3ExamScores, setUnit3ExamScores] = useState<number[]>([]);
+  const currentUnit3Level = UNIT_3_EXAM_LEVELS[unit3ExamLevelIndex] ?? 9;
+  const currentUnit3Pattern = rhythmPatterns[currentUnit3Level] || rhythmPatterns[9];
+  const currentUnit3Bpm = 80 + (currentUnit3Level - 7) * 10;
 
   // State triggers
   const [examStage, setExamStage] = useState<'questions_part1' | 'balloon' | 'questions_part2'>('questions_part1');
@@ -630,6 +641,28 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     // Trigger full 3-star victory celebration
     triggerStarRatingResults(4);
   }, [triggerStarRatingResults]);
+
+  const handleUnit3ExamSuccess = useCallback(() => {
+    audioService.playBadgeUnlockedSound();
+    audioService.playSuccessBellSound();
+    fireVideoConfetti(100);
+    setTimeout(() => fireVideoConfetti(65), 400);
+
+    // Trigger full 3-star victory celebration
+    triggerStarRatingResults(4);
+  }, [triggerStarRatingResults]);
+
+  const handleUnit3RhythmStepSuccess = useCallback((score: number) => {
+    setUnit3ExamScores((prev) => [...prev, score]);
+
+    if (unit3ExamLevelIndex < UNIT_3_EXAM_LEVELS.length - 1) {
+      audioService.playSuccessBellSound();
+      fireVideoConfetti(45);
+      setUnit3ExamLevelIndex((prev) => prev + 1);
+    } else {
+      handleUnit3ExamSuccess();
+    }
+  }, [unit3ExamLevelIndex, handleUnit3ExamSuccess]);
 
   const handleNextQuizQuestion = () => {
     audioService.playClickSound();
@@ -1326,7 +1359,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
           onClick={isAnyEvaluationNode ? undefined : handleAttemptClose}
         >
           <div 
-            className={`bg-white dark:bg-[#102034] rounded-3xl ${isUnit2Exam && step === 'practice' && !showQuizResults ? 'p-3.5 sm:p-5 max-w-md' : 'p-6 max-w-sm'} w-full space-y-5 shadow-2xl relative border border-slate-100 dark:border-[#1b2b3f] cursor-default my-auto transition-all duration-300 max-h-[96vh] overflow-y-auto`}
+            className={`bg-white dark:bg-[#102034] rounded-3xl ${(isUnit2Exam || isUnit3Exam) && step === 'practice' && !showQuizResults ? 'p-3.5 sm:p-5 max-w-md' : 'p-6 max-w-sm'} w-full space-y-5 shadow-2xl relative border border-slate-100 dark:border-[#1b2b3f] cursor-default my-auto transition-all duration-300 max-h-[96vh] overflow-y-auto`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
@@ -1338,10 +1371,10 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             </button>
 
             {/* Modal Top Header Bar */}
-            {step !== 'vocal_diagnostic' && (!isUnit2Exam || step !== 'practice' || showQuizResults) && (
+            {step !== 'vocal_diagnostic' && ((!isUnit2Exam && !isUnit3Exam) || step !== 'practice' || showQuizResults) && (
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-2xl ${isUnit2Exam ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-500' : 'bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff]'} flex items-center justify-center`}>
-                  {isUnit2Exam ? (
+                <div className={`w-12 h-12 rounded-2xl ${isUnit2Exam || isUnit3Exam ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-500' : 'bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff]'} flex items-center justify-center`}>
+                  {isUnit2Exam || isUnit3Exam ? (
                     <Trophy className="w-6 h-6 text-amber-500" />
                   ) : node.iconName === 'Drum' || node.unitId === 3 ? (
                     <Drum className="w-6 h-6" />
@@ -1354,8 +1387,8 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                   )}
                 </div>
                 <div>
-                  <span className={`text-[11px] font-extrabold ${isUnit2Exam ? 'text-amber-600 dark:text-amber-400' : 'text-[#4648d4] dark:text-[#c0c1ff]'} uppercase tracking-wider`}>
-                    {isUnit2Exam ? 'Evaluación de Módulo' : node.type === 'concept' ? 'Lección Teórica' : 'Lección Práctica'}
+                  <span className={`text-[11px] font-extrabold ${isUnit2Exam || isUnit3Exam ? 'text-amber-600 dark:text-amber-400' : 'text-[#4648d4] dark:text-[#c0c1ff]'} uppercase tracking-wider`}>
+                    {isUnit2Exam || isUnit3Exam ? 'Evaluación de Módulo' : node.type === 'concept' ? 'Lección Teórica' : 'Lección Práctica'}
                   </span>
                   <h3 className="font-heading font-bold text-lg text-[#0b1c30] dark:text-[#d3e4fe]">
                     {node.title}
@@ -1368,7 +1401,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             {step === 'intro' && (
               <div className="space-y-4">
                 <p className="text-sm text-slate-600 dark:text-[#c6c5d7] leading-relaxed bg-[#f8f9ff] dark:bg-[#0b1828] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                  {node.instructions || 'Sigue las instrucciones para dominar el control diafragmático y mejorar tu tono vocal.'}
+                  {isUnit3Exam
+                    ? '¡Bienvenido a la Evaluación Práctica del Módulo 3! Pondrás a prueba tu tempo, coordinación y oído rítmico a través de 4 rondas progresivas (Nivel 9 al 12 del Modo Fácil, de 100 a 130 BPM). Sigue el pulso del metrónomo y pulsa Bombo y Palmas con precisión.'
+                    : node.instructions || 'Sigue las instrucciones para dominar el control diafragmático y mejorar tu tono vocal.'}
                 </p>
 
                 <button
@@ -1457,6 +1492,65 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                   gender={gender}
                   vocalRangeData={userStats?.vocalRangeData}
                   onSuccess={handleUnit2ExamSuccess}
+                />
+              </div>
+            ) : isUnit3Exam && !showQuizResults ? (
+              /* Unit 3 Evaluation: Levels 9 to 12 of Modo Fácil (Tempo & Rhythm) */
+              <div className="space-y-3 text-left animate-fadeIn">
+                <div className="flex items-center justify-between gap-2 pr-9">
+                  <div className="inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 py-1.5 px-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800/60 min-w-0">
+                    <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-heading font-black text-amber-800 dark:text-amber-200 uppercase tracking-wider truncate">
+                      Evaluación Módulo 3
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
+                    Ronda {unit3ExamLevelIndex + 1} de 4
+                  </span>
+                </div>
+
+                {/* Progress Step Pills (Levels 9-12) */}
+                <div className="grid grid-cols-4 gap-1.5 bg-slate-50 dark:bg-slate-900/60 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                  {UNIT_3_EXAM_LEVELS.map((lvl, idx) => {
+                    const isPassed = idx < unit3ExamLevelIndex;
+                    const isCurrent = idx === unit3ExamLevelIndex;
+                    const bpm = 80 + (lvl - 7) * 10;
+                    return (
+                      <div
+                        key={lvl}
+                        className={`py-1.5 px-1 rounded-xl flex flex-col items-center justify-center text-center transition-all ${
+                          isPassed
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-bold'
+                            : isCurrent
+                            ? 'bg-[#4648d4] text-white shadow-sm font-black ring-2 ring-indigo-300/40'
+                            : 'bg-slate-200/40 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 font-medium'
+                        }`}
+                      >
+                        <div className="flex items-center gap-0.5 text-[10px] uppercase tracking-wider">
+                          {isPassed && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500 stroke-[3]" />}
+                          <span>Nivel {lvl}</span>
+                        </div>
+                        <span className={`text-[9px] ${isCurrent ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                          {bpm} BPM
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Interactive Tuner Rhythm View for Current Level */}
+                <TunerRhythmView
+                  key={`u3-exam-rhythm-lvl-${currentUnit3Level}`}
+                  level={currentUnit3Level}
+                  pattern={currentUnit3Pattern}
+                  bpm={currentUnit3Bpm}
+                  hideExitButton={true}
+                  onSuccess={handleUnit3RhythmStepSuccess}
+                  onFail={() => {
+                    if (onLoseLife) {
+                      onLoseLife('tuner');
+                    }
+                  }}
                 />
               </div>
             ) : (node.type === 'control' || (isExamNode && examStage === 'balloon')) && !showQuizResults ? (
@@ -1765,7 +1859,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                 {/* Score Header & Message */}
                 <div className="space-y-1.5">
                   <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">
-                    {isUnit2Exam
+                    {isUnit3Exam
+                      ? '¡Coordinación y Tempo Magistrales!'
+                      : isUnit2Exam
                       ? '¡Afinación Perfecta!'
                       : node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')
                       ? '¡Diagnóstico Vocal Sincronizado!'
@@ -1782,7 +1878,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                       : 'Debes Repetir el Quiz'}
                   </h3>
                   <p className="text-xs md:text-sm font-medium text-slate-600 dark:text-slate-300 px-2 leading-relaxed">
-                    {isUnit2Exam
+                    {isUnit3Exam
+                      ? '¡Excelente sentido del ritmo! Has superado con éxito los 4 niveles de tempo (Nivel 9 al 12 del Modo Fácil) sincronizando bombo y palmas al pulso exacto. ¡Evaluación de Unidad 3 superada!'
+                      : isUnit2Exam
                       ? '¡Excelente precisión vocal! Has completado el Nivel 1 del Modo Fácil afinando cada una de las 3 notas correctamente. ¡Evaluación de Unidad 2 superada!'
                       : node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')
                       ? '¡Excelente! Tu rango vocal y perfil tímbrico fueron registrados con éxito. Toda la app ha adaptado sus ejercicios a tu voz.'
@@ -1847,6 +1945,8 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                       audioService.playClickSound();
                       setQuizQuestionIdx(0);
                       setQuizAnswers([null, null, null, null]);
+                      setUnit3ExamLevelIndex(0);
+                      setUnit3ExamScores([]);
                       setShowQuizResults(false);
                     }}
                     className="w-full py-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-heading font-black text-sm cursor-pointer shadow-lg press-effect mt-2 flex items-center justify-center gap-2"

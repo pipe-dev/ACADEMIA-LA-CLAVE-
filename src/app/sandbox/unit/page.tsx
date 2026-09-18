@@ -8,7 +8,7 @@ import { LessonModal } from '../../../components/LessonModal';
 import { INITIAL_UNITS, INITIAL_USER_STATS } from '../../../data/academyData';
 import { Unit, LessonNode, UserStats, TabType } from '../../../types';
 import { audioService } from '../../../utils/audioService';
-import { Play, RotateCcw, PartyPopper, Sparkles, Drum } from 'lucide-react';
+import { Play, RotateCcw, PartyPopper, Sparkles, Drum, Trophy } from 'lucide-react';
 
 export default function UnitSandboxPage() {
   const [userStats, setUserStats] = useState<UserStats>(INITIAL_USER_STATS);
@@ -61,6 +61,12 @@ export default function UnitSandboxPage() {
             return u;
           })
         );
+      }
+      if (window.location.search.includes('exam3')) {
+        const u3ExamNode = INITIAL_UNITS.flatMap((u) => u.nodes).find((n) => n.id === 'u3-node28.5');
+        if (u3ExamNode) {
+          setSelectedNode(u3ExamNode);
+        }
       }
     }
   }, []);
@@ -240,6 +246,20 @@ export default function UnitSandboxPage() {
           >
             <Drum className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Ver Unidad 3</span>
+          </button>
+
+          <button
+            onClick={() => {
+              audioService.playClickSound();
+              const u3ExamNode = INITIAL_UNITS.flatMap((u) => u.nodes).find((n) => n.id === 'u3-node28.5');
+              if (u3ExamNode) {
+                setSelectedNode(u3ExamNode);
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-white text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer"
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Probar Examen U3</span>
           </button>
 
           <button
