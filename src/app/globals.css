@@ -971,4 +971,112 @@ nextjs-portal,
   transform-origin: 50% 90%;
 }
 
+/* --- Entrance Drop & Settling Wobble Animation for Crystal Wine Glass --- */
+@keyframes glassDropIn {
+  0% {
+    transform: translateY(-880px) scale(0.84, 1.16) rotate(7deg);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45); /* High downward gravitational acceleration */
+  }
+  12% {
+    opacity: 1;
+  }
+  36% {
+    /* 1st Impact with floor: high-velocity squash compression at terminal velocity */
+    transform: translateY(0px) scale(1.16, 0.84) rotate(-1.8deg);
+    animation-timing-function: cubic-bezier(0.15, 0.85, 0.35, 1.15); /* Elastic rebound bounce */
+  }
+  50% {
+    /* Elastic rebound bounce upward into the air */
+    transform: translateY(-42px) scale(0.94, 1.05) rotate(-4.5deg);
+    animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.6); /* Fall back down to floor */
+  }
+  64% {
+    /* 2nd contact with floor */
+    transform: translateY(0px) scale(1.08, 0.93) rotate(2.6deg);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1.05); /* Secondary wobble hop */
+  }
+  76% {
+    /* Secondary damped wobble hop ("se sacude") */
+    transform: translateY(-14px) scale(0.98, 1.02) rotate(-2.0deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.8, 0.8);
+  }
+  86% {
+    /* Settling lateral shake */
+    transform: translateY(0px) scale(1.03, 0.97) rotate(1.4deg);
+    animation-timing-function: ease-out;
+  }
+  93% {
+    /* Micro dampening */
+    transform: translateY(0px) scale(0.99, 1.01) rotate(-0.6deg);
+  }
+  97% {
+    transform: translateY(0px) scale(1, 1) rotate(0.2deg);
+  }
+  100% {
+    transform: translateY(0px) scale(1, 1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-glass-drop-in {
+  transform-box: view-box;
+  transform-origin: 100px 274px;
+  animation: glassDropIn 1.1s linear forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes shadowDropIn {
+  0% {
+    transform: scale(0.08);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45);
+  }
+  16% {
+    opacity: 0.2;
+  }
+  36% {
+    /* Shadow expands fully on first explosive impact */
+    transform: scale(1.20);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.15, 0.85, 0.35, 1.15);
+  }
+  50% {
+    /* Shadow contracts as glass rebounds into the air */
+    transform: scale(0.76);
+    opacity: 0.48;
+    animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.6);
+  }
+  64% {
+    /* Second floor contact */
+    transform: scale(1.10);
+    opacity: 0.95;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1.05);
+  }
+  76% {
+    /* Secondary hop */
+    transform: scale(0.92);
+    opacity: 0.75;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.8, 0.8);
+  }
+  86% {
+    /* Settling shake */
+    transform: scale(1.03);
+    opacity: 0.92;
+    animation-timing-function: ease-out;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
+.animate-shadow-drop-in {
+  transform-box: view-box;
+  transform-origin: 100px 282px;
+  animation: shadowDropIn 1.1s linear forwards;
+  will-change: transform, opacity;
+}
+
+
 

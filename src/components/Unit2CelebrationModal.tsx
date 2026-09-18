@@ -122,6 +122,71 @@ const playCrystalChime = () => {
   }
 };
 
+// Synthesizes a realistic physical crystal glass floor landing sound (impact thud + crystal resonance ring)
+const playGlassLandingSound = () => {
+  try {
+    const ctx = audioService.getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    const now = ctx.currentTime;
+
+    // 1. Transient floor contact knock (solid glass base striking surface)
+    const oscThump = ctx.createOscillator();
+    const gainThump = ctx.createGain();
+    oscThump.type = 'triangle';
+    oscThump.frequency.setValueAtTime(170, now);
+    oscThump.frequency.exponentialRampToValueAtTime(42, now + 0.09);
+    gainThump.gain.setValueAtTime(0.38, now);
+    gainThump.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    oscThump.connect(gainThump);
+    gainThump.connect(ctx.destination);
+    oscThump.start(now);
+    oscThump.stop(now + 0.12);
+
+    // 2. Crystal acoustic ring from impact (fundamental resonance E7 ~ 2637 Hz)
+    const oscRing1 = ctx.createOscillator();
+    const gainRing1 = ctx.createGain();
+    oscRing1.type = 'sine';
+    oscRing1.frequency.setValueAtTime(2637, now);
+    oscRing1.frequency.exponentialRampToValueAtTime(2630, now + 1.4);
+    gainRing1.gain.setValueAtTime(0.30, now);
+    gainRing1.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+    oscRing1.connect(gainRing1);
+    gainRing1.connect(ctx.destination);
+    oscRing1.start(now);
+    oscRing1.stop(now + 1.4);
+
+    // 3. Harmonic overtone (octave 5274 Hz)
+    const oscRing2 = ctx.createOscillator();
+    const gainRing2 = ctx.createGain();
+    oscRing2.type = 'sine';
+    oscRing2.frequency.setValueAtTime(5274, now);
+    gainRing2.gain.setValueAtTime(0.09, now);
+    gainRing2.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+    oscRing2.connect(gainRing2);
+    gainRing2.connect(ctx.destination);
+    oscRing2.start(now);
+    oscRing2.stop(now + 0.7);
+
+    // 4. Secondary crystalline chime (B7 ~ 3951 Hz)
+    const oscRing3 = ctx.createOscillator();
+    const gainRing3 = ctx.createGain();
+    oscRing3.type = 'sine';
+    oscRing3.frequency.setValueAtTime(3951, now);
+    gainRing3.gain.setValueAtTime(0.05, now);
+    gainRing3.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+    oscRing3.connect(gainRing3);
+    gainRing3.connect(ctx.destination);
+    oscRing3.start(now);
+    oscRing3.stop(now + 0.4);
+  } catch (err) {
+    console.warn("Glass landing sound error:", err);
+  }
+};
+
+
 // Calculates the smooth, curved specular highlight path matching the original glass contour
 // u = -1: exact left highlight; u = 0: center vertical line; u = +1: exact right highlight
 const getGlarePath = (u: number) => {
@@ -182,6 +247,11 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   const isActiveRef = useRef<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const shardAnimRef = useRef<number | null>(null);
+
+  // --- Physical Entrance Drop Animation State ---
+  const [isDroppingIn, setIsDroppingIn] = useState(true);
+  const landingSoundTimerRef = useRef<NodeJS.Timeout>();
+  const dropFinishTimerRef = useRef<NodeJS.Timeout>();
 
   // --- 2.5D Touch Interactivity (Surface rotation only, no parallax) ---
   const [isInteracting, setIsInteracting] = useState(false);
@@ -294,6 +364,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   }, [isOpen, isInteracting]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDroppingIn) return;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch (_) {}
@@ -307,7 +378,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current || !lastPointerRef.current) return;
+    if (isDroppingIn || !isDraggingRef.current || !lastPointerRef.current) return;
 
     const now = performance.now();
     const dt = Math.max(1, now - lastPointerRef.current.time);
@@ -322,7 +393,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
+    if (isDroppingIn || !isDraggingRef.current) return;
     isDraggingRef.current = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -363,13 +434,38 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
       setDetectedPitch(null);
       lastTimeRef.current = performance.now();
       lastVoiceTimeRef.current = performance.now();
+      setIsDroppingIn(true);
+
+      // Sound and haptic impact synchronized with floor landing keyframe at ~395ms (36% of 1.1s)
+      if (landingSoundTimerRef.current) clearTimeout(landingSoundTimerRef.current);
+      landingSoundTimerRef.current = setTimeout(() => {
+        playGlassLandingSound();
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate([25, 45, 15]); } catch (_) {}
+        }
+      }, 395);
+
+      // Settle wobble ends at 1100ms
+      if (dropFinishTimerRef.current) clearTimeout(dropFinishTimerRef.current);
+      dropFinishTimerRef.current = setTimeout(() => {
+        setIsDroppingIn(false);
+      }, 1100);
+
       // Auto-start microphone since opening the modal is a direct user gesture
       handleStart();
     } else {
       audioService.stopMicrophone();
       isActiveRef.current = false;
       consecutiveVoiceFramesRef.current = 0;
+      setIsDroppingIn(false);
+      if (landingSoundTimerRef.current) clearTimeout(landingSoundTimerRef.current);
+      if (dropFinishTimerRef.current) clearTimeout(dropFinishTimerRef.current);
     }
+
+    return () => {
+      if (landingSoundTimerRef.current) clearTimeout(landingSoundTimerRef.current);
+      if (dropFinishTimerRef.current) clearTimeout(dropFinishTimerRef.current);
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -1017,7 +1113,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
               </defs>
 
               {/* 1. Floor Ambient Occlusion Shadow */}
-              <g>
+              <g className={isDroppingIn ? 'animate-shadow-drop-in' : ''}>
                 <ellipse
                   cx="100"
                   cy="282"
@@ -1039,7 +1135,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
               </g>
 
               {/* CRYSTAL GLASS VESSEL */}
-              <g>
+              <g className={isDroppingIn ? 'animate-glass-drop-in' : ''}>
                 {/* 2. OPTICAL BACKGROUND REFRACTION */}
                 <g clipPath="url(#bowlInteriorClip)">
                   {/* Dense background occlusion */}
