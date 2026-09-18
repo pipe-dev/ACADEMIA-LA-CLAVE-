@@ -6,6 +6,7 @@ export type BombCinematicState =
   | 'MISCUT_PENALTY'
   | 'DEFUSED_SLOWMO'
   | 'PNEUMATIC_RELEASE'
+  | 'UNLATCHING'
   | 'HATCH_OPENING'
   | 'TROPHY_REVEAL'
   | 'TIMEOUT_PUFF';
