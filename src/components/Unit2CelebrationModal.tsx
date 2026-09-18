@@ -337,23 +337,15 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
     let animId: number;
 
     const loop = () => {
-      if (!isDraggingRef.current) {
-        // Surface spin: momentum inertia vs ambient slow idle rotation (~18 deg/sec)
-        if (Math.abs(surfaceVelRef.current) > 0.05) {
-          surfaceAngleRef.current += surfaceVelRef.current;
-          surfaceVelRef.current *= 0.94;
-        } else {
-          surfaceAngleRef.current += 0.30;
-        }
-
-        // Bounded angle in [0, 360)
-        surfaceAngleRef.current = ((surfaceAngleRef.current % 360) + 360) % 360;
+      // Only run physics updates when there is active momentum velocity
+      if (!isDraggingRef.current && Math.abs(surfaceVelRef.current) > 0.05) {
+        surfaceAngleRef.current = ((surfaceAngleRef.current + surfaceVelRef.current) % 360 + 360) % 360;
+        surfaceVelRef.current *= 0.94;
+        setSurfaceAngle(surfaceAngleRef.current);
 
         if (isInteracting && Math.abs(surfaceVelRef.current) < 0.05) {
           setIsInteracting(false);
         }
-
-        setSurfaceAngle(surfaceAngleRef.current);
       }
 
       animId = requestAnimationFrame(loop);
@@ -445,14 +437,12 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
         }
       }, 395);
 
-      // Settle wobble ends at 1100ms
+      // Settle wobble ends at 1100ms, then activate microphone smoothly
       if (dropFinishTimerRef.current) clearTimeout(dropFinishTimerRef.current);
       dropFinishTimerRef.current = setTimeout(() => {
         setIsDroppingIn(false);
+        handleStart();
       }, 1100);
-
-      // Auto-start microphone since opening the modal is a direct user gesture
-      handleStart();
     } else {
       audioService.stopMicrophone();
       isActiveRef.current = false;
@@ -1000,22 +990,33 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
           >
-            {/* Vibrating Tremor Wrapper - key={tapCount} forces animation restart on EVERY consecutive tap */}
+            {/* 1. Floor Ambient Occlusion Shadow (Stays planted on the floor during entrance drop) */}
+            <div 
+              className={`absolute bottom-[20px] w-[260px] h-[36px] sm:w-[285px] sm:h-[40px] pointer-events-none z-0 ${isDroppingIn ? 'animate-shadow-drop-in' : ''}`}
+              style={{ transformOrigin: '50% 50%', willChange: 'transform, opacity' }}
+            >
+              <svg viewBox="0 0 200 40" className="w-full h-full overflow-visible">
+                <defs>
+                  <filter id="floorShadowBlur" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="5" />
+                  </filter>
+                </defs>
+                <ellipse cx="100" cy="20" rx="65" ry="12" fill="#000000" opacity="0.85" filter="url(#floorShadowBlur)" />
+                <ellipse cx="100" cy="19" rx="44" ry="7.5" fill="#022a30" opacity="0.55" filter="url(#floorShadowBlur)" />
+              </svg>
+            </div>
+
+            {/* 2. Wine Glass Drop & Settling Wrapper (Hardware-Accelerated GPU 3D Layer 60-120fps) */}
             <div 
               key={tapCount}
-              className={`w-full flex items-center justify-center ${isJiggling ? 'animate-crystal-ping' : ''}`}
-              style={{ transformOrigin: '50% 90%' }}
+              className={`w-full flex items-center justify-center relative z-10 ${isJiggling ? 'animate-crystal-ping' : ''} ${isDroppingIn ? 'animate-glass-drop-in' : ''}`}
+              style={{ transformOrigin: '50% 90%', willChange: 'transform' }}
             >
               <svg
                 viewBox="0 0 200 310"
-                className="w-[260px] h-[403px] sm:w-[285px] sm:h-[442px] overflow-visible filter drop-shadow-[0_25px_50px_rgba(0,0,0,0.9)]"
+                className="w-[260px] h-[403px] sm:w-[285px] sm:h-[442px] overflow-visible"
               >
               <defs>
-                {/* Floor Drop Shadow Blur */}
-                <filter id="floorShadowBlur" x="-30%" y="-30%" width="160%" height="160%">
-                  <feGaussianBlur stdDeviation="6" />
-                </filter>
-                
                 {/* Soft Glass Caustic Filters */}
                 <filter id="subtleBlur" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="0.7" />
@@ -1112,30 +1113,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({ is
                 </filter>
               </defs>
 
-              {/* 1. Floor Ambient Occlusion Shadow */}
-              <g className={isDroppingIn ? 'animate-shadow-drop-in' : ''}>
-                <ellipse
-                  cx="100"
-                  cy="282"
-                  rx="65"
-                  ry="13"
-                  fill="#000000"
-                  opacity="0.8"
-                  filter="url(#floorShadowBlur)"
-                />
-                <ellipse
-                  cx="100"
-                  cy="280"
-                  rx="44"
-                  ry="8"
-                  fill="#022a30"
-                  opacity="0.55"
-                  filter="url(#floorShadowBlur)"
-                />
-              </g>
-
               {/* CRYSTAL GLASS VESSEL */}
-              <g className={isDroppingIn ? 'animate-glass-drop-in' : ''}>
+              <g>
                 {/* 2. OPTICAL BACKGROUND REFRACTION */}
                 <g clipPath="url(#bowlInteriorClip)">
                   {/* Dense background occlusion */}
