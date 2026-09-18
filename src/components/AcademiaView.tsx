@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'motion/react';
 import { Unit, LessonNode, UserStats } from '../types';
-import { Check, Wind, Lock, Trophy, Music, Mic, Sparkles, Heart, Clock, Zap, ShoppingBag, X } from 'lucide-react';
+import { Check, Wind, Lock, Trophy, Music, Mic, Sparkles, Heart, Clock, Zap, ShoppingBag, X, Drum } from 'lucide-react';
 import { audioService, playSuccessBellSound } from '../utils/audioService';
 import { getTimeToNextLife, MAX_LIVES } from '../utils/livesEngine';
 
@@ -679,6 +679,8 @@ const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
                               <Mic className="w-9 h-9 stroke-[2.5] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
                             ) : node.iconName === 'Music' ? (
                               <Music className="w-9 h-9 stroke-[2.5] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+                            ) : node.iconName === 'Drum' || node.iconName === 'Clock' || unit.id === 3 ? (
+                              <Drum className="w-9 h-9 stroke-[2.5] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
                             ) : (
                               <Sparkles className="w-9 h-9" />
                             )

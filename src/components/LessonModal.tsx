@@ -8,7 +8,7 @@ import { VocalRangeModal } from './VocalRangeModal';
 import { TunerPitchChallengeView } from './TunerPitchChallengeView';
 import { generateUserNotePool } from '../utils/voicePlaybackService';
 import { generateChallenge } from '../data/tunerLevelsData';
-import { X, CheckCircle2, Wind, Sparkles, Trophy, AlertTriangle, Play, Pause, ArrowLeft, RotateCcw, RotateCw, Zap, Star } from 'lucide-react';
+import { X, CheckCircle2, Wind, Sparkles, Trophy, AlertTriangle, Play, Pause, ArrowLeft, RotateCcw, RotateCw, Zap, Star, Drum, Mic } from 'lucide-react';
 
 interface LessonModalProps {
   node: LessonNode;
@@ -1341,7 +1341,17 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             {step !== 'vocal_diagnostic' && (!isUnit2Exam || step !== 'practice' || showQuizResults) && (
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-2xl ${isUnit2Exam ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-500' : 'bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff]'} flex items-center justify-center`}>
-                  {isUnit2Exam ? <Trophy className="w-6 h-6 text-amber-500" /> : node.type === 'control' ? <Wind className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
+                  {isUnit2Exam ? (
+                    <Trophy className="w-6 h-6 text-amber-500" />
+                  ) : node.iconName === 'Drum' || node.unitId === 3 ? (
+                    <Drum className="w-6 h-6" />
+                  ) : node.iconName === 'Wind' || node.type === 'control' ? (
+                    <Wind className="w-6 h-6" />
+                  ) : node.iconName === 'Mic' || node.iconName === 'Mic2' ? (
+                    <Mic className="w-6 h-6" />
+                  ) : (
+                    <Sparkles className="w-6 h-6" />
+                  )}
                 </div>
                 <div>
                   <span className={`text-[11px] font-extrabold ${isUnit2Exam ? 'text-amber-600 dark:text-amber-400' : 'text-[#4648d4] dark:text-[#c0c1ff]'} uppercase tracking-wider`}>
