@@ -233,9 +233,9 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070d18] select-none overflow-hidden animate-fade-in">
-      {/* Background Concert Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#1e293b25_0%,#070d18_80%)] pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#e9f0ff] select-none overflow-hidden animate-fade-in">
+      {/* Technical Grid Background copied directly from AfinadorView */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1b2b3f15_1px,transparent_1px),linear-gradient(to_bottom,#1b2b3f15_1px,transparent_1px)] bg-[size:24px_24px] opacity-60 pointer-events-none" />
 
       {/* Main 3D Drum & Spheres Canvas */}
       <DrumCanvas

@@ -59,10 +59,10 @@ export const TrophyCelebration: React.FC<TrophyCelebrationProps> = ({ isOpen, on
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center p-6 bg-slate-950/75 backdrop-blur-sm animate-fade-in text-center">
+    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center p-6 bg-[#e9f0ff]/85 backdrop-blur-xs animate-fade-in text-center">
       {/* Rotating Radial Sunburst Halo */}
       <div className="absolute -inset-16 -z-10 flex items-center justify-center pointer-events-none">
-        <div className="w-80 h-80 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.28)_0%,transparent_70%)] animate-spin-slow" />
+        <div className="w-80 h-80 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.22)_0%,transparent_70%)] animate-spin-slow" />
       </div>
 
       {/* Floating 3D Golden Trophy Box */}
