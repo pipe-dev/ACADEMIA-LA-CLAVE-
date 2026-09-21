@@ -32,6 +32,7 @@ const StreakFlameView = dynamic(() => import('./StreakFlameView').then(m => m.St
 const LessonModal = dynamic(() => import('./LessonModal').then(m => m.LessonModal), { ssr: false });
 const UnitCelebrationModal = dynamic(() => import('./UnitCelebrationModal').then(m => m.UnitCelebrationModal), { ssr: false });
 const Unit2CelebrationModal = dynamic(() => import('./Unit2CelebrationModal').then(m => m.Unit2CelebrationModal), { ssr: false });
+const Unit3CelebrationModal = dynamic(() => import('./Unit3CelebrationModal').then(m => m.Unit3CelebrationModal), { ssr: false });
 const VoiceEvalModal = dynamic(() => import('./VoiceEvalModal').then(m => m.VoiceEvalModal), { ssr: false });
 const VocalRangeModal = dynamic(() => import('./VocalRangeModal').then(m => m.VocalRangeModal), { ssr: false });
 const StoreModal = dynamic(() => import('./StoreModal').then(m => m.StoreModal), { ssr: false });
@@ -179,6 +180,7 @@ export default function App() {
   const [justUnlockedNodeId, setJustUnlockedNodeId] = useState<string | null>(null);
   const [showUnitCelebration, setShowUnitCelebration] = useState<boolean>(false);
   const [showUnit2Celebration, setShowUnit2Celebration] = useState<boolean>(false);
+  const [showUnit3Celebration, setShowUnit3Celebration] = useState<boolean>(false);
 
   // Global haptic and auditory feedback listener for 3D buttons and interactive elements
   useEffect(() => {
@@ -441,6 +443,17 @@ export default function App() {
       setUnlockedUnitAnimationId(null);
       setSelectedNode(null);
       setShowUnit2Celebration(true);
+      return;
+    }
+
+    const isLastNodeOfUnit3 = nodeId === 'u3-node28.5' || 
+                              (targetUnit?.id === 3 && (targetNode?.type === 'exam' || Boolean(targetNode?.title?.toLowerCase().includes('evaluaci')))) ||
+                              (targetUnit?.id === 3 && targetUnit.nodes[targetUnit.nodes.length - 1]?.id === nodeId);
+
+    if (isLastNodeOfUnit3) {
+      setUnlockedUnitAnimationId(null);
+      setSelectedNode(null);
+      setShowUnit3Celebration(true);
       return;
     }
 
@@ -731,6 +744,72 @@ export default function App() {
     setUnlockedUnitAnimationId(null);
     setTimeout(() => {
       setUnlockedUnitAnimationId(3);
+    }, 60);
+  };
+
+  const handleContinueToUnit4 = () => {
+    setShowUnit3Celebration(false);
+    setUnits((prevUnits) => {
+      const updated = prevUnits.map((u) => {
+        if (u.id === 3) {
+          return {
+            ...u,
+            nodes: u.nodes.map((n) => ({ ...n, status: 'completed' as const }))
+          };
+        }
+        if (u.id === 4) {
+          const hasCompletedInUnit4 = u.nodes.some((n) => n.status === 'completed');
+          const hasCurrentInUnit4 = u.nodes.some((n) => n.status === 'current');
+
+          return {
+            ...u,
+            nodes: u.nodes.map((n, idx) => {
+              if (n.status === 'completed') return n;
+              if (idx === 0 && !hasCompletedInUnit4 && !hasCurrentInUnit4) {
+                return { ...n, status: 'current' as const };
+              }
+              return n;
+            })
+          };
+        }
+        return u;
+      });
+      try {
+        localStorage.setItem('laclave_units_v8', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    const targetNode = units.flatMap((u) => u.nodes).find((n) => n.id === 'u3-node28.5');
+    if (targetNode?.status !== 'completed') {
+      setUserStats((prev) => {
+        const newXP = prev.xp + 100;
+        let newLevel = prev.level;
+        let newMaxXP = prev.maxXP;
+        if (newXP >= prev.maxXP) {
+          newLevel += 1;
+          newMaxXP += 500;
+        }
+        const updatedStats = {
+          ...prev,
+          xp: newXP,
+          level: newLevel,
+          maxXP: newMaxXP,
+          levelTitle: getLevelTitle(newLevel),
+          lessonsCompleted: (prev.lessonsCompleted || 0) + 1,
+          practiceMinutes: (prev.practiceMinutes || 0) + 10
+        };
+        try {
+          localStorage.setItem('laclave_user_stats_v5', JSON.stringify(updatedStats));
+        } catch {}
+        return updatedStats;
+      });
+    }
+
+    setActiveTab('academia');
+    setUnlockedUnitAnimationId(null);
+    setTimeout(() => {
+      setUnlockedUnitAnimationId(4);
     }, 60);
   };
 
@@ -1180,6 +1259,13 @@ export default function App() {
         <Unit2CelebrationModal
           isOpen={showUnit2Celebration}
           onContinue={handleContinueToUnit3}
+        />
+      )}
+
+      {showUnit3Celebration && (
+        <Unit3CelebrationModal
+          isOpen={showUnit3Celebration}
+          onContinue={handleContinueToUnit4}
         />
       )}
 
