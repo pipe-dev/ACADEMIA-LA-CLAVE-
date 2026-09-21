@@ -40,6 +40,19 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const pieceRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const lastBounceCountsRef = useRef<Map<number, number>>(new Map());
+  const drumImgRef = useRef<HTMLImageElement | null>(null);
+
+  // Preload high-definition 3D drum asset
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/images/unit3/drum_3d.png';
+    img.onload = () => {
+      drumImgRef.current = img;
+    };
+    if (img.complete) {
+      drumImgRef.current = img;
+    }
+  }, []);
 
   // Sync active spheres ref
   useEffect(() => {
@@ -301,12 +314,15 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       const speedFactor = isSlowMo ? 0.3 : 1.0;
 
       // 1. Drum Geometry Calculations (In full glorious perspective view matching reference)
+      const drumW = Math.min(width * 0.95, 540);
+      const drumH = drumW * (511 / 768);
+      const drumX = (width - drumW) * 0.5;
+      const drumY = height - drumH + 14;
       const drumCenterX = width * 0.5;
-      const maxRadiusX = Math.min(width * 0.43, 270);
-      const drumRadiusX = Math.max(140, maxRadiusX);
-      const drumRadiusY = drumRadiusX * 0.51; // Classic 30° acoustic drum perspective tilt
-      const drumCenterY = Math.min(height * 0.68, height - drumRadiusY - 85);
-      const drumSurfaceY = drumCenterY - drumRadiusY * 0.15; // Sweet bounce zone on the drumhead
+      const drumCenterY = drumY + drumH * 0.44;
+      const drumRadiusX = drumW * 0.417;
+      const drumRadiusY = drumH * 0.284;
+      const drumSurfaceY = drumCenterY - drumRadiusY * 0.12; // Sweet bounce zone on drumhead
 
       // Elastic drum skin harmonic oscillation: F = -k*x - c*v
       const k = 0.18; // spring stiffness
@@ -332,351 +348,25 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.fillStyle = ambientGlow;
       ctx.fillRect(0, 0, width, height);
 
-      // =========================================================================
-      // CAJA DEL TAMBOR (3 NIVELES EN PERSPECTIVA) + 6 REMACHES DE AFINACIÓN
-      // Posiciones exactas del reloj: 1pm, 3pm, 5pm, 7pm, 9pm, 11pm
-      // =========================================================================
-
-      // --- PASO 1: Remaches traseros a las 11 pm y 1 pm (Asomando por detrás del aro) ---
-      const rearClaws = [
-        { hour: 11, angle: -(2 / 3) * Math.PI }, // 11 pm (-120°)
-        { hour: 1,  angle: -(1 / 3) * Math.PI }, // 1 pm (-60°)
-      ];
-
-      rearClaws.forEach(({ angle }) => {
-        const clawX = drumCenterX + Math.cos(angle) * (drumRadiusX + 5);
-        const clawY = drumCenterY + Math.sin(angle) * (drumRadiusY + 3);
-
+      // 3. Render 3D Concert Drum (Directly from the user's high-definition reference image!)
+      if (drumImgRef.current && drumImgRef.current.complete) {
         ctx.save();
-        // Abrazadera dorada superior abrazando el aro desde atrás
-        const hookGrad = ctx.createLinearGradient(0, clawY - 9, 0, clawY + 3);
-        hookGrad.addColorStop(0.0, '#fef08a');
-        hookGrad.addColorStop(0.5, '#eab308');
-        hookGrad.addColorStop(1.0, '#854d0e');
-        ctx.fillStyle = hookGrad;
-        ctx.beginPath();
-        ctx.roundRect(clawX - 8, clawY - 9, 16, 11, [3, 3, 0, 0]);
-        ctx.fill();
+        const renderY = drumY + skinDisplacement * 0.25;
 
-        // Cabeza cuadrada del tornillo de afinación plateado
-        ctx.fillStyle = '#f8fafc';
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 1;
-        ctx.fillRect(clawX - 3, clawY - 15, 6, 6);
-        ctx.strokeRect(clawX - 3, clawY - 15, 6, 6);
+        // Soft ground occlusion shadow beneath the drum
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+        ctx.shadowBlur = 28;
+        ctx.shadowOffsetY = 16;
 
-        // Arandela metálica plana
-        ctx.fillStyle = '#cbd5e1';
-        ctx.fillRect(clawX - 4.5, clawY - 9.5, 9, 2);
+        ctx.drawImage(drumImgRef.current, drumX, renderY, drumW, drumH);
         ctx.restore();
-      });
-
-      // --- PASO 2: ANILLO 3 - Caja de madera gruesa (Shell / Diafragma ancho frontal) ---
-      ctx.save();
-      const shellTopY = drumCenterY + 12;
-      const shellBottomY = height + 40;
-
-      ctx.beginPath();
-      ctx.moveTo(drumCenterX - drumRadiusX - 12, shellTopY);
-      ctx.ellipse(
-        drumCenterX,
-        shellTopY,
-        drumRadiusX + 12,
-        drumRadiusY + 12,
-        0,
-        0,
-        Math.PI,
-        false
-      );
-      ctx.lineTo(drumCenterX + drumRadiusX + 18, shellBottomY);
-      ctx.lineTo(drumCenterX - drumRadiusX - 18, shellBottomY);
-      ctx.closePath();
-
-      // Gradiente cilíndrico de madera de arce cálido ("honey maple")
-      const shellGrad = ctx.createLinearGradient(
-        drumCenterX - drumRadiusX,
-        0,
-        drumCenterX + drumRadiusX,
-        0
-      );
-      shellGrad.addColorStop(0.0, '#2b0e04'); // borde oscuro sombreado
-      shellGrad.addColorStop(0.12, '#66270c');
-      shellGrad.addColorStop(0.26, '#b45309'); // ámbar cálido
-      shellGrad.addColorStop(0.38, '#d97706'); // arce miel brillante
-      shellGrad.addColorStop(0.52, '#f59e0b'); // reflejo dorado de barniz
-      shellGrad.addColorStop(0.68, '#b45309');
-      shellGrad.addColorStop(0.86, '#66270c');
-      shellGrad.addColorStop(1.0, '#220803');
-      ctx.fillStyle = shellGrad;
-      ctx.fill();
-
-      // Franja de brillo especular vertical (barniz brillante como en la foto)
-      const sheenGrad = ctx.createLinearGradient(
-        drumCenterX - drumRadiusX * 0.45,
-        0,
-        drumCenterX - drumRadiusX * 0.12,
-        0
-      );
-      sheenGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0)');
-      sheenGrad.addColorStop(0.4, 'rgba(255, 245, 225, 0.22)');
-      sheenGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.45)');
-      sheenGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = sheenGrad;
-      ctx.fill();
-
-      // Vetas verticales sutiles de la madera
-      ctx.strokeStyle = 'rgba(60, 24, 8, 0.14)';
-      ctx.lineWidth = 1.2;
-      for (let gx = -drumRadiusX * 0.88; gx <= drumRadiusX * 0.88; gx += 18) {
-        ctx.beginPath();
-        ctx.moveTo(drumCenterX + gx, shellTopY);
-        ctx.lineTo(drumCenterX + gx * 1.04, shellBottomY);
-        ctx.stroke();
       }
-      ctx.restore();
 
-      // --- PASO 3: ANILLO 2 - Anillo de metal plateado intermedio (Sub-Hoop frontal) ---
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY + 11,
-        drumRadiusX + 8,
-        drumRadiusY + 8,
-        0,
-        0,
-        Math.PI
-      );
-      ctx.lineWidth = 6.5;
-      const chromeGrad = ctx.createLinearGradient(
-        drumCenterX - drumRadiusX,
-        0,
-        drumCenterX + drumRadiusX,
-        0
-      );
-      chromeGrad.addColorStop(0.0, '#334155');
-      chromeGrad.addColorStop(0.2, '#94a3b8');
-      chromeGrad.addColorStop(0.42, '#f8fafc'); // brillo central plateado
-      chromeGrad.addColorStop(0.58, '#e2e8f0');
-      chromeGrad.addColorStop(0.8, '#64748b');
-      chromeGrad.addColorStop(1.0, '#1e293b');
-      ctx.strokeStyle = chromeGrad;
-      ctx.stroke();
-
-      // Línea de bisel superior brillante del anillo plateado
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.beginPath();
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY + 8.5,
-        drumRadiusX + 8,
-        drumRadiusY + 8,
-        0,
-        0,
-        Math.PI
-      );
-      ctx.stroke();
-      ctx.restore();
-
-      // --- PASO 4: ANILLO 1 - Elipse superior de madera (Counterhoop de nogal oscuro) ---
-      // Pared frontal descendente del aro de madera
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY + 10,
-        drumRadiusX + 12,
-        drumRadiusY + 10,
-        0,
-        0,
-        Math.PI,
-        false
-      );
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY,
-        drumRadiusX + 12,
-        drumRadiusY + 10,
-        0,
-        Math.PI,
-        0,
-        true
-      );
-      ctx.closePath();
-      const hoopWallGrad = ctx.createLinearGradient(0, drumCenterY, 0, drumCenterY + 14);
-      hoopWallGrad.addColorStop(0.0, '#5a2715'); // Nogal noble
-      hoopWallGrad.addColorStop(0.5, '#3a170c');
-      hoopWallGrad.addColorStop(1.0, '#1c0803');
-      ctx.fillStyle = hoopWallGrad;
-      ctx.fill();
-      ctx.restore();
-
-      // Aro elíptico superior horizontal
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY,
-        drumRadiusX + 14,
-        drumRadiusY + 11,
-        0,
-        0,
-        Math.PI * 2
-      );
-      const hoopTopGrad = ctx.createRadialGradient(
-        drumCenterX,
-        drumCenterY - drumRadiusY * 0.3,
-        drumRadiusX * 0.5,
-        drumCenterX,
-        drumCenterY,
-        drumRadiusX + 16
-      );
-      hoopTopGrad.addColorStop(0.0, '#652d19');
-      hoopTopGrad.addColorStop(0.7, '#421a0e');
-      hoopTopGrad.addColorStop(0.92, '#2b1007');
-      hoopTopGrad.addColorStop(1.0, '#140501');
-      ctx.fillStyle = hoopTopGrad;
-      ctx.fill();
-
-      // Bisel de luz superior del aro
-      ctx.strokeStyle = 'rgba(255, 235, 215, 0.35)';
-      ctx.lineWidth = 2.2;
-      ctx.stroke();
-
-      // Ranura interior oscura de encaje
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY,
-        drumRadiusX + 1,
-        drumRadiusY + 1,
-        0,
-        0,
-        Math.PI * 2
-      );
-      ctx.stroke();
-      ctx.restore();
-
-      // --- PASO 5: Membrana / Parche de Marfil (Parchment Drumhead con rebote elástico) ---
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY + skinDisplacement,
-        drumRadiusX,
-        drumRadiusY,
-        0,
-        0,
-        Math.PI * 2
-      );
-      const skinGrad = ctx.createRadialGradient(
-        drumCenterX * 0.98,
-        drumCenterY + skinDisplacement - drumRadiusY * 0.25,
-        drumRadiusX * 0.15,
-        drumCenterX,
-        drumCenterY + skinDisplacement,
-        drumRadiusX
-      );
-      skinGrad.addColorStop(0.0, '#ffffff'); // Centro limpio y brillante
-      skinGrad.addColorStop(0.35, '#fbf8ee');
-      skinGrad.addColorStop(0.70, '#f0e6d0');
-      skinGrad.addColorStop(0.92, '#dfcfad');
-      skinGrad.addColorStop(1.0, '#bfa880'); // Borde sombreado de contacto
-      ctx.fillStyle = skinGrad;
-      ctx.fill();
-
-      // Sombra interior profunda proyectada por el aro de madera
-      ctx.strokeStyle = 'rgba(45, 18, 7, 0.55)';
-      ctx.lineWidth = 4.0;
-      ctx.stroke();
-
-      // Bisel fino de luz en el borde del parche
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.ellipse(
-        drumCenterX,
-        drumCenterY + skinDisplacement + 1.5,
-        drumRadiusX - 1.5,
-        drumRadiusY - 1.5,
-        0,
-        0,
-        Math.PI * 2
-      );
-      ctx.stroke();
-
-      // --- DIANA GRABADA EN EL PARCHE (Engraved Target Crosshair de la foto de referencia) ---
-      const targetX = drumCenterX + drumRadiusX * 0.10;
-      const targetY = drumCenterY + skinDisplacement - drumRadiusY * 0.05;
-      const targetRx = drumRadiusX * 0.36;
-      const targetRy = drumRadiusY * 0.36;
-
-      ctx.save();
-      ctx.strokeStyle = '#ab906e';
-      ctx.lineWidth = 2.2;
-      ctx.fillStyle = '#ab906e';
-
-      // 1. Círculo exterior de la diana
-      ctx.beginPath();
-      ctx.ellipse(targetX, targetY, targetRx, targetRy, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // 2. Punto circular central
-      ctx.beginPath();
-      ctx.ellipse(targetX, targetY, 9, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. Las 4 líneas de cruz (tick marks) que cruzan el anillo exterior
-      ctx.beginPath();
-      // Tick superior (12 horas)
-      ctx.moveTo(targetX, targetY - targetRy - 7);
-      ctx.lineTo(targetX, targetY - targetRy + 7);
-      // Tick inferior (6 horas)
-      ctx.moveTo(targetX, targetY + targetRy - 7);
-      ctx.lineTo(targetX, targetY + targetRy + 7);
-      // Tick izquierdo (9 horas)
-      ctx.moveTo(targetX - targetRx - 8, targetY);
-      ctx.lineTo(targetX - targetRx + 8, targetY);
-      // Tick derecho (3 horas)
-      ctx.moveTo(targetX + targetRx - 8, targetY);
-      ctx.lineTo(targetX + targetRx + 8, targetY);
-      ctx.stroke();
-      ctx.restore();
-
-      // --- HOYUELOS DE IMPACTO ESTÁTICOS (Textura táctil suave del parche en la foto) ---
-      const ambientDimples = [
-        { x: drumCenterX - drumRadiusX * 0.42, y: drumCenterY + skinDisplacement - drumRadiusY * 0.28, rx: 16, ry: 9 },
-        { x: drumCenterX - drumRadiusX * 0.55, y: drumCenterY + skinDisplacement + drumRadiusY * 0.22, rx: 18, ry: 10 },
-      ];
-
-      ambientDimples.forEach((d) => {
-        ctx.save();
-        const aGrad = ctx.createRadialGradient(d.x, d.y, 2, d.x, d.y, d.rx);
-        aGrad.addColorStop(0.0, 'rgba(175, 145, 115, 0.45)');
-        aGrad.addColorStop(0.6, 'rgba(200, 175, 145, 0.2)');
-        aGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = aGrad;
-        ctx.beginPath();
-        ctx.ellipse(d.x, d.y, d.rx, d.ry, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Reflejo blanco en el borde superior del hoyuelo
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.ellipse(d.x, d.y - 1, d.rx * 0.85, d.ry * 0.85, 0, Math.PI * 0.9, Math.PI * 2.1);
-        ctx.stroke();
-        ctx.restore();
-      });
-
-      // --- HOYUELOS DE IMPACTO DINÁMICOS (Geiser de luz y partículas al golpear esferas) ---
+      // 4. Draw Dynamic Impact Dimples (Light beam & colorful particle geyser when hit)
       const currentDimples: DrumDimple[] = [];
       dimplesRef.current.forEach((dimple) => {
         const age = now - dimple.birthTime;
-        const maxAge = 1200; // 1.2s de vida
+        const maxAge = 1200; // 1.2s lifespan
         if (age < maxAge) {
           const lifeRatio = 1 - age / maxAge;
           dimple.alpha = lifeRatio;
@@ -686,7 +376,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           ctx.save();
           const craterY = dimple.y + skinDisplacement * 0.5;
 
-          // 1. Depresión cónica del cráter en perspectiva
+          // A. Subtle conical crater depression in perspective
           const dimpleGrad = ctx.createRadialGradient(
             dimple.x,
             craterY,
@@ -712,7 +402,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           ctx.fillStyle = dimpleGrad;
           ctx.fill();
 
-          // 2. Borde especular brillante en la cresta del hoyuelo
+          // B. Specular crescent rim on the crater edge
           ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 * dimple.alpha})`;
           ctx.lineWidth = 1.8;
           ctx.beginPath();
@@ -727,7 +417,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           );
           ctx.stroke();
 
-          // 3. Haz de luz cónico vertical ascendente
+          // C. Upward light beam / cone
           const beamGrad = ctx.createLinearGradient(0, craterY, 0, craterY - 65);
           beamGrad.addColorStop(0.0, `rgba(56, 189, 248, ${0.28 * dimple.alpha})`);
           beamGrad.addColorStop(0.6, `rgba(251, 191, 36, ${0.14 * dimple.alpha})`);
@@ -741,11 +431,11 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           ctx.closePath();
           ctx.fill();
 
-          // 4. Partículas de colores que brotan hacia arriba (cyan, yellow, purple, green, orange)
+          // D. Colorful rising particles (cyan, yellow, purple, green, orange)
           dimple.particles.forEach((p) => {
             p.x += p.vx * speedFactor;
             p.y += p.vy * speedFactor;
-            p.vy -= 0.04 * speedFactor; // leve aceleración hacia arriba
+            p.vy -= 0.04 * speedFactor;
             p.alpha = Math.max(0, p.alpha - 0.018 * speedFactor);
 
             if (p.alpha > 0.05) {
@@ -766,180 +456,34 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       });
       dimplesRef.current = currentDimples;
 
-      ctx.restore();
-
-      // --- PASO 6: Los 4 Remaches Frontales y Laterales (3pm, 5pm, 7pm, 9pm) ---
-      // Con abrazadera superior dorada, tornillo plateado con cabeza cuadrada, cuerpo estriado y bellota inferior en el shell
-      const frontClaws = [
-        { hour: 9, angle: Math.PI,             side: 'left' },  // 9 pm (180° - lateral izquierdo)
-        { hour: 7, angle: (2 / 3) * Math.PI,   side: 'front' }, // 7 pm (120° - frente izquierdo)
-        { hour: 5, angle: (1 / 3) * Math.PI,   side: 'front' }, // 5 pm (60° - frente derecho)
-        { hour: 3, angle: 0,                   side: 'right' }, // 3 pm (0° - lateral derecho)
-      ];
-
-      frontClaws.forEach(({ hour, angle, side }) => {
-        let clawX = drumCenterX + Math.cos(angle) * (drumRadiusX + 4);
-        let clawY = drumCenterY + Math.sin(angle) * (drumRadiusY + 3);
-
-        ctx.save();
-
-        if (side === 'front') {
-          // ==========================================
-          // REMACHES FRONTALES (7 pm y 5 pm)
-          // ==========================================
-          const lugY = clawY + 36; // Posición de la parte inferior en la caja gruesa
-
-          // A. Sombra arrojada de todo el remache
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-          ctx.shadowBlur = 9;
-          ctx.shadowOffsetY = 4;
-
-          // B. PARTE INFERIOR DEL REMACHE: Pieza de metal dorado fijada a la caja más gruesa
-          const lugGrad = ctx.createLinearGradient(clawX - 8, 0, clawX + 8, 0);
-          lugGrad.addColorStop(0.0, '#854d0e');
-          lugGrad.addColorStop(0.25, '#ca8a04');
-          lugGrad.addColorStop(0.55, '#fef08a');
-          lugGrad.addColorStop(0.85, '#eab308');
-          lugGrad.addColorStop(1.0, '#78350f');
-          ctx.fillStyle = lugGrad;
-          ctx.beginPath();
-          ctx.roundRect(clawX - 8, lugY, 16, 18, 4);
-          ctx.fill();
-
-          // Orificio cilíndrico donde entra el tornillo plateado
-          ctx.fillStyle = 'rgba(30, 15, 5, 0.8)';
-          ctx.beginPath();
-          ctx.ellipse(clawX, lugY + 2, 4, 2, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          // C. CUERPO ESTRIADO DEL TORNILLO PLATEADO (Baja desde la abrazadera hasta la pieza inferior)
-          const rodStartY = clawY + 12;
-          const rodHeight = Math.max(10, lugY - rodStartY + 2);
-          const rodGrad = ctx.createLinearGradient(clawX - 2.5, 0, clawX + 2.5, 0);
-          rodGrad.addColorStop(0.0, '#64748b');
-          rodGrad.addColorStop(0.35, '#f1f5f9');
-          rodGrad.addColorStop(0.75, '#cbd5e1');
-          rodGrad.addColorStop(1.0, '#475569');
-          ctx.fillStyle = rodGrad;
-          ctx.fillRect(clawX - 2.5, rodStartY, 5, rodHeight);
-
-          // Estrías de la rosca del tornillo
-          ctx.strokeStyle = 'rgba(30, 41, 59, 0.55)';
-          ctx.lineWidth = 1.0;
-          for (let ry = rodStartY + 2; ry < lugY; ry += 3.5) {
-            ctx.beginPath();
-            ctx.moveTo(clawX - 2.5, ry);
-            ctx.lineTo(clawX + 2.5, ry);
-            ctx.stroke();
-          }
-
-          // D. ABRAZADERA SUPERIOR DE METAL DORADO (Sujeta la elipse principal de madera)
-          const clampGrad = ctx.createLinearGradient(clawX - 10, 0, clawX + 10, 0);
-          clampGrad.addColorStop(0.0, '#78350f');
-          clampGrad.addColorStop(0.25, '#ca8a04');
-          clampGrad.addColorStop(0.52, '#fef08a');
-          clampGrad.addColorStop(0.8, '#eab308');
-          clampGrad.addColorStop(1.0, '#713f12');
-          ctx.fillStyle = clampGrad;
-          ctx.beginPath();
-          ctx.roundRect(clawX - 10, clawY - 2, 20, 17, [2, 2, 4, 4]);
-          ctx.fill();
-
-          // Labio superior curvado de la abrazadera que dobla sobre la elipse de madera
-          const hookGrad = ctx.createLinearGradient(0, clawY - 8, 0, clawY);
-          hookGrad.addColorStop(0.0, '#fef08a');
-          hookGrad.addColorStop(0.5, '#eab308');
-          hookGrad.addColorStop(1.0, '#a16207');
-          ctx.fillStyle = hookGrad;
-          ctx.beginPath();
-          ctx.roundRect(clawX - 9, clawY - 8, 18, 8, [3, 3, 0, 0]);
-          ctx.fill();
-
-          // E. TORNILLO DE AFINACIÓN SUPERIOR (Cabeza cuadrada cromada + arandela)
-          ctx.fillStyle = '#f8fafc';
-          ctx.strokeStyle = '#64748b';
-          ctx.lineWidth = 1;
-          ctx.fillRect(clawX - 3.5, clawY - 14, 7, 7);
-          ctx.strokeRect(clawX - 3.5, clawY - 14, 7, 7);
-
-          // Arandela metálica plana debajo de la cabeza del tornillo
-          ctx.fillStyle = '#cbd5e1';
-          ctx.fillRect(clawX - 5, clawY - 9, 10, 2);
-
-        } else {
-          // ==========================================
-          // REMACHES LATERALES (9 pm y 3 pm en perfil)
-          // ==========================================
-          const isLeft = side === 'left';
-          const lugY = clawY + 28;
-
-          // Sombra lateral
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-          ctx.shadowBlur = 8;
-
-          // Parte inferior de metal dorado en la caja gruesa
-          const lugGrad = ctx.createLinearGradient(clawX - 5, 0, clawX + 5, 0);
-          lugGrad.addColorStop(0.0, '#854d0e');
-          lugGrad.addColorStop(0.5, '#fef08a');
-          lugGrad.addColorStop(1.0, '#78350f');
-          ctx.fillStyle = lugGrad;
-          ctx.beginPath();
-          ctx.roundRect(isLeft ? clawX - 8 : clawX, lugY, 8, 16, 3);
-          ctx.fill();
-
-          // Varilla plateada estriada
-          ctx.fillStyle = '#cbd5e1';
-          ctx.fillRect(isLeft ? clawX - 5 : clawX + 2, clawY + 8, 3.5, 22);
-
-          // Abrazadera dorada en el lateral del aro
-          const clampGrad = ctx.createLinearGradient(0, clawY - 6, 0, clawY + 12);
-          clampGrad.addColorStop(0.0, '#fef08a');
-          clampGrad.addColorStop(0.5, '#eab308');
-          clampGrad.addColorStop(1.0, '#78350f');
-          ctx.fillStyle = clampGrad;
-          ctx.beginPath();
-          ctx.roundRect(isLeft ? clawX - 9 : clawX + 1, clawY - 6, 8, 16, 3);
-          ctx.fill();
-
-          // Tornillo plateado superior
-          ctx.fillStyle = '#f8fafc';
-          ctx.fillRect(isLeft ? clawX - 6 : clawX + 3, clawY - 11, 4.5, 5);
-        }
-
-        ctx.restore();
-      });
-
-      // 6. Draw Drum Membrane Ripples / Shockwaves
+      // 5. Draw Soft Drum Membrane Ripples / Shockwaves
       const aliveWaves: DrumWave[] = [];
       wavesRef.current.forEach((wave) => {
-        wave.radius += 5.0 * speedFactor;
+        wave.radius += 4.5 * speedFactor;
         wave.alpha -= 0.025 * speedFactor;
 
         if (wave.alpha > 0.05 && wave.radius < wave.maxRadius) {
           aliveWaves.push(wave);
           ctx.save();
           ctx.beginPath();
-          // Deformed ellipse matching drum perspective
           ctx.ellipse(
             wave.x,
-            wave.y + skinDisplacement * 0.6,
+            wave.y + skinDisplacement * 0.5,
             wave.radius,
             wave.radius * (drumRadiusY / drumRadiusX),
             0,
             0,
             Math.PI * 2
           );
-          ctx.strokeStyle = `rgba(251, 191, 36, ${wave.alpha})`;
-          ctx.lineWidth = 2.5;
-          ctx.shadowColor = '#fbbf24';
-          ctx.shadowBlur = 8;
+          ctx.strokeStyle = `rgba(251, 191, 36, ${wave.alpha * 0.65})`;
+          ctx.lineWidth = 1.8;
           ctx.stroke();
           ctx.restore();
         }
       });
       wavesRef.current = aliveWaves;
 
-      // 7. Draw 4 Minimalist Beat Indicator Dots (Floating above drum)
+      // 6. Draw 4 Minimalist Beat Indicator Dots (Floating above drum)
       const dotSpacing = 32;
       const dotStartX = drumCenterX - (dotSpacing * 1.5);
       const dotY = drumCenterY - drumRadiusY - 26;
@@ -970,7 +514,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         ctx.restore();
       }
 
-      // 8. Update & Draw Active Spheres
+      // 7. Update & Draw Active Spheres
       const spheres = spheresRef.current;
 
       // Reset all intact sphere DOM slots first
@@ -1014,22 +558,34 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             domEl.style.transformOrigin = '50% 100%';
           }
 
-          // Drop Shadow onto the drum surface
+          // Realistic soft radial drop shadow onto the parchment drumhead (warm, blurred, natural)
           const shadowScale = Math.max(0.35, (1 - altitude / (height * 0.6)) * scaleX);
-          const shadowAlpha = Math.max(0.06, 0.32 * shadowScale);
+          const shadowAlpha = Math.max(0.04, 0.28 * shadowScale);
+
+          const shadowGrad = ctx.createRadialGradient(
+            sphere.x,
+            drumSurfaceY + skinDisplacement * 0.3,
+            0,
+            sphere.x,
+            drumSurfaceY + skinDisplacement * 0.3,
+            sphere.radius * shadowScale
+          );
+          shadowGrad.addColorStop(0, `rgba(45, 25, 12, ${shadowAlpha * 0.55})`);
+          shadowGrad.addColorStop(0.4, `rgba(60, 35, 18, ${shadowAlpha * 0.25})`);
+          shadowGrad.addColorStop(1, 'rgba(60, 35, 18, 0)');
 
           ctx.save();
           ctx.beginPath();
           ctx.ellipse(
             sphere.x,
-            drumSurfaceY + skinDisplacement * 0.5,
+            drumSurfaceY + skinDisplacement * 0.3,
             sphere.radius * shadowScale,
-            sphere.radius * shadowScale * 0.35,
+            sphere.radius * shadowScale * 0.36,
             0,
             0,
             Math.PI * 2
           );
-          ctx.fillStyle = `rgba(15, 23, 42, ${shadowAlpha * 1.5})`;
+          ctx.fillStyle = shadowGrad;
           ctx.fill();
           ctx.restore();
         }
