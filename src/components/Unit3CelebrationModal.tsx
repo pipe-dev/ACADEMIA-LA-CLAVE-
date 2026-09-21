@@ -2,277 +2,224 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { BombCable, BombCinematicState } from './unit3-bomb/types';
-import { CablePhysicsCanvas } from './unit3-bomb/CablePhysicsCanvas';
-import { TacticalBriefcase } from './unit3-bomb/TacticalBriefcase';
-import { TrophyReveal } from './unit3-bomb/TrophyReveal';
+import { ActiveSphere, RhythmBeatState } from './unit3-rhythm/types';
+import { DrumCanvas } from './unit3-rhythm/DrumCanvas';
+import { TrophyCelebration } from './unit3-rhythm/TrophyCelebration';
 import {
-  playTickSound,
-  playSnipRelaySound,
-  playCircuitBuzzSound,
-  playPneumaticReleaseSound,
-  playVictoryFanfare,
-  playTimeoutPuffSound,
-  setBombAudioMuted,
-} from '../utils/bombAudio';
+  playBassDrum,
+  playSphereSlice,
+  playDrumRollBuildup,
+  playGoldenCrashFanfare,
+  playDullBounce,
+  setRhythmAudioMuted,
+} from './unit3-rhythm/rhythmAudio';
 
 export interface Unit3CelebrationModalProps {
   isOpen: boolean;
   onContinue: () => void;
-  initialBpm?: number;
+  bpm?: number;
   isMuted?: boolean;
-  debugForceVictory?: boolean;
-  debugForceTimeout?: boolean;
-  onTelemetryUpdate?: (info: { lastOffsetMs: number; isOnBeat: boolean; fps: number }) => void;
+  testStartBeat?: number; // 1, 2, 3, or 4 for testing
+  testShowTrophy?: boolean;
 }
-
-const INITIAL_CABLES: BombCable[] = [
-  {
-    id: 1,
-    name: 'Circuito Alfa',
-    label: 'C1-CIAN',
-    color: '#00f2fe',
-    strokeColor: '#38bdf8',
-    glowColor: '#0284c7',
-    isCut: false,
-    anchorY: 0.22,
-  },
-  {
-    id: 2,
-    name: 'Circuito Beta',
-    label: 'C2-ROJO',
-    color: '#ef4444',
-    strokeColor: '#f87171',
-    glowColor: '#dc2626',
-    isCut: false,
-    anchorY: 0.4,
-  },
-  {
-    id: 3,
-    name: 'Circuito Gamma',
-    label: 'C3-AMBAR',
-    color: '#eab308',
-    strokeColor: '#facc15',
-    glowColor: '#ca8a04',
-    isCut: false,
-    anchorY: 0.58,
-  },
-  {
-    id: 4,
-    name: 'Circuito Omega',
-    label: 'C4-MASTER',
-    color: '#a855f7',
-    strokeColor: '#c084fc',
-    glowColor: '#7c3aed',
-    isCut: false,
-    anchorY: 0.76,
-  },
-];
 
 export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
   isOpen,
   onContinue,
-  initialBpm = 120,
+  bpm = 120,
   isMuted = false,
-  debugForceVictory = false,
-  debugForceTimeout = false,
-  onTelemetryUpdate,
+  testStartBeat = 1,
+  testShowTrophy = false,
 }) => {
-  const [state, setState] = useState<BombCinematicState>('DEFUSING');
-  const [timeLeftMs, setTimeLeftMs] = useState<number>(8000);
-  const [cables, setCables] = useState<BombCable[]>(INITIAL_CABLES);
-  const [scannerX, setScannerX] = useState<number>(0.5);
-  const [screenShake, setScreenShake] = useState<boolean>(false);
+  const [gameState, setGameState] = useState<RhythmBeatState>('PULSE_1');
+  const [completedBeats, setCompletedBeats] = useState<number>(0);
+  const [activeSphere, setActiveSphere] = useState<ActiveSphere | null>(null);
+  const [isSlowMo, setIsSlowMo] = useState<boolean>(false);
+  const [showTrophy, setShowTrophy] = useState<boolean>(false);
 
-  const timeLeftMsRef = useRef<number>(8000);
-  const stateRef = useRef<BombCinematicState>('DEFUSING');
-  const cablesRef = useRef<BombCable[]>(INITIAL_CABLES);
-  const lastTickSecondRef = useRef<number>(8);
-  const lastFrameTimeRef = useRef<number>(0);
-  const frameCountRef = useRef<number>(0);
-  const lastFpsCalcRef = useRef<number>(0);
+  const beatIntervalMs = 60000 / bpm; // 500ms at 120 BPM
+  const gameStateRef = useRef<RhythmBeatState>('PULSE_1');
+  const completedBeatsRef = useRef<number>(0);
+  const currentSphereRef = useRef<ActiveSphere | null>(null);
+  const lastBeatTimeRef = useRef<number>(0);
+  const isTransitioningRef = useRef<boolean>(false);
 
-  // Sync mute setting
   useEffect(() => {
-    setBombAudioMuted(isMuted);
+    setRhythmAudioMuted(isMuted);
   }, [isMuted]);
 
-  // Keep refs in sync with state
   useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  useEffect(() => {
-    cablesRef.current = cables;
-  }, [cables]);
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   useEffect(() => {
-    timeLeftMsRef.current = timeLeftMs;
-  }, [timeLeftMs]);
+    completedBeatsRef.current = completedBeats;
+  }, [completedBeats]);
 
-  // Reset state when modal opens or closes
-  const resetGame = useCallback(() => {
-    setState('DEFUSING');
-    stateRef.current = 'DEFUSING';
-    setTimeLeftMs(8000);
-    timeLeftMsRef.current = 8000;
-    lastTickSecondRef.current = 8;
-    setScreenShake(false);
-    setCables(INITIAL_CABLES.map((c) => ({ ...c, isCut: false, leftPiece: undefined, rightPiece: undefined })));
-  }, []);
+  // Launch a new sphere from the drum surface
+  const launchSphere = useCallback((beatIndex: number) => {
+    const isGolden = beatIndex === 4;
+    const now = performance.now();
+    const halfFlightTime = beatIntervalMs; // reach peak at exactly beatIntervalMs
+    const totalFlightTime = beatIntervalMs * 2;
 
-  useEffect(() => {
-    if (isOpen) {
-      resetGame();
-    }
-  }, [isOpen, resetGame]);
+    const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
+    const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
 
-  // Handle debug overrides
-  useEffect(() => {
-    if (debugForceVictory) {
-      setState('DEFUSED_SLOWMO');
-      setTimeLeftMs(1000);
-      timeLeftMsRef.current = 1000;
-      setCables((prev) => prev.map((c) => ({ ...c, isCut: true })));
-      setTimeout(() => setState('UNLATCHING'), 400);
-      setTimeout(() => setState('TROPHY_REVEAL'), 900);
-    }
-  }, [debugForceVictory]);
+    const startX = canvasWidth * 0.5 + (Math.random() - 0.5) * 60;
+    const startY = canvasHeight * 0.82;
+    const peakY = canvasHeight * (isGolden ? 0.38 : 0.44);
 
-  useEffect(() => {
-    if (debugForceTimeout) {
-      setState('TIMEOUT_PUFF');
-      setTimeLeftMs(0);
-      timeLeftMsRef.current = 0;
-    }
-  }, [debugForceTimeout]);
+    // Initial velocity to reach peakY in halfFlightTime with gravity g:
+    // peakY = startY + vy0*t + 0.5*g*t^2, and at peak vy = 0 -> vy0 = -g*t
+    // peakY = startY - 0.5 * g * t^2 -> g = 2 * (startY - peakY) / (t^2)
+    const tApex = halfFlightTime / 1000; // in seconds
+    const deltaY = startY - peakY;
+    const g = (2 * deltaY) / (tApex * tApex); // exact gravity to reach peak in halfFlightTime
+    const vy0 = -g * tApex; // exact initial velocity
 
-  // Trigger Victory Sequence
-  const triggerVictorySequence = useCallback(() => {
-    setState('DEFUSED_SLOWMO');
-    stateRef.current = 'DEFUSED_SLOWMO';
-    setTimeLeftMs(1000); // 00:01.00
-    timeLeftMsRef.current = 1000;
+    const newSphere: ActiveSphere = {
+      id: Date.now() + Math.random(),
+      type: isGolden ? 'golden' : 'purple',
+      x: startX,
+      y: startY,
+      radius: isGolden ? 42 : 32,
+      vx: (Math.random() - 0.5) * 30,
+      vy: vy0,
+      g,
+      isCut: false,
+      birthTime: now,
+      peakTime: now + halfFlightTime,
+    };
 
-    setTimeout(() => {
-      setState('UNLATCHING');
-      stateRef.current = 'UNLATCHING';
-      playPneumaticReleaseSound();
+    currentSphereRef.current = newSphere;
+    setActiveSphere(newSphere);
+    playBassDrum(isGolden);
+  }, [beatIntervalMs]);
 
-      setTimeout(() => {
-        setState('HATCH_OPENING');
-        stateRef.current = 'HATCH_OPENING';
+  // Reset sequence cleanly
+  const resetToBeatOne = useCallback(() => {
+    if (isTransitioningRef.current) return;
+    setCompletedBeats(0);
+    completedBeatsRef.current = 0;
+    setGameState('PULSE_1');
+    gameStateRef.current = 'PULSE_1';
+    setIsSlowMo(false);
+    setShowTrophy(false);
+    launchSphere(1);
+  }, [launchSphere]);
+
+  // Slice sphere callback from DrumCanvas
+  const handleSliceSphere = useCallback(
+    (sphere: ActiveSphere, _cutCoord: { x: number; y: number }) => {
+      const currentBeat = completedBeatsRef.current + 1;
+
+      if (sphere.type === 'golden') {
+        // Grand Final Beat Sliced!
+        setIsSlowMo(true);
+        playGoldenCrashFanfare();
+        setCompletedBeats(4);
+        completedBeatsRef.current = 4;
+        setGameState('SLOWMO_CUT');
+        gameStateRef.current = 'SLOWMO_CUT';
 
         setTimeout(() => {
-          setState('TROPHY_REVEAL');
-          stateRef.current = 'TROPHY_REVEAL';
-          playVictoryFanfare();
-        }, 500);
-      }, 700);
-    }, 600);
-  }, []);
-
-  // Handle slice attempt on a cable
-  const handleCableSliceAttempt = useCallback(
-    (cableIndex: number, _cutCoord: { x: number; y: number }) => {
-      if (stateRef.current !== 'DEFUSING') return;
-
-      const currentCables = cablesRef.current;
-      const targetCable = currentCables[cableIndex];
-      if (!targetCable || targetCable.isCut) return;
-
-      // Evaluate rhythmic tempo accuracy
-      const now = performance.now();
-      const beatInterval = 60000 / initialBpm; // e.g. 500ms for 120 BPM
-      const phase = now % beatInterval;
-      // Distance to nearest beat pulse
-      const distToBeat = Math.min(phase, beatInterval - phase);
-      const isOnBeat = distToBeat <= 135; // ±135ms tolerance window
-
-      if (onTelemetryUpdate) {
-        onTelemetryUpdate({
-          lastOffsetMs: Math.round(distToBeat),
-          isOnBeat,
-          fps: 60,
-        });
-      }
-
-      if (isOnBeat) {
-        // Success: cut the cable on-beat
-        playSnipRelaySound();
-
-        const updated = currentCables.map((c, idx) => (idx === cableIndex ? { ...c, isCut: true } : c));
-        setCables(updated);
-        cablesRef.current = updated;
-
-        // Check if all 4 are cut
-        const allCut = updated.every((c) => c.isCut);
-        if (allCut) {
-          triggerVictorySequence();
-        }
+          setGameState('TROPHY_REVEAL');
+          gameStateRef.current = 'TROPHY_REVEAL';
+          setShowTrophy(true);
+        }, 650);
       } else {
-        // Penalty: off-beat strike
-        playCircuitBuzzSound();
-        setScreenShake(true);
-        setTimeout(() => setScreenShake(false), 200);
+        // Regular purple sphere 1, 2, 3 sliced
+        playSphereSlice(currentBeat);
+        setCompletedBeats(currentBeat);
+        completedBeatsRef.current = currentBeat;
 
-        // Deduct 1.00s penalty
-        const penalizedTime = Math.max(0, timeLeftMsRef.current - 1000);
-        timeLeftMsRef.current = penalizedTime;
-        setTimeLeftMs(penalizedTime);
+        // Schedule next beat
+        if (currentBeat < 3) {
+          setTimeout(() => {
+            if (gameStateRef.current !== 'TROPHY_REVEAL') {
+              setGameState((`PULSE_${currentBeat + 1}`) as RhythmBeatState);
+              launchSphere(currentBeat + 1);
+            }
+          }, 420);
+        } else if (currentBeat === 3) {
+          // Buildup to Golden Sphere
+          setGameState('BUILDUP');
+          gameStateRef.current = 'BUILDUP';
+          playDrumRollBuildup();
 
-        if (penalizedTime <= 0) {
-          setState('TIMEOUT_PUFF');
-          stateRef.current = 'TIMEOUT_PUFF';
-          playTimeoutPuffSound();
+          setTimeout(() => {
+            if (gameStateRef.current !== 'TROPHY_REVEAL') {
+              setGameState('GOLDEN_PULSE');
+              gameStateRef.current = 'GOLDEN_PULSE';
+              launchSphere(4);
+            }
+          }, 320);
         }
       }
     },
-    [initialBpm, onTelemetryUpdate, triggerVictorySequence]
+    [launchSphere]
   );
 
-  // Main RAF loop for clock countdown & laser sweep
+  // Initialize on open
+  useEffect(() => {
+    if (isOpen) {
+      isTransitioningRef.current = false;
+      if (testShowTrophy) {
+        setCompletedBeats(4);
+        completedBeatsRef.current = 4;
+        setGameState('TROPHY_REVEAL');
+        gameStateRef.current = 'TROPHY_REVEAL';
+        setShowTrophy(true);
+      } else if (testStartBeat === 4) {
+        setCompletedBeats(3);
+        completedBeatsRef.current = 3;
+        setGameState('GOLDEN_PULSE');
+        gameStateRef.current = 'GOLDEN_PULSE';
+        setIsSlowMo(false);
+        setShowTrophy(false);
+        launchSphere(4);
+      } else {
+        resetToBeatOne();
+      }
+    }
+  }, [isOpen, testShowTrophy, testStartBeat, resetToBeatOne, launchSphere]);
+
+  // Physics animation loop for sphere position
   useEffect(() => {
     if (!isOpen) return;
 
     let animId: number;
+    let lastTime = performance.now();
 
-    const loop = (timestamp: number) => {
-      if (!lastFrameTimeRef.current) lastFrameTimeRef.current = timestamp;
-      const dt = timestamp - lastFrameTimeRef.current;
-      lastFrameTimeRef.current = timestamp;
+    const loop = (currentTime: number) => {
+      const dt = (currentTime - lastTime) / 1000; // in seconds
+      lastTime = currentTime;
 
-      // Telemetry FPS calc
-      frameCountRef.current++;
-      if (timestamp - lastFpsCalcRef.current > 1000) {
-        lastFpsCalcRef.current = timestamp;
-        frameCountRef.current = 0;
-      }
+      const sphere = currentSphereRef.current;
+      if (sphere && !sphere.isCut && gameStateRef.current !== 'TROPHY_REVEAL') {
+        // Physics update
+        const speedMultiplier = isSlowMo ? 0.3 : 1.0;
+        const g = sphere.g * speedMultiplier; // exact calibrated gravity
+        sphere.vy += g * dt;
+        sphere.y += sphere.vy * dt * speedMultiplier;
+        sphere.x += sphere.vx * dt * speedMultiplier;
 
-      const beatInterval = 60000 / initialBpm;
+        // Check if sphere fell back down past the drum without being cut
+        const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
+        if (sphere.y > canvasHeight * 0.88 && sphere.vy > 0) {
+          // Sphere missed!
+          playDullBounce();
+          sphere.isCut = true; // stop rendering it
+          currentSphereRef.current = null;
+          setActiveSphere(null);
 
-      // Laser scanner position: smooth sinusoidal sweep synchronized to beats
-      const laserCycle = (timestamp % (beatInterval * 2)) / (beatInterval * 2);
-      const laserNormalized = 0.5 + 0.44 * Math.sin(laserCycle * Math.PI * 2);
-      setScannerX(laserNormalized);
-
-      // Countdown timer logic while in DEFUSING state
-      if (stateRef.current === 'DEFUSING') {
-        const nextTime = Math.max(0, timeLeftMsRef.current - dt);
-        timeLeftMsRef.current = nextTime;
-        setTimeLeftMs(nextTime);
-
-        // Tick sound logic on full seconds
-        const currentSec = Math.ceil(nextTime / 1000);
-        if (currentSec < lastTickSecondRef.current && nextTime > 0) {
-          lastTickSecondRef.current = currentSec;
-          playTickSound(nextTime <= 3000);
-        }
-
-        if (nextTime <= 0) {
-          setState('TIMEOUT_PUFF');
-          stateRef.current = 'TIMEOUT_PUFF';
-          playTimeoutPuffSound();
+          // Restart sequence gracefully
+          setTimeout(() => {
+            resetToBeatOne();
+          }, 300);
+        } else {
+          setActiveSphere({ ...sphere });
         }
       }
 
@@ -281,44 +228,25 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [isOpen, initialBpm]);
+  }, [isOpen, isSlowMo, resetToBeatOne]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-xl my-auto">
-        <TacticalBriefcase
-          timeLeftMs={timeLeftMs}
-          cables={cables}
-          scannerProgress={scannerX}
-          screenShake={screenShake}
-          isSlowMoFrozen={state !== 'DEFUSING' && state !== 'TIMEOUT_PUFF'}
-        >
-          {/* Cable Physics & Fruit Ninja Blade Layer */}
-          <CablePhysicsCanvas
-            cables={cables}
-            onCableSliceAttempt={handleCableSliceAttempt}
-            scannerX={scannerX}
-            disabled={state !== 'DEFUSING'}
-          />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070d18] select-none overflow-hidden animate-fade-in">
+      {/* Background Concert Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#1e293b25_0%,#070d18_80%)] pointer-events-none" />
 
-          {/* Overlay Reveal Hatch & Golden Drum Trophy */}
-          {state !== 'DEFUSING' && (
-            <TrophyReveal
-              state={
-                state === 'TIMEOUT_PUFF'
-                  ? 'TIMEOUT_PUFF'
-                  : state === 'TROPHY_REVEAL'
-                  ? 'TROPHY_REVEAL'
-                  : 'UNLATCHING'
-              }
-              onContinue={onContinue}
-              onRetry={resetGame}
-            />
-          )}
-        </TacticalBriefcase>
-      </div>
+      {/* Main 3D Drum & Spheres Canvas */}
+      <DrumCanvas
+        activeSphere={activeSphere}
+        completedBeats={completedBeats}
+        onSliceSphere={handleSliceSphere}
+        isSlowMo={isSlowMo}
+      />
+
+      {/* Trophy Reveal View (Zero Text Clutter, Pure Celebration) */}
+      <TrophyCelebration isOpen={showTrophy} onContinue={onContinue} />
     </div>
   );
 };
