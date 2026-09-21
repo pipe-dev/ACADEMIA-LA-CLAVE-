@@ -301,40 +301,56 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.fillStyle = ambientGlow;
       ctx.fillRect(0, 0, width, height);
 
-      // 3A. Draw Rear Hardware Claws (Garras traseras en perspectiva detrás de la membrana)
-      const rearClawAngles = [1.14 * Math.PI, 1.34 * Math.PI, 1.66 * Math.PI, 1.86 * Math.PI];
-      rearClawAngles.forEach((angle) => {
-        const clawX = drumCenterX - Math.cos(angle) * (drumRadiusX + 8);
-        const clawY = drumCenterY + Math.sin(angle) * (drumRadiusY * 0.98);
+      // =========================================================================
+      // CAJA DEL TAMBOR (3 NIVELES EN PERSPECTIVA) + 6 REMACHES DE AFINACIÓN
+      // Posiciones exactas del reloj: 1pm, 3pm, 5pm, 7pm, 9pm, 11pm
+      // =========================================================================
+
+      // --- PASO 1: Remaches traseros a las 11 pm y 1 pm (Asomando por detrás del aro) ---
+      const rearClaws = [
+        { hour: 11, angle: -(2 / 3) * Math.PI }, // 11 pm (-120°)
+        { hour: 1,  angle: -(1 / 3) * Math.PI }, // 1 pm (-60°)
+      ];
+
+      rearClaws.forEach(({ angle }) => {
+        const clawX = drumCenterX + Math.cos(angle) * (drumRadiusX + 5);
+        const clawY = drumCenterY + Math.sin(angle) * (drumRadiusY + 3);
 
         ctx.save();
-        // Top L-hook
-        const hookGrad = ctx.createLinearGradient(0, clawY - 6, 0, clawY + 2);
+        // Abrazadera dorada superior abrazando el aro desde atrás
+        const hookGrad = ctx.createLinearGradient(0, clawY - 8, 0, clawY + 3);
         hookGrad.addColorStop(0.0, '#fef08a');
         hookGrad.addColorStop(0.5, '#eab308');
         hookGrad.addColorStop(1.0, '#854d0e');
         ctx.fillStyle = hookGrad;
         ctx.beginPath();
-        ctx.roundRect(clawX - 7, clawY - 6, 14, 8, [2, 2, 0, 0]);
+        ctx.roundRect(clawX - 8, clawY - 8, 16, 10, [3, 3, 0, 0]);
         ctx.fill();
 
-        // Rear square tuning bolt
+        // Cabeza cuadrada del tornillo de afinación plateado
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1;
+        ctx.fillRect(clawX - 3, clawY - 14, 6, 6);
+        ctx.strokeRect(clawX - 3, clawY - 14, 6, 6);
+
+        // Arandela metálica plana
         ctx.fillStyle = '#cbd5e1';
-        ctx.fillRect(clawX - 2.5, clawY - 10, 5, 5);
+        ctx.fillRect(clawX - 4.5, clawY - 9, 9, 2);
         ctx.restore();
       });
 
-      // 3B. Draw Concert Drum Honey Maple Shell (Cuerpo Cilíndrico de Arce Barnizado)
+      // --- PASO 2: ANILLO 3 - Caja de madera gruesa (Shell / Diafragma ancho frontal) ---
       ctx.save();
       const shellTopY = drumCenterY + 4;
       const shellBottomY = height + 40;
 
       ctx.beginPath();
-      ctx.moveTo(drumCenterX - drumRadiusX - 10, shellTopY);
+      ctx.moveTo(drumCenterX - drumRadiusX - 12, shellTopY);
       ctx.ellipse(
         drumCenterX,
         shellTopY,
-        drumRadiusX + 10,
+        drumRadiusX + 12,
         drumRadiusY + 12,
         0,
         0,
@@ -345,25 +361,25 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.lineTo(drumCenterX - drumRadiusX - 18, shellBottomY);
       ctx.closePath();
 
-      // Horizontal cylinder wood gradient
+      // Gradiente cilíndrico de madera de arce cálido ("honey maple")
       const shellGrad = ctx.createLinearGradient(
         drumCenterX - drumRadiusX,
         0,
         drumCenterX + drumRadiusX,
         0
       );
-      shellGrad.addColorStop(0.0, '#361507'); // deep dark mahogany edge
+      shellGrad.addColorStop(0.0, '#361507'); // borde oscuro sombreado
       shellGrad.addColorStop(0.12, '#66270c');
-      shellGrad.addColorStop(0.26, '#b45309'); // warm amber
-      shellGrad.addColorStop(0.38, '#d97706'); // bright honey maple
-      shellGrad.addColorStop(0.52, '#f59e0b'); // golden lacquer highlight
+      shellGrad.addColorStop(0.26, '#b45309'); // ámbar cálido
+      shellGrad.addColorStop(0.38, '#d97706'); // arce miel brillante
+      shellGrad.addColorStop(0.52, '#f59e0b'); // reflejo dorado de barniz
       shellGrad.addColorStop(0.68, '#b45309');
       shellGrad.addColorStop(0.85, '#66270c');
       shellGrad.addColorStop(1.0, '#280e04');
       ctx.fillStyle = shellGrad;
       ctx.fill();
 
-      // Vertical glossy lacquer specular sheen (Barniz brillante reflectante)
+      // Franja de brillo especular vertical (barniz brillante como en la foto)
       const sheenGrad = ctx.createLinearGradient(
         drumCenterX - drumRadiusX * 0.45,
         0,
@@ -377,7 +393,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.fillStyle = sheenGrad;
       ctx.fill();
 
-      // Subtle vertical wood grain striations
+      // Vetas verticales sutiles de la madera
       ctx.strokeStyle = 'rgba(60, 24, 8, 0.16)';
       ctx.lineWidth = 1.2;
       for (let gx = -drumRadiusX * 0.88; gx <= drumRadiusX * 0.88; gx += 20) {
@@ -388,7 +404,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       }
       ctx.restore();
 
-      // 3C. Draw Chrome Sub-Hoop Ring (Anillo Metálico Intermedio)
+      // --- PASO 3: ANILLO 2 - Anillo de metal plateado intermedio (Sub-Hoop frontal) ---
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(
@@ -400,7 +416,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         0,
         Math.PI
       );
-      ctx.lineWidth = 5.5;
+      ctx.lineWidth = 6.5;
       const chromeGrad = ctx.createLinearGradient(
         drumCenterX - drumRadiusX,
         0,
@@ -409,15 +425,31 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       );
       chromeGrad.addColorStop(0.0, '#334155');
       chromeGrad.addColorStop(0.2, '#94a3b8');
-      chromeGrad.addColorStop(0.42, '#f8fafc');
+      chromeGrad.addColorStop(0.42, '#f8fafc'); // brillo central plateado
       chromeGrad.addColorStop(0.58, '#e2e8f0');
       chromeGrad.addColorStop(0.8, '#64748b');
       chromeGrad.addColorStop(1.0, '#1e293b');
       ctx.strokeStyle = chromeGrad;
       ctx.stroke();
+
+      // Línea de bisel superior brillante del anillo plateado
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.beginPath();
+      ctx.ellipse(
+        drumCenterX,
+        drumCenterY + 9,
+        drumRadiusX + 8,
+        drumRadiusY + 8,
+        0,
+        0,
+        Math.PI
+      );
+      ctx.stroke();
       ctx.restore();
 
-      // 3D. Draw Solid Walnut Counterhoop Front Wall (Pared frontal descendente de nogal)
+      // --- PASO 4: ANILLO 1 - Elipse superior de madera (Counterhoop de nogal oscuro) ---
+      // Pared frontal descendente del aro de madera
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(
@@ -442,14 +474,14 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       );
       ctx.closePath();
       const hoopWallGrad = ctx.createLinearGradient(0, drumCenterY, 0, drumCenterY + 14);
-      hoopWallGrad.addColorStop(0.0, '#5a2715'); // Rich walnut
+      hoopWallGrad.addColorStop(0.0, '#5a2715'); // Nogal noble
       hoopWallGrad.addColorStop(0.5, '#3a170c');
-      hoopWallGrad.addColorStop(1.0, '#1c0803'); // Shaded lower bevel
+      hoopWallGrad.addColorStop(1.0, '#1c0803');
       ctx.fillStyle = hoopWallGrad;
       ctx.fill();
       ctx.restore();
 
-      // 3E. Draw Solid Walnut Counterhoop Upper Rim (Aro elíptico superior de nogal macizo)
+      // Aro elíptico superior horizontal
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(
@@ -469,20 +501,20 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         drumCenterY,
         drumRadiusX + 16
       );
-      hoopTopGrad.addColorStop(0.0, '#652d19'); // Walnut surface
+      hoopTopGrad.addColorStop(0.0, '#652d19');
       hoopTopGrad.addColorStop(0.7, '#421a0e');
       hoopTopGrad.addColorStop(0.92, '#2b1007');
       hoopTopGrad.addColorStop(1.0, '#140501');
       ctx.fillStyle = hoopTopGrad;
       ctx.fill();
 
-      // Top chamfer highlight on the wooden rim (Bisel iluminado)
-      ctx.strokeStyle = 'rgba(255, 235, 215, 0.26)';
-      ctx.lineWidth = 2.0;
+      // Bisel de luz superior del aro
+      ctx.strokeStyle = 'rgba(255, 235, 215, 0.28)';
+      ctx.lineWidth = 2.2;
       ctx.stroke();
 
-      // Inner groove bevel where drumhead mounts
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+      // Ranura interior oscura de encaje
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.ellipse(
@@ -497,7 +529,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.stroke();
       ctx.restore();
 
-      // 4. Draw Drum Membrane (Parchment Ivory Surface with elastic dip)
+      // --- PASO 5: Membrana / Parche de Marfil (Parchment Drumhead con rebote elástico) ---
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(
@@ -517,20 +549,20 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         drumCenterY + skinDisplacement,
         drumRadiusX
       );
-      skinGrad.addColorStop(0.0, '#ffffff'); // Clean bright parchment center
+      skinGrad.addColorStop(0.0, '#ffffff'); // Centro limpio y brillante
       skinGrad.addColorStop(0.35, '#fbf8ee');
       skinGrad.addColorStop(0.70, '#f0e6d0');
       skinGrad.addColorStop(0.92, '#dfcfad');
-      skinGrad.addColorStop(1.0, '#bfa880'); // Shaded contact rim
+      skinGrad.addColorStop(1.0, '#bfa880'); // Borde sombreado de contacto
       ctx.fillStyle = skinGrad;
       ctx.fill();
 
-      // Deep inner rim shadow cast by the thick wooden counterhoop
+      // Sombra interior profunda proyectada por el aro de madera
       ctx.strokeStyle = 'rgba(45, 18, 7, 0.55)';
       ctx.lineWidth = 4.0;
       ctx.stroke();
 
-      // Fine inner bevel light ring
+      // Bisel fino de luz en el borde del parche
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -546,90 +578,143 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.stroke();
       ctx.restore();
 
-      // 5. Draw Precision Brass Rim Claws & Tension Rods (Hardware Frontal)
-      const frontClawAngles = [
-        0.12 * Math.PI,
-        0.28 * Math.PI,
-        0.44 * Math.PI,
-        0.56 * Math.PI,
-        0.72 * Math.PI,
-        0.88 * Math.PI,
+      // --- PASO 6: Los 4 Remaches Frontales y Laterales (3pm, 5pm, 7pm, 9pm) ---
+      // Con abrazadera superior dorada, tornillo plateado con cabeza cuadrada, cuerpo estriado y bellota inferior en el shell
+      const frontClaws = [
+        { hour: 9, angle: Math.PI,             side: 'left' },  // 9 pm (180° - lateral izquierdo)
+        { hour: 7, angle: (2 / 3) * Math.PI,   side: 'front' }, // 7 pm (120° - frente izquierdo)
+        { hour: 5, angle: (1 / 3) * Math.PI,   side: 'front' }, // 5 pm (60° - frente derecho)
+        { hour: 3, angle: 0,                   side: 'right' }, // 3 pm (0° - lateral derecho)
       ];
 
-      frontClawAngles.forEach((angle) => {
-        const clawX = drumCenterX - Math.cos(angle) * (drumRadiusX + 4);
-        const clawY = drumCenterY + Math.sin(angle) * (drumRadiusY + 3);
+      frontClaws.forEach(({ hour, angle, side }) => {
+        let clawX = drumCenterX + Math.cos(angle) * (drumRadiusX + 4);
+        let clawY = drumCenterY + Math.sin(angle) * (drumRadiusY + 3);
 
         ctx.save();
 
-        // A. Drop shadow of claw onto shell and hoop
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetY = 4;
+        if (side === 'front') {
+          // ==========================================
+          // REMACHES FRONTALES (7 pm y 5 pm)
+          // ==========================================
+          const lugY = clawY + 38; // Posición de la parte inferior en la caja gruesa
 
-        // B. Lower Lug Casing on maple shell
-        const lugY = clawY + 36;
-        const lugGrad = ctx.createLinearGradient(clawX - 7, 0, clawX + 7, 0);
-        lugGrad.addColorStop(0.0, '#854d0e');
-        lugGrad.addColorStop(0.3, '#ca8a04');
-        lugGrad.addColorStop(0.6, '#fef08a');
-        lugGrad.addColorStop(1.0, '#78350f');
-        ctx.fillStyle = lugGrad;
-        ctx.beginPath();
-        ctx.roundRect(clawX - 7, lugY, 14, 16, 4);
-        ctx.fill();
+          // A. Sombra arrojada de todo el remache
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+          ctx.shadowBlur = 9;
+          ctx.shadowOffsetY = 4;
 
-        // C. Steel Threaded Tension Rod connecting claw to lug
-        const rodGrad = ctx.createLinearGradient(clawX - 2.5, 0, clawX + 2.5, 0);
-        rodGrad.addColorStop(0.0, '#64748b');
-        rodGrad.addColorStop(0.4, '#f1f5f9');
-        rodGrad.addColorStop(0.8, '#cbd5e1');
-        rodGrad.addColorStop(1.0, '#475569');
-        ctx.fillStyle = rodGrad;
-        ctx.fillRect(clawX - 2.5, clawY + 12, 5, Math.max(8, lugY - (clawY + 12)));
-
-        // Thread ridges on the steel rod
-        ctx.strokeStyle = 'rgba(30, 41, 59, 0.45)';
-        ctx.lineWidth = 1.0;
-        for (let ry = clawY + 15; ry < lugY; ry += 3.5) {
+          // B. PARTE INFERIOR DEL REMACHE: Pieza de metal dorado fijada a la caja más gruesa
+          const lugGrad = ctx.createLinearGradient(clawX - 8, 0, clawX + 8, 0);
+          lugGrad.addColorStop(0.0, '#854d0e');
+          lugGrad.addColorStop(0.25, '#ca8a04');
+          lugGrad.addColorStop(0.55, '#fef08a');
+          lugGrad.addColorStop(0.85, '#eab308');
+          lugGrad.addColorStop(1.0, '#78350f');
+          ctx.fillStyle = lugGrad;
           ctx.beginPath();
-          ctx.moveTo(clawX - 2.5, ry);
-          ctx.lineTo(clawX + 2.5, ry);
-          ctx.stroke();
+          ctx.roundRect(clawX - 8, lugY, 16, 18, 4);
+          ctx.fill();
+
+          // Orificio cilíndrico donde entra el tornillo plateado
+          ctx.fillStyle = 'rgba(30, 15, 5, 0.8)';
+          ctx.beginPath();
+          ctx.ellipse(clawX, lugY + 2, 4, 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // C. CUERPO ESTRIADO DEL TORNILLO PLATEADO (Baja desde la abrazadera hasta la pieza inferior)
+          const rodStartY = clawY + 12;
+          const rodHeight = Math.max(10, lugY - rodStartY + 2);
+          const rodGrad = ctx.createLinearGradient(clawX - 2.5, 0, clawX + 2.5, 0);
+          rodGrad.addColorStop(0.0, '#64748b');
+          rodGrad.addColorStop(0.35, '#f1f5f9');
+          rodGrad.addColorStop(0.75, '#cbd5e1');
+          rodGrad.addColorStop(1.0, '#475569');
+          ctx.fillStyle = rodGrad;
+          ctx.fillRect(clawX - 2.5, rodStartY, 5, rodHeight);
+
+          // Estrías de la rosca del tornillo
+          ctx.strokeStyle = 'rgba(30, 41, 59, 0.55)';
+          ctx.lineWidth = 1.0;
+          for (let ry = rodStartY + 2; ry < lugY; ry += 3.5) {
+            ctx.beginPath();
+            ctx.moveTo(clawX - 2.5, ry);
+            ctx.lineTo(clawX + 2.5, ry);
+            ctx.stroke();
+          }
+
+          // D. ABRAZADERA SUPERIOR DE METAL DORADO (Sujeta la elipse principal de madera)
+          const clampGrad = ctx.createLinearGradient(clawX - 10, 0, clawX + 10, 0);
+          clampGrad.addColorStop(0.0, '#78350f');
+          clampGrad.addColorStop(0.25, '#ca8a04');
+          clampGrad.addColorStop(0.52, '#fef08a');
+          clampGrad.addColorStop(0.8, '#eab308');
+          clampGrad.addColorStop(1.0, '#713f12');
+          ctx.fillStyle = clampGrad;
+          ctx.beginPath();
+          ctx.roundRect(clawX - 10, clawY - 2, 20, 17, [2, 2, 4, 4]);
+          ctx.fill();
+
+          // Labio superior curvado de la abrazadera que dobla sobre la elipse de madera
+          const hookGrad = ctx.createLinearGradient(0, clawY - 8, 0, clawY);
+          hookGrad.addColorStop(0.0, '#fef08a');
+          hookGrad.addColorStop(0.5, '#eab308');
+          hookGrad.addColorStop(1.0, '#a16207');
+          ctx.fillStyle = hookGrad;
+          ctx.beginPath();
+          ctx.roundRect(clawX - 9, clawY - 8, 18, 8, [3, 3, 0, 0]);
+          ctx.fill();
+
+          // E. TORNILLO DE AFINACIÓN SUPERIOR (Cabeza cuadrada cromada + arandela)
+          ctx.fillStyle = '#f8fafc';
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 1;
+          ctx.fillRect(clawX - 3.5, clawY - 14, 7, 7);
+          ctx.strokeRect(clawX - 3.5, clawY - 14, 7, 7);
+
+          // Arandela metálica plana debajo de la cabeza del tornillo
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(clawX - 5, clawY - 9, 10, 2);
+
+        } else {
+          // ==========================================
+          // REMACHES LATERALES (9 pm y 3 pm en perfil)
+          // ==========================================
+          const isLeft = side === 'left';
+          const lugY = clawY + 28;
+
+          // Sombra lateral
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+          ctx.shadowBlur = 8;
+
+          // Parte inferior de metal dorado en la caja gruesa
+          const lugGrad = ctx.createLinearGradient(clawX - 5, 0, clawX + 5, 0);
+          lugGrad.addColorStop(0.0, '#854d0e');
+          lugGrad.addColorStop(0.5, '#fef08a');
+          lugGrad.addColorStop(1.0, '#78350f');
+          ctx.fillStyle = lugGrad;
+          ctx.beginPath();
+          ctx.roundRect(isLeft ? clawX - 8 : clawX, lugY, 8, 16, 3);
+          ctx.fill();
+
+          // Varilla plateada estriada
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(isLeft ? clawX - 5 : clawX + 2, clawY + 8, 3.5, 22);
+
+          // Abrazadera dorada en el lateral del aro
+          const clampGrad = ctx.createLinearGradient(0, clawY - 6, 0, clawY + 12);
+          clampGrad.addColorStop(0.0, '#fef08a');
+          clampGrad.addColorStop(0.5, '#eab308');
+          clampGrad.addColorStop(1.0, '#78350f');
+          ctx.fillStyle = clampGrad;
+          ctx.beginPath();
+          ctx.roundRect(isLeft ? clawX - 9 : clawX + 1, clawY - 6, 8, 16, 3);
+          ctx.fill();
+
+          // Tornillo plateado superior
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(isLeft ? clawX - 6 : clawX + 3, clawY - 11, 4.5, 5);
         }
-
-        // D. Brass Claw Body (Front Bracket wrapping hoop)
-        const clawBodyGrad = ctx.createLinearGradient(clawX - 9, 0, clawX + 9, 0);
-        clawBodyGrad.addColorStop(0.0, '#78350f');
-        clawBodyGrad.addColorStop(0.25, '#ca8a04');
-        clawBodyGrad.addColorStop(0.5, '#fef08a');
-        clawBodyGrad.addColorStop(0.8, '#eab308');
-        clawBodyGrad.addColorStop(1.0, '#713f12');
-        ctx.fillStyle = clawBodyGrad;
-        ctx.beginPath();
-        ctx.roundRect(clawX - 9, clawY - 2, 18, 16, [2, 2, 4, 4]);
-        ctx.fill();
-
-        // E. Top L-Hook wrapping onto the top of the hoop
-        const hookGrad = ctx.createLinearGradient(0, clawY - 7, 0, clawY);
-        hookGrad.addColorStop(0.0, '#fef08a');
-        hookGrad.addColorStop(0.5, '#eab308');
-        hookGrad.addColorStop(1.0, '#a16207');
-        ctx.fillStyle = hookGrad;
-        ctx.beginPath();
-        ctx.roundRect(clawX - 8, clawY - 7, 16, 7, [3, 3, 0, 0]);
-        ctx.fill();
-
-        // F. Chrome Tuning Bolt Head (Square peg on top)
-        ctx.fillStyle = '#f8fafc';
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 1;
-        ctx.fillRect(clawX - 3, clawY - 12, 6, 6);
-        ctx.strokeRect(clawX - 3, clawY - 12, 6, 6);
-
-        // Steel washer underneath bolt head
-        ctx.fillStyle = '#cbd5e1';
-        ctx.fillRect(clawX - 4.5, clawY - 8, 9, 2);
 
         ctx.restore();
       });
