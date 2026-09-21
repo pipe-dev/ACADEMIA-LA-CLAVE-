@@ -29,6 +29,9 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const drumSkinVelocityRef = useRef<number>(0);
   const sphereRef = useRef<ActiveSphere | null>(activeSphere);
   const prevSphereYRef = useRef<number>(0);
+  const sphereDomRef = useRef<HTMLDivElement | null>(null);
+  const leftPieceDomRef = useRef<HTMLDivElement | null>(null);
+  const rightPieceDomRef = useRef<HTMLDivElement | null>(null);
 
   // Sync active sphere ref
   useEffect(() => {
@@ -130,7 +133,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       const nearestY = ptA.y + u * dy;
       const distanceToCenter = Math.hypot(sphere.x - nearestX, sphere.y - nearestY);
 
-      if (distanceToCenter <= sphere.radius * 1.25) {
+      if (distanceToCenter <= 58) {
         sliceActiveSphere(sphere, nearestX, nearestY);
       }
     },
@@ -153,6 +156,12 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
     isPointerDownRef.current = true;
     pointerTrailRef.current = [{ x, y, time: performance.now() }];
+
+    // Direct touch slice support
+    const sphere = sphereRef.current;
+    if (sphere && !sphere.isCut && Math.hypot(sphere.x - x, sphere.y - y) <= 58) {
+      sliceActiveSphere(sphere, x, y);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -406,10 +415,34 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         }
         prevSphereYRef.current = sphere.y;
 
+        const altitude = Math.max(0, drumSurfaceY - sphere.y);
+
         if (!sphere.isCut) {
+          // Squash & Stretch calculation upon drum impact
+          let scaleX = 1;
+          let scaleY = 1;
+
+          if (altitude < 35) {
+            // Elastic compression against the drum skin
+            const compression = Math.max(0, 1 - altitude / 35);
+            scaleX = 1 + 0.32 * compression; // squashes wider
+            scaleY = 1 - 0.32 * compression; // flattens down against the drum
+          } else if (altitude < 110 && sphere.vy < -150) {
+            // Elastic stretch on takeoff
+            scaleX = 0.90;
+            scaleY = 1.14;
+          }
+
+          if (sphereDomRef.current) {
+            sphereDomRef.current.style.display = 'block';
+            sphereDomRef.current.style.transform = `translate3d(${sphere.x - 40}px, ${sphere.y - 40}px, 0) scale(${scaleX}, ${scaleY})`;
+            sphereDomRef.current.style.transformOrigin = '50% 95%';
+          }
+          if (leftPieceDomRef.current) leftPieceDomRef.current.style.display = 'none';
+          if (rightPieceDomRef.current) rightPieceDomRef.current.style.display = 'none';
+
           // Drop Shadow onto the drum surface
-          const altitude = Math.max(0, drumSurfaceY - sphere.y);
-          const shadowScale = Math.max(0.4, 1 - altitude / (height * 0.6));
+          const shadowScale = Math.max(0.4, (1 - altitude / (height * 0.6)) * scaleX);
           const shadowAlpha = Math.max(0.08, 0.35 * shadowScale);
 
           ctx.save();
@@ -427,39 +460,32 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           ctx.fill();
           ctx.restore();
         } else {
-          // Render Severed 3D Hemispheres
-          const drawHemisphere = (piece: SphereHemisphere, isLeft: boolean) => {
-            piece.vy += 0.32 * speedFactor; // gravity
-            piece.x += piece.vx * speedFactor;
-            piece.y += piece.vy * speedFactor;
-            piece.rotation += piece.vRot * speedFactor;
-            piece.alpha = Math.max(0, piece.alpha - 0.012 * speedFactor);
+          // Sphere is CUT: Hide unbroken sphere, animate and reveal the two 3D half-spheres
+          if (sphereDomRef.current) sphereDomRef.current.style.display = 'none';
 
-            ctx.save();
-            ctx.globalAlpha = piece.alpha;
-            ctx.translate(piece.x, piece.y);
-            ctx.rotate(piece.rotation);
+          if (sphere.leftPiece && leftPieceDomRef.current) {
+            sphere.leftPiece.vy += 0.35 * speedFactor;
+            sphere.leftPiece.x += sphere.leftPiece.vx * speedFactor;
+            sphere.leftPiece.y += sphere.leftPiece.vy * speedFactor;
+            sphere.leftPiece.rotation += sphere.leftPiece.vRot * speedFactor;
+            sphere.leftPiece.alpha = Math.max(0, sphere.leftPiece.alpha - 0.016 * speedFactor);
 
-            ctx.beginPath();
-            // Half-circle arc
-            ctx.arc(0, 0, sphere.radius, isLeft ? Math.PI * 0.5 : -Math.PI * 0.5, isLeft ? -Math.PI * 0.5 : Math.PI * 0.5);
-            ctx.closePath();
+            leftPieceDomRef.current.style.display = sphere.leftPiece.alpha > 0.02 ? 'block' : 'none';
+            leftPieceDomRef.current.style.opacity = `${sphere.leftPiece.alpha}`;
+            leftPieceDomRef.current.style.transform = `translate3d(${sphere.leftPiece.x - 40}px, ${sphere.leftPiece.y - 40}px, 0) rotate(${sphere.leftPiece.rotation}rad)`;
+          }
 
-            const isGold = sphere.type === 'golden';
-            ctx.fillStyle = isGold ? '#f59e0b' : '#7c3aed';
-            ctx.shadowColor = isGold ? '#fbbf24' : '#c084fc';
-            ctx.shadowBlur = 12;
-            ctx.fill();
+          if (sphere.rightPiece && rightPieceDomRef.current) {
+            sphere.rightPiece.vy += 0.35 * speedFactor;
+            sphere.rightPiece.x += sphere.rightPiece.vx * speedFactor;
+            sphere.rightPiece.y += sphere.rightPiece.vy * speedFactor;
+            sphere.rightPiece.rotation += sphere.rightPiece.vRot * speedFactor;
+            sphere.rightPiece.alpha = Math.max(0, sphere.rightPiece.alpha - 0.016 * speedFactor);
 
-            // Glowing inner cut core
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(-1.5, -sphere.radius, 3, sphere.radius * 2);
-
-            ctx.restore();
-          };
-
-          if (sphere.leftPiece) drawHemisphere(sphere.leftPiece, true);
-          if (sphere.rightPiece) drawHemisphere(sphere.rightPiece, false);
+            rightPieceDomRef.current.style.display = sphere.rightPiece.alpha > 0.02 ? 'block' : 'none';
+            rightPieceDomRef.current.style.opacity = `${sphere.rightPiece.alpha}`;
+            rightPieceDomRef.current.style.transform = `translate3d(${sphere.rightPiece.x - 40}px, ${sphere.rightPiece.y - 40}px, 0) rotate(${sphere.rightPiece.rotation}rad)`;
+          }
         }
       }
 
@@ -541,18 +567,43 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         onPointerCancel={handlePointerUp}
       />
 
-      {/* 3D Ball Copied Directly from TunerRhythmView.tsx */}
-      {activeSphere && !activeSphere.isCut && (
-        <div
-          style={{
-            transform: `translate3d(${activeSphere.x - 40}px, ${activeSphere.y - 40}px, 0)`,
-            willChange: 'transform',
-          }}
-          className="absolute top-0 left-0 pointer-events-none z-20"
-        >
-          <RhythmSphere3D type={activeSphere.type} />
-        </div>
-      )}
+      {/* Intact 3D Sphere – position & squash/stretch driven by sphereDomRef at 60fps */}
+      <div
+        ref={sphereDomRef}
+        style={{
+          willChange: 'transform',
+          display: 'none',
+        }}
+        className="absolute top-0 left-0 pointer-events-none z-20"
+      >
+        <RhythmSphere3D type={activeSphere?.type} />
+      </div>
+
+      {/* Left Half-Sphere (post-slice) – clipPath cuts left 50% */}
+      <div
+        ref={leftPieceDomRef}
+        style={{
+          willChange: 'transform',
+          display: 'none',
+          clipPath: 'polygon(0% 0%, 50% 0%, 50% 100%, 0% 100%)',
+        }}
+        className="absolute top-0 left-0 pointer-events-none z-20"
+      >
+        <RhythmSphere3D type={activeSphere?.type} />
+      </div>
+
+      {/* Right Half-Sphere (post-slice) – clipPath cuts right 50% */}
+      <div
+        ref={rightPieceDomRef}
+        style={{
+          willChange: 'transform',
+          display: 'none',
+          clipPath: 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)',
+        }}
+        className="absolute top-0 left-0 pointer-events-none z-20"
+      >
+        <RhythmSphere3D type={activeSphere?.type} />
+      </div>
     </div>
   );
 };
