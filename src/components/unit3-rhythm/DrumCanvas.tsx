@@ -76,31 +76,31 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     sparksRef.current.push(...newSparks);
   };
 
-  // Slice sphere into two hemispheres
+  // Slice sphere into two hemispheres — explosive Fruit Ninja physics
   const sliceActiveSphere = useCallback((sphere: ActiveSphere, cutX: number, cutY: number) => {
     if (sphere.isCut) return;
 
     sphere.isCut = true;
 
-    // Left hemisphere
+    // Left hemisphere — flies hard left and up with fast spin
     const leftPiece: SphereHemisphere = {
-      x: sphere.x - 8,
+      x: sphere.x - 4,
       y: sphere.y,
-      vx: -3.5 - Math.random() * 2.0,
-      vy: -2.0 - Math.random() * 1.5,
+      vx: -12 - Math.random() * 6,   // fast horizontal separation
+      vy: -8 - Math.random() * 5,     // pop upward first
       rotation: 0,
-      vRot: -0.06 - Math.random() * 0.04,
+      vRot: -0.18 - Math.random() * 0.12, // fast spin
       alpha: 1.0,
     };
 
-    // Right hemisphere
+    // Right hemisphere — flies hard right and up with fast spin
     const rightPiece: SphereHemisphere = {
-      x: sphere.x + 8,
+      x: sphere.x + 4,
       y: sphere.y,
-      vx: 3.5 + Math.random() * 2.0,
-      vy: -2.0 - Math.random() * 1.5,
+      vx: 12 + Math.random() * 6,     // fast horizontal separation
+      vy: -8 - Math.random() * 5,     // pop upward first
       rotation: 0,
-      vRot: 0.06 + Math.random() * 0.04,
+      vRot: 0.18 + Math.random() * 0.12, // fast spin
       alpha: 1.0,
     };
 
@@ -464,27 +464,29 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           if (sphereDomRef.current) sphereDomRef.current.style.display = 'none';
 
           if (sphere.leftPiece && leftPieceDomRef.current) {
-            sphere.leftPiece.vy += 0.35 * speedFactor;
+            sphere.leftPiece.vy += 1.2 * speedFactor; // strong gravity pulls it down fast
             sphere.leftPiece.x += sphere.leftPiece.vx * speedFactor;
             sphere.leftPiece.y += sphere.leftPiece.vy * speedFactor;
             sphere.leftPiece.rotation += sphere.leftPiece.vRot * speedFactor;
-            sphere.leftPiece.alpha = Math.max(0, sphere.leftPiece.alpha - 0.016 * speedFactor);
+            sphere.leftPiece.alpha = Math.max(0, sphere.leftPiece.alpha - 0.035 * speedFactor);
 
+            const scaleL = Math.max(0.3, sphere.leftPiece.alpha); // shrinks as it fades
             leftPieceDomRef.current.style.display = sphere.leftPiece.alpha > 0.02 ? 'block' : 'none';
             leftPieceDomRef.current.style.opacity = `${sphere.leftPiece.alpha}`;
-            leftPieceDomRef.current.style.transform = `translate3d(${sphere.leftPiece.x - 40}px, ${sphere.leftPiece.y - 40}px, 0) rotate(${sphere.leftPiece.rotation}rad)`;
+            leftPieceDomRef.current.style.transform = `translate3d(${sphere.leftPiece.x - 40}px, ${sphere.leftPiece.y - 40}px, 0) rotate(${sphere.leftPiece.rotation}rad) scale(${scaleL})`;
           }
 
           if (sphere.rightPiece && rightPieceDomRef.current) {
-            sphere.rightPiece.vy += 0.35 * speedFactor;
+            sphere.rightPiece.vy += 1.2 * speedFactor; // strong gravity
             sphere.rightPiece.x += sphere.rightPiece.vx * speedFactor;
             sphere.rightPiece.y += sphere.rightPiece.vy * speedFactor;
             sphere.rightPiece.rotation += sphere.rightPiece.vRot * speedFactor;
-            sphere.rightPiece.alpha = Math.max(0, sphere.rightPiece.alpha - 0.016 * speedFactor);
+            sphere.rightPiece.alpha = Math.max(0, sphere.rightPiece.alpha - 0.035 * speedFactor);
 
+            const scaleR = Math.max(0.3, sphere.rightPiece.alpha); // shrinks as it fades
             rightPieceDomRef.current.style.display = sphere.rightPiece.alpha > 0.02 ? 'block' : 'none';
             rightPieceDomRef.current.style.opacity = `${sphere.rightPiece.alpha}`;
-            rightPieceDomRef.current.style.transform = `translate3d(${sphere.rightPiece.x - 40}px, ${sphere.rightPiece.y - 40}px, 0) rotate(${sphere.rightPiece.rotation}rad)`;
+            rightPieceDomRef.current.style.transform = `translate3d(${sphere.rightPiece.x - 40}px, ${sphere.rightPiece.y - 40}px, 0) rotate(${sphere.rightPiece.rotation}rad) scale(${scaleR})`;
           }
         }
       }
