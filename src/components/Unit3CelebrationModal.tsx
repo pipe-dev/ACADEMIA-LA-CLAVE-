@@ -200,19 +200,53 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
       if (sphere && !sphere.isCut && gameStateRef.current !== 'TROPHY_REVEAL') {
         // Physics update
         const speedMultiplier = isSlowMo ? 0.3 : 1.0;
-        const g = sphere.g * speedMultiplier; // exact calibrated gravity
+        const g = sphere.g * speedMultiplier; // calibrated gravity
         sphere.vy += g * dt;
         sphere.y += sphere.vy * dt * speedMultiplier;
         sphere.x += sphere.vx * dt * speedMultiplier;
 
-        // Check if sphere reached the drum membrane — bounce it back up!
+        const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
         const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
-        const drumSurfaceY = canvasHeight * 0.82;
+        const drumSurfaceY = canvasHeight * 0.81;
+
+        // 1. Keep sphere strictly inside visible screen (bounce off side walls)
+        const margin = 45;
+        if (sphere.x <= margin) {
+          sphere.x = margin;
+          sphere.vx = Math.abs(sphere.vx) || 50;
+        } else if (sphere.x >= canvasWidth - margin) {
+          sphere.x = canvasWidth - margin;
+          sphere.vx = -(Math.abs(sphere.vx) || 50);
+        }
+
+        // 2. Perpetual, energetic bounce off the drum membrane — NEVER loses momentum!
         if (sphere.y >= drumSurfaceY && sphere.vy > 0) {
-          // Elastic bounce off the drum membrane — ball never disappears
           sphere.y = drumSurfaceY;
-          sphere.vy = -Math.abs(sphere.vy); // perfect elastic rebound
-          playDullBounce();
+
+          // Randomized peak height (between 34% and 44% of canvas height)
+          const randomPeakRatio = sphere.type === 'golden'
+            ? 0.34 + Math.random() * 0.08
+            : 0.37 + Math.random() * 0.10;
+          const peakY = canvasHeight * randomPeakRatio;
+          const deltaY = drumSurfaceY - peakY;
+
+          // Fresh full impulse so the jump is always crisp and high
+          sphere.vy = -Math.sqrt(2 * sphere.g * deltaY);
+
+          // Randomized horizontal velocity within bounds: steer towards center if drifting
+          const center = canvasWidth * 0.5;
+          if (sphere.x < center - 60) {
+            // Steer back towards center-right
+            sphere.vx = 45 + Math.random() * 65;
+          } else if (sphere.x > center + 60) {
+            // Steer back towards center-left
+            sphere.vx = -(45 + Math.random() * 65);
+          } else {
+            // Around center: pick random direction
+            sphere.vx = (Math.random() > 0.5 ? 1 : -1) * (35 + Math.random() * 60);
+          }
+
+          playBassDrum(sphere.type === 'golden');
         }
 
         setActiveSphere({ ...sphere });

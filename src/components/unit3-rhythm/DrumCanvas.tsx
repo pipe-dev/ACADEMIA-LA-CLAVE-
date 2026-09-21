@@ -406,8 +406,8 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         // Detect impact on drum surface
         const drumSurfaceY = drumCenterY - drumRadiusY * 0.4;
         if (
-          sphere.y >= drumSurfaceY &&
-          prevSphereYRef.current < drumSurfaceY &&
+          sphere.y >= drumSurfaceY - 5 &&
+          prevSphereYRef.current < sphere.y &&
           sphere.vy > 0 &&
           !sphere.isCut
         ) {
@@ -418,25 +418,25 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         const altitude = Math.max(0, drumSurfaceY - sphere.y);
 
         if (!sphere.isCut) {
-          // Squash & Stretch calculation upon drum impact — very subtle, real rubber ball
+          // Subtle physical deformation at drum contact (bottom sinks smoothly, realistic ball physics)
           let scaleX = 1;
           let scaleY = 1;
 
-          if (altitude < 15) {
-            // Subtle elastic compression at drum contact — barely noticeable, like a real ball
-            const compression = Math.max(0, 1 - altitude / 15);
-            scaleX = 1 + 0.06 * compression; // barely wider
-            scaleY = 1 - 0.06 * compression; // barely flatter at the bottom
-          } else if (altitude < 60 && sphere.vy < -150) {
-            // Very subtle stretch on takeoff
-            scaleX = 0.97;
-            scaleY = 1.04;
+          if (altitude < 18) {
+            // Elastic compression only at the base
+            const compression = Math.max(0, 1 - altitude / 18);
+            scaleX = 1 + 0.05 * compression; // max 1.05 width
+            scaleY = 1 - 0.08 * compression; // max 0.92 height (bottom depresses slightly)
+          } else if (altitude < 70 && sphere.vy < -150) {
+            // Very subtle aerodynamic elongation on upward surge
+            scaleX = 0.98;
+            scaleY = 1.03;
           }
 
           if (sphereDomRef.current) {
             sphereDomRef.current.style.display = 'block';
             sphereDomRef.current.style.transform = `translate3d(${sphere.x - 40}px, ${sphere.y - 40}px, 0) scale(${scaleX}, ${scaleY})`;
-            sphereDomRef.current.style.transformOrigin = '50% 95%';
+            sphereDomRef.current.style.transformOrigin = '50% 100%';
           }
           if (leftPieceDomRef.current) leftPieceDomRef.current.style.display = 'none';
           if (rightPieceDomRef.current) rightPieceDomRef.current.style.display = 'none';
