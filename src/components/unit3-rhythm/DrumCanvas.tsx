@@ -3,6 +3,7 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { ActiveSphere, DrumWave, StarSpark, SlicePoint, SphereHemisphere } from './types';
+import { RhythmSphere3D } from './RhythmSphere3D';
 
 interface DrumCanvasProps {
   activeSphere: ActiveSphere | null;
@@ -422,69 +423,8 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             0,
             Math.PI * 2
           );
-          ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha})`;
+          ctx.fillStyle = `rgba(15, 23, 42, ${shadowAlpha * 1.5})`;
           ctx.fill();
-          ctx.restore();
-
-          // Render 3D Sphere Body
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(sphere.x, sphere.y, sphere.radius, 0, Math.PI * 2);
-
-          if (sphere.type === 'golden') {
-            // Golden Solar Sphere
-            const goldGrad = ctx.createRadialGradient(
-              sphere.x - sphere.radius * 0.32,
-              sphere.y - sphere.radius * 0.32,
-              sphere.radius * 0.1,
-              sphere.x,
-              sphere.y,
-              sphere.radius
-            );
-            goldGrad.addColorStop(0, '#fffbeb'); // pure white-gold center
-            goldGrad.addColorStop(0.3, '#fef08a');
-            goldGrad.addColorStop(0.7, '#f59e0b');
-            goldGrad.addColorStop(1, '#b45309');
-            ctx.fillStyle = goldGrad;
-            ctx.shadowColor = '#f59e0b';
-            ctx.shadowBlur = 24;
-            ctx.fill();
-
-            // Radiant corona pulse
-            ctx.strokeStyle = 'rgba(254, 240, 138, 0.75)';
-            ctx.lineWidth = 2.5;
-            ctx.stroke();
-          } else {
-            // Classic La Clave 3D Purple Sphere
-            const purpleGrad = ctx.createRadialGradient(
-              sphere.x - sphere.radius * 0.32,
-              sphere.y - sphere.radius * 0.32,
-              sphere.radius * 0.08,
-              sphere.x,
-              sphere.y,
-              sphere.radius
-            );
-            purpleGrad.addColorStop(0, '#f5d0fe'); // specular highlight
-            purpleGrad.addColorStop(0.25, '#c084fc');
-            purpleGrad.addColorStop(0.7, '#7c3aed');
-            purpleGrad.addColorStop(1, '#4c1d95'); // deep violet base
-            ctx.fillStyle = purpleGrad;
-            ctx.shadowColor = '#8b5cf6';
-            ctx.shadowBlur = 18;
-            ctx.fill();
-
-            // Hotspot Specular Reflection (Glassy look)
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-            ctx.beginPath();
-            ctx.arc(
-              sphere.x - sphere.radius * 0.28,
-              sphere.y - sphere.radius * 0.28,
-              sphere.radius * 0.22,
-              0,
-              Math.PI * 2
-            );
-            ctx.fill();
-          }
           ctx.restore();
         } else {
           // Render Severed 3D Hemispheres
@@ -591,13 +531,28 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   }, [isSlowMo, triggerDrumImpact, completedBeats]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full cursor-crosshair touch-none select-none z-20"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-    />
+    <div className="relative w-full h-full overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full cursor-crosshair touch-none select-none z-10"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      />
+
+      {/* 3D Ball Copied Directly from TunerRhythmView.tsx */}
+      {activeSphere && !activeSphere.isCut && (
+        <div
+          style={{
+            transform: `translate3d(${activeSphere.x - 40}px, ${activeSphere.y - 40}px, 0)`,
+            willChange: 'transform',
+          }}
+          className="absolute top-0 left-0 pointer-events-none z-20"
+        >
+          <RhythmSphere3D type={activeSphere.type} />
+        </div>
+      )}
+    </div>
   );
 };
