@@ -418,19 +418,19 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         const altitude = Math.max(0, drumSurfaceY - sphere.y);
 
         if (!sphere.isCut) {
-          // Squash & Stretch calculation upon drum impact
+          // Squash & Stretch calculation upon drum impact — very subtle, real rubber ball
           let scaleX = 1;
           let scaleY = 1;
 
-          if (altitude < 35) {
-            // Elastic compression against the drum skin
-            const compression = Math.max(0, 1 - altitude / 35);
-            scaleX = 1 + 0.32 * compression; // squashes wider
-            scaleY = 1 - 0.32 * compression; // flattens down against the drum
-          } else if (altitude < 110 && sphere.vy < -150) {
-            // Elastic stretch on takeoff
-            scaleX = 0.90;
-            scaleY = 1.14;
+          if (altitude < 15) {
+            // Subtle elastic compression at drum contact — barely noticeable, like a real ball
+            const compression = Math.max(0, 1 - altitude / 15);
+            scaleX = 1 + 0.06 * compression; // barely wider
+            scaleY = 1 - 0.06 * compression; // barely flatter at the bottom
+          } else if (altitude < 60 && sphere.vy < -150) {
+            // Very subtle stretch on takeoff
+            scaleX = 0.97;
+            scaleY = 1.04;
           }
 
           if (sphereDomRef.current) {

@@ -205,22 +205,17 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         sphere.y += sphere.vy * dt * speedMultiplier;
         sphere.x += sphere.vx * dt * speedMultiplier;
 
-        // Check if sphere fell back down past the drum without being cut
+        // Check if sphere reached the drum membrane — bounce it back up!
         const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
-        if (sphere.y > canvasHeight * 0.88 && sphere.vy > 0) {
-          // Sphere missed!
+        const drumSurfaceY = canvasHeight * 0.82;
+        if (sphere.y >= drumSurfaceY && sphere.vy > 0) {
+          // Elastic bounce off the drum membrane — ball never disappears
+          sphere.y = drumSurfaceY;
+          sphere.vy = -Math.abs(sphere.vy); // perfect elastic rebound
           playDullBounce();
-          sphere.isCut = true; // stop rendering it
-          currentSphereRef.current = null;
-          setActiveSphere(null);
-
-          // Restart sequence gracefully
-          setTimeout(() => {
-            resetToBeatOne();
-          }, 300);
-        } else {
-          setActiveSphere({ ...sphere });
         }
+
+        setActiveSphere({ ...sphere });
       }
 
       animId = requestAnimationFrame(loop);
