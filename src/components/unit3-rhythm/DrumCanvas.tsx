@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { ActiveSphere, DrumWave, StarSpark, SlicePoint, SeveredPiece } from './types';
+import { ActiveSphere, DrumWave, StarSpark, SlicePoint, SeveredPiece, DrumDimple } from './types';
 import { RhythmSphere3D } from './RhythmSphere3D';
 
 interface DrumCanvasProps {
@@ -27,6 +27,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const pointerTrailRef = useRef<SlicePoint[]>([]);
   const sparksRef = useRef<StarSpark[]>([]);
   const wavesRef = useRef<DrumWave[]>([]);
+  const dimplesRef = useRef<DrumDimple[]>([]);
   const drumSkinOffsetRef = useRef<number>(0);
   const drumSkinVelocityRef = useRef<number>(0);
 
@@ -51,18 +52,46 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     }
   }, [spheres, activeSphere]);
 
-  // Trigger drum bounce ripple and elastic dip
+  // Trigger drum bounce ripple, elastic dip, and tactile dimple with particle cone
   const triggerDrumImpact = useCallback((impactX: number, impactY: number) => {
-    drumSkinOffsetRef.current = 16; // Dip down 16px
+    drumSkinOffsetRef.current = 14; // Dip down 14px
     drumSkinVelocityRef.current = -3;
 
     wavesRef.current.push({
       id: Date.now() + Math.random(),
       x: impactX,
       y: impactY,
-      radius: 10,
-      maxRadius: 210,
+      radius: 12,
+      maxRadius: 220,
       alpha: 0.95,
+    });
+
+    // Create colorful rising particles for the impact dimple geyser (cyan, yellow, purple, orange, green)
+    const colors = ['#38bdf8', '#fbbf24', '#c084fc', '#4ade80', '#fb923c', '#ffffff'];
+    const particles = Array.from({ length: 14 }).map(() => {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.9;
+      const speed = 1.4 + Math.random() * 3.6;
+      return {
+        x: impactX + (Math.random() - 0.5) * 14,
+        y: impactY + (Math.random() - 0.5) * 6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 2.2 + Math.random() * 2.8,
+        alpha: 1.0,
+      };
+    });
+
+    dimplesRef.current.push({
+      id: Date.now() + Math.random(),
+      x: impactX,
+      y: impactY,
+      radius: 10,
+      maxRadius: 32,
+      depth: 14,
+      alpha: 1.0,
+      birthTime: performance.now(),
+      particles,
     });
 
     if (onDrumBounce) {
@@ -271,11 +300,13 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       const now = performance.now();
       const speedFactor = isSlowMo ? 0.3 : 1.0;
 
-      // 1. Drum Geometry Calculations (Bottom of screen)
+      // 1. Drum Geometry Calculations (In full glorious perspective view matching reference)
       const drumCenterX = width * 0.5;
-      const drumCenterY = height * 0.90;
-      const drumRadiusX = width * 0.62;
-      const drumRadiusY = height * 0.24;
+      const maxRadiusX = Math.min(width * 0.43, 270);
+      const drumRadiusX = Math.max(140, maxRadiusX);
+      const drumRadiusY = drumRadiusX * 0.51; // Classic 30° acoustic drum perspective tilt
+      const drumCenterY = Math.min(height * 0.68, height - drumRadiusY - 85);
+      const drumSurfaceY = drumCenterY - drumRadiusY * 0.15; // Sweet bounce zone on the drumhead
 
       // Elastic drum skin harmonic oscillation: F = -k*x - c*v
       const k = 0.18; // spring stiffness
@@ -318,31 +349,31 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
         ctx.save();
         // Abrazadera dorada superior abrazando el aro desde atrás
-        const hookGrad = ctx.createLinearGradient(0, clawY - 8, 0, clawY + 3);
+        const hookGrad = ctx.createLinearGradient(0, clawY - 9, 0, clawY + 3);
         hookGrad.addColorStop(0.0, '#fef08a');
         hookGrad.addColorStop(0.5, '#eab308');
         hookGrad.addColorStop(1.0, '#854d0e');
         ctx.fillStyle = hookGrad;
         ctx.beginPath();
-        ctx.roundRect(clawX - 8, clawY - 8, 16, 10, [3, 3, 0, 0]);
+        ctx.roundRect(clawX - 8, clawY - 9, 16, 11, [3, 3, 0, 0]);
         ctx.fill();
 
         // Cabeza cuadrada del tornillo de afinación plateado
         ctx.fillStyle = '#f8fafc';
         ctx.strokeStyle = '#64748b';
         ctx.lineWidth = 1;
-        ctx.fillRect(clawX - 3, clawY - 14, 6, 6);
-        ctx.strokeRect(clawX - 3, clawY - 14, 6, 6);
+        ctx.fillRect(clawX - 3, clawY - 15, 6, 6);
+        ctx.strokeRect(clawX - 3, clawY - 15, 6, 6);
 
         // Arandela metálica plana
         ctx.fillStyle = '#cbd5e1';
-        ctx.fillRect(clawX - 4.5, clawY - 9, 9, 2);
+        ctx.fillRect(clawX - 4.5, clawY - 9.5, 9, 2);
         ctx.restore();
       });
 
       // --- PASO 2: ANILLO 3 - Caja de madera gruesa (Shell / Diafragma ancho frontal) ---
       ctx.save();
-      const shellTopY = drumCenterY + 4;
+      const shellTopY = drumCenterY + 12;
       const shellBottomY = height + 40;
 
       ctx.beginPath();
@@ -368,14 +399,14 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         drumCenterX + drumRadiusX,
         0
       );
-      shellGrad.addColorStop(0.0, '#361507'); // borde oscuro sombreado
+      shellGrad.addColorStop(0.0, '#2b0e04'); // borde oscuro sombreado
       shellGrad.addColorStop(0.12, '#66270c');
       shellGrad.addColorStop(0.26, '#b45309'); // ámbar cálido
       shellGrad.addColorStop(0.38, '#d97706'); // arce miel brillante
       shellGrad.addColorStop(0.52, '#f59e0b'); // reflejo dorado de barniz
       shellGrad.addColorStop(0.68, '#b45309');
-      shellGrad.addColorStop(0.85, '#66270c');
-      shellGrad.addColorStop(1.0, '#280e04');
+      shellGrad.addColorStop(0.86, '#66270c');
+      shellGrad.addColorStop(1.0, '#220803');
       ctx.fillStyle = shellGrad;
       ctx.fill();
 
@@ -388,15 +419,15 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       );
       sheenGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0)');
       sheenGrad.addColorStop(0.4, 'rgba(255, 245, 225, 0.22)');
-      sheenGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.48)');
+      sheenGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.45)');
       sheenGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
       ctx.fillStyle = sheenGrad;
       ctx.fill();
 
       // Vetas verticales sutiles de la madera
-      ctx.strokeStyle = 'rgba(60, 24, 8, 0.16)';
+      ctx.strokeStyle = 'rgba(60, 24, 8, 0.14)';
       ctx.lineWidth = 1.2;
-      for (let gx = -drumRadiusX * 0.88; gx <= drumRadiusX * 0.88; gx += 20) {
+      for (let gx = -drumRadiusX * 0.88; gx <= drumRadiusX * 0.88; gx += 18) {
         ctx.beginPath();
         ctx.moveTo(drumCenterX + gx, shellTopY);
         ctx.lineTo(drumCenterX + gx * 1.04, shellBottomY);
@@ -409,7 +440,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.beginPath();
       ctx.ellipse(
         drumCenterX,
-        drumCenterY + 12,
+        drumCenterY + 11,
         drumRadiusX + 8,
         drumRadiusY + 8,
         0,
@@ -434,11 +465,11 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       // Línea de bisel superior brillante del anillo plateado
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.beginPath();
       ctx.ellipse(
         drumCenterX,
-        drumCenterY + 9,
+        drumCenterY + 8.5,
         drumRadiusX + 8,
         drumRadiusY + 8,
         0,
@@ -509,7 +540,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       ctx.fill();
 
       // Bisel de luz superior del aro
-      ctx.strokeStyle = 'rgba(255, 235, 215, 0.28)';
+      ctx.strokeStyle = 'rgba(255, 235, 215, 0.35)';
       ctx.lineWidth = 2.2;
       ctx.stroke();
 
@@ -576,6 +607,165 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         Math.PI * 2
       );
       ctx.stroke();
+
+      // --- DIANA GRABADA EN EL PARCHE (Engraved Target Crosshair de la foto de referencia) ---
+      const targetX = drumCenterX + drumRadiusX * 0.10;
+      const targetY = drumCenterY + skinDisplacement - drumRadiusY * 0.05;
+      const targetRx = drumRadiusX * 0.36;
+      const targetRy = drumRadiusY * 0.36;
+
+      ctx.save();
+      ctx.strokeStyle = '#ab906e';
+      ctx.lineWidth = 2.2;
+      ctx.fillStyle = '#ab906e';
+
+      // 1. Círculo exterior de la diana
+      ctx.beginPath();
+      ctx.ellipse(targetX, targetY, targetRx, targetRy, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 2. Punto circular central
+      ctx.beginPath();
+      ctx.ellipse(targetX, targetY, 9, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. Las 4 líneas de cruz (tick marks) que cruzan el anillo exterior
+      ctx.beginPath();
+      // Tick superior (12 horas)
+      ctx.moveTo(targetX, targetY - targetRy - 7);
+      ctx.lineTo(targetX, targetY - targetRy + 7);
+      // Tick inferior (6 horas)
+      ctx.moveTo(targetX, targetY + targetRy - 7);
+      ctx.lineTo(targetX, targetY + targetRy + 7);
+      // Tick izquierdo (9 horas)
+      ctx.moveTo(targetX - targetRx - 8, targetY);
+      ctx.lineTo(targetX - targetRx + 8, targetY);
+      // Tick derecho (3 horas)
+      ctx.moveTo(targetX + targetRx - 8, targetY);
+      ctx.lineTo(targetX + targetRx + 8, targetY);
+      ctx.stroke();
+      ctx.restore();
+
+      // --- HOYUELOS DE IMPACTO ESTÁTICOS (Textura táctil suave del parche en la foto) ---
+      const ambientDimples = [
+        { x: drumCenterX - drumRadiusX * 0.42, y: drumCenterY + skinDisplacement - drumRadiusY * 0.28, rx: 16, ry: 9 },
+        { x: drumCenterX - drumRadiusX * 0.55, y: drumCenterY + skinDisplacement + drumRadiusY * 0.22, rx: 18, ry: 10 },
+      ];
+
+      ambientDimples.forEach((d) => {
+        ctx.save();
+        const aGrad = ctx.createRadialGradient(d.x, d.y, 2, d.x, d.y, d.rx);
+        aGrad.addColorStop(0.0, 'rgba(175, 145, 115, 0.45)');
+        aGrad.addColorStop(0.6, 'rgba(200, 175, 145, 0.2)');
+        aGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = aGrad;
+        ctx.beginPath();
+        ctx.ellipse(d.x, d.y, d.rx, d.ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Reflejo blanco en el borde superior del hoyuelo
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(d.x, d.y - 1, d.rx * 0.85, d.ry * 0.85, 0, Math.PI * 0.9, Math.PI * 2.1);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // --- HOYUELOS DE IMPACTO DINÁMICOS (Geiser de luz y partículas al golpear esferas) ---
+      const currentDimples: DrumDimple[] = [];
+      dimplesRef.current.forEach((dimple) => {
+        const age = now - dimple.birthTime;
+        const maxAge = 1200; // 1.2s de vida
+        if (age < maxAge) {
+          const lifeRatio = 1 - age / maxAge;
+          dimple.alpha = lifeRatio;
+          dimple.radius = Math.min(dimple.maxRadius, dimple.radius + 0.35 * speedFactor);
+          currentDimples.push(dimple);
+
+          ctx.save();
+          const craterY = dimple.y + skinDisplacement * 0.5;
+
+          // 1. Depresión cónica del cráter en perspectiva
+          const dimpleGrad = ctx.createRadialGradient(
+            dimple.x,
+            craterY,
+            2,
+            dimple.x,
+            craterY,
+            dimple.radius
+          );
+          dimpleGrad.addColorStop(0.0, `rgba(168, 141, 108, ${0.60 * dimple.alpha})`);
+          dimpleGrad.addColorStop(0.55, `rgba(195, 170, 138, ${0.35 * dimple.alpha})`);
+          dimpleGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+
+          ctx.beginPath();
+          ctx.ellipse(
+            dimple.x,
+            craterY,
+            dimple.radius,
+            dimple.radius * (drumRadiusY / drumRadiusX),
+            0,
+            0,
+            Math.PI * 2
+          );
+          ctx.fillStyle = dimpleGrad;
+          ctx.fill();
+
+          // 2. Borde especular brillante en la cresta del hoyuelo
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 * dimple.alpha})`;
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.ellipse(
+            dimple.x,
+            craterY - 1,
+            dimple.radius * 0.9,
+            dimple.radius * 0.9 * (drumRadiusY / drumRadiusX),
+            0,
+            Math.PI * 0.9,
+            Math.PI * 2.1
+          );
+          ctx.stroke();
+
+          // 3. Haz de luz cónico vertical ascendente
+          const beamGrad = ctx.createLinearGradient(0, craterY, 0, craterY - 65);
+          beamGrad.addColorStop(0.0, `rgba(56, 189, 248, ${0.28 * dimple.alpha})`);
+          beamGrad.addColorStop(0.6, `rgba(251, 191, 36, ${0.14 * dimple.alpha})`);
+          beamGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+          ctx.fillStyle = beamGrad;
+          ctx.beginPath();
+          ctx.moveTo(dimple.x - 6, craterY);
+          ctx.lineTo(dimple.x + 6, craterY);
+          ctx.lineTo(dimple.x + 16, craterY - 65);
+          ctx.lineTo(dimple.x - 16, craterY - 65);
+          ctx.closePath();
+          ctx.fill();
+
+          // 4. Partículas de colores que brotan hacia arriba (cyan, yellow, purple, green, orange)
+          dimple.particles.forEach((p) => {
+            p.x += p.vx * speedFactor;
+            p.y += p.vy * speedFactor;
+            p.vy -= 0.04 * speedFactor; // leve aceleración hacia arriba
+            p.alpha = Math.max(0, p.alpha - 0.018 * speedFactor);
+
+            if (p.alpha > 0.05) {
+              ctx.save();
+              ctx.fillStyle = p.color;
+              ctx.globalAlpha = p.alpha * dimple.alpha;
+              ctx.shadowColor = p.color;
+              ctx.shadowBlur = 6;
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+          });
+
+          ctx.restore();
+        }
+      });
+      dimplesRef.current = currentDimples;
+
       ctx.restore();
 
       // --- PASO 6: Los 4 Remaches Frontales y Laterales (3pm, 5pm, 7pm, 9pm) ---
@@ -597,7 +787,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           // ==========================================
           // REMACHES FRONTALES (7 pm y 5 pm)
           // ==========================================
-          const lugY = clawY + 38; // Posición de la parte inferior en la caja gruesa
+          const lugY = clawY + 36; // Posición de la parte inferior en la caja gruesa
 
           // A. Sombra arrojada de todo el remache
           ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
@@ -782,7 +972,6 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       // 8. Update & Draw Active Spheres
       const spheres = spheresRef.current;
-      const drumSurfaceY = drumCenterY - drumRadiusY * 0.4;
 
       // Reset all intact sphere DOM slots first
       for (let sIdx = 0; sIdx < 3; sIdx++) {
@@ -861,8 +1050,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           piece.rotation += piece.vRot * speedFactor;
 
           // Check contact with the drum membrane
-          const drumSurfaceY = drumCenterY - drumRadiusY * 0.4;
-          const contactY = drumSurfaceY - 14;
+          const contactY = drumSurfaceY - 6;
 
           if (piece.y >= contactY && piece.vy > 0) {
             if (piece.bouncesLeft === 2) {

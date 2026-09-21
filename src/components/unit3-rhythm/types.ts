@@ -76,3 +76,23 @@ export interface SlicePoint {
   y: number;
   time: number;
 }
+
+export interface DrumDimple {
+  id: number;
+  x: number;
+  y: number;
+  radius: number;
+  maxRadius: number;
+  depth: number;
+  alpha: number;
+  birthTime: number;
+  particles: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    color: string;
+    size: number;
+    alpha: number;
+  }[];
+}

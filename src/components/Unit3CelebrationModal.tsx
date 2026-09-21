@@ -55,6 +55,17 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
     completedBeatsRef.current = completedBeats;
   }, [completedBeats]);
 
+  const getDrumGeometry = () => {
+    const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
+    const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
+    const maxRadiusX = Math.min(canvasWidth * 0.43, 270);
+    const drumRadiusX = Math.max(140, maxRadiusX);
+    const drumRadiusY = drumRadiusX * 0.51;
+    const drumCenterY = Math.min(canvasHeight * 0.68, canvasHeight - drumRadiusY - 85);
+    const drumSurfaceY = drumCenterY - drumRadiusY * 0.15;
+    return { canvasWidth, canvasHeight, drumSurfaceY };
+  };
+
   // Create a sphere configured for its lane
   const createSphere = useCallback(
     (type: 'purple' | 'golden', lane: 'left' | 'right' | 'center', startDelayMs = 0): ActiveSphere => {
@@ -62,8 +73,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
       const now = performance.now() + startDelayMs;
       const halfFlightTime = beatIntervalMs;
 
-      const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
-      const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
+      const { canvasWidth, canvasHeight, drumSurfaceY } = getDrumGeometry();
 
       let startX = canvasWidth * 0.5;
       if (lane === 'left') {
@@ -72,12 +82,12 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         startX = canvasWidth * 0.64 + (Math.random() - 0.5) * 30;
       }
 
-      const startY = canvasHeight * 0.81;
+      const startY = drumSurfaceY;
       const peakRatio = isGolden
-        ? 0.36
+        ? 0.28
         : lane === 'left'
-        ? 0.38 + Math.random() * 0.05
-        : 0.42 + Math.random() * 0.05;
+        ? 0.30 + Math.random() * 0.05
+        : 0.34 + Math.random() * 0.05;
       const peakY = canvasHeight * peakRatio;
 
       const tApex = halfFlightTime / 1000;
@@ -236,9 +246,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
       const spheres = activeSpheresRef.current;
       let hasUpdate = false;
 
-      const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
-      const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
-      const drumSurfaceY = canvasHeight * 0.81;
+      const { canvasWidth, canvasHeight, drumSurfaceY } = getDrumGeometry();
 
       spheres.forEach((sphere) => {
         if (sphere.isCut || gameStateRef.current === 'TROPHY_REVEAL') return;
@@ -266,8 +274,8 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
 
           const randomPeakRatio =
             sphere.type === 'golden'
-              ? 0.34 + Math.random() * 0.08
-              : 0.36 + Math.random() * 0.12;
+              ? 0.28 + Math.random() * 0.06
+              : 0.30 + Math.random() * 0.08;
           const peakY = canvasHeight * randomPeakRatio;
           const deltaY = drumSurfaceY - peakY;
           sphere.vy = -Math.sqrt(2 * sphere.g * deltaY);
