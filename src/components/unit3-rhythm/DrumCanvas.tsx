@@ -32,6 +32,8 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const sphereDomRef = useRef<HTMLDivElement | null>(null);
   const leftPieceDomRef = useRef<HTMLDivElement | null>(null);
   const rightPieceDomRef = useRef<HTMLDivElement | null>(null);
+  const lastBounceCountRef = useRef<number>(-1);
+  const lastSphereIdRef = useRef<number>(-1);
 
   // Sync active sphere ref
   useEffect(() => {
@@ -40,16 +42,16 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
   // Trigger drum bounce ripple and elastic dip
   const triggerDrumImpact = useCallback((impactX: number, impactY: number) => {
-    drumSkinOffsetRef.current = 14; // Dip down 14px
-    drumSkinVelocityRef.current = -2;
+    drumSkinOffsetRef.current = 16; // Dip down 16px
+    drumSkinVelocityRef.current = -3;
 
     wavesRef.current.push({
       id: Date.now() + Math.random(),
       x: impactX,
       y: impactY,
-      radius: 8,
-      maxRadius: 180,
-      alpha: 0.85,
+      radius: 10,
+      maxRadius: 210,
+      alpha: 0.95,
     });
 
     if (onDrumBounce) {
@@ -403,14 +405,15 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       // 8. Update & Draw Active Sphere
       const sphere = sphereRef.current;
       if (sphere) {
-        // Detect impact on drum surface
+        // Guaranteed drum membrane flex & shockwaves on EVERY single bounce or launch:
         const drumSurfaceY = drumCenterY - drumRadiusY * 0.4;
-        if (
-          sphere.y >= drumSurfaceY - 5 &&
-          prevSphereYRef.current < sphere.y &&
-          sphere.vy > 0 &&
-          !sphere.isCut
-        ) {
+        const hasBounced =
+          sphere.id !== lastSphereIdRef.current ||
+          sphere.bounceCount !== lastBounceCountRef.current;
+
+        if (hasBounced && !sphere.isCut) {
+          lastSphereIdRef.current = sphere.id;
+          lastBounceCountRef.current = sphere.bounceCount;
           triggerDrumImpact(sphere.x, drumSurfaceY);
         }
         prevSphereYRef.current = sphere.y;

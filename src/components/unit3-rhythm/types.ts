@@ -32,6 +32,7 @@ export interface ActiveSphere {
   isCut: boolean;
   birthTime: number;
   peakTime: number; // Cenit exacto en el beat (ms)
+  bounceCount: number; // incremented on each drum bounce
   leftPiece?: SphereHemisphere;
   rightPiece?: SphereHemisphere;
 }

@@ -90,6 +90,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
       isCut: false,
       birthTime: now,
       peakTime: now + halfFlightTime,
+      bounceCount: 0,
     };
 
     currentSphereRef.current = newSphere;
@@ -247,6 +248,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
           }
 
           playBassDrum(sphere.type === 'golden');
+          sphere.bounceCount++;
         }
 
         setActiveSphere({ ...sphere });
