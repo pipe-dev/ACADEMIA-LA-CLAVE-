@@ -97,37 +97,38 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       // Normal vector perpendicular to the cut direction
       const normalAngle = cutAngle + Math.PI / 2;
-      const impulseSpeed = 11 + Math.random() * 5;
       const isGolden = sphere.type === 'golden';
 
-      // Piece 1: Top half (flies along cutAngle - PI/2)
+      // Piece 1: Slow parabolic arc towards left drum edge
       const p1: SeveredPiece = {
         id: Date.now() + Math.random(),
         type: sphere.type,
         x: sphere.x,
         y: sphere.y,
-        vx: sphere.vx + Math.cos(normalAngle - Math.PI) * impulseSpeed,
-        vy: sphere.vy + Math.sin(normalAngle - Math.PI) * impulseSpeed - 4, // pop upward
+        vx: -2.6 - Math.random() * 1.2, // slow parabolic drift left
+        vy: -2.8 - Math.random() * 1.2, // gentle upward pop
         cutAngle,
         pieceSide: 'top',
         rotation: 0,
-        vRot: -0.16 - Math.random() * 0.10,
+        vRot: -0.04 - Math.random() * 0.02, // slow realistic spin
         alpha: 1.0,
+        bouncesLeft: 2,
       };
 
-      // Piece 2: Bottom half (flies along cutAngle + PI/2)
+      // Piece 2: Slow parabolic arc towards right drum edge
       const p2: SeveredPiece = {
         id: Date.now() + Math.random() + 1,
         type: sphere.type,
         x: sphere.x,
         y: sphere.y,
-        vx: sphere.vx + Math.cos(normalAngle) * impulseSpeed,
-        vy: sphere.vy + Math.sin(normalAngle) * impulseSpeed - 4, // pop upward
+        vx: 2.6 + Math.random() * 1.2, // slow parabolic drift right
+        vy: -2.8 - Math.random() * 1.2, // gentle upward pop
         cutAngle,
         pieceSide: 'bottom',
         rotation: 0,
-        vRot: 0.16 + Math.random() * 0.10,
+        vRot: 0.04 + Math.random() * 0.02, // slow realistic spin
         alpha: 1.0,
+        bouncesLeft: 2,
       };
 
       if (isGolden) {
@@ -514,18 +515,48 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         }
       });
 
-      // Update & Render Severed 3D Pieces (Decoupled, tumbling along cut angle)
+      // Update & Render Severed 3D Pieces (Slow parabolic fall towards drum, 2 bounces on membrane, then exit)
       for (let pIdx = 0; pIdx < 8; pIdx++) {
         const piece = severedPiecesRef.current[pIdx];
         const pieceEl = pieceRefs.current[pIdx];
         if (!pieceEl) continue;
 
-        if (piece && piece.alpha > 0.02 && piece.y < height + 90) {
-          piece.vy += 0.90 * speedFactor; // gravity pulling piece down
+        if (piece && piece.alpha > 0.02 && piece.y < height + 100) {
+          // Slow, floaty parabolic gravity
+          const pieceGravity = 0.22 * speedFactor;
+          piece.vy += pieceGravity;
           piece.x += piece.vx * speedFactor;
           piece.y += piece.vy * speedFactor;
           piece.rotation += piece.vRot * speedFactor;
-          piece.alpha = Math.max(0, piece.alpha - 0.013 * speedFactor); // lives for ~75 frames (~1.3s)
+
+          // Check contact with the drum membrane
+          const drumSurfaceY = drumCenterY - drumRadiusY * 0.4;
+          const contactY = drumSurfaceY - 14;
+
+          if (piece.y >= contactY && piece.vy > 0) {
+            if (piece.bouncesLeft === 2) {
+              // Bounce 1: Rebounds inside the drum membrane, arcs towards edge
+              piece.y = contactY;
+              piece.vy = -4.8 * speedFactor;
+              piece.vx = (piece.vx > 0 ? 1 : -1) * (Math.abs(piece.vx) * 1.15 + 0.4);
+              piece.bouncesLeft = 1;
+              triggerDrumImpact(piece.x, drumSurfaceY);
+            } else if (piece.bouncesLeft === 1) {
+              // Bounce 2: Rebounds near the rim and catapults outward off-screen!
+              piece.y = contactY;
+              piece.vy = -3.8 * speedFactor;
+              piece.vx = (piece.vx > 0 ? 1 : -1) * (Math.abs(piece.vx) + 2.8);
+              piece.bouncesLeft = 0;
+              triggerDrumImpact(piece.x, drumSurfaceY);
+            }
+          }
+
+          // Fade out only after completing the 2 bounces on the drum and flying outward
+          if (piece.bouncesLeft === 0) {
+            if (piece.x < 35 || piece.x > width - 35 || piece.y > drumSurfaceY) {
+              piece.alpha = Math.max(0, piece.alpha - 0.02 * speedFactor);
+            }
+          }
 
           pieceEl.style.display = 'block';
           pieceEl.style.opacity = `${piece.alpha}`;

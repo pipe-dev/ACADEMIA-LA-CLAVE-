@@ -32,6 +32,7 @@ export interface SeveredPiece {
   rotation: number;
   vRot: number;
   alpha: number;
+  bouncesLeft: number; // 2 (in air before bounce 1), 1 (between bounce 1 and 2), 0 (exiting screen)
 }
 
 export interface ActiveSphere {
