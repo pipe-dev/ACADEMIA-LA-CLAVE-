@@ -2,11 +2,12 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { ActiveSphere, DrumWave, StarSpark, SlicePoint, SphereHemisphere } from './types';
+import { ActiveSphere, DrumWave, StarSpark, SlicePoint, SeveredPiece } from './types';
 import { RhythmSphere3D } from './RhythmSphere3D';
 
 interface DrumCanvasProps {
-  activeSphere: ActiveSphere | null;
+  spheres?: ActiveSphere[];
+  activeSphere?: ActiveSphere | null;
   completedBeats: number; // 0, 1, 2, 3, 4
   onSliceSphere: (sphere: ActiveSphere, cutCoord: { x: number; y: number }) => void;
   onDrumBounce?: () => void;
@@ -14,6 +15,7 @@ interface DrumCanvasProps {
 }
 
 export const DrumCanvas: React.FC<DrumCanvasProps> = ({
+  spheres,
   activeSphere,
   completedBeats,
   onSliceSphere,
@@ -27,18 +29,27 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const wavesRef = useRef<DrumWave[]>([]);
   const drumSkinOffsetRef = useRef<number>(0);
   const drumSkinVelocityRef = useRef<number>(0);
-  const sphereRef = useRef<ActiveSphere | null>(activeSphere);
-  const prevSphereYRef = useRef<number>(0);
-  const sphereDomRef = useRef<HTMLDivElement | null>(null);
-  const leftPieceDomRef = useRef<HTMLDivElement | null>(null);
-  const rightPieceDomRef = useRef<HTMLDivElement | null>(null);
-  const lastBounceCountRef = useRef<number>(-1);
-  const lastSphereIdRef = useRef<number>(-1);
 
-  // Sync active sphere ref
+  // Multi-sphere synchronization
+  const spheresRef = useRef<ActiveSphere[]>([]);
+  const sphereDomRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Decoupled severed pieces pool (never vanishes when a new sphere appears!)
+  const severedPiecesRef = useRef<SeveredPiece[]>([]);
+  const pieceRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const lastBounceCountsRef = useRef<Map<number, number>>(new Map());
+
+  // Sync active spheres ref
   useEffect(() => {
-    sphereRef.current = activeSphere;
-  }, [activeSphere]);
+    if (spheres && spheres.length > 0) {
+      spheresRef.current = spheres;
+    } else if (activeSphere) {
+      spheresRef.current = [activeSphere];
+    } else {
+      spheresRef.current = [];
+    }
+  }, [spheres, activeSphere]);
 
   // Trigger drum bounce ripple and elastic dip
   const triggerDrumImpact = useCallback((impactX: number, impactY: number) => {
@@ -60,84 +71,117 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   }, [onDrumBounce]);
 
   // Add sparks burst upon slicing
-  const addSparks = (x: number, y: number, color: string, count = 28) => {
+  const addSparks = (x: number, y: number, color: string, count = 30) => {
     const newSparks: StarSpark[] = [];
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 2.5 + Math.random() * 7.0;
+      const speed = 3.0 + Math.random() * 8.0;
       newSparks.push({
         x,
         y,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 1.5,
+        vy: Math.sin(angle) * speed - 2.0,
         alpha: 1.0,
-        color: Math.random() > 0.35 ? color : '#ffffff',
-        size: 1.5 + Math.random() * 3.0,
+        color: Math.random() > 0.3 ? color : '#ffffff',
+        size: 1.5 + Math.random() * 3.5,
       });
     }
     sparksRef.current.push(...newSparks);
   };
 
-  // Slice sphere into two hemispheres — explosive Fruit Ninja physics
-  const sliceActiveSphere = useCallback((sphere: ActiveSphere, cutX: number, cutY: number) => {
-    if (sphere.isCut) return;
+  // Slice sphere along the EXACT swipe angle into two decoupled tumbling pieces
+  const sliceActiveSphere = useCallback(
+    (sphere: ActiveSphere, cutX: number, cutY: number, cutAngle: number) => {
+      if (sphere.isCut) return;
+      sphere.isCut = true;
 
-    sphere.isCut = true;
+      // Normal vector perpendicular to the cut direction
+      const normalAngle = cutAngle + Math.PI / 2;
+      const impulseSpeed = 11 + Math.random() * 5;
+      const isGolden = sphere.type === 'golden';
 
-    // Left hemisphere — flies hard left and up with fast spin
-    const leftPiece: SphereHemisphere = {
-      x: sphere.x - 4,
-      y: sphere.y,
-      vx: -12 - Math.random() * 6,   // fast horizontal separation
-      vy: -8 - Math.random() * 5,     // pop upward first
-      rotation: 0,
-      vRot: -0.18 - Math.random() * 0.12, // fast spin
-      alpha: 1.0,
-    };
+      // Piece 1: Top half (flies along cutAngle - PI/2)
+      const p1: SeveredPiece = {
+        id: Date.now() + Math.random(),
+        type: sphere.type,
+        x: sphere.x,
+        y: sphere.y,
+        vx: sphere.vx + Math.cos(normalAngle - Math.PI) * impulseSpeed,
+        vy: sphere.vy + Math.sin(normalAngle - Math.PI) * impulseSpeed - 4, // pop upward
+        cutAngle,
+        pieceSide: 'top',
+        rotation: 0,
+        vRot: -0.16 - Math.random() * 0.10,
+        alpha: 1.0,
+      };
 
-    // Right hemisphere — flies hard right and up with fast spin
-    const rightPiece: SphereHemisphere = {
-      x: sphere.x + 4,
-      y: sphere.y,
-      vx: 12 + Math.random() * 6,     // fast horizontal separation
-      vy: -8 - Math.random() * 5,     // pop upward first
-      rotation: 0,
-      vRot: 0.18 + Math.random() * 0.12, // fast spin
-      alpha: 1.0,
-    };
+      // Piece 2: Bottom half (flies along cutAngle + PI/2)
+      const p2: SeveredPiece = {
+        id: Date.now() + Math.random() + 1,
+        type: sphere.type,
+        x: sphere.x,
+        y: sphere.y,
+        vx: sphere.vx + Math.cos(normalAngle) * impulseSpeed,
+        vy: sphere.vy + Math.sin(normalAngle) * impulseSpeed - 4, // pop upward
+        cutAngle,
+        pieceSide: 'bottom',
+        rotation: 0,
+        vRot: 0.16 + Math.random() * 0.10,
+        alpha: 1.0,
+      };
 
-    sphere.leftPiece = leftPiece;
-    sphere.rightPiece = rightPiece;
+      if (isGolden) {
+        severedPiecesRef.current[6] = p1;
+        severedPiecesRef.current[7] = p2;
+      } else {
+        // Find two available / faded slots among 0..5
+        let s1 = severedPiecesRef.current.findIndex((p, i) => i < 6 && (!p || p.alpha <= 0.05));
+        if (s1 === -1) s1 = 0;
+        severedPiecesRef.current[s1] = p1;
 
-    const sparkColor = sphere.type === 'golden' ? '#fbbf24' : '#c084fc';
-    addSparks(cutX, cutY, sparkColor, sphere.type === 'golden' ? 45 : 28);
+        let s2 = severedPiecesRef.current.findIndex((p, i) => i < 6 && i !== s1 && (!p || p.alpha <= 0.05));
+        if (s2 === -1) s2 = (s1 + 1) % 6;
+        severedPiecesRef.current[s2] = p2;
+      }
 
-    onSliceSphere(sphere, { x: cutX, y: cutY });
-  }, [onSliceSphere]);
+      const sparkColor = isGolden ? '#fbbf24' : '#c084fc';
+      addSparks(cutX, cutY, sparkColor, isGolden ? 48 : 32);
 
-  // Check swipe intersection with sphere
+      onSliceSphere(sphere, { x: cutX, y: cutY });
+    },
+    [onSliceSphere]
+  );
+
+  // Check swipe intersection across ALL active spheres
   const checkSwipeCollision = useCallback(
     (ptA: SlicePoint, ptB: SlicePoint) => {
-      const sphere = sphereRef.current;
-      if (!sphere || sphere.isCut) return;
+      const spheres = spheresRef.current;
+      if (!spheres || spheres.length === 0) return;
 
       const dx = ptB.x - ptA.x;
       const dy = ptB.y - ptA.y;
       const dist = Math.hypot(dx, dy);
       if (dist < 4) return;
 
-      // Distance from sphere center to line segment ptA -> ptB
-      const u = Math.max(
-        0,
-        Math.min(1, ((sphere.x - ptA.x) * dx + (sphere.y - ptA.y) * dy) / (dist * dist))
-      );
-      const nearestX = ptA.x + u * dx;
-      const nearestY = ptA.y + u * dy;
-      const distanceToCenter = Math.hypot(sphere.x - nearestX, sphere.y - nearestY);
+      // Exact angle of the slice path
+      const cutAngle = Math.atan2(dy, dx);
 
-      if (distanceToCenter <= 58) {
-        sliceActiveSphere(sphere, nearestX, nearestY);
-      }
+      spheres.forEach((sphere) => {
+        if (sphere.isCut) return;
+
+        // Distance from sphere center to line segment ptA -> ptB
+        const u = Math.max(
+          0,
+          Math.min(1, ((sphere.x - ptA.x) * dx + (sphere.y - ptA.y) * dy) / (dist * dist))
+        );
+        const nearestX = ptA.x + u * dx;
+        const nearestY = ptA.y + u * dy;
+        const distanceToCenter = Math.hypot(sphere.x - nearestX, sphere.y - nearestY);
+
+        if (distanceToCenter <= 56) {
+          sliceActiveSphere(sphere, nearestX, nearestY, cutAngle);
+        }
+      });
     },
     [sliceActiveSphere]
   );
@@ -159,11 +203,13 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     isPointerDownRef.current = true;
     pointerTrailRef.current = [{ x, y, time: performance.now() }];
 
-    // Direct touch slice support
-    const sphere = sphereRef.current;
-    if (sphere && !sphere.isCut && Math.hypot(sphere.x - x, sphere.y - y) <= 58) {
-      sliceActiveSphere(sphere, x, y);
-    }
+    // Direct touch / click slice support (natural 45-degree slash)
+    const cutAngle = -Math.PI / 4;
+    spheresRef.current.forEach((sphere) => {
+      if (!sphere.isCut && Math.hypot(sphere.x - x, sphere.y - y) <= 56) {
+        sliceActiveSphere(sphere, x, y, cutAngle);
+      }
+    });
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -402,25 +448,30 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         ctx.restore();
       }
 
-      // 8. Update & Draw Active Sphere
-      const sphere = sphereRef.current;
-      if (sphere) {
-        // Guaranteed drum membrane flex & shockwaves on EVERY single bounce or launch:
-        const drumSurfaceY = drumCenterY - drumRadiusY * 0.4;
-        const hasBounced =
-          sphere.id !== lastSphereIdRef.current ||
-          sphere.bounceCount !== lastBounceCountRef.current;
+      // 8. Update & Draw Active Spheres
+      const spheres = spheresRef.current;
+      const drumSurfaceY = drumCenterY - drumRadiusY * 0.4;
 
-        if (hasBounced && !sphere.isCut) {
-          lastSphereIdRef.current = sphere.id;
-          lastBounceCountRef.current = sphere.bounceCount;
-          triggerDrumImpact(sphere.x, drumSurfaceY);
-        }
-        prevSphereYRef.current = sphere.y;
+      // Reset all intact sphere DOM slots first
+      for (let sIdx = 0; sIdx < 3; sIdx++) {
+        const domEl = sphereDomRefs.current[sIdx];
+        if (domEl) domEl.style.display = 'none';
+      }
 
-        const altitude = Math.max(0, drumSurfaceY - sphere.y);
+      spheres.forEach((sphere, sIdx) => {
+        if (sIdx >= 3) return;
+        const domEl = sphereDomRefs.current[sIdx];
 
         if (!sphere.isCut) {
+          // Check bounce on drum membrane
+          const lastBounce = lastBounceCountsRef.current.get(sphere.id) ?? -1;
+          if (sphere.bounceCount !== lastBounce) {
+            lastBounceCountsRef.current.set(sphere.id, sphere.bounceCount);
+            triggerDrumImpact(sphere.x, drumSurfaceY);
+          }
+
+          const altitude = Math.max(0, drumSurfaceY - sphere.y);
+
           // Subtle physical deformation at drum contact (bottom sinks smoothly, realistic ball physics)
           let scaleX = 1;
           let scaleY = 1;
@@ -436,17 +487,15 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             scaleY = 1.03;
           }
 
-          if (sphereDomRef.current) {
-            sphereDomRef.current.style.display = 'block';
-            sphereDomRef.current.style.transform = `translate3d(${sphere.x - 40}px, ${sphere.y - 40}px, 0) scale(${scaleX}, ${scaleY})`;
-            sphereDomRef.current.style.transformOrigin = '50% 100%';
+          if (domEl) {
+            domEl.style.display = 'block';
+            domEl.style.transform = `translate3d(${sphere.x - 40}px, ${sphere.y - 40}px, 0) scale(${scaleX}, ${scaleY})`;
+            domEl.style.transformOrigin = '50% 100%';
           }
-          if (leftPieceDomRef.current) leftPieceDomRef.current.style.display = 'none';
-          if (rightPieceDomRef.current) rightPieceDomRef.current.style.display = 'none';
 
           // Drop Shadow onto the drum surface
-          const shadowScale = Math.max(0.4, (1 - altitude / (height * 0.6)) * scaleX);
-          const shadowAlpha = Math.max(0.08, 0.35 * shadowScale);
+          const shadowScale = Math.max(0.35, (1 - altitude / (height * 0.6)) * scaleX);
+          const shadowAlpha = Math.max(0.06, 0.32 * shadowScale);
 
           ctx.save();
           ctx.beginPath();
@@ -462,35 +511,36 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           ctx.fillStyle = `rgba(15, 23, 42, ${shadowAlpha * 1.5})`;
           ctx.fill();
           ctx.restore();
+        }
+      });
+
+      // Update & Render Severed 3D Pieces (Decoupled, tumbling along cut angle)
+      for (let pIdx = 0; pIdx < 8; pIdx++) {
+        const piece = severedPiecesRef.current[pIdx];
+        const pieceEl = pieceRefs.current[pIdx];
+        if (!pieceEl) continue;
+
+        if (piece && piece.alpha > 0.02 && piece.y < height + 90) {
+          piece.vy += 0.90 * speedFactor; // gravity pulling piece down
+          piece.x += piece.vx * speedFactor;
+          piece.y += piece.vy * speedFactor;
+          piece.rotation += piece.vRot * speedFactor;
+          piece.alpha = Math.max(0, piece.alpha - 0.013 * speedFactor); // lives for ~75 frames (~1.3s)
+
+          pieceEl.style.display = 'block';
+          pieceEl.style.opacity = `${piece.alpha}`;
+
+          // Exact cut along the slice path (top or bottom half relative to slash angle):
+          const clip =
+            piece.pieceSide === 'top'
+              ? 'polygon(-25% -25%, 125% -25%, 125% 50%, -25% 50%)'
+              : 'polygon(-25% 50%, 125% 50%, 125% 125%, -25% 125%)';
+          pieceEl.style.clipPath = clip;
+
+          const totalRotation = piece.cutAngle + piece.rotation;
+          pieceEl.style.transform = `translate3d(${piece.x - 40}px, ${piece.y - 40}px, 0) rotate(${totalRotation}rad)`;
         } else {
-          // Sphere is CUT: Hide unbroken sphere, animate and reveal the two 3D half-spheres
-          if (sphereDomRef.current) sphereDomRef.current.style.display = 'none';
-
-          if (sphere.leftPiece && leftPieceDomRef.current) {
-            sphere.leftPiece.vy += 1.2 * speedFactor; // strong gravity pulls it down fast
-            sphere.leftPiece.x += sphere.leftPiece.vx * speedFactor;
-            sphere.leftPiece.y += sphere.leftPiece.vy * speedFactor;
-            sphere.leftPiece.rotation += sphere.leftPiece.vRot * speedFactor;
-            sphere.leftPiece.alpha = Math.max(0, sphere.leftPiece.alpha - 0.035 * speedFactor);
-
-            const scaleL = Math.max(0.3, sphere.leftPiece.alpha); // shrinks as it fades
-            leftPieceDomRef.current.style.display = sphere.leftPiece.alpha > 0.02 ? 'block' : 'none';
-            leftPieceDomRef.current.style.opacity = `${sphere.leftPiece.alpha}`;
-            leftPieceDomRef.current.style.transform = `translate3d(${sphere.leftPiece.x - 40}px, ${sphere.leftPiece.y - 40}px, 0) rotate(${sphere.leftPiece.rotation}rad) scale(${scaleL})`;
-          }
-
-          if (sphere.rightPiece && rightPieceDomRef.current) {
-            sphere.rightPiece.vy += 1.2 * speedFactor; // strong gravity
-            sphere.rightPiece.x += sphere.rightPiece.vx * speedFactor;
-            sphere.rightPiece.y += sphere.rightPiece.vy * speedFactor;
-            sphere.rightPiece.rotation += sphere.rightPiece.vRot * speedFactor;
-            sphere.rightPiece.alpha = Math.max(0, sphere.rightPiece.alpha - 0.035 * speedFactor);
-
-            const scaleR = Math.max(0.3, sphere.rightPiece.alpha); // shrinks as it fades
-            rightPieceDomRef.current.style.display = sphere.rightPiece.alpha > 0.02 ? 'block' : 'none';
-            rightPieceDomRef.current.style.opacity = `${sphere.rightPiece.alpha}`;
-            rightPieceDomRef.current.style.transform = `translate3d(${sphere.rightPiece.x - 40}px, ${sphere.rightPiece.y - 40}px, 0) rotate(${sphere.rightPiece.rotation}rad) scale(${scaleR})`;
-          }
+          pieceEl.style.display = 'none';
         }
       }
 
@@ -572,43 +622,46 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         onPointerCancel={handlePointerUp}
       />
 
-      {/* Intact 3D Sphere – position & squash/stretch driven by sphereDomRef at 60fps */}
-      <div
-        ref={sphereDomRef}
-        style={{
-          willChange: 'transform',
-          display: 'none',
-        }}
-        className="absolute top-0 left-0 pointer-events-none z-20"
-      >
-        <RhythmSphere3D type={activeSphere?.type} />
-      </div>
+      {/* Intact 3D Spheres (Up to 3 simultaneous bouncing spheres) */}
+      {[0, 1, 2].map((sIdx) => (
+        <div
+          key={`intact-sphere-${sIdx}`}
+          ref={(el) => {
+            sphereDomRefs.current[sIdx] = el;
+          }}
+          style={{
+            willChange: 'transform',
+            display: 'none',
+            transformOrigin: '50% 100%',
+          }}
+          className="absolute top-0 left-0 pointer-events-none z-20"
+        >
+          <RhythmSphere3D
+            type={
+              (spheres && spheres[sIdx]?.type) ||
+              (activeSphere && activeSphere.type) ||
+              'purple'
+            }
+          />
+        </div>
+      ))}
 
-      {/* Left Half-Sphere (post-slice) – clipPath cuts left 50% */}
-      <div
-        ref={leftPieceDomRef}
-        style={{
-          willChange: 'transform',
-          display: 'none',
-          clipPath: 'polygon(0% 0%, 50% 0%, 50% 100%, 0% 100%)',
-        }}
-        className="absolute top-0 left-0 pointer-events-none z-20"
-      >
-        <RhythmSphere3D type={activeSphere?.type} />
-      </div>
-
-      {/* Right Half-Sphere (post-slice) – clipPath cuts right 50% */}
-      <div
-        ref={rightPieceDomRef}
-        style={{
-          willChange: 'transform',
-          display: 'none',
-          clipPath: 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)',
-        }}
-        className="absolute top-0 left-0 pointer-events-none z-20"
-      >
-        <RhythmSphere3D type={activeSphere?.type} />
-      </div>
+      {/* Decoupled Severed 3D Pieces (Exploding along slash angle, slots 0..5 purple, 6..7 golden) */}
+      {Array.from({ length: 8 }).map((_, pIdx) => (
+        <div
+          key={`severed-piece-${pIdx}`}
+          ref={(el) => {
+            pieceRefs.current[pIdx] = el;
+          }}
+          style={{
+            willChange: 'transform, opacity',
+            display: 'none',
+          }}
+          className="absolute top-0 left-0 pointer-events-none z-20"
+        >
+          <RhythmSphere3D type={pIdx >= 6 ? 'golden' : 'purple'} />
+        </div>
+      ))}
     </div>
   );
 };

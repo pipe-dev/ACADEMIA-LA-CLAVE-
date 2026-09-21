@@ -20,6 +20,20 @@ export interface SphereHemisphere {
   alpha: number;
 }
 
+export interface SeveredPiece {
+  id: number;
+  type: 'purple' | 'golden';
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  cutAngle: number;
+  pieceSide: 'top' | 'bottom';
+  rotation: number;
+  vRot: number;
+  alpha: number;
+}
+
 export interface ActiveSphere {
   id: number;
   type: 'purple' | 'golden';
