@@ -70,26 +70,14 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     drumSkinOffsetRef.current = 14; // Dip down 14px
     drumSkinVelocityRef.current = -3;
 
-    // Spawn dual ripple wavefronts (lead shockwave + trailing harmonic echo)
-    const now = performance.now();
-    wavesRef.current.push(
-      {
-        id: now + Math.random(),
-        x: impactX,
-        y: impactY,
-        radius: 8,
-        maxRadius: 260,
-        alpha: 1.0,
-      },
-      {
-        id: now + Math.random() + 1,
-        x: impactX,
-        y: impactY,
-        radius: 2,
-        maxRadius: 210,
-        alpha: 0.72,
-      }
-    );
+    wavesRef.current.push({
+      id: Date.now() + Math.random(),
+      x: impactX,
+      y: impactY,
+      radius: 12,
+      maxRadius: 220,
+      alpha: 0.95,
+    });
 
     // Create colorful rising particles for the impact dimple geyser (cyan, yellow, purple, orange, green)
     const colors = ['#38bdf8', '#fbbf24', '#c084fc', '#4ade80', '#fb923c', '#ffffff'];
@@ -108,14 +96,14 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     });
 
     dimplesRef.current.push({
-      id: now + Math.random() + 2,
+      id: Date.now() + Math.random(),
       x: impactX,
       y: impactY,
-      radius: 14,
-      maxRadius: 36,
-      depth: 22,
+      radius: 10,
+      maxRadius: 32,
+      depth: 14,
       alpha: 1.0,
-      birthTime: now,
+      birthTime: performance.now(),
       particles,
     });
 
@@ -374,106 +362,122 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         ctx.restore();
       }
 
-      // 4. Draw Realistic Membrane Deformation at Impact Points (Physical 3D crater indentation)
+      // 4. Draw Dynamic Impact Dimples (Hyperrealistic 3D physical membrane crater & celebration particles)
       const currentDimples: DrumDimple[] = [];
-      const membraneAspect = drumRadiusY / drumRadiusX;
+      const aspectY = drumRadiusY / drumRadiusX;
 
       dimplesRef.current.forEach((dimple) => {
         const age = now - dimple.birthTime;
-        const maxAge = 550; // 550ms: fast realistic drumhead elastic response
+        const maxAge = 480; // Snappy physical elastic recoil (~480ms)
         if (age < maxAge) {
           const progress = age / maxAge;
-          // Damped spring physics: instant deep punch, rapid rebound, subtle second micro-vibration
-          const springDepth = Math.sin(progress * Math.PI * 1.5) * Math.exp(-progress * 4.2);
-          const currentDepth = Math.max(0, springDepth);
-          dimple.alpha = Math.max(0, 1 - progress);
-
-          // Crater spreads from impact point up to sphere footprint
-          const craterRx = 14 + (dimple.maxRadius - 14) * Math.min(1, progress * 3.0);
-          const craterRy = craterRx * membraneAspect;
+          // Elastic recovery curve: fast initial indentation, then damped spring rebound
+          const depthFactor = Math.max(0, (1 - progress) * Math.cos(progress * Math.PI * 0.7));
+          dimple.alpha = depthFactor;
+          const currentRadius = 12 + (dimple.maxRadius - 12) * Math.sin(progress * Math.PI * 0.5);
           currentDimples.push(dimple);
 
           ctx.save();
-          // Clip to drumhead parchment ellipse so deformation stays strictly on the membrane
-          ctx.beginPath();
-          ctx.ellipse(
-            drumCenterX,
-            drumCenterY + skinDisplacement * 0.5,
-            drumRadiusX * 0.94,
-            drumRadiusY * 0.94,
-            0,
-            0,
-            Math.PI * 2
-          );
-          ctx.clip();
-
           const craterY = dimple.y + skinDisplacement * 0.5;
 
-          if (currentDepth > 0.02) {
-            // A. Deep Interior Bowl Shadow (bottom/lower side of crater curved away from overhead light)
-            const shadowGrad = ctx.createRadialGradient(
+          if (depthFactor > 0.02) {
+            // A. Asymmetric Inner Cavity Shadow (Upper slope tilted away from overhead ambient light)
+            const shadowOffsetY = -currentRadius * aspectY * 0.35;
+            const innerShadowGrad = ctx.createRadialGradient(
               dimple.x,
-              craterY + craterRy * 0.25,
+              craterY + shadowOffsetY,
               1,
               dimple.x,
               craterY,
-              craterRx
+              currentRadius
             );
-            shadowGrad.addColorStop(0.0, `rgba(45, 24, 10, ${0.75 * currentDepth})`);
-            shadowGrad.addColorStop(0.4, `rgba(75, 42, 18, ${0.48 * currentDepth})`);
-            shadowGrad.addColorStop(0.75, `rgba(110, 70, 35, ${0.20 * currentDepth})`);
-            shadowGrad.addColorStop(1.0, 'rgba(110, 70, 35, 0)');
+            innerShadowGrad.addColorStop(0.0, `rgba(28, 14, 6, ${0.82 * depthFactor})`);
+            innerShadowGrad.addColorStop(0.42, `rgba(58, 32, 14, ${0.52 * depthFactor})`);
+            innerShadowGrad.addColorStop(0.80, `rgba(100, 68, 38, ${0.20 * depthFactor})`);
+            innerShadowGrad.addColorStop(1.0, 'rgba(100, 68, 38, 0)');
 
-            ctx.beginPath();
-            ctx.ellipse(dimple.x, craterY + craterRy * 0.1, craterRx, craterRy, 0, 0, Math.PI * 2);
-            ctx.fillStyle = shadowGrad;
-            ctx.fill();
-
-            // B. Upper Wall Specular Highlight (sloped inner wall facing overhead illumination)
-            const sheenGrad = ctx.createRadialGradient(
-              dimple.x,
-              craterY - craterRy * 0.35,
-              1,
-              dimple.x,
-              craterY - craterRy * 0.1,
-              craterRx * 0.85
-            );
-            sheenGrad.addColorStop(0.0, `rgba(255, 253, 245, ${0.60 * currentDepth})`);
-            sheenGrad.addColorStop(0.5, `rgba(255, 250, 235, ${0.25 * currentDepth})`);
-            sheenGrad.addColorStop(1.0, 'rgba(255, 250, 235, 0)');
-
-            ctx.beginPath();
-            ctx.ellipse(dimple.x, craterY - craterRy * 0.2, craterRx * 0.85, craterRy * 0.55, 0, 0, Math.PI * 2);
-            ctx.fillStyle = sheenGrad;
-            ctx.fill();
-
-            // C. Outer Tension Ridge (stretched skin lip catching grazing ambient light)
             ctx.beginPath();
             ctx.ellipse(
               dimple.x,
               craterY,
-              craterRx * 0.98,
-              craterRy * 0.98,
+              currentRadius,
+              currentRadius * aspectY,
               0,
-              Math.PI * 0.9,
-              Math.PI * 2.1
+              0,
+              Math.PI * 2
             );
-            ctx.strokeStyle = `rgba(255, 255, 250, ${0.45 * currentDepth})`;
-            ctx.lineWidth = 1.6;
+            ctx.fillStyle = innerShadowGrad;
+            ctx.fill();
+
+            // B. Focal Impact Pinpoint (Maximum depth occlusion at center of sphere contact)
+            const focalRadius = currentRadius * 0.38;
+            const focalGrad = ctx.createRadialGradient(
+              dimple.x,
+              craterY,
+              0,
+              dimple.x,
+              craterY,
+              focalRadius
+            );
+            focalGrad.addColorStop(0.0, `rgba(16, 8, 3, ${0.90 * depthFactor})`);
+            focalGrad.addColorStop(0.65, `rgba(32, 16, 7, ${0.45 * depthFactor})`);
+            focalGrad.addColorStop(1.0, 'rgba(32, 16, 7, 0)');
+
+            ctx.beginPath();
+            ctx.ellipse(
+              dimple.x,
+              craterY,
+              focalRadius,
+              focalRadius * aspectY,
+              0,
+              0,
+              Math.PI * 2
+            );
+            ctx.fillStyle = focalGrad;
+            ctx.fill();
+
+            // C. Specular Catch-Light Rim (Lower front slope tilted directly toward ambient light)
+            ctx.beginPath();
+            ctx.ellipse(
+              dimple.x,
+              craterY + 1.2,
+              currentRadius * 0.92,
+              currentRadius * 0.92 * aspectY,
+              0,
+              Math.PI * 0.12,
+              Math.PI * 0.88
+            );
+            ctx.strokeStyle = `rgba(255, 252, 240, ${0.60 * depthFactor})`;
+            ctx.lineWidth = 1.6 * depthFactor;
+            ctx.stroke();
+
+            // D. Outer Perimeter Tension Crease Ring
+            ctx.beginPath();
+            ctx.ellipse(
+              dimple.x,
+              craterY,
+              currentRadius * 1.14,
+              currentRadius * 1.14 * aspectY,
+              0,
+              0,
+              Math.PI * 2
+            );
+            ctx.strokeStyle = `rgba(165, 130, 95, ${0.22 * depthFactor})`;
+            ctx.lineWidth = 1.0;
             ctx.stroke();
           }
 
-          // D. Colorful rising particles (subtle celebratory energy)
+          // E. Colorful rising celebration particles (cyan, yellow, purple, green, orange)
           dimple.particles.forEach((p) => {
             p.x += p.vx * speedFactor;
             p.y += p.vy * speedFactor;
             p.vy -= 0.04 * speedFactor;
-            p.alpha = Math.max(0, p.alpha - 0.022 * speedFactor);
+            p.alpha = Math.max(0, p.alpha - 0.024 * speedFactor);
 
             if (p.alpha > 0.05) {
               ctx.save();
               ctx.fillStyle = p.color;
-              ctx.globalAlpha = p.alpha * dimple.alpha;
+              ctx.globalAlpha = p.alpha;
               ctx.shadowColor = p.color;
               ctx.shadowBlur = 6;
               ctx.beginPath();
@@ -488,56 +492,28 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       });
       dimplesRef.current = currentDimples;
 
-      // 5. Draw Physical Membrane Ripple Waves (dual-tone: shadow trough + crest highlight)
+      // 5. Draw Soft Drum Membrane Ripples / Shockwaves
       const aliveWaves: DrumWave[] = [];
       wavesRef.current.forEach((wave) => {
-        wave.radius += 4.2 * speedFactor;
-        wave.alpha -= 0.022 * speedFactor;
+        wave.radius += 4.5 * speedFactor;
+        wave.alpha -= 0.025 * speedFactor;
 
-        if (wave.alpha > 0.04 && wave.radius < wave.maxRadius) {
+        if (wave.alpha > 0.05 && wave.radius < wave.maxRadius) {
           aliveWaves.push(wave);
-          const waveY = wave.y + skinDisplacement * 0.5;
-          const waveRx = wave.radius;
-          const waveRy = wave.radius * membraneAspect;
-
           ctx.save();
-          // Clip to drum membrane so ripples stay strictly on parchment
           ctx.beginPath();
           ctx.ellipse(
-            drumCenterX,
-            drumCenterY + skinDisplacement * 0.5,
-            drumRadiusX * 0.94,
-            drumRadiusY * 0.94,
+            wave.x,
+            wave.y + skinDisplacement * 0.5,
+            wave.radius,
+            wave.radius * (drumRadiusY / drumRadiusX),
             0,
             0,
             Math.PI * 2
           );
-          ctx.clip();
-
-          // A. Wave Trough (depressed ring: warm umber shadow on drum skin)
-          ctx.beginPath();
-          ctx.ellipse(wave.x, waveY, waveRx, waveRy, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(65, 38, 16, ${wave.alpha * 0.42})`;
-          ctx.lineWidth = 2.4;
+          ctx.strokeStyle = `rgba(251, 191, 36, ${wave.alpha * 0.65})`;
+          ctx.lineWidth = 1.8;
           ctx.stroke();
-
-          // B. Wave Crest (elevated ripple peak: bright parchment highlight catching overhead light)
-          if (waveRx > 4) {
-            ctx.beginPath();
-            ctx.ellipse(
-              wave.x,
-              waveY - 1.2,
-              Math.max(1, waveRx - 2.0),
-              Math.max(0.6, (waveRx - 2.0) * membraneAspect),
-              0,
-              0,
-              Math.PI * 2
-            );
-            ctx.strokeStyle = `rgba(255, 253, 242, ${wave.alpha * 0.60})`;
-            ctx.lineWidth = 1.6;
-            ctx.stroke();
-          }
-
           ctx.restore();
         }
       });
