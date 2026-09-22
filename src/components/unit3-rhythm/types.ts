@@ -48,6 +48,7 @@ export interface ActiveSphere {
   birthTime: number;
   peakTime: number; // Cenit exacto en el beat (ms)
   bounceCount: number; // incremented on each drum bounce
+  surfaceY?: number; // 2.5D depth landing position on the elliptical drumhead
   leftPiece?: SphereHemisphere;
   rightPiece?: SphereHemisphere;
 }

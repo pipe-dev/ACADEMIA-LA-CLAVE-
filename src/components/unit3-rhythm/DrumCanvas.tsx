@@ -564,14 +564,16 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         const domEl = sphereDomRefs.current[sIdx];
 
         if (!sphere.isCut) {
+          const currentSurfaceY = sphere.surfaceY ?? drumSurfaceY;
+
           // Check bounce on drum membrane
           const lastBounce = lastBounceCountsRef.current.get(sphere.id) ?? -1;
           if (sphere.bounceCount !== lastBounce) {
             lastBounceCountsRef.current.set(sphere.id, sphere.bounceCount);
-            triggerDrumImpact(sphere.x, drumSurfaceY);
+            triggerDrumImpact(sphere.x, currentSurfaceY);
           }
 
-          const altitude = Math.max(0, drumSurfaceY - sphere.y);
+          const altitude = Math.max(0, currentSurfaceY - sphere.y);
 
           // Subtle physical deformation at drum contact (bottom sinks smoothly, realistic ball physics)
           let scaleX = 1;
@@ -588,21 +590,25 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             scaleY = 1.03;
           }
 
+          // 2.5D Perspective depth scaling: slightly bigger when closer to viewer (+Y), smaller when further (-Y)
+          const depthRatio = (currentSurfaceY - drumCenterY) / (drumRadiusY || 1);
+          const perspectiveScale = Math.max(0.88, Math.min(1.12, 1.0 + depthRatio * 0.14));
+
           if (domEl) {
             domEl.style.display = 'block';
-            domEl.style.transform = `translate3d(${sphere.x - 40}px, ${sphere.y - 40}px, 0) scale(${scaleX}, ${scaleY})`;
+            domEl.style.transform = `translate3d(${sphere.x - 40}px, ${sphere.y - 40}px, 0) scale(${scaleX * perspectiveScale}, ${scaleY * perspectiveScale})`;
             domEl.style.transformOrigin = '50% 100%';
           }
 
-          // Drop Shadow onto the drum surface
-          const shadowScale = Math.max(0.35, (1 - altitude / (height * 0.6)) * scaleX);
+          // Drop Shadow onto the drum surface at the sphere's specific 2.5D depth
+          const shadowScale = Math.max(0.35, (1 - altitude / (height * 0.6)) * scaleX * perspectiveScale);
           const shadowAlpha = Math.max(0.06, 0.32 * shadowScale);
 
           ctx.save();
           ctx.beginPath();
           ctx.ellipse(
             sphere.x,
-            drumSurfaceY + skinDisplacement * 0.5,
+            currentSurfaceY + skinDisplacement * 0.5,
             sphere.radius * shadowScale,
             sphere.radius * shadowScale * 0.35,
             0,

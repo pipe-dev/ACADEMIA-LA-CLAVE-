@@ -62,9 +62,10 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
     const drumH = drumW * (681 / 1024);
     const drumY = canvasHeight - drumH + 14;
     const drumCenterY = drumY + drumH * 0.44;
+    const drumRadiusX = drumW * 0.417;
     const drumRadiusY = drumH * 0.284;
     const drumSurfaceY = drumCenterY - drumRadiusY * 0.12;
-    return { canvasWidth, canvasHeight, drumSurfaceY };
+    return { canvasWidth, canvasHeight, drumW, drumH, drumCenterY, drumRadiusX, drumRadiusY, drumSurfaceY };
   };
 
   // Create a sphere configured for its lane
@@ -74,21 +75,29 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
       const now = performance.now() + startDelayMs;
       const halfFlightTime = beatIntervalMs;
 
-      const { canvasWidth, canvasHeight, drumSurfaceY } = getDrumGeometry();
+      const { canvasWidth, canvasHeight, drumCenterY, drumRadiusY, drumSurfaceY } = getDrumGeometry();
 
       let startX = canvasWidth * 0.5;
+      let depthOffset = 0;
       if (lane === 'left') {
         startX = canvasWidth * 0.36 + (Math.random() - 0.5) * 30;
+        // Lane left starts slightly forward (closer to camera)
+        depthOffset = (0.15 + Math.random() * 0.25) * drumRadiusY;
       } else if (lane === 'right') {
         startX = canvasWidth * 0.64 + (Math.random() - 0.5) * 30;
+        // Lane right starts slightly backwards (deeper into drumhead)
+        depthOffset = (-0.15 - Math.random() * 0.25) * drumRadiusY;
+      } else {
+        depthOffset = (Math.random() - 0.5) * 0.3 * drumRadiusY;
       }
 
-      const startY = drumSurfaceY;
+      const initialSurfaceY = drumCenterY + depthOffset;
+      const startY = initialSurfaceY;
       const peakRatio = isGolden
-        ? 0.28
+        ? 0.12
         : lane === 'left'
-        ? 0.30 + Math.random() * 0.05
-        : 0.34 + Math.random() * 0.05;
+        ? 0.13 + Math.random() * 0.05
+        : 0.17 + Math.random() * 0.05;
       const peakY = canvasHeight * peakRatio;
 
       const tApex = halfFlightTime / 1000;
@@ -101,6 +110,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         type,
         x: startX,
         y: startY,
+        surfaceY: initialSurfaceY,
         radius: isGolden ? 42 : 32,
         vx:
           lane === 'left'
@@ -247,7 +257,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
       const spheres = activeSpheresRef.current;
       let hasUpdate = false;
 
-      const { canvasWidth, canvasHeight, drumSurfaceY } = getDrumGeometry();
+      const { canvasWidth, canvasHeight, drumCenterY, drumRadiusX, drumRadiusY, drumSurfaceY } = getDrumGeometry();
 
       spheres.forEach((sphere) => {
         if (sphere.isCut || gameStateRef.current === 'TROPHY_REVEAL') return;
@@ -269,25 +279,54 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
           sphere.vx = -(Math.abs(sphere.vx) || 50);
         }
 
-        // Drum membrane bounce — energetic perpetual jump!
-        if (sphere.y >= drumSurfaceY && sphere.vy > 0) {
-          sphere.y = drumSurfaceY;
+        // Drum membrane bounce — energetic perpetual jump with forward/backward 2.5D depth!
+        const currentSurfaceY = sphere.surfaceY ?? drumSurfaceY;
+        if (sphere.y >= currentSurfaceY && sphere.vy > 0) {
+          sphere.y = currentSurfaceY;
 
           const randomPeakRatio =
             sphere.type === 'golden'
-              ? 0.28 + Math.random() * 0.06
-              : 0.30 + Math.random() * 0.08;
+              ? 0.10 + Math.random() * 0.10
+              : 0.12 + Math.random() * 0.12;
           const peakY = canvasHeight * randomPeakRatio;
-          const deltaY = drumSurfaceY - peakY;
+          const deltaY = currentSurfaceY - peakY;
           sphere.vy = -Math.sqrt(2 * sphere.g * deltaY);
 
+          // Calculate a dynamic forward/backward depth for NEXT bounce inside drum ellipse
+          const dxRatio = Math.min(0.85, Math.abs(sphere.x - canvasWidth * 0.5) / (drumRadiusX || 1));
+          const safeYRange = Math.sqrt(Math.max(0.1, 1 - dxRatio * dxRatio)) * drumRadiusY * 0.55;
+          // nextOffset: positive is forward/closer to camera (+Y), negative is backward/further (-Y)
+          const nextOffset = (Math.random() * 2 - 1) * safeYRange;
+          sphere.surfaceY = drumCenterY + nextOffset;
+
+          // Organic wandering: each bounce randomly goes forward, backward, or eases to center
+          const roll = Math.random();
           const center = canvasWidth * 0.5;
           if (sphere.x < center - 60) {
-            sphere.vx = 35 + Math.random() * 65;
+            if (roll < 0.55) {
+              sphere.vx = 35 + Math.random() * 60; // hop forward (right)
+            } else if (roll < 0.85) {
+              sphere.vx = (Math.random() - 0.5) * 32; // stall / keep place
+            } else {
+              sphere.vx = -(20 + Math.random() * 40); // hop backward (left)
+            }
           } else if (sphere.x > center + 60) {
-            sphere.vx = -(35 + Math.random() * 65);
+            if (roll < 0.55) {
+              sphere.vx = -(35 + Math.random() * 60); // hop forward (left)
+            } else if (roll < 0.85) {
+              sphere.vx = (Math.random() - 0.5) * 32; // stall / keep place
+            } else {
+              sphere.vx = 20 + Math.random() * 40; // hop backward (right)
+            }
           } else {
-            sphere.vx = (Math.random() > 0.5 ? 1 : -1) * (30 + Math.random() * 55);
+            // Center zone: full random wander
+            if (roll < 0.35) {
+              sphere.vx = 30 + Math.random() * 55; // jump forward right
+            } else if (roll < 0.7) {
+              sphere.vx = -(30 + Math.random() * 55); // jump forward left
+            } else {
+              sphere.vx = (Math.random() - 0.5) * 32; // stay put
+            }
           }
 
           playBassDrum(sphere.type === 'golden');
