@@ -1,9 +1,11 @@
 // src/components/unit3-rhythm/DrumCanvas.tsx
 'use client';
 
-import React, { useRef, useEffect, useCallback } from 'react';
-import { ActiveSphere, DrumWave, StarSpark, SlicePoint, SeveredPiece, DrumDimple } from './types';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { ActiveSphere, DrumWave, StarSpark, SlicePoint, SeveredPiece, DrumDimple, TrophyCut } from './types';
 import { RhythmSphere3D } from './RhythmSphere3D';
+import { GoldenTrophyBurst } from './GoldenTrophyBurst';
+import { playBladeSwoosh } from './rhythmAudio';
 
 interface DrumCanvasProps {
   spheres?: ActiveSphere[];
@@ -12,6 +14,12 @@ interface DrumCanvasProps {
   onSliceSphere: (sphere: ActiveSphere, cutCoord: { x: number; y: number }) => void;
   onDrumBounce?: () => void;
   isSlowMo?: boolean;
+  trophyReveal?: {
+    x: number;
+    y: number;
+    origin?: { x: number; y: number } | null;
+  } | null;
+  onContinue?: () => void;
 }
 
 export const DrumCanvas: React.FC<DrumCanvasProps> = ({
@@ -21,6 +29,8 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   onSliceSphere,
   onDrumBounce,
   isSlowMo = false,
+  trophyReveal = null,
+  onContinue,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isPointerDownRef = useRef<boolean>(false);
@@ -34,13 +44,52 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   // Multi-sphere synchronization
   const spheresRef = useRef<ActiveSphere[]>([]);
   const sphereDomRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Rolling rotation is applied on an inner wrapper so it pivots around the center
+  const spinRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const sphereSpinRef = useRef<Map<number, number>>(new Map());
 
   // Decoupled severed pieces pool (never vanishes when a new sphere appears!)
   const severedPiecesRef = useRef<SeveredPiece[]>([]);
   const pieceRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Fruit-ninja cuts on the revealed trophy
+  const [trophyCuts, setTrophyCuts] = useState<TrophyCut[]>([]);
+  const trophyCutsRef = useRef<TrophyCut[]>([]);
+  const trophyRevealTimeRef = useRef<number>(0);
+  const lastTrophyCutTimeRef = useRef<number>(0);
+
   const lastBounceCountsRef = useRef<Map<number, number>>(new Map());
   const drumImgRef = useRef<HTMLImageElement | null>(null);
+
+  // Pre-rendered static layers (halo + drum with baked shadow), rebuilt only on resize
+  const bgSceneRef = useRef<HTMLCanvasElement | null>(null);
+  const drumSceneRef = useRef<HTMLCanvasElement | null>(null);
+  const sceneKeyRef = useRef<string>('');
+
+  // Tactile 3D drum parallax: follow the active pointer (drag), never hover
+  const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const prevRenderTime = useRef<number>(performance.now());
+  const parallaxXRef = useRef(0);
+  const parallaxYRef = useRef(0);
+  const tiltRef = useRef(0);
+
+  // Parallax tuning constants
+  const PARALLAX_X_AMP = 0.028; // fraction of drumW
+  const PARALLAX_Y_AMP = 0.02; // fraction of drumH
+  const TILT_MAX_RAD = 0.052; // ~3 degrees
+  const PARALLAX_EASE = 0.12;
+
+  // Reset cut state whenever the trophy reveal toggles (and record when it appears)
+  useEffect(() => {
+    if (trophyReveal) {
+      trophyCutsRef.current = [];
+      setTrophyCuts([]);
+      trophyRevealTimeRef.current = performance.now();
+    } else {
+      trophyCutsRef.current = [];
+      setTrophyCuts([]);
+    }
+  }, [trophyReveal]);
 
   // Preload high-definition 3D drum asset
   useEffect(() => {
@@ -195,6 +244,34 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     [onSliceSphere]
   );
 
+  // Slice the revealed trophy along the swipe line (fruit-ninja): fragments separate slightly
+  const sliceTrophy = useCallback((nearestX: number, nearestY: number, cutAngle: number) => {
+    if (!trophyReveal) return;
+
+    // Limit to max 2 cuts (a clean slash, or at most a cross cut)
+    if (trophyCutsRef.current.length >= 2) return;
+
+    // Throttle cut registrations to avoid multiple cuts during a single fast swipe
+    const now = performance.now();
+    if (now - lastTrophyCutTimeRef.current < 250) return;
+    lastTrophyCutTimeRef.current = now;
+
+    // Avoid duplicate registrations from consecutive swipe segments
+    const last = trophyCutsRef.current[trophyCutsRef.current.length - 1];
+    if (last) {
+      const angleDiff = Math.abs(((cutAngle - last.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      const distToLast = Math.hypot(nearestX - last.px, nearestY - last.py);
+      if (angleDiff < 0.35 && distToLast < 36) return;
+    }
+
+    const cut: TrophyCut = { px: nearestX, py: nearestY, angle: cutAngle };
+    trophyCutsRef.current = [...trophyCutsRef.current, cut];
+    setTrophyCuts(trophyCutsRef.current);
+
+    playBladeSwoosh(1);
+    addSparks(nearestX, nearestY, '#fbbf24', 28);
+  }, [trophyReveal]);
+
   // Check swipe intersection across ALL active spheres
   const checkSwipeCollision = useCallback(
     (ptA: SlicePoint, ptB: SlicePoint) => {
@@ -225,8 +302,21 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           sliceActiveSphere(sphere, nearestX, nearestY, cutAngle);
         }
       });
+
+      // Also allow fruit-ninja cuts on the settled trophy
+      if (trophyReveal && performance.now() - trophyRevealTimeRef.current > 1100) {
+        const uT = Math.max(
+          0,
+          Math.min(1, ((trophyReveal.x - ptA.x) * dx + (trophyReveal.y - ptA.y) * dy) / (dist * dist))
+        );
+        const nearestX = ptA.x + uT * dx;
+        const nearestY = ptA.y + uT * dy;
+        if (Math.hypot(trophyReveal.x - nearestX, trophyReveal.y - nearestY) <= 60) {
+          sliceTrophy(nearestX, nearestY, cutAngle);
+        }
+      }
     },
-    [sliceActiveSphere]
+    [sliceActiveSphere, sliceTrophy, trophyReveal]
   );
 
   // Pointer event listeners
@@ -245,6 +335,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
     isPointerDownRef.current = true;
     pointerTrailRef.current = [{ x, y, time: performance.now() }];
+    dragPointerRef.current = { x, y };
 
     // Direct touch / click slice support (natural 45-degree slash)
     const cutAngle = -Math.PI / 4;
@@ -253,6 +344,15 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         sliceActiveSphere(sphere, x, y, cutAngle);
       }
     });
+
+    // Direct touch / click slice on the settled trophy
+    if (
+      trophyReveal &&
+      performance.now() - trophyRevealTimeRef.current > 1100 &&
+      Math.hypot(trophyReveal.x - x, trophyReveal.y - y) <= 60
+    ) {
+      sliceTrophy(x, y, cutAngle);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -269,6 +369,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     const lastPoint = trail[trail.length - 1];
 
     trail.push({ x, y, time: now });
+    dragPointerRef.current = { x, y };
 
     if (lastPoint) {
       checkSwipeCollision(lastPoint, { x, y, time: now });
@@ -277,6 +378,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     isPointerDownRef.current = false;
+    dragPointerRef.current = null;
     const canvas = canvasRef.current;
     if (canvas) {
       try {
@@ -296,10 +398,40 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
     let animId: number;
 
+    // Dev-only FPS meter (?perf=1) to validate cinematic performance
+    const showPerf =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('perf') === '1';
+    let perfFrames = 0;
+    let perfLast = performance.now();
+    let perfEl: HTMLDivElement | null = null;
+    if (showPerf) {
+      perfEl = document.createElement('div');
+      perfEl.style.cssText =
+        'position:absolute;top:6px;right:6px;z-index:60;font:10px/1.4 monospace;background:rgba(0,0,0,0.55);color:#7dd3fc;padding:4px 6px;border-radius:6px;pointer-events:none;';
+      if (canvas.parentElement) canvas.parentElement.appendChild(perfEl);
+    }
+
     const render = () => {
+      // Skip heavy rendering while the tab is hidden (RAF stays alive, just idles)
+      if (typeof document !== 'undefined' && document.hidden) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+
+      if (showPerf && perfEl) {
+        perfFrames++;
+        const t = performance.now();
+        if (t - perfLast >= 500) {
+          perfEl.textContent = `fps ${Math.round((perfFrames * 1000) / (t - perfLast))}`;
+          perfFrames = 0;
+          perfLast = t;
+        }
+      }
+
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
       if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
         canvas.width = Math.floor(width * dpr);
@@ -312,6 +444,8 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       const now = performance.now();
       const speedFactor = isSlowMo ? 0.3 : 1.0;
+      const dt = Math.min((now - prevRenderTime.current) / 1000, 0.05);
+      prevRenderTime.current = now;
 
       // 1. Drum Geometry Calculations (In full glorious perspective view matching reference)
       const drumW = width * 1.15;
@@ -333,33 +467,112 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       const skinDisplacement = drumSkinOffsetRef.current;
 
-      // 2. Draw Subtle Ambient Lighting Halo Behind Drum
-      const ambientGlow = ctx.createRadialGradient(
-        drumCenterX,
-        drumCenterY - drumRadiusY * 0.5,
-        20,
-        drumCenterX,
-        drumCenterY - drumRadiusY * 0.2,
-        width * 0.75
-      );
-      ambientGlow.addColorStop(0, 'rgba(56, 189, 248, 0.12)');
-      ambientGlow.addColorStop(0.5, 'rgba(124, 58, 237, 0.08)');
-      ambientGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = ambientGlow;
-      ctx.fillRect(0, 0, width, height);
+      // Tactile 3D parallax: ease toward the active drag pointer (retreats to 0 on release)
+      let parallaxX = 0;
+      let parallaxY = 0;
+      let tilt = 0;
+      const drag = dragPointerRef.current;
+      if (drag) {
+        const normX = Math.max(-1, Math.min(1, (drag.x - drumCenterX) / (drumRadiusX || 1)));
+        const normY = Math.max(-1, Math.min(1, (drag.y - drumCenterY) / (drumRadiusY || 1)));
+        parallaxX = -normX * drumW * PARALLAX_X_AMP;
+        parallaxY = -normY * drumH * PARALLAX_Y_AMP;
+        tilt = -normX * TILT_MAX_RAD;
+      }
+      parallaxXRef.current += (parallaxX - parallaxXRef.current) * PARALLAX_EASE;
+      parallaxYRef.current += (parallaxY - parallaxYRef.current) * PARALLAX_EASE;
+      tiltRef.current += (tilt - tiltRef.current) * PARALLAX_EASE;
+      const easedParallaxX = parallaxXRef.current;
+      const easedParallaxY = parallaxYRef.current;
+      const easedTilt = tiltRef.current;
 
-      // 3. Render 3D Concert Drum (Directly from the user's high-definition reference image!)
-      if (drumImgRef.current && drumImgRef.current.complete) {
+      // 2. Pre-rendered static layers (ambient halo + drum with baked occlusion shadow).
+      // Rebuilt ONLY when size/DPR changes or the drum image first arrives — never per frame.
+      const imgReady = drumImgRef.current && drumImgRef.current.complete ? 1 : 0;
+      const sceneKey = `${width}x${height}@${dpr}|${imgReady}`;
+      if (sceneKeyRef.current !== sceneKey) {
+        sceneKeyRef.current = sceneKey;
+
+        bgSceneRef.current = document.createElement('canvas');
+        bgSceneRef.current.width = Math.floor(width * dpr);
+        bgSceneRef.current.height = Math.floor(height * dpr);
+        const bctx = bgSceneRef.current.getContext('2d');
+        if (bctx) {
+          bctx.scale(dpr, dpr);
+          const ambientGlow = bctx.createRadialGradient(
+            drumCenterX,
+            drumCenterY - drumRadiusY * 0.5,
+            20,
+            drumCenterX,
+            drumCenterY - drumRadiusY * 0.2,
+            width * 0.75
+          );
+          ambientGlow.addColorStop(0, 'rgba(56, 189, 248, 0.12)');
+          ambientGlow.addColorStop(0.5, 'rgba(124, 58, 237, 0.08)');
+          ambientGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          bctx.fillStyle = ambientGlow;
+          bctx.fillRect(0, 0, width, height);
+        }
+
+        drumSceneRef.current = document.createElement('canvas');
+        drumSceneRef.current.width = Math.floor(width * dpr);
+        drumSceneRef.current.height = Math.floor(height * dpr);
+        const dctx = drumSceneRef.current.getContext('2d');
+        if (dctx && drumImgRef.current && drumImgRef.current.complete) {
+          dctx.scale(dpr, dpr);
+          // Soft ground occlusion shadow beneath the drum (baked once)
+          dctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+          dctx.shadowBlur = 28;
+          dctx.shadowOffsetY = 16;
+          dctx.drawImage(drumImgRef.current, drumX, drumY, drumW, drumH);
+        }
+      }
+
+      // Ambient halo: cheap fullscreen blit of the pre-rendered gradient
+      if (bgSceneRef.current) {
+        ctx.drawImage(bgSceneRef.current, 0, 0, width, height);
+      }
+
+      // 3. Render 3D Concert Drum from the pre-rendered layer (single blit + transforms, no per-frame blur)
+      if (drumSceneRef.current) {
         ctx.save();
-        const renderY = drumY + skinDisplacement * 0.25;
-
-        // Soft ground occlusion shadow beneath the drum
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
-        ctx.shadowBlur = 28;
-        ctx.shadowOffsetY = 16;
-
-        ctx.drawImage(drumImgRef.current, drumX, renderY, drumW, drumH);
+        // Pseudo-3D tilt around the drum center so it reads as a real solid object
+        ctx.translate(drumCenterX + easedParallaxX, drumCenterY + easedParallaxY);
+        ctx.rotate(easedTilt);
+        ctx.translate(-(drumCenterX + easedParallaxX), -(drumCenterY + easedParallaxY));
+        ctx.drawImage(drumSceneRef.current, 0, skinDisplacement * 0.25, width, height);
         ctx.restore();
+
+        // Moving specular highlight that follows the drag (light appears glued to the finger side)
+        if (Math.abs(easedParallaxX) > 0.5 || Math.abs(easedParallaxY) > 0.5) {
+          ctx.save();
+          const specX = drumCenterX + easedParallaxX * 2.2;
+          const specY = drumCenterY + easedParallaxY * 2.4;
+          const specGlow = ctx.createRadialGradient(
+            specX,
+            specY,
+            4,
+            specX,
+            specY,
+            drumRadiusX * 0.85
+          );
+          specGlow.addColorStop(0, 'rgba(255, 255, 255, 0.10)');
+          specGlow.addColorStop(0.4, 'rgba(147, 197, 253, 0.05)');
+          specGlow.addColorStop(1, 'rgba(147, 197, 253, 0)');
+          ctx.fillStyle = specGlow;
+          ctx.beginPath();
+          ctx.ellipse(
+            drumCenterX + easedParallaxX,
+            drumCenterY + easedParallaxY,
+            drumRadiusX,
+            drumRadiusY,
+            0,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       // 4. Draw Dynamic Impact Dimples (Hyperrealistic 3D physical membrane crater & celebration particles)
@@ -379,15 +592,17 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
           ctx.save();
           const craterY = dimple.y + skinDisplacement * 0.5;
+          // Follow the drum's tactile 3D parallax so the crater stays glued to the skin
+          const craterX = dimple['x'] + easedParallaxX;
 
           if (depthFactor > 0.02) {
             // A. Asymmetric Inner Cavity Shadow (Upper slope tilted away from overhead ambient light)
             const shadowOffsetY = -currentRadius * aspectY * 0.35;
             const innerShadowGrad = ctx.createRadialGradient(
-              dimple.x,
+              craterX,
               craterY + shadowOffsetY,
               1,
-              dimple.x,
+              craterX,
               craterY,
               currentRadius
             );
@@ -398,7 +613,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
             ctx.beginPath();
             ctx.ellipse(
-              dimple.x,
+              craterX,
               craterY,
               currentRadius,
               currentRadius * aspectY,
@@ -412,10 +627,10 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             // B. Focal Impact Pinpoint (Maximum depth occlusion at center of sphere contact)
             const focalRadius = currentRadius * 0.38;
             const focalGrad = ctx.createRadialGradient(
-              dimple.x,
+              craterX,
               craterY,
               0,
-              dimple.x,
+              craterX,
               craterY,
               focalRadius
             );
@@ -425,7 +640,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
             ctx.beginPath();
             ctx.ellipse(
-              dimple.x,
+              craterX,
               craterY,
               focalRadius,
               focalRadius * aspectY,
@@ -439,7 +654,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             // C. Specular Catch-Light Rim (Lower front slope tilted directly toward ambient light)
             ctx.beginPath();
             ctx.ellipse(
-              dimple.x,
+              craterX,
               craterY + 1.2,
               currentRadius * 0.92,
               currentRadius * 0.92 * aspectY,
@@ -454,7 +669,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             // D. Outer Perimeter Tension Crease Ring
             ctx.beginPath();
             ctx.ellipse(
-              dimple.x,
+              craterX,
               craterY,
               currentRadius * 1.14,
               currentRadius * 1.14 * aspectY,
@@ -477,9 +692,12 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             if (p.alpha > 0.05) {
               ctx.save();
               ctx.fillStyle = p.color;
+              // Soft outer halo + bright core (glow without shadowBlur)
+              ctx.globalAlpha = p.alpha * 0.35;
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+              ctx.fill();
               ctx.globalAlpha = p.alpha;
-              ctx.shadowColor = p.color;
-              ctx.shadowBlur = 6;
               ctx.beginPath();
               ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
               ctx.fill();
@@ -500,10 +718,12 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
         if (wave.alpha > 0.05 && wave.radius < wave.maxRadius) {
           aliveWaves.push(wave);
+          // Ripples ride the drum surface, so follow the tactile 3D parallax too
+          const waveX = wave.x + easedParallaxX;
           ctx.save();
           ctx.beginPath();
           ctx.ellipse(
-            wave.x,
+            waveX,
             wave.y + skinDisplacement * 0.5,
             wave.radius,
             wave.radius * (drumRadiusY / drumRadiusX),
@@ -534,17 +754,28 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         ctx.arc(dotX, dotY, isLit || isCurrent ? 5.5 : 4, 0, Math.PI * 2);
 
         if (isLit) {
+          // Soft glow halo + bright core (same look, no shadowBlur rasterization)
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.35)';
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
+          ctx.fill();
           ctx.fillStyle = '#fbbf24';
-          ctx.shadowColor = '#f59e0b';
-          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, 5.5, 0, Math.PI * 2);
           ctx.fill();
         } else if (isCurrent) {
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.22)';
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, 7, 0, Math.PI * 2);
+          ctx.fill();
           ctx.fillStyle = 'rgba(251, 191, 36, 0.6)';
-          ctx.shadowColor = '#fbbf24';
-          ctx.shadowBlur = 6;
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, 5.5, 0, Math.PI * 2);
           ctx.fill();
         } else {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();
@@ -590,15 +821,22 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             scaleY = 1.03;
           }
 
-          // 2.5D Perspective depth scaling: slightly bigger when closer to viewer (+Y), smaller when further (-Y)
+          // 2.5D Perspective depth scaling: noticeably bigger when closer to viewer (+Y), smaller when further (-Y)
           const depthRatio = (currentSurfaceY - drumCenterY) / (drumRadiusY || 1);
-          const perspectiveScale = Math.max(0.88, Math.min(1.12, 1.0 + depthRatio * 0.14));
+          const perspectiveScale = Math.max(0.84, Math.min(1.16, 1.0 + depthRatio * 0.24));
 
           if (domEl) {
             domEl.style.display = 'block';
             domEl.style.transform = `translate3d(${sphere.x - 40}px, ${sphere.y - 40}px, 0) scale(${scaleX * perspectiveScale}, ${scaleY * perspectiveScale})`;
             domEl.style.transformOrigin = '50% 100%';
           }
+
+          // Rolling 3D rotation: spins as the sphere travels so it looks like a real round object
+          let spin = sphereSpinRef.current.get(sphere.id) ?? 0;
+          spin += (sphere.vx / (sphere.radius || 40)) * dt * speedFactor;
+          sphereSpinRef.current.set(sphere.id, spin);
+          const spinEl = spinRefs.current[sIdx];
+          if (spinEl) spinEl.style.transform = `rotate(${spin}rad)`;
 
           // Drop Shadow onto the drum surface at the sphere's specific 2.5D depth
           const shadowScale = Math.max(0.35, (1 - altitude / (height * 0.6)) * scaleX * perspectiveScale);
@@ -691,10 +929,13 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         if (spark.alpha > 0.05 && spark.y < height) {
           aliveSparks.push(spark);
           ctx.save();
-          ctx.globalAlpha = spark.alpha;
           ctx.fillStyle = spark.color;
-          ctx.shadowColor = spark.color;
-          ctx.shadowBlur = 8;
+          // Soft outer halo + bright core (glow without shadowBlur)
+          ctx.globalAlpha = spark.alpha * 0.35;
+          ctx.beginPath();
+          ctx.arc(spark.x, spark.y, spark.size * 2.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = spark.alpha;
           ctx.beginPath();
           ctx.arc(spark.x, spark.y, spark.size, 0, Math.PI * 2);
           ctx.fill();
@@ -710,19 +951,24 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       if (validTrail.length >= 2) {
         ctx.save();
+        ctx.lineCap = 'round';
         for (let i = 1; i < validTrail.length; i++) {
           const ptA = validTrail[i - 1];
           const ptB = validTrail[i];
           const age = now - ptB.time;
           const factor = Math.max(0, 1 - age / 120);
 
+          // Soft golden outer halo (replaces the shadowBlur glow, cheaper: layered strokes)
+          ctx.strokeStyle = `rgba(251, 191, 36, ${factor * 0.28})`;
+          ctx.lineWidth = 15.0 * factor;
+          ctx.beginPath();
+          ctx.moveTo(ptA.x, ptA.y);
+          ctx.lineTo(ptB.x, ptB.y);
+          ctx.stroke();
+
           // Pure white blade edge
           ctx.strokeStyle = `rgba(255, 255, 255, ${factor * 0.95})`;
           ctx.lineWidth = 3.8 * factor;
-          ctx.lineCap = 'round';
-          ctx.shadowColor = '#fbbf24';
-          ctx.shadowBlur = 14;
-
           ctx.beginPath();
           ctx.moveTo(ptA.x, ptA.y);
           ctx.lineTo(ptB.x, ptB.y);
@@ -772,13 +1018,27 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           }}
           className="absolute top-0 left-0 pointer-events-none z-20"
         >
-          <RhythmSphere3D
-            type={
-              (spheres && spheres[sIdx]?.type) ||
-              (activeSphere && activeSphere.type) ||
-              'purple'
-            }
-          />
+          {/* Inner spin layer: rolls around its own center so it spins even while squashing at the base */}
+          <div
+            ref={(el) => {
+              spinRefs.current[sIdx] = el;
+            }}
+            className="w-20 h-20"
+            style={{ willChange: 'transform' }}
+          >
+            <RhythmSphere3D
+              type={
+                (spheres && spheres[sIdx]?.type) ||
+                (activeSphere && activeSphere.type) ||
+                'purple'
+              }
+              seed={
+                (spheres && spheres[sIdx]?.seed) ||
+                (activeSphere && activeSphere.seed) ||
+                sIdx + 1
+              }
+            />
+          </div>
         </div>
       ))}
 
@@ -795,9 +1055,20 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           }}
           className="absolute top-0 left-0 pointer-events-none z-20"
         >
-          <RhythmSphere3D type={pIdx >= 6 ? 'golden' : 'purple'} />
+          <RhythmSphere3D type={pIdx >= 6 ? 'golden' : 'purple'} seed={pIdx + 101} />
         </div>
       ))}
+
+      {/* Golden Trophy emerging from the slice point into the scene */}
+      {trophyReveal ? (
+        <GoldenTrophyBurst
+          origin={trophyReveal.origin}
+          x={trophyReveal.x}
+          y={trophyReveal.y}
+          cuts={trophyCuts}
+          onContinue={onContinue}
+        />
+      ) : null}
     </div>
   );
 };
