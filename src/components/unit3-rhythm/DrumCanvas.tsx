@@ -314,7 +314,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       const speedFactor = isSlowMo ? 0.3 : 1.0;
 
       // 1. Drum Geometry Calculations (In full glorious perspective view matching reference)
-      const drumW = Math.min(width * 0.95, 540);
+      const drumW = width * 1.15;
       const drumH = drumW * (681 / 1024);
       const drumX = (width - drumW) * 0.5;
       const drumY = height - drumH + 14;
@@ -559,8 +559,9 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           }
 
           // Realistic soft radial drop shadow onto the parchment drumhead (warm, blurred, natural)
-          const shadowScale = Math.max(0.35, (1 - altitude / (height * 0.6)) * scaleX);
-          const shadowAlpha = Math.max(0.04, 0.28 * shadowScale);
+          const shadowScale = Math.max(0.5, (1 - altitude / (height * 0.5)) * scaleX);
+          const shadowAlpha = Math.max(0.08, 0.45 * shadowScale);
+          const shadowRadiusBase = sphere.radius * 1.2 * shadowScale;
 
           const shadowGrad = ctx.createRadialGradient(
             sphere.x,
@@ -568,19 +569,20 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             0,
             sphere.x,
             drumSurfaceY + skinDisplacement * 0.3,
-            sphere.radius * shadowScale
+            shadowRadiusBase
           );
-          shadowGrad.addColorStop(0, `rgba(45, 25, 12, ${shadowAlpha * 0.55})`);
-          shadowGrad.addColorStop(0.4, `rgba(60, 35, 18, ${shadowAlpha * 0.25})`);
-          shadowGrad.addColorStop(1, 'rgba(60, 35, 18, 0)');
+          shadowGrad.addColorStop(0, `rgba(30, 15, 5, ${shadowAlpha * 0.7})`);
+          shadowGrad.addColorStop(0.35, `rgba(40, 22, 10, ${shadowAlpha * 0.4})`);
+          shadowGrad.addColorStop(0.7, `rgba(50, 30, 15, ${shadowAlpha * 0.15})`);
+          shadowGrad.addColorStop(1, 'rgba(50, 30, 15, 0)');
 
           ctx.save();
           ctx.beginPath();
           ctx.ellipse(
             sphere.x,
             drumSurfaceY + skinDisplacement * 0.3,
-            sphere.radius * shadowScale,
-            sphere.radius * shadowScale * 0.36,
+            shadowRadiusBase,
+            shadowRadiusBase * 0.38,
             0,
             0,
             Math.PI * 2
