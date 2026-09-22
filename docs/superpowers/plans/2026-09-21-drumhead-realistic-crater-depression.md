@@ -24,21 +24,21 @@
 - Consumes: `DrumDimple` from `types.ts`, `dimplesRef`, `triggerDrumImpact`
 - Produces: Hyperrealistic 3D drum membrane crater rendering without the upward beam cone
 
-- [ ] **Step 1: Update Dimple Lifespan and Depth Dynamics**
+- [x] **Step 1: Update Dimple Lifespan and Depth Dynamics**
 Adjust duration to 480ms for a snappier, physical recoil bounce rather than a 1.2s lingering fade.
 
-- [ ] **Step 2: Remove the Upward Projection Beam**
+- [x] **Step 2: Remove the Upward Projection Beam**
 Delete the conical path and gradient block (`beamGrad`, lines 420-432) that created the upward beam.
 
-- [ ] **Step 3: Implement 3D Anatomical Crater Lighting & Tension**
+- [x] **Step 3: Implement 3D Anatomical Crater Lighting & Tension**
 Implement:
 1. Upper inner shadow (top crescent occlusion) offset slightly upwards against light source.
 2. Center cavity depth gradient with realistic leather/parchment shadow tones.
 3. Lower catch-light rim (specular crescent along bottom perimeter) simulating tension ridge facing the light.
 4. Perimetral tension crease ring.
 
-- [ ] **Step 4: Verify TypeScript compilation**
+- [x] **Step 4: Verify TypeScript compilation**
 Run `npx tsc --noEmit` to ensure 0 errors.
 
-- [ ] **Step 5: Commit changes**
+- [x] **Step 5: Commit changes**
 Commit to git with message `feat(unit3): realistic 3D drum membrane crater and remove projection beam`.
