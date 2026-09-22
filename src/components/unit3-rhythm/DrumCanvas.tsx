@@ -558,36 +558,22 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
             domEl.style.transformOrigin = '50% 100%';
           }
 
-          // Realistic soft radial drop shadow onto the parchment drumhead (warm, blurred, natural)
-          const shadowScale = Math.max(0.5, (1 - altitude / (height * 0.5)) * scaleX);
-          const shadowAlpha = Math.max(0.08, 0.45 * shadowScale);
-          const shadowRadiusBase = sphere.radius * 1.2 * shadowScale;
-
-          const shadowGrad = ctx.createRadialGradient(
-            sphere.x,
-            drumSurfaceY + skinDisplacement * 0.3,
-            0,
-            sphere.x,
-            drumSurfaceY + skinDisplacement * 0.3,
-            shadowRadiusBase
-          );
-          shadowGrad.addColorStop(0, `rgba(30, 15, 5, ${shadowAlpha * 0.7})`);
-          shadowGrad.addColorStop(0.35, `rgba(40, 22, 10, ${shadowAlpha * 0.4})`);
-          shadowGrad.addColorStop(0.7, `rgba(50, 30, 15, ${shadowAlpha * 0.15})`);
-          shadowGrad.addColorStop(1, 'rgba(50, 30, 15, 0)');
+          // Drop Shadow onto the drum surface
+          const shadowScale = Math.max(0.35, (1 - altitude / (height * 0.6)) * scaleX);
+          const shadowAlpha = Math.max(0.06, 0.32 * shadowScale);
 
           ctx.save();
           ctx.beginPath();
           ctx.ellipse(
             sphere.x,
-            drumSurfaceY + skinDisplacement * 0.3,
-            shadowRadiusBase,
-            shadowRadiusBase * 0.38,
+            drumSurfaceY + skinDisplacement * 0.5,
+            sphere.radius * shadowScale,
+            sphere.radius * shadowScale * 0.35,
             0,
             0,
             Math.PI * 2
           );
-          ctx.fillStyle = shadowGrad;
+          ctx.fillStyle = `rgba(15, 23, 42, ${shadowAlpha * 1.5})`;
           ctx.fill();
           ctx.restore();
         }
