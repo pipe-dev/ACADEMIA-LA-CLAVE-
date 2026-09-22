@@ -315,7 +315,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       // 1. Drum Geometry Calculations (In full glorious perspective view matching reference)
       const drumW = Math.min(width * 0.95, 540);
-      const drumH = drumW * (511 / 768);
+      const drumH = drumW * (681 / 1024);
       const drumX = (width - drumW) * 0.5;
       const drumY = height - drumH + 14;
       const drumCenterX = width * 0.5;
