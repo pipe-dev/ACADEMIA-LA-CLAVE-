@@ -119,9 +119,9 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
   const getDrumGeometry = () => {
     const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
     const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
-    const drumW = canvasWidth * 1.15;
+    const drumW = canvasWidth * 1.22;
     const drumH = drumW * (681 / 1024);
-    const drumY = canvasHeight - drumH + 14;
+    const drumY = canvasHeight - drumH + 42;
     const drumCenterY = drumY + drumH * 0.44;
     const drumRadiusX = drumW * 0.417;
     const drumRadiusY = drumH * 0.284;

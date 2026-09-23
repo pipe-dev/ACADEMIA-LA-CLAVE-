@@ -61,23 +61,22 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const lastBounceCountsRef = useRef<Map<number, number>>(new Map());
   const drumImgRef = useRef<HTMLImageElement | null>(null);
 
-  // Pre-rendered static layers (halo + drum with baked shadow), rebuilt only on resize
+  // Pre-rendered static ambient halo layer, rebuilt only on resize
   const bgSceneRef = useRef<HTMLCanvasElement | null>(null);
-  const drumSceneRef = useRef<HTMLCanvasElement | null>(null);
   const sceneKeyRef = useRef<string>('');
 
-  // Tactile 3D drum parallax: follows pointer and drag with elastic spring recovery
+  // Tactile 3D drum parallax: follows active touch and drag with elastic spring recovery
   const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
   const prevRenderTime = useRef<number>(performance.now());
   const parallaxXRef = useRef(0);
   const parallaxYRef = useRef(0);
   const tiltRef = useRef(0);
 
-  // Parallax tuning constants: noticeable depth shift matching 2.5D perspective
-  const PARALLAX_X_AMP = 0.038; // fraction of drumW
-  const PARALLAX_Y_AMP = 0.026; // fraction of drumH
-  const TILT_MAX_RAD = 0.06; // ~3.4 degrees
-  const PARALLAX_EASE = 0.12;
+  // Parallax tuning constants: subtle tactile response, solid feel, zero edge exposure
+  const PARALLAX_X_AMP = 0.020; // fraction of drumW
+  const PARALLAX_Y_AMP = 0.012; // fraction of drumH
+  const TILT_MAX_RAD = 0.035; // ~2.0 degrees
+  const PARALLAX_EASE = 0.14;
 
   // Reset cut state whenever the trophy reveal toggles (and record when it appears)
   useEffect(() => {
@@ -366,10 +365,10 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     const y = e.clientY - rect.top;
     const now = performance.now();
 
-    // 3D parallax tracks pointer movement across the canvas smoothly
-    dragPointerRef.current = { x, y };
-
+    // Tactile 3D parallax: strictly active during active touch / drag interaction, never on hover
     if (!isPointerDownRef.current) return;
+
+    dragPointerRef.current = { x, y };
 
     const trail = pointerTrailRef.current;
     const lastPoint = trail[trail.length - 1];
@@ -452,11 +451,11 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       const dt = Math.min((now - prevRenderTime.current) / 1000, 0.05);
       prevRenderTime.current = now;
 
-      // 1. Drum Geometry Calculations (In full glorious perspective view matching reference)
-      const drumW = width * 1.15;
+      // 1. Drum Geometry Calculations (Full unclipped perspective view)
+      const drumW = width * 1.22;
       const drumH = drumW * (681 / 1024);
       const drumX = (width - drumW) * 0.5;
-      const drumY = height - drumH + 14;
+      const drumY = height - drumH + 42;
       const drumCenterX = width * 0.5;
       const drumCenterY = drumY + drumH * 0.44;
       const drumRadiusX = drumW * 0.417;
@@ -472,16 +471,17 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
       const skinDisplacement = drumSkinOffsetRef.current;
 
-      // Tactile 3D parallax: ease toward the active drag pointer (retreats to 0 on release)
+      // Tactile 3D parallax: strictly on active touch/drag (retreats to 0 on release)
       let parallaxX = 0;
       let parallaxY = 0;
       let tilt = 0;
       const drag = dragPointerRef.current;
-      if (drag) {
+      if (drag && isPointerDownRef.current) {
         const normX = Math.max(-1, Math.min(1, (drag.x - drumCenterX) / (drumRadiusX || 1)));
         const normY = Math.max(-1, Math.min(1, (drag.y - drumCenterY) / (drumRadiusY || 1)));
-        parallaxX = -normX * drumW * PARALLAX_X_AMP;
-        parallaxY = -normY * drumH * PARALLAX_Y_AMP;
+        // Clamped tightly so drum never reveals screen boundaries or white margins
+        parallaxX = Math.max(-14, Math.min(14, -normX * drumW * PARALLAX_X_AMP));
+        parallaxY = Math.max(-6, Math.min(10, -normY * drumH * PARALLAX_Y_AMP));
         tilt = -normX * TILT_MAX_RAD;
       }
       parallaxXRef.current += (parallaxX - parallaxXRef.current) * PARALLAX_EASE;
@@ -491,10 +491,8 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       const easedParallaxY = parallaxYRef.current;
       const easedTilt = tiltRef.current;
 
-      // 2. Pre-rendered static layers (ambient halo + drum with baked occlusion shadow).
-      // Rebuilt ONLY when size/DPR changes or the drum image first arrives â€” never per frame.
-      const imgReady = drumImgRef.current && drumImgRef.current.complete ? 1 : 0;
-      const sceneKey = `${width}x${height}@${dpr}|${imgReady}`;
+      // 2. Pre-rendered static ambient halo layer (rebuilt only on resize/DPR change)
+      const sceneKey = `${width}x${height}@${dpr}`;
       if (sceneKeyRef.current !== sceneKey) {
         sceneKeyRef.current = sceneKey;
 
@@ -518,19 +516,6 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
           bctx.fillStyle = ambientGlow;
           bctx.fillRect(0, 0, width, height);
         }
-
-        drumSceneRef.current = document.createElement('canvas');
-        drumSceneRef.current.width = Math.floor(width * dpr);
-        drumSceneRef.current.height = Math.floor(height * dpr);
-        const dctx = drumSceneRef.current.getContext('2d');
-        if (dctx && drumImgRef.current && drumImgRef.current.complete) {
-          dctx.scale(dpr, dpr);
-          // Soft ground occlusion shadow beneath the drum (baked once)
-          dctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
-          dctx.shadowBlur = 28;
-          dctx.shadowOffsetY = 16;
-          dctx.drawImage(drumImgRef.current, drumX, drumY, drumW, drumH);
-        }
       }
 
       // Ambient halo: cheap fullscreen blit of the pre-rendered gradient
@@ -538,14 +523,32 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         ctx.drawImage(bgSceneRef.current, 0, 0, width, height);
       }
 
-      // 3. Render 3D Concert Drum from the pre-rendered layer (single blit + transforms, no per-frame blur)
-      if (drumSceneRef.current) {
+      // 3. Render 3D Concert Drum directly with parallax & tilt (zero edge cropping, no white spaces!)
+      if (drumImgRef.current && drumImgRef.current.complete) {
         ctx.save();
-        // Pseudo-3D tilt around the drum center, plus real tactile parallax translation
         ctx.translate(drumCenterX + easedParallaxX, drumCenterY + easedParallaxY);
         ctx.rotate(easedTilt);
-        ctx.translate(-drumCenterX, -drumCenterY);
-        ctx.drawImage(drumSceneRef.current, 0, skinDisplacement * 0.25, width, height);
+
+        // Ground shadow beneath the drum base
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(
+          0,
+          drumRadiusY * 0.54,
+          drumRadiusX * 0.98,
+          drumRadiusY * 0.68,
+          0,
+          0,
+          Math.PI * 2
+        );
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.42)';
+        ctx.fill();
+        ctx.restore();
+
+        // High-definition 3D drum drawing with full margins — no canvas clipping!
+        const localX = -drumW * 0.5;
+        const localY = (drumY - drumCenterY) + skinDisplacement * 0.25;
+        ctx.drawImage(drumImgRef.current, localX, localY, drumW, drumH);
         ctx.restore();
 
         // Moving specular highlight that follows the drag (light appears glued to the finger side)

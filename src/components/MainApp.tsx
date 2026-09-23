@@ -1237,9 +1237,16 @@ export default function App() {
           onClose={() => setSelectedNode(null)}
           onCompleteNode={handleCompleteNode}
           onOpenUnitCelebration={() => {
+            const currentUnitId = selectedNode?.unitId ?? 1;
             setUnlockedUnitAnimationId(null);
             setSelectedNode(null);
-            setShowUnitCelebration(true);
+            if (currentUnitId === 3) {
+              setShowUnit3Celebration(true);
+            } else if (currentUnitId === 2) {
+              setShowUnit2Celebration(true);
+            } else {
+              setShowUnitCelebration(true);
+            }
           }}
           onLoseLife={handleLoseLife}
           onOpenRecoveryExam={() => setIsRecoveryExamOpen(true)}
@@ -1266,6 +1273,7 @@ export default function App() {
         <Unit3CelebrationModal
           isOpen={showUnit3Celebration}
           onContinue={handleContinueToUnit4}
+          bpm={130}
         />
       )}
 

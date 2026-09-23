@@ -31,6 +31,9 @@ export interface BalloonColorTheme {
   bgCircle: string;
 }
 
+// Persistent map storing playback positions across node views
+const nodeVideoPlaybackTimes = new Map<string, number>();
+
 const BALLOON_COLOR_THEMES: BalloonColorTheme[] = [
   {
     id: 'red',
@@ -349,6 +352,9 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             const time = typeof rawTime?.then === 'function' ? await rawTime : rawTime;
             if (typeof time === 'number' && !isNaN(time)) {
               setCurrentTime(time);
+              if (time > 0.5) {
+                nodeVideoPlaybackTimes.set(node.id, time);
+              }
 
               // Class 1 (u1-node1) specific timing triggers for audio ding and confetti
               if (node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')) {
@@ -858,6 +864,13 @@ export const LessonModal: React.FC<LessonModalProps> = ({
       }
       event.target.unMute?.();
       event.target.setVolume?.(100);
+
+      // Resume from exact saved second if previously paused / exited
+      const savedTime = nodeVideoPlaybackTimes.get(node.id);
+      if (typeof savedTime === 'number' && savedTime > 0.5) {
+        event.target.seekTo?.(savedTime, true);
+        setCurrentTime(savedTime);
+      }
     } catch {}
 
     if (stepRef.current === 'video' || userRequestedPlayRef.current) {
@@ -1062,22 +1075,65 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     };
   }, []);
 
+  // Pause video immediately whenever step is not 'video'
   useEffect(() => {
-    return () => {
-      userRequestedPlayRef.current = false;
+    if (step !== 'video') {
       if (playerRef.current) {
         try {
+          const t = playerRef.current.getCurrentTime?.();
+          if (typeof t === 'number' && !isNaN(t) && t > 0.5) {
+            nodeVideoPlaybackTimes.set(node.id, t);
+          }
           playerRef.current.pauseVideo?.();
         } catch {}
       }
+      setIsPlaying(false);
+    }
+  }, [step, node.id]);
+
+  // Pause on tab hidden and on unmount
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && playerRef.current) {
+        try {
+          const t = playerRef.current.getCurrentTime?.();
+          if (typeof t === 'number' && !isNaN(t) && t > 0.5) {
+            nodeVideoPlaybackTimes.set(node.id, t);
+          }
+          playerRef.current.pauseVideo?.();
+        } catch {}
+        setIsPlaying(false);
+      }
     };
-  }, []);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      userRequestedPlayRef.current = false;
+      if (playerRef.current) {
+        try {
+          const t = playerRef.current.getCurrentTime?.();
+          if (typeof t === 'number' && !isNaN(t) && t > 0.5) {
+            nodeVideoPlaybackTimes.set(node.id, t);
+          }
+          playerRef.current.pauseVideo?.();
+          playerRef.current.stopVideo?.();
+        } catch {}
+      }
+      setIsPlaying(false);
+    };
+  }, [node.id]);
 
   const handleAttemptClose = () => {
     userRequestedPlayRef.current = false;
     if (playerRef.current) {
       try {
+        const t = playerRef.current.getCurrentTime?.();
+        if (typeof t === 'number' && !isNaN(t) && t > 0.5) {
+          nodeVideoPlaybackTimes.set(node.id, t);
+        }
         playerRef.current.pauseVideo?.();
+        playerRef.current.stopVideo?.();
       } catch {}
     }
     setIsPlaying(false);
@@ -1250,11 +1306,16 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                     unlockOrientation();
                     if (playerRef.current) {
                       try {
+                        const t = playerRef.current.getCurrentTime?.();
+                        if (typeof t === 'number' && !isNaN(t) && t > 0.5) {
+                          nodeVideoPlaybackTimes.set(node.id, t);
+                        }
                         playerRef.current.pauseVideo?.();
+                        playerRef.current.stopVideo?.();
                       } catch {}
                     }
                     setIsPlaying(false);
-                    if ((node.id === 'u1-node1' || node.type === 'concept') && !quizResolved) {
+                    if (node.id === 'u1-node1' && !quizResolved) {
                       setStep('practice');
                     } else {
                       onClose();
