@@ -1,0 +1,39 @@
+npm notice run nextn@0.1.0 dev
+npm notice run next dev --turbopack -p 9002
+   ▲ Next.js 15.3.8 (Turbopack)
+   - Local:        http://localhost:9002
+   - Network:      http://192.168.0.23:9002
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Compiled middleware in 477ms
+ ✓ Ready in 3.7s
+ ○ Compiling /sandbox/unit3 ...
+ ✓ Compiled /sandbox/unit3 in 4.5s
+ GET /sandbox/unit3 200 in 4991ms
+ GET /sandbox/unit3 200 in 470ms
+ GET /sandbox/unit3 200 in 334ms
+ ○ Compiling /icon.png ...
+ ✓ Compiled /icon.png in 2.2s
+ GET /icon.png?icon.78b89766.png 200 in 2887ms
+ GET /icon.png?icon.78b89766.png 200 in 343ms
+ GET /icon.png?icon.78b89766.png 200 in 868ms
+ GET /sandbox/unit3 200 in 431ms
+ GET /icon.png?icon.78b89766.png 200 in 366ms
+ GET /icon.png?icon.78b89766.png 200 in 516ms
+ GET /icon.png?icon.78b89766.png 200 in 639ms
+ GET /sandbox/unit3 200 in 491ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 1922ms
+ GET /favicon.ico?favicon.78b89766.ico 200 in 2701ms
+ ○ Compiling / ...
+ GET /sandbox/unit3 200 in 2167ms
+ GET /icon.png?icon.78b89766.png 200 in 1417ms
+ ✓ Compiled / in 13s
+ GET /sandbox/unit3 200 in 190ms
+ GET / 200 in 175ms
+ GET /sandbox/unit3 200 in 402ms
+ GET / 200 in 155ms
+ GET /favicon.ico?favicon.78b89766.ico 200 in 506ms
+ GET /icon.png?icon.78b89766.png 200 in 585ms
+ GET / 200 in 95ms

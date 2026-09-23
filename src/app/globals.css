@@ -1080,5 +1080,157 @@ nextjs-portal,
   -webkit-backface-visibility: hidden;
 }
 
+/* ===== Trophy Celebration (Unit 3 Rhythm) Polish ===== */
+
+/* Springy entrance: tiny at the cut point, grows until it pops into place */
+@keyframes trophyPopIn {
+  0% {
+    transform: translateY(48px) scale3d(0.10, 0.10, 1) rotateX(30deg) rotateY(-18deg);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(-6px) scale3d(1.18, 1.18, 1) rotateX(-3deg) rotateY(4deg);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  78% {
+    transform: translateY(2px) scale3d(0.94, 0.94, 1) rotateX(1deg) rotateY(-1deg);
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  100% {
+    transform: translateY(0) scale3d(1, 1, 1) rotateX(0) rotateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-trophy-pop-in {
+  transform-origin: 50% 80%;
+  animation: trophyPopIn 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Expanding golden ring that pulses outward as the trophy grows from the cut */
+@keyframes trophyGrowthRing {
+  0% {
+    transform: scale3d(0.15, 0.15, 1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale3d(1.75, 1.75, 1);
+    opacity: 0;
+  }
+}
+
+.animate-trophy-growth-ring {
+  transform-origin: 50% 50%;
+  animation: trophyGrowthRing 0.8s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+/* Continuous 3D floating with subtle perspective wobble */
+@keyframes trophyFloat3D {
+  0%, 100% {
+    transform: translateY(0) rotateX(-2deg) rotateY(-3deg);
+  }
+  25% {
+    transform: translateY(-10px) rotateX(2deg) rotateY(3deg);
+  }
+  50% {
+    transform: translateY(-14px) rotateX(-1deg) rotateY(4deg);
+  }
+  75% {
+    transform: translateY(-6px) rotateX(3deg) rotateY(-2deg);
+  }
+}
+
+.animate-trophy-float {
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  animation: trophyFloat3D 3.6s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Gold light sweep that actually moves */
+@keyframes goldShimmer {
+  0% {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  55% {
+    transform: translateX(130%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(130%) skewX(-18deg);
+  }
+}
+
+.animate-gold-shimmer {
+  animation: goldShimmer 2.8s cubic-bezier(0.5, 0, 0.3, 1) infinite;
+  will-change: transform;
+}
+
+/* Rotating golden light rays behind the trophy */
+@keyframes raysSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-rays-spin {
+  animation: raysSpin 18s linear infinite;
+  will-change: transform;
+}
+
+/* Ground shadow breathing in sync with the float */
+@keyframes trophyShadowPulse {
+  0%, 100% {
+    transform: scale3d(1, 1, 1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale3d(0.82, 0.82, 1);
+    opacity: 0.32;
+  }
+}
+
+.animate-trophy-shadow {
+  transform-origin: 50% 50%;
+  animation: trophyShadowPulse 3.6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Internal layered rotation used by RhythmSphere3D to fake solid 3D volume */
+@keyframes sphereLayerSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes glintPulse {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.animate-glint {
+  animation: glintPulse 1.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
 
 

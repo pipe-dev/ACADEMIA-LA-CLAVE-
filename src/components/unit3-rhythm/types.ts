@@ -49,6 +49,7 @@ export interface ActiveSphere {
   peakTime: number; // Cenit exacto en el beat (ms)
   bounceCount: number; // incremented on each drum bounce
   surfaceY?: number; // 2.5D depth landing position on the elliptical drumhead
+  seed?: number; // deterministic per-sphere lighting/shading variant
   leftPiece?: SphereHemisphere;
   rightPiece?: SphereHemisphere;
 }
@@ -96,4 +97,18 @@ export interface DrumDimple {
     size: number;
     alpha: number;
   }[];
+}
+
+// A fruit-ninja swipe across the revealed trophy (global canvas coordinates)
+export interface TrophyCut {
+  px: number;
+  py: number;
+  angle: number;
+}
+
+// One fragment of the cut trophy (trophy-local coordinates, box is 128x128 centered at 0,0)
+export interface TrophyPiece {
+  polygon: { x: number; y: number }[];
+  offsetX: number;
+  offsetY: number;
 }

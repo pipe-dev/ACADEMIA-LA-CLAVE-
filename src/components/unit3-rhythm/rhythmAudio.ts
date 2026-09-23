@@ -184,6 +184,65 @@ export function playGoldenCrashFanfare() {
   });
 }
 
+// Metallic katana / saber swoosh cut (noise band-sweep + inharmonic metal "shing")
+export function playBladeSwoosh(intensity = 1) {
+  if (isMuted) return;
+  const ctx = getContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+
+  const duration = 0.5;
+
+  // 1. Air swoosh body: filtered noise with a fast upward bandpass sweep, then decay
+  const bufferSize = Math.floor(ctx.sampleRate * duration);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.12));
+  }
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.Q.value = 1.4;
+  bp.frequency.setValueAtTime(900, now);
+  bp.frequency.exponentialRampToValueAtTime(6500, now + 0.16);
+  bp.frequency.exponentialRampToValueAtTime(1200, now + duration);
+
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.0001, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.55 * intensity, now + 0.05);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  noise.connect(bp);
+  bp.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  noise.start(now);
+  noise.stop(now + duration + 0.02);
+
+  // 2. Metallic "shing": inharmonic partials of a struck metal bar (saber edge)
+  const overtones = [1, 2.76, 5.4, 8.9];
+  const base = 420;
+  overtones.forEach((ratio, idx) => {
+    const osc = ctx.createOscillator();
+    const og = ctx.createGain();
+    osc.type = 'triangle';
+    const freq = base * ratio;
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.98, now + 0.2);
+
+    const amp = (0.11 / (idx + 1)) * intensity;
+    og.gain.setValueAtTime(amp, now);
+    og.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    osc.connect(og);
+    og.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  });
+}
+
 // Muted dull thud when ball bounces without being sliced
 export function playDullBounce() {
   if (isMuted) return;

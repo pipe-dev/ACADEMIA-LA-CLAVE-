@@ -2,12 +2,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import confetti from 'canvas-confetti';
 import { ActiveSphere, RhythmBeatState } from './unit3-rhythm/types';
 import { DrumCanvas } from './unit3-rhythm/DrumCanvas';
-import { TrophyCelebration } from './unit3-rhythm/TrophyCelebration';
 import {
   playBassDrum,
-  playSphereSlice,
+  playBladeSwoosh,
   playDrumRollBuildup,
   playGoldenCrashFanfare,
   playDullBounce,
@@ -35,7 +35,11 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
   const [completedBeats, setCompletedBeats] = useState<number>(0);
   const [activeSpheres, setActiveSpheres] = useState<ActiveSphere[]>([]);
   const [isSlowMo, setIsSlowMo] = useState<boolean>(false);
-  const [showTrophy, setShowTrophy] = useState<boolean>(false);
+  const [trophyReveal, setTrophyReveal] = useState<{
+    x: number;
+    y: number;
+    origin: { x: number; y: number } | null;
+  } | null>(null);
 
   const beatIntervalMs = 60000 / bpm; // 500ms at 120 BPM
   const gameStateRef = useRef<RhythmBeatState>('PULSE_1');
@@ -46,6 +50,63 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
   useEffect(() => {
     setRhythmAudioMuted(isMuted);
   }, [isMuted]);
+
+  // Full-screen two-stage golden confetti celebration fired at the slice moment
+  const fireTrophyConfetti = useCallback(() => {
+    try {
+      const count = 75;
+      const defaults = {
+        origin: { y: 0.62 },
+        zIndex: 100,
+      };
+
+      const fire = (particleRatio: number, opts: confetti.Options) => {
+        confetti({
+          ...defaults,
+          ...opts,
+          particleCount: Math.floor(count * particleRatio),
+        });
+      };
+
+      fire(0.25, {
+        spread: 26,
+        startVelocity: 45,
+        colors: ['#f59e0b', '#fbbf24', '#fef08a'],
+      });
+      fire(0.2, {
+        spread: 60,
+        colors: ['#a855f7', '#c084fc', '#ffffff'],
+      });
+      fire(0.35, {
+        spread: 100,
+        decay: 0.91,
+        scalar: 0.8,
+        colors: ['#eab308', '#ca8a04', '#ffffff'],
+      });
+      fire(0.1, {
+        spread: 120,
+        startVelocity: 25,
+        decay: 0.92,
+        colors: ['#38bdf8', '#818cf8'],
+      });
+
+      setTimeout(() => {
+        confetti({
+          particleCount: 34,
+          spread: 90,
+          startVelocity: 38,
+          decay: 0.9,
+          scalar: 1.2,
+          shapes: ['star'],
+          colors: ['#fde047', '#fbbf24', '#f59e0b', '#ffffff'],
+          origin: { y: 0.5 },
+          zIndex: 100,
+        });
+      }, 320);
+    } catch {
+      // Ignored
+    }
+  }, []);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -124,6 +185,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         birthTime: now,
         peakTime: now + halfFlightTime,
         bounceCount: 0,
+        seed: Math.random() * 1e9,
       };
     },
     [beatIntervalMs]
@@ -158,7 +220,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
     setGameState('PULSE_1');
     gameStateRef.current = 'PULSE_1';
     setIsSlowMo(false);
-    setShowTrophy(false);
+    setTrophyReveal(null);
     launchSpheres(1);
   }, [launchSpheres]);
 
@@ -171,6 +233,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         // Grand Final Beat Sliced!
         setIsSlowMo(true);
         playGoldenCrashFanfare();
+        fireTrophyConfetti();
         setCompletedBeats(4);
         completedBeatsRef.current = 4;
         setGameState('SLOWMO_CUT');
@@ -179,11 +242,18 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         setTimeout(() => {
           setGameState('TROPHY_REVEAL');
           gameStateRef.current = 'TROPHY_REVEAL';
-          setShowTrophy(true);
+          const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
+          const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
+          // Trophy bursts from the slice point, then settles at the drum center
+          setTrophyReveal({
+            x: canvasWidth * 0.5,
+            y: canvasHeight * 0.24,
+            origin: { x: sphere.x, y: sphere.y },
+          });
         }, 650);
       } else {
         // Regular purple sphere 1, 2, 3 sliced
-        playSphereSlice(currentBeat);
+        playBladeSwoosh(0.85);
         setCompletedBeats(currentBeat);
         completedBeatsRef.current = currentBeat;
 
@@ -216,7 +286,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         }
       }
     },
-    [launchSpheres, createSphere]
+    [launchSpheres, createSphere, fireTrophyConfetti]
   );
 
   // Initialize on open
@@ -228,14 +298,17 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         completedBeatsRef.current = 4;
         setGameState('TROPHY_REVEAL');
         gameStateRef.current = 'TROPHY_REVEAL';
-        setShowTrophy(true);
+        setIsSlowMo(false);
+        const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 430;
+        const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 932;
+        setTrophyReveal({ x: canvasWidth * 0.5, y: canvasHeight * 0.24, origin: null });
       } else if (testStartBeat === 4) {
         setCompletedBeats(3);
         completedBeatsRef.current = 3;
         setGameState('GOLDEN_PULSE');
         gameStateRef.current = 'GOLDEN_PULSE';
         setIsSlowMo(false);
-        setShowTrophy(false);
+        setTrophyReveal(null);
         launchSpheres(4);
       } else {
         resetToBeatOne();
@@ -254,14 +327,18 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
       const dt = Math.min((currentTime - lastTime) / 1000, 0.05);
       lastTime = currentTime;
 
+      // Don't burn CPU on simulated physics while the tab is hidden (RAF keeps ticking in the background)
+      if (typeof document !== 'undefined' && document.hidden) {
+        animId = requestAnimationFrame(loop);
+        return;
+      }
+
       const spheres = activeSpheresRef.current;
-      let hasUpdate = false;
 
       const { canvasWidth, canvasHeight, drumCenterY, drumRadiusX, drumRadiusY, drumSurfaceY } = getDrumGeometry();
 
       spheres.forEach((sphere) => {
         if (sphere.isCut || gameStateRef.current === 'TROPHY_REVEAL') return;
-        hasUpdate = true;
 
         const speedMultiplier = isSlowMo ? 0.3 : 1.0;
         const g = sphere.g * speedMultiplier;
@@ -294,7 +371,7 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
 
           // Calculate a dynamic forward/backward depth for NEXT bounce inside drum ellipse
           const dxRatio = Math.min(0.85, Math.abs(sphere.x - canvasWidth * 0.5) / (drumRadiusX || 1));
-          const safeYRange = Math.sqrt(Math.max(0.1, 1 - dxRatio * dxRatio)) * drumRadiusY * 0.55;
+          const safeYRange = Math.sqrt(Math.max(0.1, 1 - dxRatio * dxRatio)) * drumRadiusY * 0.62;
           // nextOffset: positive is forward/closer to camera (+Y), negative is backward/further (-Y)
           const nextOffset = (Math.random() * 2 - 1) * safeYRange;
           sphere.surfaceY = drumCenterY + nextOffset;
@@ -334,10 +411,6 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         }
       });
 
-      if (hasUpdate) {
-        setActiveSpheres([...spheres]);
-      }
-
       animId = requestAnimationFrame(loop);
     };
 
@@ -358,10 +431,9 @@ export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
         completedBeats={completedBeats}
         onSliceSphere={handleSliceSphere}
         isSlowMo={isSlowMo}
+        trophyReveal={trophyReveal}
+        onContinue={onContinue}
       />
-
-      {/* Trophy Reveal View (Zero Text Clutter, Pure Celebration) */}
-      <TrophyCelebration isOpen={showTrophy} onContinue={onContinue} />
     </div>
   );
 };

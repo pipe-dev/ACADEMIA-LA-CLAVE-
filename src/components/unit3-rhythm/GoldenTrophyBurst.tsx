@@ -61,10 +61,7 @@ const computePieces = (cuts: TrophyCut[], centerX: number, centerY: number): Tro
     ],
   ];
 
-  // Limit to at most 2 cuts to prevent exponential polygon explosion
-  const safeCuts = cuts.slice(0, 2);
-
-  safeCuts.forEach((cut) => {
+  cuts.forEach((cut) => {
     const lx = cut.px - centerX;
     const ly = cut.py - centerY;
     // Perpendicular normal to the swipe direction

@@ -148,16 +148,16 @@ export const TrophyReveal: React.FC<TrophyRevealProps> = ({ state, onContinue, o
       >
         {/* Rotating Radial Light Beams */}
         <div className="absolute -inset-12 -z-10 flex items-center justify-center pointer-events-none">
-          <div className="w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.35)_0%,transparent_70%)] animate-spin-slow" />
+          <div className="w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.35)_0%,transparent_70%)] animate-rays-spin" />
         </div>
 
         {/* 3D Golden Trophy with Crossed Drumsticks & Drum */}
         <div className="relative mb-3 group">
           {/* Floating Levitation Container */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-amber-600 via-amber-400 to-yellow-200 p-1 shadow-[0_10px_35px_rgba(245,158,11,0.6)] flex items-center justify-center animate-bounce-slow">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-amber-600 via-amber-400 to-yellow-200 p-1 shadow-[0_10px_35px_rgba(245,158,11,0.6)] flex items-center justify-center animate-trophy-float">
             <div className="w-full h-full rounded-[22px] bg-gradient-to-br from-amber-700 via-amber-500 to-amber-300 flex items-center justify-center relative overflow-hidden border border-yellow-100/50 shadow-inner">
-              {/* Shimmer line */}
-              <div className="absolute inset-0 bg-[linear-gradient(115deg,transparent_20%,rgba(255,255,255,0.7)_50%,transparent_80%)] animate-shimmer pointer-events-none" />
+              {/* Shimmer light sweep now in real motion */}
+              <div className="absolute inset-0 bg-[linear-gradient(115deg,transparent_20%,rgba(255,255,255,0.7)_50%,transparent_80%)] animate-gold-shimmer pointer-events-none" />
 
               {/* Drum Icon */}
               <Drum className="w-12 h-12 sm:w-14 sm:h-14 text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] stroke-[2.5]" />

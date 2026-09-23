@@ -248,9 +248,6 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const sliceTrophy = useCallback((nearestX: number, nearestY: number, cutAngle: number) => {
     if (!trophyReveal) return;
 
-    // Limit to max 2 cuts (a clean slash, or at most a cross cut)
-    if (trophyCutsRef.current.length >= 2) return;
-
     // Throttle cut registrations to avoid multiple cuts during a single fast swipe
     const now = performance.now();
     if (now - lastTrophyCutTimeRef.current < 250) return;
