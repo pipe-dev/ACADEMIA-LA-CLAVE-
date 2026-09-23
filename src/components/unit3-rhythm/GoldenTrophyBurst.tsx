@@ -129,9 +129,12 @@ const polygonToClipPath = (polygon: { x: number; y: number }[]): string => {
 };
 
 // Golden 3D box face — memoized, hasShadow=false when clipped to avoid GPU software blur bottlenecks
-const TrophyBoxFace: React.FC<{ animated?: boolean; hasShadow?: boolean }> = React.memo(({
+const TrophyBoxFace = memo(({
   animated = true,
   hasShadow = true,
+}: {
+  animated?: boolean;
+  hasShadow?: boolean;
 }) => (
   <div
     className={`relative w-full h-full rounded-[28px] bg-gradient-to-tr from-amber-600 via-amber-400 to-yellow-200 p-1 flex items-center justify-center ${
@@ -163,7 +166,7 @@ const TrophyBoxFace: React.FC<{ animated?: boolean; hasShadow?: boolean }> = Rea
       />
     </div>
   </div>
-);
+));
 
 export const GoldenTrophyBurst: React.FC<GoldenTrophyBurstProps> = memo((
   { origin, x, y, cuts = [], onContinue }
