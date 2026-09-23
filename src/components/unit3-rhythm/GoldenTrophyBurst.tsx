@@ -61,7 +61,12 @@ const computePieces = (cuts: TrophyCut[], centerX: number, centerY: number): Tro
     ],
   ];
 
-  cuts.forEach((cut) => {
+  // Limit to at most 70 cuts to prevent exponential polygon explosion and lag
+  const safeCuts = cuts.slice(0, 70);
+
+  for (const cut of safeCuts) {
+    if (pieces.length >= 70) break;
+
     const lx = cut.px - centerX;
     const ly = cut.py - centerY;
     // Perpendicular normal to the swipe direction
@@ -71,14 +76,26 @@ const computePieces = (cuts: TrophyCut[], centerX: number, centerY: number): Tro
     const d = nx * lx + ny * ly;
 
     const nextPieces: { x: number; y: number }[][] = [];
-    pieces.forEach((poly) => {
+    for (const poly of pieces) {
+      if (nextPieces.length >= 70) {
+        nextPieces.push(poly);
+        continue;
+      }
       const sideA = clipPolygonToHalfPlane(poly, nx, ny, d, 1);
       const sideB = clipPolygonToHalfPlane(poly, nx, ny, d, -1);
-      if (sideA.length >= 3) nextPieces.push(sideA);
-      if (sideB.length >= 3) nextPieces.push(sideB);
-    });
+      if (sideA.length >= 3 && sideB.length >= 3) {
+        nextPieces.push(sideA);
+        nextPieces.push(sideB);
+      } else if (sideA.length >= 3) {
+        nextPieces.push(sideA);
+      } else if (sideB.length >= 3) {
+        nextPieces.push(sideB);
+      } else {
+        nextPieces.push(poly);
+      }
+    }
     pieces = nextPieces;
-  });
+  }
 
   return pieces.map((polygon) => {
     let cx = 0;
@@ -111,8 +128,8 @@ const polygonToClipPath = (polygon: { x: number; y: number }[]): string => {
   return `polygon(${points})`;
 };
 
-// Golden 3D box face — hasShadow=false when clipped to avoid GPU software blur bottlenecks
-const TrophyBoxFace: React.FC<{ animated?: boolean; hasShadow?: boolean }> = ({
+// Golden 3D box face — memoized, hasShadow=false when clipped to avoid GPU software blur bottlenecks
+const TrophyBoxFace: React.FC<{ animated?: boolean; hasShadow?: boolean }> = React.memo(({
   animated = true,
   hasShadow = true,
 }) => (
@@ -179,6 +196,8 @@ export const GoldenTrophyBurst: React.FC<GoldenTrophyBurstProps> = memo((
           transform: `translate3d(${settled ? x - 64 : fromX - 64}px, ${settled ? y - 64 : fromY - 64}px, 0)`,
           transition: 'transform 0.95s cubic-bezier(0.22, 1, 0.36, 1)',
           willChange: 'transform',
+          perspective: '800px',
+          transformStyle: 'preserve-3d',
         }}
       >
         {/* Rotating golden light rays behind the trophy — hardware-accelerated radial burst */}

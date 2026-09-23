@@ -66,17 +66,17 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   const drumSceneRef = useRef<HTMLCanvasElement | null>(null);
   const sceneKeyRef = useRef<string>('');
 
-  // Tactile 3D drum parallax: follow the active pointer (drag), never hover
+  // Tactile 3D drum parallax: follows pointer and drag with elastic spring recovery
   const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
   const prevRenderTime = useRef<number>(performance.now());
   const parallaxXRef = useRef(0);
   const parallaxYRef = useRef(0);
   const tiltRef = useRef(0);
 
-  // Parallax tuning constants
-  const PARALLAX_X_AMP = 0.028; // fraction of drumW
-  const PARALLAX_Y_AMP = 0.02; // fraction of drumH
-  const TILT_MAX_RAD = 0.052; // ~3 degrees
+  // Parallax tuning constants: noticeable depth shift matching 2.5D perspective
+  const PARALLAX_X_AMP = 0.038; // fraction of drumW
+  const PARALLAX_Y_AMP = 0.026; // fraction of drumH
+  const TILT_MAX_RAD = 0.06; // ~3.4 degrees
   const PARALLAX_EASE = 0.12;
 
   // Reset cut state whenever the trophy reveal toggles (and record when it appears)
@@ -250,7 +250,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
 
     // Throttle cut registrations to avoid multiple cuts during a single fast swipe
     const now = performance.now();
-    if (now - lastTrophyCutTimeRef.current < 250) return;
+    if (now - lastTrophyCutTimeRef.current < 90) return;
     lastTrophyCutTimeRef.current = now;
 
     // Avoid duplicate registrations from consecutive swipe segments
@@ -258,7 +258,12 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     if (last) {
       const angleDiff = Math.abs(((cutAngle - last.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
       const distToLast = Math.hypot(nearestX - last.px, nearestY - last.py);
-      if (angleDiff < 0.35 && distToLast < 36) return;
+      if (angleDiff < 0.25 && distToLast < 24) return;
+    }
+
+    if (trophyCutsRef.current.length >= 70) {
+      addSparks(nearestX, nearestY, '#fbbf24', 12);
+      return;
     }
 
     const cut: TrophyCut = { px: nearestX, py: nearestY, angle: cutAngle };
@@ -353,7 +358,6 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isPointerDownRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -362,11 +366,15 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
     const y = e.clientY - rect.top;
     const now = performance.now();
 
+    // 3D parallax tracks pointer movement across the canvas smoothly
+    dragPointerRef.current = { x, y };
+
+    if (!isPointerDownRef.current) return;
+
     const trail = pointerTrailRef.current;
     const lastPoint = trail[trail.length - 1];
 
     trail.push({ x, y, time: now });
-    dragPointerRef.current = { x, y };
 
     if (lastPoint) {
       checkSwipeCollision(lastPoint, { x, y, time: now });
@@ -484,7 +492,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       const easedTilt = tiltRef.current;
 
       // 2. Pre-rendered static layers (ambient halo + drum with baked occlusion shadow).
-      // Rebuilt ONLY when size/DPR changes or the drum image first arrives — never per frame.
+      // Rebuilt ONLY when size/DPR changes or the drum image first arrives â€” never per frame.
       const imgReady = drumImgRef.current && drumImgRef.current.complete ? 1 : 0;
       const sceneKey = `${width}x${height}@${dpr}|${imgReady}`;
       if (sceneKeyRef.current !== sceneKey) {
@@ -533,15 +541,15 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
       // 3. Render 3D Concert Drum from the pre-rendered layer (single blit + transforms, no per-frame blur)
       if (drumSceneRef.current) {
         ctx.save();
-        // Pseudo-3D tilt around the drum center so it reads as a real solid object
+        // Pseudo-3D tilt around the drum center, plus real tactile parallax translation
         ctx.translate(drumCenterX + easedParallaxX, drumCenterY + easedParallaxY);
         ctx.rotate(easedTilt);
-        ctx.translate(-(drumCenterX + easedParallaxX), -(drumCenterY + easedParallaxY));
+        ctx.translate(-drumCenterX, -drumCenterY);
         ctx.drawImage(drumSceneRef.current, 0, skinDisplacement * 0.25, width, height);
         ctx.restore();
 
         // Moving specular highlight that follows the drag (light appears glued to the finger side)
-        if (Math.abs(easedParallaxX) > 0.5 || Math.abs(easedParallaxY) > 0.5) {
+        if (Math.abs(easedParallaxX) > 0.2 || Math.abs(easedParallaxY) > 0.2) {
           ctx.save();
           const specX = drumCenterX + easedParallaxX * 2.2;
           const specY = drumCenterY + easedParallaxY * 2.4;
@@ -999,6 +1007,7 @@ export const DrumCanvas: React.FC<DrumCanvasProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       />
 
       {/* Intact 3D Spheres (Up to 3 simultaneous bouncing spheres) */}

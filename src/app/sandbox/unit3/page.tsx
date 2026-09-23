@@ -8,7 +8,7 @@ import Link from 'next/link';
 
 export default function Unit3SandboxPage() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [bpm, setBpm] = useState<number>(120);
+  const [bpm, setBpm] = useState<number>(130);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [testStartBeat, setTestStartBeat] = useState<number>(1);
   const [testShowTrophy, setTestShowTrophy] = useState<boolean>(false);
@@ -63,7 +63,7 @@ export default function Unit3SandboxPage() {
           Cinemática de Percusión
         </h1>
         <p className="text-sm text-slate-600 max-w-md mb-8 leading-relaxed font-medium">
-          Las esferas 3D rebotan sobre el gran bombo orquestal al compás de 120 BPM. Córtalas con swipe en el aire para liberar el Trofeo Dorado de Baquetas.
+          Las esferas 3D rebotan sobre el gran bombo orquestal al compás de {bpm} BPM. Córtalas con swipe en el aire para liberar el Trofeo Dorado de Baquetas.
         </p>
 
         {/* Primary Action Button */}

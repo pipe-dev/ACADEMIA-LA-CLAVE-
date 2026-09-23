@@ -26,7 +26,7 @@ export interface Unit3CelebrationModalProps {
 export const Unit3CelebrationModal: React.FC<Unit3CelebrationModalProps> = ({
   isOpen,
   onContinue,
-  bpm = 120,
+  bpm = 130,
   isMuted = false,
   testStartBeat = 1,
   testShowTrophy = false,
