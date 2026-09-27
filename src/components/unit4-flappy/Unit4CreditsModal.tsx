@@ -20,9 +20,10 @@ interface Unit4CreditsModalProps {
 
 export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart }) => {
   const router = useRouter();
-  const [isFinishedRolling, setIsFinishedRolling] = useState(false);
+  // 0: Logro & Felicitación, 1: Humor pedagógico, 2: Créditos de producción, 3: Reconocimiento final fijo
+  const [currentBlock, setCurrentBlock] = useState(0);
 
-  // Trigger subtle sparkles when credits begin
+  // Subtle celebratory sparkles when credits begin
   useEffect(() => {
     try {
       confetti({
@@ -36,12 +37,36 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
     }
   }, []);
 
-  const handleCreditsEnd = () => {
-    setIsFinishedRolling(true);
+  // Sequential presentation: each block stays still for ~2.2s, then transitions to next
+  useEffect(() => {
+    if (currentBlock < 3) {
+      const timer = setTimeout(() => {
+        setCurrentBlock((prev) => {
+          const next = prev + 1;
+          if (next === 3) {
+            try {
+              confetti({
+                particleCount: 80,
+                spread: 90,
+                origin: { y: 0.6 },
+                colors: ['#f59e0b', '#fbbf24', '#eab308', '#ffffff'],
+              });
+            } catch (e) {}
+          }
+          return next;
+        });
+      }, 2600); // 2.2s read time + animation buffer
+      return () => clearTimeout(timer);
+    }
+  }, [currentBlock]);
+
+  const handleSkip = () => {
+    audioService.playClickSound();
+    setCurrentBlock(3);
     try {
       confetti({
-        particleCount: 70,
-        spread: 85,
+        particleCount: 80,
+        spread: 90,
         origin: { y: 0.6 },
         colors: ['#f59e0b', '#fbbf24', '#eab308', '#ffffff'],
       });
@@ -63,12 +88,9 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
       {/* ZERO dark overlays: the game canvas, bright blue sky & golden cup stay 100% untouched */}
 
       {/* Discreet skip button in top-left corner */}
-      {!isFinishedRolling && (
+      {currentBlock < 3 && (
         <button
-          onClick={() => {
-            audioService.playClickSound();
-            handleCreditsEnd();
-          }}
+          onClick={handleSkip}
           className="absolute top-4 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/40 hover:bg-white/60 backdrop-blur-md border border-white/50 text-[#451a03] text-xs font-black drop-shadow-sm transition-all cursor-pointer shadow-sm active:scale-95 pointer-events-auto"
         >
           <span>Saltar</span>
@@ -76,28 +98,19 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
         </button>
       )}
 
-      {/* Phase 1: Rolling Credits STRICTLY bounded between bottom and BEFORE the cup */}
-      <AnimatePresence>
-        {!isFinishedRolling && (
-          <div
-            className="absolute left-0 right-0 top-[47%] bottom-[13%] overflow-hidden pointer-events-none z-20 flex justify-center"
-            style={{
-              maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
-            }}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: '-100%' }}
-              transition={{
-                duration: 18,
-                ease: 'linear',
-              }}
-              onAnimationComplete={handleCreditsEnd}
-              className="w-full max-w-sm px-4 text-center space-y-10 py-6"
-            >
-              {/* 1. Logro & Felicitación (Styled like "Grítale al pato para hacerlo volar") */}
-              <div className="space-y-2">
+      {/* Phase 1: Sequential Credit Blocks (Stay still for 2s in lower sky, then leave) */}
+      {currentBlock < 3 && (
+        <div className="absolute left-0 right-0 top-[48%] bottom-[13%] flex items-center justify-center pointer-events-none z-20">
+          <AnimatePresence mode="wait">
+            {currentBlock === 0 && (
+              <motion.div
+                key="credit-block-0"
+                initial={{ opacity: 0, y: 22 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                className="w-full max-w-sm px-4 text-center space-y-2 select-none"
+              >
                 <div className="text-xs sm:text-sm font-black tracking-widest uppercase text-amber-300 drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
                   ★ MÓDULO 4 SUPERADO CON ÉXITO ★
                 </div>
@@ -107,72 +120,88 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
                 <div className="text-xs sm:text-sm font-bold text-white/95 leading-relaxed max-w-xs mx-auto drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                   Has culminado con éxito todo el ciclo formativo de la Academia. Hoy entiendes tu instrumento y sabes cómo colocar cada sonido en su lugar con precisión clínica.
                 </div>
-              </div>
+              </motion.div>
+            )}
 
-              {/* 2. Reflexión Pedagógica con Humor */}
-              <div className="space-y-2.5 max-w-xs mx-auto">
+            {currentBlock === 1 && (
+              <motion.div
+                key="credit-block-1"
+                initial={{ opacity: 0, y: 22 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                className="w-full max-w-sm px-4 text-center space-y-2 select-none"
+              >
                 <div className="text-xs font-black tracking-wider uppercase text-amber-300 drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
                   ✨ UN CONSEJO DE TUS PROFESORES ✨
                 </div>
                 <div className="text-xs sm:text-sm font-bold text-white/95 leading-relaxed drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                   Nunca olvides que la seguridad al cantar no se compra; se construye con paciencia, constancia y amor por tu voz.
                 </div>
-                <div className="text-xs sm:text-sm font-extrabold text-amber-200 italic leading-relaxed drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                <div className="text-xs sm:text-sm font-extrabold text-amber-200 italic leading-relaxed drop-shadow-[0_2px_0_rgba(69,26,3,0.85)] pt-0.5">
                   «La próxima vez que tomes un micrófono y sientas nervios... recuerda que si tiembla un poquito, siempre puedes fingir que es un vibrato profesional.» 😉
                 </div>
-              </div>
+              </motion.div>
+            )}
 
-              {/* 3. Créditos Oficiales de Producción */}
-              <div className="space-y-3.5 max-w-xs mx-auto py-2">
-                <div className="text-xs font-black tracking-widest uppercase text-amber-300 drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+            {currentBlock === 2 && (
+              <motion.div
+                key="credit-block-2"
+                initial={{ opacity: 0, y: 22 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                className="w-full max-w-sm px-4 text-center space-y-2 select-none"
+              >
+                <div className="text-xs font-black tracking-widest uppercase text-amber-300 drop-shadow-[0_2px_0_rgba(69,26,3,0.85)] mb-0.5">
                   CRÉDITOS OFICIALES
                 </div>
-                <div className="space-y-2.5">
+                <div className="space-y-1.5">
                   <div>
-                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                    <span className="text-amber-200/90 block text-[10px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
                       Intérprete Estrella
                     </span>
-                    <span className="text-white text-base sm:text-lg font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                    <span className="text-white text-base font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
                       Tú
                     </span>
                   </div>
                   <div>
-                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                    <span className="text-amber-200/90 block text-[10px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
                       Dirección Pedagógica
                     </span>
-                    <span className="text-white text-sm sm:text-base font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                    <span className="text-white text-xs sm:text-sm font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
                       Academia Musical La Clave
                     </span>
                   </div>
                   <div>
-                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                    <span className="text-amber-200/90 block text-[10px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
                       Tecnología & Evaluación
                     </span>
-                    <span className="text-emerald-300 text-sm sm:text-base font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                    <span className="text-emerald-300 text-xs sm:text-sm font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
                       AfinApp
                     </span>
                   </div>
                   <div>
-                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                    <span className="text-amber-200/90 block text-[10px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
                       Fans Número Uno
                     </span>
-                    <span className="text-white text-xs sm:text-sm font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    <span className="text-white text-xs font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                       Todos los que creyeron en tu proceso
                     </span>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Spacer so the CTA card docks in the bottom portion of screen */}
       <div className="flex-1 pointer-events-none" />
 
       {/* Phase 2: Fixed Official Recognition CTA Card (Academia View Design System) */}
       <AnimatePresence>
-        {isFinishedRolling && (
+        {currentBlock === 3 && (
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -232,4 +261,3 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
     </div>
   );
 };
-
