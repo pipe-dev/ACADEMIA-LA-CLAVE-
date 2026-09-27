@@ -11,8 +11,6 @@ import {
   FastForward,
   GraduationCap,
   RotateCcw,
-  Sparkles,
-  Trophy,
 } from 'lucide-react';
 import { audioService } from '@/utils/audioService';
 
@@ -24,12 +22,12 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
   const router = useRouter();
   const [isFinishedRolling, setIsFinishedRolling] = useState(false);
 
-  // Trigger initial subtle sparkles when credits begin
+  // Trigger subtle sparkles when credits begin
   useEffect(() => {
     try {
       confetti({
-        particleCount: 40,
-        spread: 60,
+        particleCount: 35,
+        spread: 55,
         origin: { y: 0.8 },
         colors: ['#f59e0b', '#fbbf24', '#10b981', '#ffffff'],
       });
@@ -38,13 +36,12 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
     }
   }, []);
 
-  // When rolling finishes and CTA card appears, fire celebratory confetti
   const handleCreditsEnd = () => {
     setIsFinishedRolling(true);
     try {
       confetti({
-        particleCount: 80,
-        spread: 90,
+        particleCount: 70,
+        spread: 85,
         origin: { y: 0.6 },
         colors: ['#f59e0b', '#fbbf24', '#eab308', '#ffffff'],
       });
@@ -63,98 +60,105 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
 
   return (
     <div className="fixed inset-0 z-[250] pointer-events-auto flex flex-col justify-between overflow-hidden select-none">
-      {/* Background cinematic vignette (allows canvas sky & golden trophy to remain visible) */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
+      {/* ZERO dark overlays: the game canvas, bright blue sky & golden cup stay 100% untouched */}
 
-      {/* Top Controls (matching Academia View header badges) */}
-      <div className="relative z-30 flex items-center justify-between p-4 sm:p-6 w-full max-w-lg mx-auto">
-        <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 dark:bg-[#102034]/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 text-[#4648d4] dark:text-[#c0c1ff] text-[11px] font-bold tracking-widest uppercase shadow-sm">
-          <Trophy className="w-3.5 h-3.5 text-amber-500" />
-          <span>Graduación La Clave</span>
-        </div>
+      {/* Discreet skip button in top-left corner */}
+      {!isFinishedRolling && (
+        <button
+          onClick={() => {
+            audioService.playClickSound();
+            handleCreditsEnd();
+          }}
+          className="absolute top-4 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/40 hover:bg-white/60 backdrop-blur-md border border-white/50 text-[#451a03] text-xs font-black drop-shadow-sm transition-all cursor-pointer shadow-sm active:scale-95 pointer-events-auto"
+        >
+          <span>Saltar</span>
+          <FastForward className="w-3.5 h-3.5 text-amber-700" />
+        </button>
+      )}
 
-        {!isFinishedRolling && (
-          <button
-            onClick={() => {
-              audioService.playClickSound();
-              handleCreditsEnd();
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 dark:bg-[#102034]/90 hover:bg-white dark:hover:bg-[#102034] backdrop-blur-md border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95 pointer-events-auto"
-          >
-            <span>Saltar créditos</span>
-            <FastForward className="w-3.5 h-3.5 text-amber-500" />
-          </button>
-        )}
-      </div>
-
-      {/* Phase 1: Rolling Movie Credits (Passes from bottom to top, fading out) */}
+      {/* Phase 1: Rolling Credits STRICTLY bounded between bottom and BEFORE the cup */}
       <AnimatePresence>
         {!isFinishedRolling && (
           <div
-            className="absolute inset-0 z-20 flex justify-center overflow-hidden pointer-events-none"
+            className="absolute left-0 right-0 top-[47%] bottom-[13%] overflow-hidden pointer-events-none z-20 flex justify-center"
             style={{
-              maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 80%, transparent 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 80%, transparent 100%)',
+              maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
             }}
           >
             <motion.div
-              initial={{ y: '100vh' }}
-              animate={{ y: '-120%' }}
+              initial={{ y: '100%' }}
+              animate={{ y: '-100%' }}
               transition={{
-                duration: 16,
+                duration: 18,
                 ease: 'linear',
               }}
               onAnimationComplete={handleCreditsEnd}
-              className="w-full max-w-md px-6 text-center space-y-12 self-start py-8 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]"
+              className="w-full max-w-sm px-4 text-center space-y-10 py-6"
             >
-              {/* 1. Logro & Felicitación */}
-              <div className="space-y-3">
-                <span className="text-xs sm:text-sm font-black tracking-[0.25em] uppercase text-amber-400">
+              {/* 1. Logro & Felicitación (Styled like "Grítale al pato para hacerlo volar") */}
+              <div className="space-y-2">
+                <div className="text-xs sm:text-sm font-black tracking-widest uppercase text-amber-300 drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
                   ★ MÓDULO 4 SUPERADO CON ÉXITO ★
-                </span>
-                <h1 className="text-3xl sm:text-4xl font-black font-heading tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                </div>
+                <div className="text-2xl sm:text-3xl font-black font-heading text-white tracking-wide drop-shadow-[0_2px_0_rgba(69,26,3,0.85)] drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
                   ¡Felicidades por Graduarte!
-                </h1>
-                <p className="text-sm sm:text-base text-slate-100 font-medium leading-relaxed max-w-sm mx-auto drop-shadow-md">
+                </div>
+                <div className="text-xs sm:text-sm font-bold text-white/95 leading-relaxed max-w-xs mx-auto drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                   Has culminado con éxito todo el ciclo formativo de la Academia. Hoy entiendes tu instrumento y sabes cómo colocar cada sonido en su lugar con precisión clínica.
-                </p>
+                </div>
               </div>
 
               {/* 2. Reflexión Pedagógica con Humor */}
-              <div className="space-y-3 max-w-sm mx-auto">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-bold uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Un consejo de tus profesores</span>
+              <div className="space-y-2.5 max-w-xs mx-auto">
+                <div className="text-xs font-black tracking-wider uppercase text-amber-300 drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                  ✨ UN CONSEJO DE TUS PROFESORES ✨
                 </div>
-                <p className="text-sm sm:text-base text-slate-100 leading-relaxed drop-shadow-md">
+                <div className="text-xs sm:text-sm font-bold text-white/95 leading-relaxed drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                   Nunca olvides que la seguridad al cantar no se compra; se construye con paciencia, constancia y amor por tu voz.
-                </p>
-                <p className="text-sm sm:text-base text-amber-300 font-semibold italic drop-shadow-md">
+                </div>
+                <div className="text-xs sm:text-sm font-extrabold text-amber-200 italic leading-relaxed drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
                   «La próxima vez que tomes un micrófono y sientas nervios... recuerda que si tiembla un poquito, siempre puedes fingir que es un vibrato profesional.» 😉
-                </p>
+                </div>
               </div>
 
               {/* 3. Créditos Oficiales de Producción */}
-              <div className="space-y-4 max-w-xs mx-auto border-t border-b border-amber-400/30 py-6">
-                <div className="text-xs font-black tracking-[0.2em] uppercase text-amber-400">
-                  CRÉDITOS DE PRODUCCIÓN
+              <div className="space-y-3.5 max-w-xs mx-auto py-2">
+                <div className="text-xs font-black tracking-widest uppercase text-amber-300 drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                  CRÉDITOS OFICIALES
                 </div>
-                <div className="space-y-2 text-sm text-slate-100 font-medium">
+                <div className="space-y-2.5">
                   <div>
-                    <span className="text-slate-400 block text-xs uppercase tracking-wider">Intérprete Estrella</span>
-                    <span className="font-bold text-lg text-amber-300">Tú</span>
+                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                      Intérprete Estrella
+                    </span>
+                    <span className="text-white text-base sm:text-lg font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                      Tú
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-xs uppercase tracking-wider">Dirección Pedagógica</span>
-                    <span className="font-bold text-white">Academia Musical La Clave</span>
+                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                      Dirección Pedagógica
+                    </span>
+                    <span className="text-white text-sm sm:text-base font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                      Academia Musical La Clave
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-xs uppercase tracking-wider">Tecnología & Evaluación</span>
-                    <span className="font-bold text-emerald-400">AfinApp</span>
+                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                      Tecnología & Evaluación
+                    </span>
+                    <span className="text-emerald-300 text-sm sm:text-base font-black drop-shadow-[0_2px_0_rgba(69,26,3,0.85)]">
+                      AfinApp
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-xs uppercase tracking-wider">Fans Número Uno</span>
-                    <span className="font-medium text-slate-200">Todos los que creyeron en tu proceso</span>
+                    <span className="text-amber-200/90 block text-[11px] font-black uppercase tracking-wider drop-shadow-[0_1px_0_rgba(69,26,3,0.85)]">
+                      Fans Número Uno
+                    </span>
+                    <span className="text-white text-xs sm:text-sm font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                      Todos los que creyeron en tu proceso
+                    </span>
                   </div>
                 </div>
               </div>
@@ -170,9 +174,9 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
       <AnimatePresence>
         {isFinishedRolling && (
           <motion.div
-            initial={{ opacity: 0, y: 35, scale: 0.96 }}
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
             className="relative z-30 w-full max-w-sm sm:max-w-md mx-auto px-4 pb-3 sm:pb-4"
           >
             {/* 3D Sunken Socket Frame (Identical to Academia Unit Card & Dialogs) */}
@@ -228,3 +232,4 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
     </div>
   );
 };
+
