@@ -51,6 +51,8 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
     ? [...nodePositions.map((p) => p.xOffset), certificationOffset]
     : nodePositions.map((p) => p.xOffset);
 
+  const certExtraDistance = 140;
+
   return (
     <div key={unit.id} id={`unit-card-${unit.id}`} className="space-y-6">
       {/* 3D Sunken Socket Outer Frame */}
@@ -178,13 +180,14 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
         <div className="absolute inset-0 flex justify-center pointer-events-none z-0">
           <svg
             width="300"
-            height={allPathOffsets.length * 130}
+            height={allPathOffsets.length * 130 + (isUnit4 ? certExtraDistance : 0)}
             className={`${zenMode ? 'text-[#2e3138]' : 'text-slate-200 dark:text-slate-800/60'} drop-shadow-sm`}
           >
             <path
               d={allPathOffsets.reduce((acc, xOffset, i) => {
                 const x = 150 + xOffset;
-                const y = i * 128 + 40;
+                const isLastCertOffset = isUnit4 && i === allPathOffsets.length - 1;
+                const y = isLastCertOffset ? i * 128 + 40 + certExtraDistance : i * 128 + 40;
                 if (i === 0) return `M ${x} ${y}`;
                 const prevX = 150 + allPathOffsets[i - 1];
                 const prevY = (i - 1) * 128 + 40;
@@ -313,7 +316,7 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
         {isUnit4 && (
           <div
             id="node-certification"
-            className="relative z-10 flex flex-col items-center"
+            className="relative z-10 flex flex-col items-center mt-32 sm:mt-36"
             style={{ transform: `translateX(${certificationOffset}px)` }}
           >
             {/* Glowing Pulse Aura */}

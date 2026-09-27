@@ -173,37 +173,37 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
             initial={{ opacity: 0, y: 35, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="relative z-30 w-full max-w-sm sm:max-w-md mx-auto px-4 pb-6 sm:pb-8"
+            className="relative z-30 w-full max-w-sm sm:max-w-md mx-auto px-4 pb-3 sm:pb-4"
           >
             {/* 3D Sunken Socket Frame (Identical to Academia Unit Card & Dialogs) */}
-            <div className="w-full p-1.5 sm:p-2 rounded-3xl bg-[#f1f5f9] dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.15),_inset_0_-2px_4px_rgba(255,255,255,1)] dark:shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.8)]">
+            <div className="w-full p-1 sm:p-1.5 rounded-3xl bg-[#f1f5f9] dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.15),_inset_0_-2px_4px_rgba(255,255,255,1)] dark:shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.8)]">
               {/* Inner White/Navy Card (Identical to AcademiaView) */}
-              <div className="w-full rounded-[22px] bg-white dark:bg-[#102034] p-5 sm:p-6 shadow-[0px_12px_28px_-6px_rgba(15,23,42,0.15)] border border-slate-200/70 dark:border-slate-800/80 text-center space-y-4">
+              <div className="w-full rounded-[22px] bg-white dark:bg-[#102034] p-4 sm:p-5 shadow-[0px_12px_28px_-6px_rgba(15,23,42,0.15)] border border-slate-200/70 dark:border-slate-800/80 text-center space-y-3">
                 
                 {/* Academia Icon Badge */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400/20 to-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-500 shadow-sm">
-                  <Award className="w-7 h-7 text-amber-500 animate-pulse" />
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400/20 to-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-500 shadow-sm">
+                  <Award className="w-5 h-5 text-amber-500 animate-pulse" />
                 </div>
 
                 {/* Typography matching Academia */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
                     Reconocimiento Oficial
                   </span>
-                  <h3 className="font-heading font-black text-xl sm:text-2xl text-[#0b1c30] dark:text-[#d3e4fe] leading-tight">
+                  <h3 className="font-heading font-black text-lg sm:text-xl text-[#0b1c30] dark:text-[#d3e4fe] leading-tight">
                     ¿Listo para el reconocimiento oficial?
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs mx-auto">
-                    Si deseas certificarte con la <strong className="font-bold text-slate-800 dark:text-slate-200">Academia Musical La Clave</strong> y recibir tu diploma oficial de graduación, realiza tu examen final para comprobar y avalar todas tus habilidades vocales.
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs mx-auto">
+                    Si deseas certificarte con la <strong className="font-bold text-slate-800 dark:text-slate-200">Academia Musical La Clave</strong> y recibir tu diploma oficial, realiza tu examen final para avalar tus habilidades.
                   </p>
                 </div>
 
                 {/* Action Buttons (3D Tactile Buttons matching Academia View) */}
-                <div className="space-y-2 pt-1">
+                <div className="space-y-1.5 pt-0.5">
                   {/* Primary 3D Tactile Gold Button */}
                   <button
                     onClick={handleNavigateToCertification}
-                    className="w-full py-3.5 px-5 rounded-2xl font-heading font-black text-xs sm:text-sm bg-gradient-to-b from-[#ffe55c] via-[#f59e0b] to-[#92400e] text-white shadow-[0px_6px_0px_0px_rgba(100,45,10,1),0px_10px_15px_0px_rgba(245,158,11,0.4),inset_0px_3px_5px_rgba(255,255,255,0.7),inset_0px_-3px_5px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(100,45,10,1)] cursor-pointer flex items-center justify-center gap-2 transition-all group"
+                    className="w-full py-3 px-4 rounded-xl font-heading font-black text-xs sm:text-sm bg-gradient-to-b from-[#ffe55c] via-[#f59e0b] to-[#92400e] text-white shadow-[0px_5px_0px_0px_rgba(100,45,10,1),0px_8px_12px_0px_rgba(245,158,11,0.4),inset_0px_3px_5px_rgba(255,255,255,0.7),inset_0px_-3px_5px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0px_1px_0px_0px_rgba(100,45,10,1)] cursor-pointer flex items-center justify-center gap-2 transition-all group"
                   >
                     <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-white group-hover:rotate-6 transition-transform" />
                     <span>Presentar Examen Final & Certificarme</span>
@@ -213,7 +213,7 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
                   {/* Secondary Academia Button */}
                   <button
                     onClick={handleRestart}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold font-heading text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full py-1.5 px-3 rounded-lg text-xs font-bold font-heading text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Volver a la Academia</span>
