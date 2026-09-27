@@ -14,7 +14,6 @@ import {
   Sparkles,
   Trophy,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { audioService } from '@/utils/audioService';
 
 interface Unit4CreditsModalProps {
@@ -65,12 +64,12 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
   return (
     <div className="fixed inset-0 z-[250] pointer-events-auto flex flex-col justify-between overflow-hidden select-none">
       {/* Background cinematic vignette (allows canvas sky & golden trophy to remain visible) */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
 
-      {/* Top Controls: Skip button during rolling credits */}
+      {/* Top Controls (matching Academia View header badges) */}
       <div className="relative z-30 flex items-center justify-between p-4 sm:p-6 w-full max-w-lg mx-auto">
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/60 backdrop-blur-md border border-amber-500/30 text-amber-300 text-[11px] font-bold tracking-widest uppercase">
-          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+        <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 dark:bg-[#102034]/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 text-[#4648d4] dark:text-[#c0c1ff] text-[11px] font-bold tracking-widest uppercase shadow-sm">
+          <Trophy className="w-3.5 h-3.5 text-amber-500" />
           <span>Graduación La Clave</span>
         </div>
 
@@ -80,10 +79,10 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
               audioService.playClickSound();
               handleCreditsEnd();
             }}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-950/60 hover:bg-slate-900/80 backdrop-blur-md border border-white/20 hover:border-amber-400/50 text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-md active:scale-95 pointer-events-auto"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 dark:bg-[#102034]/90 hover:bg-white dark:hover:bg-[#102034] backdrop-blur-md border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95 pointer-events-auto"
           >
             <span>Saltar créditos</span>
-            <FastForward className="w-3.5 h-3.5 text-amber-400" />
+            <FastForward className="w-3.5 h-3.5 text-amber-500" />
           </button>
         )}
       </div>
@@ -167,45 +166,60 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart 
       {/* Spacer so the CTA card docks in the bottom portion of screen */}
       <div className="flex-1 pointer-events-none" />
 
-      {/* Phase 2: Fixed Official Recognition CTA Card (Fades in once credits finish) */}
+      {/* Phase 2: Fixed Official Recognition CTA Card (Academia View Design System) */}
       <AnimatePresence>
         {isFinishedRolling && (
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            initial={{ opacity: 0, y: 35, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="relative z-30 w-full max-w-md mx-auto px-4 pb-6 sm:pb-8"
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="relative z-30 w-full max-w-sm sm:max-w-md mx-auto px-4 pb-6 sm:pb-8"
           >
-            <div className="rounded-3xl bg-slate-950/85 backdrop-blur-xl border border-amber-500/40 p-5 sm:p-6 shadow-[0_0_60px_rgba(245,158,11,0.3)] text-center space-y-4">
-              <div className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-300">
-                <Award className="w-4 h-4 text-amber-400" />
-                <span>¿Listo para el reconocimiento oficial?</span>
-              </div>
+            {/* 3D Sunken Socket Frame (Identical to Academia Unit Card & Dialogs) */}
+            <div className="w-full p-1.5 sm:p-2 rounded-3xl bg-[#f1f5f9] dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.15),_inset_0_-2px_4px_rgba(255,255,255,1)] dark:shadow-[inset_0_4px_6px_-2px_rgba(0,0,0,0.8)]">
+              {/* Inner White/Navy Card (Identical to AcademiaView) */}
+              <div className="w-full rounded-[22px] bg-white dark:bg-[#102034] p-5 sm:p-6 shadow-[0px_12px_28px_-6px_rgba(15,23,42,0.15)] border border-slate-200/70 dark:border-slate-800/80 text-center space-y-4">
+                
+                {/* Academia Icon Badge */}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400/20 to-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-500 shadow-sm">
+                  <Award className="w-7 h-7 text-amber-500 animate-pulse" />
+                </div>
 
-              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-sm mx-auto">
-                Si deseas certificarte con la <strong>Academia Musical La Clave</strong> y recibir tu diploma oficial de graduación, realiza tu examen final para comprobar y avalar todas tus habilidades vocales.
-              </p>
+                {/* Typography matching Academia */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                    Reconocimiento Oficial
+                  </span>
+                  <h3 className="font-heading font-black text-xl sm:text-2xl text-[#0b1c30] dark:text-[#d3e4fe] leading-tight">
+                    ¿Listo para el reconocimiento oficial?
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs mx-auto">
+                    Si deseas certificarte con la <strong className="font-bold text-slate-800 dark:text-slate-200">Academia Musical La Clave</strong> y recibir tu diploma oficial de graduación, realiza tu examen final para comprobar y avalar todas tus habilidades vocales.
+                  </p>
+                </div>
 
-              {/* Botón Principal: Certificación */}
-              <Button
-                onClick={handleNavigateToCertification}
-                className="w-full h-12 rounded-2xl font-black bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
-              >
-                <GraduationCap className="w-5 h-5 text-slate-950" />
-                <span>Presentar Examen Final & Certificarme</span>
-                <ArrowRight className="w-4 h-4 text-slate-950" />
-              </Button>
+                {/* Action Buttons (3D Tactile Buttons matching Academia View) */}
+                <div className="space-y-2 pt-1">
+                  {/* Primary 3D Tactile Gold Button */}
+                  <button
+                    onClick={handleNavigateToCertification}
+                    className="w-full py-3.5 px-5 rounded-2xl font-heading font-black text-xs sm:text-sm bg-gradient-to-b from-[#ffe55c] via-[#f59e0b] to-[#92400e] text-white shadow-[0px_6px_0px_0px_rgba(100,45,10,1),0px_10px_15px_0px_rgba(245,158,11,0.4),inset_0px_3px_5px_rgba(255,255,255,0.7),inset_0px_-3px_5px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(100,45,10,1)] cursor-pointer flex items-center justify-center gap-2 transition-all group"
+                  >
+                    <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-white group-hover:rotate-6 transition-transform" />
+                    <span>Presentar Examen Final & Certificarme</span>
+                    <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-0.5 transition-transform" />
+                  </button>
 
-              {/* Botón Secundario: Volver */}
-              <div>
-                <Button
-                  variant="ghost"
-                  onClick={handleRestart}
-                  className="text-xs text-slate-400 hover:text-white hover:bg-white/5 rounded-2xl gap-1.5 cursor-pointer py-1.5 px-4 h-auto"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Volver a la Academia</span>
-                </Button>
+                  {/* Secondary Academia Button */}
+                  <button
+                    onClick={handleRestart}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold font-heading text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Volver a la Academia</span>
+                  </button>
+                </div>
+
               </div>
             </div>
           </motion.div>
