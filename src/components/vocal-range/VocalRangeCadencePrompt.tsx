@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Mic, Clock, X, Sparkles, ArrowRight } from 'lucide-react';
+import { Mic, Clock, X, ArrowRight } from 'lucide-react';
 import { audioService } from '../../utils/audioService';
 
 interface VocalRangeCadencePromptProps {
@@ -92,7 +92,6 @@ export const VocalRangeCadencePrompt: React.FC<VocalRangeCadencePromptProps> = (
                 : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white hover:shadow-indigo-500/20'
             }`}
           >
-            <Sparkles className="w-4 h-4" />
             <span>Evaluar mi Rango Ahora</span>
             <ArrowRight className="w-4 h-4 ml-0.5" />
           </button>
