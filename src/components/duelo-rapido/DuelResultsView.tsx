@@ -25,6 +25,7 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
   onPlayAgain,
 }) => {
   const isSkyRun = duelType === 'sky_run_duel';
+  const isRhythm = duelType === 'rhythm_duel';
 
   return (
     <div className="space-y-5 text-center">
@@ -41,6 +42,8 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
           {p1Won
             ? isSkyRun
               ? '¡VICTORIA EN LA CARRERA CELESTE!'
+              : isRhythm
+              ? '¡VICTORIA EN EL DUELO DE TAMBOR!'
               : '¡VICTORIA EN EL DUELO!'
             : '¡Casi lo logras!'}
         </h4>
@@ -48,9 +51,13 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
           {p1Won
             ? isSkyRun
               ? `Superaste el vuelo de tu oponente en los cielos (+50 XP)`
+              : isRhythm
+              ? `Cortaste mas esferas que tu oponente en el minuto de tambor (+50 XP)`
               : `Demostraste mayor estabilidad de tono que tu oponente (+50 XP)`
             : isSkyRun
             ? `${selectedOpponentName} esquivo mas obstaculos esta vez. ¡Vuelve a intentarlo!`
+            : isRhythm
+            ? `${selectedOpponentName} logro mas cortes esta vez. ¡Vuelve a intentarlo!`
             : `Buen esfuerzo, practica mas afinacion y reintenta.`}
         </p>
       </div>
@@ -68,10 +75,14 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
             TU (JUGADOR 1)
           </span>
           <span className="font-heading font-black text-2xl text-[#0b1c30] dark:text-[#d3e4fe] block">
-            {p1Score} {isSkyRun ? 'tubos' : 'pts'}
+            {p1Score} {isSkyRun ? 'tubos' : isRhythm ? 'esferas' : 'pts'}
           </span>
           <span className="text-xs font-bold text-slate-500">
-            {isSkyRun ? `Distancia: ${p1Score * 120}m` : `Estabilidad: ${p1InTuneSeconds.toFixed(1)}s`}
+            {isSkyRun
+              ? `Distancia: ${p1Score * 120}m`
+              : isRhythm
+              ? 'Tiempo: 1 min'
+              : `Estabilidad: ${p1InTuneSeconds.toFixed(1)}s`}
           </span>
         </div>
 
@@ -80,10 +91,14 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
             {selectedOpponentName}
           </span>
           <span className="font-heading font-black text-2xl text-[#0b1c30] dark:text-[#d3e4fe] block">
-            {p2Score} {isSkyRun ? 'tubos' : 'pts'}
+            {p2Score} {isSkyRun ? 'tubos' : isRhythm ? 'esferas' : 'pts'}
           </span>
           <span className="text-xs font-bold text-slate-500">
-            {isSkyRun ? `Distancia: ${p2Score * 120}m` : `Estabilidad: ${p2InTuneSeconds.toFixed(1)}s`}
+            {isSkyRun
+              ? `Distancia: ${p2Score * 120}m`
+              : isRhythm
+              ? 'Tiempo: 1 min'
+              : `Estabilidad: ${p2InTuneSeconds.toFixed(1)}s`}
           </span>
         </div>
       </div>

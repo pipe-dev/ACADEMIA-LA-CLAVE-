@@ -189,6 +189,38 @@ export function useDuelEngine({
     setP1CurrentPitch(null);
     setP1PitchDiff(null);
 
+    // Si es Duelo de Tambor (Unit 3), pasar a la arena de tambor
+    if (duelType === 'rhythm_duel') {
+      if (mode === 'realtime_p2p' && opponent) {
+        setGameState('connecting_p2p');
+        setP2pStatusMsg(`Conectando tambor ritmico con ${opponent.name}...`);
+        const myCode = localStorage.getItem('laclave_my_friend_code') || 'CLAVE-7782';
+
+        p2pDuelService.onConnected = () => {
+          setP2pStatusMsg('Conexion P2P establecida. Comenzando...');
+          setGameState('unit3_arena');
+        };
+
+        p2pDuelService.onError = () => {
+          setP2pStatusMsg('Pasando a Modo Fantasma con el record de tu amigo...');
+          setTimeout(() => {
+            setGameState('unit3_arena');
+          }, 1200);
+        };
+
+        try {
+          const roomId = await p2pDuelService.createRoom(myCode, opponent.code, 'Duelo de Tambor', 'rhythm_duel');
+          setP2pRoomId(roomId);
+        } catch {
+          setGameState('unit3_arena');
+        }
+        return;
+      }
+
+      setGameState('unit3_arena');
+      return;
+    }
+
     // Si es Carrera Celeste (Unit 4), pasar a la arena de vuelo
     if (duelType === 'sky_run_duel') {
       if (mode === 'realtime_p2p' && opponent) {
@@ -313,6 +345,38 @@ export function useDuelEngine({
     }
   }, [onGrantXp, opponent]);
 
+  const finishUnit3Arena = useCallback((playerScoreVal: number, opponentScoreVal: number, won: boolean) => {
+    setP1Score(playerScoreVal);
+    setP2Score(opponentScoreVal);
+    setP1Won(won);
+    setGameState('results');
+
+    const isTie = playerScoreVal === opponentScoreVal;
+    const xpEarned = won ? 50 : isTie ? 35 : 20;
+    if (onGrantXp) onGrantXp(xpEarned);
+
+    const myCode = typeof window !== 'undefined' ? (localStorage.getItem('laclave_my_friend_code') || 'MI_CODIGO') : 'MI_CODIGO';
+    friendsSyncService.recordDuelResult({
+      challengerCode: myCode,
+      opponentCode: opponent ? opponent.code : 'GHOST_RIVAL',
+      targetNote: 'Duelo de Tambor',
+      challengerScore: playerScoreVal,
+      opponentScore: opponentScoreVal,
+      winnerCode: won ? myCode : (isTie ? 'TIE' : (opponent ? opponent.code : 'GHOST_RIVAL')),
+      xpAwarded: xpEarned,
+      duelType: 'rhythm_duel',
+    });
+
+    if (won) {
+      audioService.playSuccessBellSound();
+      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+    } else if (isTie) {
+      audioService.playSuccessBellSound();
+    } else {
+      audioService.playSadDefeatSound();
+    }
+  }, [onGrantXp, opponent]);
+
   const startLocalPlayer2Turn = useCallback(async () => {
     let inTuneTicks = 0;
     let remaining = 10;
@@ -382,6 +446,7 @@ export function useDuelEngine({
     handlePlayReferenceSound,
     startPlayer1Turn,
     finishUnit4Arena,
+    finishUnit3Arena,
     startLocalPlayer2Turn,
     resetGame,
   };

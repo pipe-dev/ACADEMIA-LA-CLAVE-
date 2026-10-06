@@ -22,6 +22,7 @@ export interface FriendItem {
   stabilityScore?: number;
   badgesCount?: number;
   skyRunRecord?: number;
+  rhythmRecord?: number;
 }
 
 export const DEFAULT_VOCAL_AVATARS: { id: string; name: string; url: string }[] = [
@@ -58,7 +59,8 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     practiceMinutes: 142,
     stabilityScore: 94,
     badgesCount: 14,
-    skyRunRecord: 14
+    skyRunRecord: 14,
+    rhythmRecord: 38
   },
   {
     id: 'f2',
@@ -82,7 +84,8 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     practiceMinutes: 98,
     stabilityScore: 89,
     badgesCount: 9,
-    skyRunRecord: 10
+    skyRunRecord: 10,
+    rhythmRecord: 26
   },
   {
     id: 'f3',
@@ -106,7 +109,8 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     practiceMinutes: 215,
     stabilityScore: 97,
     badgesCount: 19,
-    skyRunRecord: 18
+    skyRunRecord: 18,
+    rhythmRecord: 44
   }
 ];
 

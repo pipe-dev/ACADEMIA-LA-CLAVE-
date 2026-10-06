@@ -10,6 +10,7 @@ export type DuelGameState =
   | 'player2_singing' 
   | 'realtime_singing' 
   | 'unit4_arena'
+  | 'unit3_arena'
   | 'results';
 
 export type DuelMode = 'simulated' | 'local' | 'realtime_p2p' | 'ghost_async';
@@ -48,9 +49,11 @@ export interface P2PPitchPacket {
 
 export interface P2PRhythmPacket {
   type: 'rhythm';
-  hitAccuracy: 'perfect' | 'good' | 'miss';
-  streak: number;
+  hitAccuracy?: 'perfect' | 'good' | 'miss';
+  streak?: number;
   score: number;
+  cutCount: number;
+  timeLeft?: number;
 }
 
 export interface P2PSkyRunPacket {

@@ -258,6 +258,17 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
                 <span>Puntaje: {friend.lastDuelScore}%</span>
               </div>
             )}
+
+            {(friend.skyRunRecord || friend.rhythmRecord) && (
+              <div className="mt-2 pt-1.5 border-t border-slate-200/40 dark:border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+                <span>Records Desafio:</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">
+                  {friend.skyRunRecord ? `${friend.skyRunRecord} tubos` : ''}
+                  {friend.skyRunRecord && friend.rhythmRecord ? ' • ' : ''}
+                  {friend.rhythmRecord ? `${friend.rhythmRecord} esferas (1m)` : ''}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Botones de Accion Tactiles */}

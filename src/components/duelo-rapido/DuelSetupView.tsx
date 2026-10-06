@@ -3,7 +3,7 @@
 
 'use client';
 import React from 'react';
-import { Volume2, User, Mic, Flame, Zap, Radio, Trophy, Music } from 'lucide-react';
+import { Volume2, User, Mic, Flame, Zap, Radio, Trophy, Music, Drum } from 'lucide-react';
 import { SOLFEGE_NOTES } from '../../data/academyData';
 import { SolfegeNote } from '../../types';
 import { DuelMode, DuelType } from './dueloTypes';
@@ -19,6 +19,7 @@ interface DuelSetupViewProps {
   onSelectMode: (mode: DuelMode) => void;
   selectedOpponentName: string;
   opponentRecord?: number;
+  opponentRhythmRecord?: number;
   onStartDuel: () => void;
 }
 
@@ -32,6 +33,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
   onSelectMode,
   selectedOpponentName,
   opponentRecord = 6,
+  opponentRhythmRecord = 32,
   onStartDuel,
 }) => {
   return (
@@ -41,7 +43,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
           1. Disciplina de Desafio:
         </label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {/* Opcion A: Afinacion Pura */}
           <button
             type="button"
@@ -49,15 +51,15 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               audioService.playClickSound();
               onSelectDuelType('pitch_duel');
             }}
-            className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
               duelType === 'pitch_duel'
                 ? 'bg-amber-50 dark:bg-amber-950/70 border-amber-500 text-amber-700 dark:text-amber-300 shadow-2xs'
                 : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
             }`}
           >
             <Music className="w-4 h-4 text-amber-500" />
-            <span className="font-heading font-black text-xs">Afinacion Pura</span>
-            <span className="text-[10px] text-slate-400 font-normal">Sostener nota</span>
+            <span className="font-heading font-black text-xs text-center">Afinacion</span>
+            <span className="text-[9px] text-slate-400 font-normal text-center">Sostener nota</span>
           </button>
 
           {/* Opcion B: Carrera Celeste (Unit 4) */}
@@ -67,15 +69,33 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               audioService.playClickSound();
               onSelectDuelType('sky_run_duel');
             }}
-            className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
               duelType === 'sky_run_duel'
                 ? 'bg-purple-50 dark:bg-purple-950/70 border-purple-500 text-purple-700 dark:text-purple-300 shadow-2xs'
                 : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
             }`}
           >
             <Trophy className="w-4 h-4 text-purple-500" />
-            <span className="font-heading font-black text-xs">Carrera Celeste</span>
-            <span className="text-[10px] text-slate-400 font-normal">Vuelo Unit 4</span>
+            <span className="font-heading font-black text-xs text-center">Carrera</span>
+            <span className="text-[9px] text-slate-400 font-normal text-center">Vuelo Unit 4</span>
+          </button>
+
+          {/* Opcion C: Duelo de Tambor (Unit 3) */}
+          <button
+            type="button"
+            onClick={() => {
+              audioService.playClickSound();
+              onSelectDuelType('rhythm_duel');
+            }}
+            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+              duelType === 'rhythm_duel'
+                ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-2xs'
+                : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
+            }`}
+          >
+            <Drum className="w-4 h-4 text-emerald-500" />
+            <span className="font-heading font-black text-xs text-center">Tambor 1m</span>
+            <span className="text-[9px] text-slate-400 font-normal text-center">Corte Unit 3</span>
           </button>
         </div>
       </div>
@@ -117,14 +137,24 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
             })}
           </div>
         </div>
-      ) : (
+      ) : duelType === 'sky_run_duel' ? (
         <div className="p-3.5 rounded-2xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 space-y-2">
           <div className="flex items-center gap-2 text-xs font-heading font-black text-purple-800 dark:text-purple-300">
             <Zap className="w-4 h-4 text-purple-600" />
             <span>Mecanica de Vuelo Flappy con la Voz:</span>
           </div>
           <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-            Emite sonidos con tu voz para que tu pato dorado ascienda esquivando tubos. Veras al pato violeta de {selectedOpponentName} compitiendo a tu lado en tiempo real o en sombra fantasma hasta que choca.
+            Emite sonidos con tu voz para que tu pato dorado ascienda esquivando tubos. Veras al pato violeta de {selectedOpponentName} compitiendo a tu lado en tiempo real o en sombra fantasma hasta que choca (Record: {opponentRecord} tubos).
+          </p>
+        </div>
+      ) : (
+        <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-heading font-black text-emerald-800 dark:text-emerald-300">
+            <Drum className="w-4 h-4 text-emerald-600" />
+            <span>Corte de Esferas a 1 Minuto:</span>
+          </div>
+          <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+            Desliza para cortar las esferas que rebotan sobre el tambor durante 60 segundos. El que corte mas esferas en ese minuto gana el duelo (Record de {selectedOpponentName}: {opponentRhythmRecord} esferas).
           </p>
         </div>
       )}
