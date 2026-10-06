@@ -165,23 +165,25 @@ const RhythmRoundRunner: React.FC<RhythmRoundRunnerProps> = ({
   );
 
   return (
-    <>
-      <RhythmStageArena
-        phase={phase}
-        countInNumber={countInNumber}
-        score={score}
-        ballControls={ballControls}
-        floatingTexts={floatingTexts}
-        combo={combo}
-      />
-      <div className="mt-3">
+    <div className="w-full h-full flex-1 flex flex-col justify-between min-h-0">
+      <div className="w-full flex-1 min-h-[300px] flex flex-col">
+        <RhythmStageArena
+          phase={phase}
+          countInNumber={countInNumber}
+          score={score}
+          ballControls={ballControls}
+          floatingTexts={floatingTexts}
+          combo={combo}
+        />
+      </div>
+      <div className="w-full shrink-0 pt-2 sm:pt-3">
         <RhythmTriggers
           phase={phase}
           onTap={handleTriggerTap}
           onRetry={startExercise}
         />
       </div>
-    </>
+    </div>
   );
 };
 
@@ -404,47 +406,51 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
       : liveScore;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 select-none bg-gradient-to-b from-[#0a1128] via-[#0c1836] to-[#080d1e] text-white overflow-hidden">
-      <div className="w-full max-w-md bg-[#102034]/95 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl relative">
-        <RhythmSphereDuelHud
-          phase={displayPhase}
-          playerAccuracy={displayedAccuracy}
-          playerCombo={liveCombo}
-          opponentAccuracy={mode === 'local' && localTurn === 2 ? p1LocalAccuracy : opponentAccuracy}
-          opponentCombo={opponentCombo}
-          opponentName={opponentName}
-          opponentTargetAccuracy={mode === 'local' ? p1LocalAccuracy : opponentTargetAccuracy}
-          bpm={currentRoundConfig.bpm}
-          currentRound={currentRoundIndex + 1}
-          totalRounds={roundsPlaylist.length}
-          roundScores={roundScores}
-          roundName={currentRoundConfig.name}
-          difficultyMode={currentRoundConfig.mode}
-          roundsPreview={roundsPlaylist}
-          bannerNotice={bannerNotice}
-          mode={mode}
-          localTurn={localTurn}
-          p1LocalAccuracy={p1LocalAccuracy}
-          p1LocalCombo={p1LocalCombo}
-          showLocalTransitionOverlay={showLocalTransitionOverlay}
-          showMatchOverOverlay={showMatchOverOverlay}
-          p1Won={p1Won}
-          isTie={isTie}
-          onStartGame={handleStartGame}
-          onExit={onExit}
-          onStartLocalTurn2={handleStartLocalTurn2}
-          onFinishDuel={handleFinish}
-        />
+    <div className="fixed inset-0 z-[120] select-none touch-none bg-gradient-to-b from-[#080d1e] via-[#0d1b33] to-[#060a17] text-white overflow-hidden flex flex-col items-center justify-between p-2 sm:p-4 md:p-6">
+      <div className="w-full max-w-lg md:max-w-xl h-full flex flex-col justify-between relative z-10">
+        <div className="w-full shrink-0">
+          <RhythmSphereDuelHud
+            phase={displayPhase}
+            playerAccuracy={displayedAccuracy}
+            playerCombo={liveCombo}
+            opponentAccuracy={mode === 'local' && localTurn === 2 ? p1LocalAccuracy : opponentAccuracy}
+            opponentCombo={opponentCombo}
+            opponentName={opponentName}
+            opponentTargetAccuracy={mode === 'local' ? p1LocalAccuracy : opponentTargetAccuracy}
+            bpm={currentRoundConfig.bpm}
+            currentRound={currentRoundIndex + 1}
+            totalRounds={roundsPlaylist.length}
+            roundScores={roundScores}
+            roundName={currentRoundConfig.name}
+            difficultyMode={currentRoundConfig.mode}
+            roundsPreview={roundsPlaylist}
+            bannerNotice={bannerNotice}
+            mode={mode}
+            localTurn={localTurn}
+            p1LocalAccuracy={p1LocalAccuracy}
+            p1LocalCombo={p1LocalCombo}
+            showLocalTransitionOverlay={showLocalTransitionOverlay}
+            showMatchOverOverlay={showMatchOverOverlay}
+            p1Won={p1Won}
+            isTie={isTie}
+            onStartGame={handleStartGame}
+            onExit={onExit}
+            onStartLocalTurn2={handleStartLocalTurn2}
+            onFinishDuel={handleFinish}
+          />
+        </div>
 
         {/* Runner de la ronda activa con reinicio limpio por clave */}
-        <RhythmRoundRunner
-          key={`round-runner-${localTurn}-${currentRoundIndex}-${currentRoundConfig.levelNumber}`}
-          roundConfig={currentRoundConfig}
-          autoStart={arenaPhase === 'playing'}
-          onRoundComplete={handleRoundComplete}
-          onLiveUpdate={handleLiveUpdate}
-          onTapInstrument={handleTapInstrument}
-        />
+        <div className="w-full flex-1 flex flex-col justify-between my-2 sm:my-3 min-h-0">
+          <RhythmRoundRunner
+            key={`round-runner-${localTurn}-${currentRoundIndex}-${currentRoundConfig.levelNumber}`}
+            roundConfig={currentRoundConfig}
+            autoStart={arenaPhase === 'playing'}
+            onRoundComplete={handleRoundComplete}
+            onLiveUpdate={handleLiveUpdate}
+            onTapInstrument={handleTapInstrument}
+          />
+        </div>
       </div>
     </div>
   );
