@@ -298,7 +298,11 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
       {/* Daily Vocal Tip Splash Screen */}
       <AnimatePresence>
         {showSplash && (
-          <SplashScreen onFinish={onFinishSplash} />
+          <SplashScreen
+            onFinish={onFinishSplash}
+            userStats={userStats}
+            onUpdateStats={onUpdateStats}
+          />
         )}
       </AnimatePresence>
     </>

@@ -1,9 +1,10 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Lightbulb, DownloadCloud, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Lightbulb, DownloadCloud, CheckCircle2, User, Camera, ArrowRight, Mic } from 'lucide-react';
 import { cacheAllContentLocally, registerServiceWorker } from '../utils/offlineSync';
-import { SONGS_DATABASE } from '../data/academyData';
+import { DEFAULT_VOCAL_AVATARS } from './friends/friendsTypes';
+import { UserStats } from '../types';
 
 export const VOCAL_TIPS = [
   { id: 1, title: 'Apoyo Diafragmático', text: 'Inhala inflando suavemente el abdomen y costillas inferiores, sin elevar los hombros, para lograr un flujo constante de aire.' },
@@ -16,14 +17,51 @@ export const VOCAL_TIPS = [
   { id: 8, title: 'Descanso e Higiene Vocal', text: 'Si sientes carraspeo o fatiga, toma pausas de silencio vocal de 15 minutos. Evita carraspear con fuerza.' }
 ];
 
-interface SplashScreenProps {
-  onFinish: () => void;
+export function getPersonalizedVocalTip(name: string): { title: string; text: string } {
+  return {
+    title: `Preparando tu voz, ${name}`,
+    text: `${name}, recuerda que el aire es el combustible de tu voz. Antes de emitir cualquier nota, expande tus costillas inferiores, relaja la mandíbula y permite que tu respiración fluya sin tensión.`
+  };
 }
 
-export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
+interface SplashScreenProps {
+  onFinish: () => void;
+  userStats?: UserStats;
+  onUpdateStats?: (updated: Partial<UserStats>) => void;
+}
+
+type SplashPhase = 'loading_to_85' | 'name_input' | 'tip_after_name' | 'avatar_input' | 'completed';
+
+export const SplashScreen: React.FC<SplashScreenProps> = ({
+  onFinish,
+  userStats,
+  onUpdateStats,
+}) => {
   const [progress, setProgress] = useState(0);
-  const [loadingText, setLoadingText] = useState('Iniciando descarga PWA...');
+  const [loadingText, setLoadingText] = useState('Iniciando recursos de la aplicación (0%)...');
   const [isFullyDownloaded, setIsFullyDownloaded] = useState(false);
+  const [phase, setPhase] = useState<SplashPhase>('loading_to_85');
+
+  const initialName = userStats?.name || (() => {
+    try {
+      const s = localStorage.getItem('laclave_user_stats_v6');
+      if (s) return JSON.parse(s).name || 'Alex';
+    } catch {}
+    return 'Alex';
+  })();
+
+  const initialAvatar = userStats?.avatarUrl || (() => {
+    try {
+      const s = localStorage.getItem('laclave_user_stats_v6');
+      if (s) return JSON.parse(s).avatarUrl || DEFAULT_VOCAL_AVATARS[0].url;
+    } catch {}
+    return DEFAULT_VOCAL_AVATARS[0].url;
+  })();
+
+  const [userName, setUserName] = useState<string>(initialName);
+  const [nameInput, setNameInput] = useState<string>(initialName);
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(initialAvatar);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tip] = useState(() => {
     try {
@@ -31,9 +69,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         const isExpired = Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000;
-        if (!isExpired && parsed.tip) {
-          return parsed.tip;
-        }
+        if (!isExpired && parsed.tip) return parsed.tip;
       }
     } catch {}
     const randomTip = VOCAL_TIPS[Math.floor(Math.random() * VOCAL_TIPS.length)];
@@ -43,40 +79,17 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
     return randomTip;
   });
 
+  const [personalizedTip, setPersonalizedTip] = useState<{ title: string; text: string }>({
+    title: `Preparando tu voz, ${initialName}`,
+    text: `${initialName}, recuerda que el aire es el combustible de tu voz. Antes de emitir cualquier nota, expande tus costillas inferiores y relaja tu mandíbula.`
+  });
+
+  // Background preload execution
   useEffect(() => {
     let isCancelled = false;
-
-    const runFullPwaPreload = async () => {
-      // Step 1: 0% -> 25% Service Worker & Cache Storage Registration
-      setLoadingText('Registrando Service Worker & Caché PWA...');
-      setProgress(15);
+    const runBackgroundPreload = async () => {
       registerServiceWorker();
-
-      // Collect all image URLs from song database & app covers
-      const songCovers = SONGS_DATABASE.map(s => s.coverUrl).filter(Boolean);
-      const appStaticAssets = [
-        '/',
-        '/manifest.json',
-        '/duck.png',
-        '/trollface.png',
-        'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=192&q=80',
-        ...songCovers
-      ];
-
-      // Send precache command to SW if active
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'PRECACHE_FULL_APP',
-          urls: appStaticAssets
-        });
-      }
-
-      await new Promise(r => setTimeout(r, 400));
-      if (isCancelled) return;
-
-      // Step 2: 20% -> 50% Pre-load ALL app view bundles and lazy components
-      setLoadingText('Cargando módulos y secciones de la aplicación...');
-      setProgress(40);
+      cacheAllContentLocally();
       try {
         await Promise.allSettled([
           import('../components/AfinadorView'),
@@ -87,90 +100,132 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           import('../components/VoiceEvalModal'),
           import('../components/VocalRangeModal'),
           import('../components/StoreModal'),
-          import('../components/SettingsModal'),
-          import('../components/RecoveryExamModal'),
-          import('../components/UnitCelebrationModal'),
-          import('../components/InstallPwaModal')
+          import('../components/SettingsModal')
         ]);
-      } catch (e) {
-        console.warn('[SplashScreen] Carga previa de módulos:', e);
-      }
-
-      await new Promise(r => setTimeout(r, 300));
-      if (isCancelled) return;
-
-      // Step 3: 50% -> 80% Pre-download & Cache Content Locally in Cache Storage & LocalStorage
-      setLoadingText('Descargando lecciones, canciones e imágenes...');
-      setProgress(70);
-      cacheAllContentLocally();
+      } catch {}
 
       try {
-        if ('caches' in window) {
-          const cache = await caches.open('laclave-v1-cache');
-          await Promise.all(
-            appStaticAssets.map(url =>
-              cache.add(url).catch(() => {
-                console.warn('[PWA Preload] Recurso omitido o ya cacheado:', url);
-              })
-            )
-          );
-        }
-      } catch (e) {
-        console.warn('[PWA Preload] Fallo menor en descarga de caché:', e);
-      }
-
-      await new Promise(r => setTimeout(r, 300));
-      if (isCancelled) return;
-
-      // Step 4: 80% -> 95% Warm up Audio Engine & AudioContext
-      setLoadingText('Pre-cargando sintetizadores y motor de afinación...');
-      setProgress(90);
-
-      try {
-        // Pre-warm Web Audio API context without playing sound or leaking context
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (AudioCtx) {
           const tempCtx = new AudioCtx();
-          if (tempCtx.state === 'suspended') {
-            tempCtx.resume().catch(() => {});
-          }
-          setTimeout(() => {
-            try { tempCtx.close(); } catch {}
-          }, 500);
+          if (tempCtx.state === 'suspended') tempCtx.resume().catch(() => {});
+          setTimeout(() => { try { tempCtx.close(); } catch {} }, 400);
         }
       } catch {}
+    };
 
-      await new Promise(r => setTimeout(r, 450));
-      if (isCancelled) return;
+    runBackgroundPreload();
+    return () => { isCancelled = true; };
+  }, []);
 
-      // Step 5: 100% Download complete
-      setLoadingText('¡Todas las secciones descargadas! App 100% lista para usar sin conexión.');
-      setProgress(100);
-      setIsFullyDownloaded(true);
+  // Timer 1: 0% -> 85% ticking 1 by 1
+  useEffect(() => {
+    if (phase !== 'loading_to_85') return;
 
-      await new Promise(r => setTimeout(r, 350));
-      if (isCancelled) return;
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 85) {
+          clearInterval(timer);
+          setPhase('name_input');
+          setLoadingText('Personalización de perfil (85%)...');
+          return 85;
+        }
+        const next = prev + 1;
+        if (next < 25) {
+          setLoadingText(`Registrando Service Worker & Caché (${next}%)...`);
+        } else if (next < 55) {
+          setLoadingText(`Cargando lecciones y canciones vocales (${next}%)...`);
+        } else {
+          setLoadingText(`Pre-calentando sintetizadores y afinador (${next}%)...`);
+        }
+        return next;
+      });
+    }, 28);
 
+    return () => clearInterval(timer);
+  }, [phase]);
+
+  // Timer 2: 86% -> 99% ticking 1 by 1 after name is confirmed
+  useEffect(() => {
+    if (phase !== 'tip_after_name') return;
+
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 99) {
+          clearInterval(timer);
+          setPhase('avatar_input');
+          setLoadingText('Personaliza tu foto de perfil (99%)...');
+          return 99;
+        }
+        const next = prev + 1;
+        setLoadingText(`Sincronizando perfil vocal de ${userName} (${next}%)...`);
+        return next;
+      });
+    }, 32);
+
+    return () => clearInterval(timer);
+  }, [phase, userName]);
+
+  const saveToStorage = (updatedName: string, updatedAvatar?: string) => {
+    try {
+      const saved = localStorage.getItem('laclave_user_stats_v6');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (updatedName) parsed.name = updatedName;
+        if (updatedAvatar) parsed.avatarUrl = updatedAvatar;
+        localStorage.setItem('laclave_user_stats_v6', JSON.stringify(parsed));
+      }
+    } catch {}
+  };
+
+  const handleConfirmName = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const finalName = nameInput.trim() || userName || 'Vocalista';
+    setUserName(finalName);
+    setPersonalizedTip(getPersonalizedVocalTip(finalName));
+    if (onUpdateStats) onUpdateStats({ name: finalName });
+    saveToStorage(finalName);
+    setPhase('tip_after_name');
+  };
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen seleccionada supera los 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const res = event.target?.result as string;
+      if (res) setSelectedAvatar(res);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleConfirmAvatar = () => {
+    if (onUpdateStats) onUpdateStats({ avatarUrl: selectedAvatar, name: userName });
+    saveToStorage(userName, selectedAvatar);
+    setPhase('completed');
+    setProgress(100);
+    setLoadingText(`¡Bienvenido a AfinApp, ${userName}! Todo listo.`);
+    setIsFullyDownloaded(true);
+    setTimeout(() => {
       onFinish();
-    };
-
-    runFullPwaPreload();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [onFinish]);
+    }, 450);
+  };
 
   return (
     <motion.div
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.35, ease: 'easeInOut' }}
-      className="fixed inset-0 z-[100] bg-gradient-to-br from-teal-700 via-emerald-700 to-green-700 text-white flex flex-col justify-between items-center p-6 sm:p-10 select-none overflow-hidden"
+      className="fixed inset-0 z-[100] bg-gradient-to-br from-teal-900 via-slate-900 to-emerald-950 text-white flex flex-col justify-between items-center p-6 sm:p-10 select-none overflow-hidden"
     >
-      {/* Top Banner - PWA Offline Download Badge */}
+      {/* Top Banner - PWA Status */}
       <div className="w-full max-w-md pt-2 flex justify-center items-center z-10">
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-400/30 text-emerald-200 text-xs font-bold shadow-sm">
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-400/30 text-emerald-200 text-xs font-bold shadow-sm">
           {isFullyDownloaded ? (
             <CheckCircle2 className="w-4 h-4 text-emerald-300 animate-bounce" />
           ) : (
@@ -180,32 +235,199 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         </div>
       </div>
 
-      {/* Center - Consejo del Día Card */}
-      <div className="flex-1 flex flex-col justify-center items-center w-full">
-        <motion.div
-          initial={{ y: 12, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="w-full max-w-md bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-6 space-y-4 shadow-xl"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
-              <Lightbulb className="w-5 h-5 text-emerald-300" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
-                CONSEJO DEL DÍA
-              </span>
-              <h3 className="font-heading font-bold text-base sm:text-lg text-white">
-                {tip.title}
-              </h3>
-            </div>
-          </div>
+      {/* Center Interactive Content Area */}
+      <div className="flex-1 flex flex-col justify-center items-center w-full max-w-md px-2">
+        <AnimatePresence mode="wait">
+          {phase === 'loading_to_85' && (
+            <motion.div
+              key="tip-initial"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35 }}
+              className="w-full bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-6 space-y-4 shadow-xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                  <Lightbulb className="w-5 h-5 text-emerald-300" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
+                    CONSEJO DEL DÍA
+                  </span>
+                  <h3 className="font-heading font-bold text-base sm:text-lg text-white">
+                    {tip.title}
+                  </h3>
+                </div>
+              </div>
 
-          <p className="text-sm text-emerald-100/90 leading-relaxed font-normal">
-            "{tip.text}"
-          </p>
-        </motion.div>
+              <p className="text-sm text-emerald-100/90 leading-relaxed font-normal">
+                "{tip.text}"
+              </p>
+            </motion.div>
+          )}
+
+          {phase === 'name_input' && (
+            <motion.div
+              key="step-name"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className="w-full bg-slate-900/80 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-2xl"
+            >
+              <div className="text-center space-y-1.5">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center justify-center">
+                  <User className="w-5 h-5" />
+                </div>
+                <h2 className="font-heading font-black text-xl sm:text-2xl text-white tracking-wide uppercase">
+                  ¿CÓMO QUIERES LLAMARTE?
+                </h2>
+                <p className="text-xs text-emerald-200/80 font-medium">
+                  Escribe tu nombre o apodo para personalizar tus entrenamientos y lecciones vocales.
+                </p>
+              </div>
+
+              <form onSubmit={handleConfirmName} className="space-y-4 pt-1">
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Tu nombre o apodo..."
+                  maxLength={30}
+                  autoFocus
+                  className="w-full bg-emerald-950/70 border border-emerald-400/40 focus:border-emerald-300 rounded-xl px-4 py-3 text-white placeholder-emerald-300/40 font-bold text-center text-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50 shadow-inner transition-all"
+                />
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 px-6 rounded-xl font-bold bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 text-sm tracking-wide uppercase shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Continuar</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {phase === 'tip_after_name' && (
+            <motion.div
+              key="tip-personalized"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35 }}
+              className="w-full bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-6 space-y-4 shadow-xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                  <Mic className="w-5 h-5 text-emerald-300" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
+                    CONSEJO PERSONALIZADO
+                  </span>
+                  <h3 className="font-heading font-bold text-base sm:text-lg text-white">
+                    {personalizedTip.title}
+                  </h3>
+                </div>
+              </div>
+
+              <p className="text-sm text-emerald-100/90 leading-relaxed font-normal">
+                "{personalizedTip.text}"
+              </p>
+            </motion.div>
+          )}
+
+          {(phase === 'avatar_input' || phase === 'completed') && (
+            <motion.div
+              key="step-avatar"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className="w-full bg-slate-900/80 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-6 space-y-4 shadow-2xl"
+            >
+              <div className="text-center space-y-1">
+                <h2 className="font-heading font-black text-xl sm:text-2xl text-white tracking-wide uppercase">
+                  ELIGE TU FOTO DE PERFIL
+                </h2>
+                <p className="text-xs text-emerald-200/80 font-medium">
+                  Casi listos, {userName}. Selecciona un avatar o sube tu propia foto.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center gap-3 py-1">
+                <div className="relative group">
+                  <img
+                    src={selectedAvatar}
+                    alt={userName}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-emerald-400 shadow-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition-all cursor-pointer"
+                    title="Subir foto desde dispositivo"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFile}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs font-semibold text-emerald-300 hover:text-emerald-200 underline cursor-pointer"
+                >
+                  Subir foto desde dispositivo
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">
+                  O elige un avatar vocal:
+                </span>
+                <div className="flex items-center justify-center gap-2 overflow-x-auto py-1">
+                  {DEFAULT_VOCAL_AVATARS.slice(0, 5).map((av) => (
+                    <button
+                      key={av.id}
+                      type="button"
+                      onClick={() => setSelectedAvatar(av.url)}
+                      className={`p-0.5 rounded-full transition-all cursor-pointer ${
+                        selectedAvatar === av.url
+                          ? 'ring-2 ring-emerald-400 scale-110'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
+                      title={av.name}
+                    >
+                      <img
+                        src={av.url}
+                        alt={av.name}
+                        className="w-9 h-9 rounded-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleConfirmAvatar}
+                className="w-full py-3.5 px-6 rounded-xl font-bold bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 text-sm tracking-wide uppercase shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Continuar e Ingresar</span>
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Bottom Loading Progress Bar */}
@@ -219,12 +441,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           <motion.div
             className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 rounded-full shadow-sm"
             animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+            transition={{ duration: 0.05, ease: 'linear' }}
           />
         </div>
       </div>
     </motion.div>
   );
 };
-
-
