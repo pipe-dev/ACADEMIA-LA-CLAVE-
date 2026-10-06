@@ -2,12 +2,13 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { audioService } from '../utils/audioService';
-import { Swords, ArrowLeft } from 'lucide-react';
+import { Swords, ArrowLeft, Trophy } from 'lucide-react';
 import { DueloRapidoModalProps, DuelResult } from './duelo-rapido/dueloTypes';
 import { useDuelEngine } from './duelo-rapido/useDuelEngine';
 import { DuelSetupView } from './duelo-rapido/DuelSetupView';
 import { DuelSingingView } from './duelo-rapido/DuelSingingView';
 import { DuelResultsView } from './duelo-rapido/DuelResultsView';
+import { Unit4DuelArena } from './unit4-flappy/Unit4DuelArena';
 
 export type { DueloRapidoModalProps, DuelResult };
 
@@ -17,8 +18,11 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
   opponent = null,
   onGrantXp,
   isEmbeddedView = false,
+  initialDuelType = 'pitch_duel',
 }) => {
   const {
+    duelType,
+    setDuelType,
     selectedNote,
     setSelectedNote,
     mode,
@@ -39,6 +43,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
     p2pStatusMsg,
     handlePlayReferenceSound,
     startPlayer1Turn,
+    finishUnit4Arena,
     startLocalPlayer2Turn,
     resetGame,
   } = useDuelEngine({
@@ -46,9 +51,23 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
     isEmbeddedView,
     opponent,
     onGrantXp,
+    initialDuelType,
   });
 
   if (!isOpen && !isEmbeddedView) return null;
+
+  // Si estamos en la arena de vuelo de la Unit 4, renderizamos a pantalla completa
+  if (gameState === 'unit4_arena') {
+    return (
+      <Unit4DuelArena
+        opponentName={selectedOpponentName}
+        opponentTargetScore={Math.max(3, Math.round((opponent?.stabilityScore ?? 85) / 10))}
+        mode={mode === 'realtime_p2p' ? 'realtime_p2p' : 'ghost_async'}
+        onFinishDuel={finishUnit4Arena}
+        onExit={resetGame}
+      />
+    );
+  }
 
   const innerContent = (
     <div className="bg-white dark:bg-[#102034] w-full rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-[#1b2b3f] shadow-md space-y-5 relative">
@@ -73,15 +92,21 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
 
       {/* Title Banner */}
       <div className="flex items-center gap-3">
-        <div className="p-3 rounded-2xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-300 shrink-0">
-          <Swords className="w-6 h-6" />
+        <div className={`p-3 rounded-2xl shrink-0 ${
+          duelType === 'sky_run_duel'
+            ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-300'
+            : 'bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-300'
+        }`}>
+          {duelType === 'sky_run_duel' ? <Trophy className="w-6 h-6" /> : <Swords className="w-6 h-6" />}
         </div>
         <div>
           <h3 className="font-heading font-black text-xl text-[#0b1c30] dark:text-[#d3e4fe]">
-            Duelo Rápido Vocal
+            {duelType === 'sky_run_duel' ? 'Carrera Celeste (Unit 4)' : 'Duelo Rapido Vocal'}
           </h3>
           <p className="text-xs text-slate-400 font-medium">
-            Compara estabilidad y precisión afinando la misma nota
+            {duelType === 'sky_run_duel'
+              ? 'Vuela esquivando tubos con tu voz en vivo o contra la sombra de tu amigo'
+              : 'Compara estabilidad y precision afinando la misma nota'}
           </p>
         </div>
       </div>
@@ -89,12 +114,15 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
       {/* SETUP PHASE */}
       {gameState === 'setup' && (
         <DuelSetupView
+          duelType={duelType}
+          onSelectDuelType={setDuelType}
           selectedNote={selectedNote}
           onSelectNote={setSelectedNote}
           onPlayReferenceSound={handlePlayReferenceSound}
           mode={mode}
           onSelectMode={setMode}
           selectedOpponentName={selectedOpponentName}
+          opponentRecord={Math.max(3, Math.round((opponent?.stabilityScore ?? 85) / 10))}
           onStartDuel={startPlayer1Turn}
         />
       )}
@@ -117,7 +145,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
         </div>
       )}
 
-      {/* SINGING PHASES */}
+      {/* SINGING PHASES (AFINACION) */}
       {(gameState === 'player1_singing' || gameState === 'player2_singing') && (
         <DuelSingingView
           isPlayer1={gameState === 'player1_singing'}
@@ -144,6 +172,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
           p2Score={p2Score}
           p2InTuneSeconds={p2InTuneSeconds}
           selectedOpponentName={selectedOpponentName}
+          duelType={duelType}
           onPlayAgain={resetGame}
         />
       )}

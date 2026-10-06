@@ -1,26 +1,31 @@
 'use client';
 import React from 'react';
 import { Trophy } from 'lucide-react';
+import { DuelType } from './dueloTypes';
 
 interface DuelResultsViewProps {
   p1Won: boolean;
   p1Score: number;
-  p1InTuneSeconds: number;
+  p1InTuneSeconds?: number;
   p2Score: number;
-  p2InTuneSeconds: number;
+  p2InTuneSeconds?: number;
   selectedOpponentName: string;
+  duelType?: DuelType;
   onPlayAgain: () => void;
 }
 
 export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
   p1Won,
   p1Score,
-  p1InTuneSeconds,
+  p1InTuneSeconds = 0,
   p2Score,
-  p2InTuneSeconds,
+  p2InTuneSeconds = 0,
   selectedOpponentName,
+  duelType = 'pitch_duel',
   onPlayAgain,
 }) => {
+  const isSkyRun = duelType === 'sky_run_duel';
+
   return (
     <div className="space-y-5 text-center">
       {/* Banner Header */}
@@ -33,12 +38,20 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
       >
         <Trophy className="w-8 h-8 text-amber-300 mx-auto animate-bounce" />
         <h4 className="font-heading font-black text-xl">
-          {p1Won ? '¡VICTORIA EN EL DUELO!' : '¡Casi lo logras!'}
+          {p1Won
+            ? isSkyRun
+              ? '¡VICTORIA EN LA CARRERA CELESTE!'
+              : '¡VICTORIA EN EL DUELO!'
+            : '¡Casi lo logras!'}
         </h4>
         <p className="text-xs text-white/90">
           {p1Won
-            ? 'Demostraste mayor estabilidad de tono que tu oponente (+50 XP)'
-            : 'Buen esfuerzo, practica más afinación y reintenta.'}
+            ? isSkyRun
+              ? `Superaste el vuelo de tu oponente en los cielos (+50 XP)`
+              : `Demostraste mayor estabilidad de tono que tu oponente (+50 XP)`
+            : isSkyRun
+            ? `${selectedOpponentName} esquivo mas obstaculos esta vez. ¡Vuelve a intentarlo!`
+            : `Buen esfuerzo, practica mas afinacion y reintenta.`}
         </p>
       </div>
 
@@ -52,13 +65,13 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
           }`}
         >
           <span className="text-[10px] font-extrabold uppercase text-amber-700 dark:text-amber-400 block">
-            TÚ (JUGADOR 1)
+            TU (JUGADOR 1)
           </span>
           <span className="font-heading font-black text-2xl text-[#0b1c30] dark:text-[#d3e4fe] block">
-            {p1Score} pts
+            {p1Score} {isSkyRun ? 'tubos' : 'pts'}
           </span>
           <span className="text-xs font-bold text-slate-500">
-            Estabilidad: {p1InTuneSeconds.toFixed(1)}s
+            {isSkyRun ? `Distancia: ${p1Score * 120}m` : `Estabilidad: ${p1InTuneSeconds.toFixed(1)}s`}
           </span>
         </div>
 
@@ -67,10 +80,10 @@ export const DuelResultsView: React.FC<DuelResultsViewProps> = ({
             {selectedOpponentName}
           </span>
           <span className="font-heading font-black text-2xl text-[#0b1c30] dark:text-[#d3e4fe] block">
-            {p2Score} pts
+            {p2Score} {isSkyRun ? 'tubos' : 'pts'}
           </span>
           <span className="text-xs font-bold text-slate-500">
-            Estabilidad: {p2InTuneSeconds.toFixed(1)}s
+            {isSkyRun ? `Distancia: ${p2Score * 120}m` : `Estabilidad: ${p2InTuneSeconds.toFixed(1)}s`}
           </span>
         </div>
       </div>

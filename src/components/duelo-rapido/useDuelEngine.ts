@@ -4,7 +4,7 @@ import { calculateCentsOff } from '../../utils/pitchUtils';
 import { SOLFEGE_NOTES } from '../../data/academyData';
 import { SolfegeNote } from '../../types';
 import { FriendItem } from '../FriendsSection';
-import { DuelResult, DuelGameState, DuelMode, P2PDataPacket } from './dueloTypes';
+import { DuelGameState, DuelMode, DuelType, P2PDataPacket } from './dueloTypes';
 import { friendsSyncService } from '../../utils/friendsSyncService';
 import { p2pDuelService } from '../../utils/p2pDuelService';
 import confetti from 'canvas-confetti';
@@ -14,6 +14,7 @@ interface UseDuelEngineParams {
   isEmbeddedView: boolean;
   opponent?: FriendItem | null;
   onGrantXp?: (amount: number) => void;
+  initialDuelType?: DuelType;
 }
 
 export function useDuelEngine({
@@ -21,14 +22,15 @@ export function useDuelEngine({
   isEmbeddedView,
   opponent,
   onGrantXp,
+  initialDuelType = 'pitch_duel',
 }: UseDuelEngineParams) {
+  const [duelType, setDuelType] = useState<DuelType>(initialDuelType);
   const [selectedNote, setSelectedNote] = useState<SolfegeNote>(SOLFEGE_NOTES[4]); // SOL (392 Hz)
   const [mode, setMode] = useState<DuelMode>('simulated');
   const [selectedOpponentName, setSelectedOpponentName] = useState<string>(
     opponent ? opponent.name : 'Camila Rios'
   );
 
-  // Game state: 'setup' | 'connecting_p2p' | 'player1_singing' | 'player2_singing' | 'realtime_singing' | 'results'
   const [gameState, setGameState] = useState<DuelGameState>('setup');
 
   // Player 1 Stats
@@ -48,14 +50,9 @@ export function useDuelEngine({
   // P2P State
   const [p2pRoomId, setP2pRoomId] = useState<string | null>(null);
   const [p2pStatusMsg, setP2pStatusMsg] = useState<string>('');
-
-  // General active status
-  const [_statusText, setStatusText] = useState<string>('Manten la nota lo mas estable posible');
   const [p1Won, setP1Won] = useState<boolean>(false);
 
-  // Refs for tracking pitch in loops
   const timerRef = useRef<number | null>(null);
-  const lastVibeRef = useRef<number>(0);
 
   useEffect(() => {
     if (opponent) {
@@ -63,166 +60,81 @@ export function useDuelEngine({
     }
   }, [opponent]);
 
-  // Clean up mic and P2P on modal close
   useEffect(() => {
-    if (!isOpen && !isEmbeddedView) {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
       audioService.stopMicrophone();
       p2pDuelService.close();
-      if (timerRef.current) clearInterval(timerRef.current);
-      setGameState('setup');
-    }
-  }, [isOpen, isEmbeddedView]);
+    };
+  }, []);
 
   const handlePlayReferenceSound = useCallback(() => {
-    audioService.playClickSound();
-    audioService.playFrequency(selectedNote.frequency, 1.5);
-  }, [selectedNote.frequency]);
+    audioService.playFrequency(selectedNote.frequency, 1.2);
+  }, [selectedNote]);
 
-  const finishDuel = useCallback(
-    (p1S: number, p2S: number, p1Sec: number, p2Sec: number) => {
-      setGameState('results');
-      const isWinner = p1S >= p2S;
-      setP1Won(isWinner);
+  const finishDuel = useCallback((finalP1: number, finalP2: number, inTuneSecP1: number, inTuneSecP2: number) => {
+    const userWon = finalP1 >= finalP2;
+    setP1Won(userWon);
+    setGameState('results');
 
-      if (isWinner) {
-        audioService.playBadgeUnlockedSound();
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-        if (onGrantXp) onGrantXp(50);
-      } else {
-        audioService.playSoftDing();
-        if (onGrantXp) onGrantXp(15);
-      }
+    const xpEarned = userWon ? 50 : 20;
+    if (onGrantXp) onGrantXp(xpEarned);
 
-      // 1. Guardar en historial local
-      try {
-        const historyItem: DuelResult = {
-          id: `duel_${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          noteName: selectedNote.name,
-          opponentName: selectedOpponentName,
-          player1Score: p1S,
-          player2Score: p2S,
-          player1StabilitySec: p1Sec,
-          player2StabilitySec: p2Sec,
-          won: isWinner,
-          duelType: 'pitch_duel'
-        };
+    const myCode = typeof window !== 'undefined' ? (localStorage.getItem('laclave_my_friend_code') || 'MI_CODIGO') : 'MI_CODIGO';
+    friendsSyncService.recordDuelResult({
+      challengerCode: myCode,
+      opponentCode: opponent ? opponent.code : 'LOCAL_P2',
+      targetNote: duelType === 'sky_run_duel' ? 'Carrera Celeste' : selectedNote.name,
+      challengerScore: finalP1,
+      opponentScore: finalP2,
+      winnerCode: userWon ? myCode : (opponent ? opponent.code : 'LOCAL_P2'),
+      xpAwarded: xpEarned,
+      duelType: duelType,
+    });
 
-        const existing = localStorage.getItem('laclave_duel_history');
-        const list = existing ? JSON.parse(existing) : [];
-        const updated = [historyItem, ...list].slice(0, 10);
-        localStorage.setItem('laclave_duel_history', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('Could not save duel history:', e);
-      }
+    if (userWon) {
+      audioService.playSuccessBellSound();
+      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+    } else {
+      audioService.playSadDefeatSound();
+    }
+  }, [duelType, onGrantXp, opponent, selectedNote.name]);
 
-      // 2. Sincronizar resultado con Cloudflare D1 y actualizar balance cara a cara
-      if (opponent?.code) {
-        try {
-          const myCode = localStorage.getItem('laclave_my_friend_code') || 'CLAVE-7782';
-          friendsSyncService.recordDuelResult({
-            challengerCode: myCode,
-            opponentCode: opponent.code,
-            targetNote: selectedNote.name,
-            challengerScore: p1S,
-            opponentScore: p2S,
-            winnerCode: isWinner ? myCode : opponent.code,
-            xpAwarded: isWinner ? 50 : 15,
-            duelType: 'pitch_duel'
-          });
-        } catch (e) {
-          console.warn('Could not sync duel result:', e);
-        }
-      }
-    },
-    [onGrantXp, opponent?.code, selectedNote.name, selectedOpponentName]
-  );
-
-  const startSimulatedPlayer2Turn = useCallback(
-    (finalP1Score: number) => {
-      setGameState('player2_singing');
-      setStatusText(`${selectedOpponentName} esta cantando en vivo...`);
-
-      let remaining = 10;
-      let simTicks = 0;
-
-      if (timerRef.current) clearInterval(timerRef.current);
-
-      timerRef.current = window.setInterval(() => {
-        remaining -= 1;
-        setP2TimeLeft(remaining);
-
-        // Simular estabilidad de tono (70% tasa de acierto)
-        const simulatedInTune = Math.random() > 0.3;
-        if (simulatedInTune) {
-          simTicks += 0.8;
-          const fakeFreq = selectedNote.frequency + (Math.random() * 4 - 2);
-          setP2CurrentPitch(Math.round(fakeFreq));
-          setP2PitchDiff(Math.round(Math.abs(fakeFreq - selectedNote.frequency)));
-          setP2InTuneSeconds(Number(simTicks.toFixed(1)));
-        } else {
-          const fakeFreq = selectedNote.frequency + (Math.random() * 18 - 9);
-          setP2CurrentPitch(Math.round(fakeFreq));
-          setP2PitchDiff(Math.round(Math.abs(fakeFreq - selectedNote.frequency)));
-        }
-
-        if (remaining <= 0) {
-          if (timerRef.current) clearInterval(timerRef.current);
-
-          const baseSimScore = Math.floor(Math.random() * 30) + 55;
-          const finalP2Score = Math.min(100, Math.max(30, baseSimScore));
-          setP2Score(finalP2Score);
-
-          finishDuel(finalP1Score, finalP2Score, p1InTuneSeconds, Number(simTicks.toFixed(1)));
-        }
-      }, 1000);
-    },
-    [finishDuel, p1InTuneSeconds, selectedNote.frequency, selectedOpponentName]
-  );
-
-  const startSingingLoop = useCallback((onFinish: (score: number, inTuneSec: number) => void) => {
+  const startSingingLoop = useCallback(async (onFinish: (score: number, inTuneSec: number) => void) => {
     let inTuneTicks = 0;
     let remaining = 10;
+    const targetFreq = selectedNote.frequency;
 
-    audioService.startMicrophone((pitchHz) => {
-      if (pitchHz > 60 && pitchHz < 900) {
-        setP1CurrentPitch(Math.round(pitchHz));
-        const centsOff = calculateCentsOff(pitchHz, selectedNote.frequency);
-        const absCents = Math.abs(centsOff);
-        const diffHz = Math.abs(pitchHz - selectedNote.frequency);
-        setP1PitchDiff(Math.round(diffHz));
+    const micSuccess = await audioService.startMicrophone((pitchHz) => {
+      if (pitchHz > 0) {
+        setP1CurrentPitch(pitchHz);
+        const cents = calculateCentsOff(pitchHz, targetFreq);
+        setP1PitchDiff(cents);
 
-        if (absCents <= 25) {
+        const isAccurate = Math.abs(cents) <= 25;
+        if (isAccurate) {
           inTuneTicks += 0.1;
-          const currentInTuneSec = Number(inTuneTicks.toFixed(1));
-          setP1InTuneSeconds(currentInTuneSec);
-
-          const now = Date.now();
-          if (now - lastVibeRef.current > 1000) {
-            audioService.vibrateSuccess();
-            lastVibeRef.current = now;
-          }
-        } else if (absCents > 45) {
-          const now = Date.now();
-          if (now - lastVibeRef.current > 1200) {
-            audioService.vibrateError();
-            lastVibeRef.current = now;
-          }
+          setP1InTuneSeconds(Number(inTuneTicks.toFixed(1)));
         }
 
-        // Si estamos en P2P, emitir paquete de tono en vivo
         if (mode === 'realtime_p2p') {
           p2pDuelService.sendPacket({
             type: 'pitch',
-            hz: Math.round(pitchHz),
-            centsDiff: Math.round(centsOff),
-            inTune: absCents <= 25,
+            hz: pitchHz,
+            centsDiff: cents,
+            inTune: isAccurate,
             score: Math.min(100, Math.round(inTuneTicks * 10)),
             timeLeft: remaining
           });
         }
       }
     });
+
+    if (!micSuccess) {
+      alert('Por favor concede acceso al microfono para participar en el duelo.');
+      setGameState('setup');
+      return;
+    }
 
     if (timerRef.current) clearInterval(timerRef.current);
 
@@ -241,6 +153,35 @@ export function useDuelEngine({
     }, 1000);
   }, [mode, selectedNote.frequency]);
 
+  const startSimulatedPlayer2Turn = useCallback((p1FinalScore: number) => {
+    setGameState('player2_singing');
+    let remaining = 10;
+    let p2Ticks = 0;
+
+    const targetAccuracy = opponent ? (opponent.stabilityScore || 85) / 100 : 0.85;
+
+    timerRef.current = window.setInterval(() => {
+      remaining -= 1;
+      setP2TimeLeft(remaining);
+
+      if (Math.random() < targetAccuracy) {
+        p2Ticks += 0.8;
+      } else {
+        p2Ticks += 0.2;
+      }
+      setP2InTuneSeconds(Number(p2Ticks.toFixed(1)));
+
+      if (remaining <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+
+        const variance = Math.floor(Math.random() * 20) - 10;
+        const calculatedP2Score = Math.min(100, Math.max(30, Math.round(targetAccuracy * 100) + variance));
+        setP2Score(calculatedP2Score);
+        finishDuel(p1FinalScore, calculatedP2Score, p1InTuneSeconds, Number(p2Ticks.toFixed(1)));
+      }
+    }, 1000);
+  }, [finishDuel, opponent, p1InTuneSeconds]);
+
   const startPlayer1Turn = useCallback(async () => {
     audioService.playClickSound();
     setP1InTuneSeconds(0);
@@ -248,18 +189,48 @@ export function useDuelEngine({
     setP1CurrentPitch(null);
     setP1PitchDiff(null);
 
-    // Modo 1: Duelo en Vivo P2P con WebRTC
+    // Si es Carrera Celeste (Unit 4), pasar a la arena de vuelo
+    if (duelType === 'sky_run_duel') {
+      if (mode === 'realtime_p2p' && opponent) {
+        setGameState('connecting_p2p');
+        setP2pStatusMsg(`Conectando pista de vuelo con ${opponent.name}...`);
+        const myCode = localStorage.getItem('laclave_my_friend_code') || 'CLAVE-7782';
+
+        p2pDuelService.onConnected = () => {
+          setP2pStatusMsg('Conexion P2P establecida. Comenzando...');
+          setGameState('unit4_arena');
+        };
+
+        p2pDuelService.onError = () => {
+          setP2pStatusMsg('Pasando a Modo Fantasma con la sombra de tu amigo...');
+          setTimeout(() => {
+            setGameState('unit4_arena');
+          }, 1200);
+        };
+
+        try {
+          const roomId = await p2pDuelService.createRoom(myCode, opponent.code, 'Carrera Celeste', 'sky_run_duel');
+          setP2pRoomId(roomId);
+        } catch {
+          setGameState('unit4_arena');
+        }
+        return;
+      }
+
+      setGameState('unit4_arena');
+      return;
+    }
+
+    // Duelo de Afinacion Pura
     if (mode === 'realtime_p2p' && opponent) {
       setGameState('connecting_p2p');
       setP2pStatusMsg(`Conectando con ${opponent.name}...`);
-
       const myCode = localStorage.getItem('laclave_my_friend_code') || 'CLAVE-7782';
 
       p2pDuelService.onConnected = () => {
         setP2pStatusMsg('Conexion P2P establecida. Comenzando...');
         setGameState('player1_singing');
         startSingingLoop((score, inTuneSec) => {
-          // Enviar finalizacion por P2P
           p2pDuelService.sendPacket({
             type: 'finish',
             finalScore: score,
@@ -282,7 +253,6 @@ export function useDuelEngine({
       };
 
       p2pDuelService.onError = () => {
-        // Fallback suave a modo simulado si el amigo no esta disponible
         setP2pStatusMsg('No se pudo conectar en vivo. Pasando a Modo Fantasma...');
         setTimeout(() => {
           setGameState('player1_singing');
@@ -296,7 +266,6 @@ export function useDuelEngine({
         const roomId = await p2pDuelService.createRoom(myCode, opponent.code, selectedNote.name, 'pitch_duel');
         setP2pRoomId(roomId);
       } catch {
-        // Fallback inmediato
         setGameState('player1_singing');
         startSingingLoop((score) => {
           startSimulatedPlayer2Turn(score);
@@ -305,46 +274,57 @@ export function useDuelEngine({
       return;
     }
 
-    // Modo 2: Modo Simulado o Local (Pasa el microfono)
     setGameState('player1_singing');
-    setStatusText('Canta ahora. Manten la nota ' + selectedNote.name);
-
-    startSingingLoop((calculatedP1Score) => {
+    startSingingLoop((score) => {
       if (mode === 'simulated') {
-        startSimulatedPlayer2Turn(calculatedP1Score);
-      } else {
+        startSimulatedPlayer2Turn(score);
+      } else if (mode === 'local') {
         setGameState('player2_singing');
-        setStatusText(`Turno de ${selectedOpponentName}. Pasa el microfono`);
       }
     });
-  }, [finishDuel, mode, opponent, p1InTuneSeconds, p1Score, selectedNote.name, selectedOpponentName, startSimulatedPlayer2Turn, startSingingLoop]);
+  }, [duelType, mode, opponent, selectedNote.name, startSingingLoop, startSimulatedPlayer2Turn, finishDuel, p1InTuneSeconds, p1Score]);
+
+  const finishUnit4Arena = useCallback((playerScoreVal: number, opponentScoreVal: number, won: boolean) => {
+    setP1Score(playerScoreVal);
+    setP2Score(opponentScoreVal);
+    setP1Won(won);
+    setGameState('results');
+
+    const xpEarned = won ? 50 : 20;
+    if (onGrantXp) onGrantXp(xpEarned);
+
+    const myCode = typeof window !== 'undefined' ? (localStorage.getItem('laclave_my_friend_code') || 'MI_CODIGO') : 'MI_CODIGO';
+    friendsSyncService.recordDuelResult({
+      challengerCode: myCode,
+      opponentCode: opponent ? opponent.code : 'GHOST_RIVAL',
+      targetNote: 'Carrera Celeste',
+      challengerScore: playerScoreVal,
+      opponentScore: opponentScoreVal,
+      winnerCode: won ? myCode : (opponent ? opponent.code : 'GHOST_RIVAL'),
+      xpAwarded: xpEarned,
+      duelType: 'sky_run_duel',
+    });
+
+    if (won) {
+      audioService.playSuccessBellSound();
+      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+    } else {
+      audioService.playSadDefeatSound();
+    }
+  }, [onGrantXp, opponent]);
 
   const startLocalPlayer2Turn = useCallback(async () => {
-    audioService.playClickSound();
-    setP2InTuneSeconds(0);
-    setP2TimeLeft(10);
-    setP2CurrentPitch(null);
-    setP2PitchDiff(null);
-    setStatusText(`Canta ${selectedOpponentName}. Manten la nota ${selectedNote.name}`);
-
     let inTuneTicks = 0;
+    let remaining = 10;
+    const targetFreq = selectedNote.frequency;
 
     const micSuccess = await audioService.startMicrophone((pitchHz) => {
-      if (pitchHz > 60 && pitchHz < 900) {
-        setP2CurrentPitch(Math.round(pitchHz));
-        const centsOff = calculateCentsOff(pitchHz, selectedNote.frequency);
-        const absCents = Math.abs(centsOff);
-        const diffHz = Math.abs(pitchHz - selectedNote.frequency);
-        setP2PitchDiff(Math.round(diffHz));
-
-        if (absCents <= 25) {
+      if (pitchHz > 0) {
+        setP2CurrentPitch(pitchHz);
+        const cents = calculateCentsOff(pitchHz, targetFreq);
+        if (Math.abs(cents) <= 25) {
           inTuneTicks += 0.1;
           setP2InTuneSeconds(Number(inTuneTicks.toFixed(1)));
-          const now = Date.now();
-          if (now - lastVibeRef.current > 1000) {
-            audioService.vibrateSuccess();
-            lastVibeRef.current = now;
-          }
         }
       }
     });
@@ -355,7 +335,6 @@ export function useDuelEngine({
       return;
     }
 
-    let remaining = 10;
     if (timerRef.current) clearInterval(timerRef.current);
 
     timerRef.current = window.setInterval(() => {
@@ -371,7 +350,7 @@ export function useDuelEngine({
         finishDuel(p1Score, calculatedP2Score, p1InTuneSeconds, Number(inTuneTicks.toFixed(1)));
       }
     }, 1000);
-  }, [finishDuel, p1InTuneSeconds, p1Score, selectedNote, selectedOpponentName]);
+  }, [finishDuel, p1InTuneSeconds, p1Score, selectedNote]);
 
   const resetGame = useCallback(() => {
     audioService.playClickSound();
@@ -380,6 +359,8 @@ export function useDuelEngine({
   }, []);
 
   return {
+    duelType,
+    setDuelType,
     selectedNote,
     setSelectedNote,
     mode,
@@ -400,6 +381,7 @@ export function useDuelEngine({
     p2pStatusMsg,
     handlePlayReferenceSound,
     startPlayer1Turn,
+    finishUnit4Arena,
     startLocalPlayer2Turn,
     resetGame,
   };
