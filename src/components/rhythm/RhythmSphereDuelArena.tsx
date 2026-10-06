@@ -1,5 +1,5 @@
 // src/components/rhythm/RhythmSphereDuelArena.tsx
-// Arena de Duelo de Ritmo con Esfera 3D - 4 Rondas Consecutivas (< 300 lineas)
+// Arena de Duelo de Ritmo - 4 Rondas Dinamicas Rotativas (< 450 lineas)
 
 'use client';
 
@@ -20,13 +20,82 @@ export interface DuelRhythmRoundConfig {
   name: string;
 }
 
-// 4 Rondas consecutivas de dificultad creciente (100 a 170 BPM)
-export const DUEL_RHYTHM_ROUNDS: DuelRhythmRoundConfig[] = [
-  { roundNumber: 1, levelNumber: 9, bpm: 100, name: 'Pulso Base' },
-  { roundNumber: 2, levelNumber: 11, bpm: 120, name: 'Compas 4/4' },
-  { roundNumber: 3, levelNumber: 13, bpm: 140, name: 'Rock Groove' },
-  { roundNumber: 4, levelNumber: 16, bpm: 170, name: 'Funk Sincopado' },
-];
+// Catalogo completo de niveles del afinador (niveles 7 a 28, de 80 a 290 BPM)
+export const RHYTHM_LEVEL_META: Record<number, { bpm: number; name: string }> = {
+  7: { bpm: 80, name: 'Pulso Lento' },
+  8: { bpm: 90, name: 'Contratiempo' },
+  9: { bpm: 100, name: 'Pulso Base' },
+  10: { bpm: 110, name: 'Marcha' },
+  11: { bpm: 120, name: 'Compas 4/4' },
+  12: { bpm: 130, name: 'Sincopa Pop' },
+  13: { bpm: 140, name: 'Rock Groove' },
+  14: { bpm: 150, name: 'Redoble' },
+  15: { bpm: 160, name: 'Upbeat Disco' },
+  16: { bpm: 170, name: 'Funk Sincopado' },
+  17: { bpm: 180, name: 'Latin Fusion' },
+  18: { bpm: 190, name: 'Furia Ritmica' },
+  19: { bpm: 200, name: 'Aceleracion' },
+  20: { bpm: 210, name: 'Tormenta' },
+  21: { bpm: 220, name: 'Maestria Veloz' },
+  22: { bpm: 230, name: 'Breakbeat' },
+  23: { bpm: 240, name: 'Hiper Groove' },
+  24: { bpm: 250, name: 'Desafio Extremo' },
+  25: { bpm: 260, name: 'Fuego Puro' },
+  26: { bpm: 270, name: 'Supersonico' },
+  27: { bpm: 280, name: 'Trance Ritmico' },
+  28: { bpm: 290, name: 'Limite Maximo' },
+};
+
+/**
+ * Genera una serie rotativa de 4 rondas de ritmo sin repeticiones.
+ * Empieza en cualquier tempo aleatorio (80 a 150 BPM) y escala de forma dinamica
+ * rotando ejercicios del afinador para que nunca sea el mismo desafio dos veces.
+ */
+export function generateDuelRhythmPlaylist(seedLevels?: number[]): DuelRhythmRoundConfig[] {
+  if (seedLevels && seedLevels.length === 4) {
+    return seedLevels.map((lvl, idx) => {
+      const meta = RHYTHM_LEVEL_META[lvl] || {
+        bpm: 80 + (lvl - 7) * 10,
+        name: `Nivel ${lvl}`,
+      };
+      return {
+        roundNumber: idx + 1,
+        levelNumber: lvl,
+        bpm: meta.bpm,
+        name: meta.name,
+      };
+    });
+  }
+
+  // Nivel de apertura aleatorio (niveles 7 a 14: 80 a 150 BPM)
+  const startPool = [7, 8, 9, 10, 11, 12, 13, 14];
+  const r1 = startPool[Math.floor(Math.random() * startPool.length)];
+
+  // Rondas subsiguientes con saltos dinamicos de +1 a +4 niveles
+  const step1 = 1 + Math.floor(Math.random() * 4);
+  const r2 = Math.min(22, r1 + step1);
+
+  const step2 = 1 + Math.floor(Math.random() * 4);
+  const r3 = Math.min(25, Math.max(r2 + 1, r2 + step2));
+
+  const step3 = 1 + Math.floor(Math.random() * 4);
+  const r4 = Math.min(28, Math.max(r3 + 1, r3 + step3));
+
+  const chosenLevels = [r1, r2, r3, r4];
+
+  return chosenLevels.map((lvl, idx) => {
+    const meta = RHYTHM_LEVEL_META[lvl] || {
+      bpm: 80 + (lvl - 7) * 10,
+      name: `Nivel ${lvl}`,
+    };
+    return {
+      roundNumber: idx + 1,
+      levelNumber: lvl,
+      bpm: meta.bpm,
+      name: meta.name,
+    };
+  });
+}
 
 interface RhythmRoundRunnerProps {
   roundConfig: DuelRhythmRoundConfig;
@@ -124,6 +193,8 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
   onFinishDuel,
   onExit,
 }) => {
+  // Serie rotativa de 4 rondas generadas dinamicamente
+  const [roundsPlaylist, setRoundsPlaylist] = useState<DuelRhythmRoundConfig[]>(() => generateDuelRhythmPlaylist());
   const [arenaPhase, setArenaPhase] = useState<'ready' | 'playing' | 'round_transition'>('ready');
   const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(0);
   const [roundScores, setRoundScores] = useState<number[]>([]);
@@ -136,7 +207,7 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
   const [opponentCombo, setOpponentCombo] = useState<number>(0);
   const [bannerNotice, setBannerNotice] = useState<string | null>(null);
 
-  // Estados especificos para modo local 2 jugadores
+  // Estados para modo local 2 jugadores
   const [localTurn, setLocalTurn] = useState<1 | 2>(1);
   const [p1LocalAccuracy, setP1LocalAccuracy] = useState<number>(0);
   const [p1LocalCombo, setP1LocalCombo] = useState<number>(0);
@@ -149,6 +220,11 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
   const roundScoresRef = useRef<number[]>([]);
   const p1LocalAccuracyRef = useRef<number>(0);
   const p1LocalComboRef = useRef<number>(0);
+  const roundsPlaylistRef = useRef<DuelRhythmRoundConfig[]>(roundsPlaylist);
+
+  useEffect(() => {
+    roundsPlaylistRef.current = roundsPlaylist;
+  }, [roundsPlaylist]);
 
   const handleLiveUpdate = useCallback((scoreVal: number, comboVal: number, phaseVal: RhythmPhase) => {
     setLiveScore(scoreVal);
@@ -171,11 +247,12 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
     roundScoresRef.current = updatedScores;
     setRoundScores(updatedScores);
 
-    if (roundIndexRef.current < DUEL_RHYTHM_ROUNDS.length - 1) {
+    const activePlaylist = roundsPlaylistRef.current;
+    if (roundIndexRef.current < activePlaylist.length - 1) {
       const nextIdx = roundIndexRef.current + 1;
-      const nextRound = DUEL_RHYTHM_ROUNDS[nextIdx];
+      const nextRound = activePlaylist[nextIdx];
       setArenaPhase('round_transition');
-      setBannerNotice(`¡Ronda ${roundIndexRef.current + 1} completada: ${roundScoreVal}%! Siguiente: ${nextRound.bpm} BPM`);
+      setBannerNotice(`¡Ronda ${roundIndexRef.current + 1} completada: ${roundScoreVal}%! Siguiente: ${nextRound.name} (${nextRound.bpm} BPM)`);
       audioService.playSuccessBellSound();
 
       setTimeout(() => {
@@ -230,17 +307,31 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
   useEffect(() => {
     if (mode !== 'realtime_p2p') return;
 
+    // Enviar sincronizacion de la serie de 4 rondas al conectarse
+    p2pDuelService.sendPacket({
+      type: 'rhythm_pattern',
+      score: 0,
+      combo: 0,
+      tapsCount: 0,
+      precision: 0,
+      roundLevels: roundsPlaylist.map((r) => r.levelNumber),
+    });
+
     p2pDuelService.onPacket = (packet) => {
       if (packet.type === 'rhythm_pattern') {
         setOpponentAccuracy(packet.precision);
         setOpponentCombo(packet.combo);
+        if (packet.roundLevels && packet.roundLevels.length === 4) {
+          const synced = generateDuelRhythmPlaylist(packet.roundLevels);
+          setRoundsPlaylist(synced);
+        }
       }
     };
 
     return () => {
       p2pDuelService.onPacket = null;
     };
-  }, [mode]);
+  }, [mode, roundsPlaylist]);
 
   const handleStartGame = useCallback(() => {
     setArenaPhase('playing');
@@ -287,7 +378,7 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
     onFinishDuel(finalPlayerScore, finalOpponentScore, p1Won);
   };
 
-  const currentRoundConfig = DUEL_RHYTHM_ROUNDS[currentRoundIndex] || DUEL_RHYTHM_ROUNDS[0];
+  const currentRoundConfig = roundsPlaylist[currentRoundIndex] || roundsPlaylist[0];
 
   const displayPhase: 'ready' | 'guide' | 'playing' | 'round_transition' | 'results' =
     showMatchOverOverlay
@@ -318,8 +409,10 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
           opponentTargetAccuracy={mode === 'local' ? p1LocalAccuracy : opponentTargetAccuracy}
           bpm={currentRoundConfig.bpm}
           currentRound={currentRoundIndex + 1}
-          totalRounds={DUEL_RHYTHM_ROUNDS.length}
+          totalRounds={roundsPlaylist.length}
           roundScores={roundScores}
+          roundName={currentRoundConfig.name}
+          roundsPreview={roundsPlaylist}
           bannerNotice={bannerNotice}
           mode={mode}
           localTurn={localTurn}
@@ -337,7 +430,7 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
 
         {/* Runner de la ronda activa con reinicio limpio por clave */}
         <RhythmRoundRunner
-          key={`round-runner-${localTurn}-${currentRoundIndex}`}
+          key={`round-runner-${localTurn}-${currentRoundIndex}-${currentRoundConfig.levelNumber}`}
           roundConfig={currentRoundConfig}
           autoStart={arenaPhase === 'playing'}
           onRoundComplete={handleRoundComplete}

@@ -78,6 +78,7 @@ export interface P2PRhythmPatternPacket {
   tapsCount: number;
   precision: number;
   finished?: boolean;
+  roundLevels?: number[];
 }
 
 export type P2PDataPacket =

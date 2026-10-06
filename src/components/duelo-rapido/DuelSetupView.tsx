@@ -162,7 +162,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
             <span>Desafio de Ritmo por Rondas:</span>
           </div>
           <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-            Sigue el ritmo tocando Bombo y Palmas en 4 rondas consecutivas de velocidad creciente (100 a 170 BPM). Gana quien logre mayor promedio acumulado de precision (Record de {selectedOpponentName}: {opponentRhythmRecord}% de precision).
+            Sigue el ritmo tocando Bombo y Palmas en 4 rondas consecutivas con tempos dinamicos y ejercicios rotativos (de 80 a 290 BPM). ¡Cada duelo genera una combinacion unica! Gana quien logre mayor promedio de precision (Record de {selectedOpponentName}: {opponentRhythmRecord}% de precision).
           </p>
         </div>
       ) : duelType === 'sky_run_duel' ? (

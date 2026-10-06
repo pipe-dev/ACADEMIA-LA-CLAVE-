@@ -18,6 +18,8 @@ interface RhythmSphereDuelHudProps {
   currentRound: number;
   totalRounds: number;
   roundScores?: number[];
+  roundName?: string;
+  roundsPreview?: { roundNumber: number; bpm: number; name: string }[];
   bannerNotice: string | null;
   mode: 'ghost_async' | 'realtime_p2p' | 'local';
   localTurn?: 1 | 2;
@@ -45,6 +47,8 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
   currentRound,
   totalRounds,
   roundScores = [],
+  roundName,
+  roundsPreview = [],
   bannerNotice,
   mode,
   localTurn = 1,
@@ -90,10 +94,10 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
           </div>
         </div>
 
-        {/* Badge Central: Ronda, BPM y Modo */}
-        <div className="bg-white/90 dark:bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700/80 text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-md">
-          {isLocal ? <Smartphone className="w-3.5 h-3.5 text-blue-500" /> : <Activity className="w-3.5 h-3.5 text-blue-500" />}
-          <span>{`Ronda ${currentRound}/${totalRounds} • ${bpm} BPM`}</span>
+        {/* Badge Central: Ronda, BPM, Estilo y Modo */}
+        <div className="bg-white/90 dark:bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700/80 text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-md max-w-[210px] truncate">
+          {isLocal ? <Smartphone className="w-3.5 h-3.5 text-blue-500 shrink-0" /> : <Activity className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
+          <span className="truncate">{`R${currentRound}/${totalRounds} • ${bpm} BPM${roundName ? ` (${roundName})` : ''}`}</span>
         </div>
 
         {/* Rival / Jugador Esperando */}
@@ -155,7 +159,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
       {/* Overlay de Inicio */}
       {phase === 'ready' && (
         <div className="absolute inset-0 z-[220] flex flex-col items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#102034] border border-slate-700 p-6 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl pointer-events-auto">
+          <div className="bg-[#102034] border border-slate-700 p-6 rounded-3xl max-w-sm w-full text-center space-y-3.5 shadow-2xl pointer-events-auto">
             <div className="w-14 h-14 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto shadow-md">
               {isLocal ? <Smartphone className="w-7 h-7" /> : <Activity className="w-7 h-7" />}
             </div>
@@ -167,21 +171,44 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
               <p className="text-xs text-slate-300 mt-1">
                 {isLocal
                   ? localTurn === 1
-                    ? `Supera las ${totalRounds} rondas consecutivas de dificultad creciente (100 a 170 BPM). Al terminar, le pasaras el celular a ${opponentName}.`
-                    : `Supera las ${totalRounds} rondas consecutivas intentando batir el ${p1LocalAccuracy}% de precision de Jugador 1.`
+                    ? `Supera las ${totalRounds} rondas rotativas de ritmo y tempo dinamico (${roundsPreview[0]?.bpm ?? bpm} a ${roundsPreview[roundsPreview.length - 1]?.bpm ?? bpm} BPM). Al terminar, le pasaras el celular a ${opponentName}.`
+                    : `Supera las mismas ${totalRounds} rondas rotativas intentando batir el ${p1LocalAccuracy}% de precision de Jugador 1.`
                   : mode === 'ghost_async'
-                  ? `Compite contra el record de ${opponentName} (${opponentTargetAccuracy}% de precision) en ${totalRounds} niveles continuos.`
-                  : `Compite en vivo contra ${opponentName} en ${totalRounds} niveles continuos de ritmo.`}
+                  ? `Compite contra el record de ${opponentName} (${opponentTargetAccuracy}% de precision) en ${totalRounds} rondas dinamicas.`
+                  : `Compite en vivo contra ${opponentName} en ${totalRounds} rondas dinamicas de ritmo.`}
               </p>
             </div>
 
-            <div className="p-3 rounded-2xl bg-slate-800/80 text-left text-xs text-slate-300 space-y-1">
-              <div className="font-bold text-amber-400 flex items-center gap-1.5">
-                <Zap className="w-4 h-4" />
-                <span>Evaluacion por Rondas:</span>
+            {/* Preview visual de las 4 rondas generadas */}
+            {roundsPreview.length > 0 && (
+              <div className="space-y-1 text-left">
+                <span className="text-[9px] uppercase font-extrabold tracking-wider text-slate-400">
+                  Rondas generadas para este duelo:
+                </span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {roundsPreview.map((r) => (
+                    <div
+                      key={r.roundNumber}
+                      className="p-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 flex flex-col items-center justify-center text-center"
+                    >
+                      <span className="text-[8px] font-black uppercase text-blue-400">R{r.roundNumber}</span>
+                      <span className="text-[11px] font-black text-white">{r.bpm}</span>
+                      <span className="text-[7.5px] text-slate-400 truncate max-w-[60px] leading-tight mt-0.5">
+                        {r.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Cada nivel aumenta la velocidad. La precision final es el promedio acumulado de todas las rondas.
+            )}
+
+            <div className="p-2.5 rounded-2xl bg-slate-800/80 text-left text-xs text-slate-300 space-y-0.5">
+              <div className="font-bold text-amber-400 flex items-center gap-1.5 text-[11px]">
+                <Zap className="w-3.5 h-3.5" />
+                <span>Ejercicios Rotativos:</span>
+              </div>
+              <p className="text-[10px] text-slate-400">
+                Cada ronda cambia de velocidad y patron rítmico. Tu precision final es el promedio acumulado.
               </p>
             </div>
 
@@ -237,6 +264,18 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
                 {p1LocalAccuracy}% <span className="text-sm font-bold text-slate-300">promedio</span>
               </div>
             </div>
+
+            {roundsPreview.length > 0 && (
+              <div className="grid grid-cols-4 gap-1.5 py-1">
+                {roundsPreview.map((r) => (
+                  <div key={r.roundNumber} className="p-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-center">
+                    <span className="text-[8px] font-black uppercase text-blue-400">R{r.roundNumber}</span>
+                    <div className="text-[10px] font-black text-white">{r.bpm} BPM</div>
+                    <div className="text-[7.5px] text-slate-400 truncate max-w-[60px]">{r.name}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <button
               type="button"
