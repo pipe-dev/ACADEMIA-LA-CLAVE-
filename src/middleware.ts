@@ -19,8 +19,7 @@ export async function middleware(request: NextRequest) {
   // 1. Allow public assets and API bypass
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/') ||
     pathname.startsWith('/admin.html') ||
     pathname.startsWith('/sounds') ||
     pathname.startsWith('/icons') ||

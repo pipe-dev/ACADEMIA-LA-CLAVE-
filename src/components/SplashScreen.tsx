@@ -6,6 +6,7 @@ import { cacheAllContentLocally, registerServiceWorker } from '../utils/offlineS
 import { SONGS_DATABASE } from '../data/academyData';
 import { DEFAULT_VOCAL_AVATARS } from './friends/friendsTypes';
 import { UserStats } from '../types';
+import { uploadAvatarToImgBB } from '../utils/imgbbHelper';
 
 export const VOCAL_TIPS = [
   { id: 1, title: 'Apoyo Diafragmático', text: 'Inhala inflando suavemente el abdomen y costillas inferiores, sin elevar los hombros, para lograr un flujo constante de aire.' },
@@ -19,10 +20,7 @@ export const VOCAL_TIPS = [
 ];
 
 export function getPersonalizedVocalTip(name: string): { title: string; text: string } {
-  return {
-    title: `Preparando tu voz, ${name}`,
-    text: `${name}, recuerda que el aire es el combustible de tu voz. Antes de cantar cualquier nota, expande tus costillas inferiores, relaja la mandíbula y deja que tu respiración fluya sin tensión.`
-  };
+  return { title: `Preparando tu voz, ${name}`, text: `${name}, recuerda que el aire es el combustible de tu voz. Antes de cantar cualquier nota, expande tus costillas inferiores y relaja tu mandíbula.` };
 }
 
 interface SplashScreenProps {
@@ -62,6 +60,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const [userName, setUserName] = useState<string>(initialName);
   const [nameInput, setNameInput] = useState<string>(initialName);
   const [selectedAvatar, setSelectedAvatar] = useState<string>(initialAvatar);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tip] = useState(() => {
@@ -210,20 +209,27 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     setPhase('tip_after_name');
   };
 
-  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return;
+    if (!file || !file.type.startsWith('image/')) return;
     if (file.size > 5 * 1024 * 1024) {
       alert('La imagen seleccionada supera los 5MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const res = event.target?.result as string;
-      if (res) setSelectedAvatar(res);
-    };
-    reader.readAsDataURL(file);
+    setIsUploading(true);
+    try {
+      const res = await uploadAvatarToImgBB(file);
+      if (res.url) setSelectedAvatar(res.url);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const r = ev.target?.result as string;
+        if (r) setSelectedAvatar(r);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleConfirmAvatar = () => {
@@ -420,10 +426,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
                 <button
                   type="button"
+                  disabled={isUploading}
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-xs font-semibold text-emerald-200 hover:text-white underline cursor-pointer"
+                  className="text-xs font-semibold text-emerald-200 hover:text-white underline cursor-pointer disabled:opacity-50"
                 >
-                  Subir foto desde tu dispositivo
+                  {isUploading ? 'Subiendo imagen a ImgBB...' : 'Subir foto desde tu dispositivo'}
                 </button>
               </div>
 
