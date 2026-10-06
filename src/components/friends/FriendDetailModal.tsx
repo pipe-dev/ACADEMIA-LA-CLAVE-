@@ -9,7 +9,7 @@ import {
   Trophy, 
   Mic2, 
   Calendar,
-  Sparkles,
+  Activity,
   Target,
   BookOpen,
   Clock,
@@ -136,7 +136,7 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
               <div className={`p-1.5 rounded-xl shrink-0 ${
                 zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
               }`}>
-                <Sparkles className="w-3.5 h-3.5" />
+                <Activity className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
                 <span className="text-[9px] uppercase tracking-wider font-bold block text-slate-400">

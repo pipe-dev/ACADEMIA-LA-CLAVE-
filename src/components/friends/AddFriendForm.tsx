@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Search, UserPlus, Sparkles } from 'lucide-react';
+import { Search, UserPlus, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 interface AddFriendFormProps {
   inputCode: string;
@@ -65,7 +65,13 @@ export const AddFriendForm: React.FC<AddFriendFormProps> = ({
             ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
             : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
         }`}>
-          <Sparkles className="w-4 h-4 shrink-0" />
+          {feedbackMsg.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          ) : feedbackMsg.type === 'error' ? (
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+          ) : (
+            <Info className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+          )}
           <span>{feedbackMsg.text}</span>
         </div>
       )}
