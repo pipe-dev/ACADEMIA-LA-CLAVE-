@@ -1,5 +1,5 @@
 // src/components/unit3-rhythm/Unit3DuelArena.tsx
-// Arena de Duelo de Tambor y Ritmo (1 minuto contra reloj) (< 380 lineas)
+// Arena de Duelo de Tambor y Ritmo (1 minuto contra reloj) (< 350 lineas)
 
 'use client';
 
@@ -26,7 +26,7 @@ const MATCH_DURATION_SEC = 60;
 interface Unit3DuelArenaProps {
   opponentName: string;
   opponentTargetCuts?: number;
-  mode: 'ghost_async' | 'realtime_p2p';
+  mode: 'ghost_async' | 'realtime_p2p' | 'local';
   onFinishDuel: (playerCuts: number, opponentCuts: number, won: boolean) => void;
   onExit: () => void;
 }
@@ -45,6 +45,14 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
   const [showMatchOverOverlay, setShowMatchOverOverlay] = useState<boolean>(false);
   const [bannerNotice, setBannerNotice] = useState<string | null>(null);
 
+  // Estados especificos para modo local 2 jugadores (Pasa el celular)
+  const [localTurn, setLocalTurn] = useState<1 | 2>(1);
+  const [p1LocalCuts, setP1LocalCuts] = useState<number>(0);
+  const [showLocalTransitionOverlay, setShowLocalTransitionOverlay] = useState<boolean>(false);
+
+  const localTurnRef = useRef<1 | 2>(1);
+  const p1LocalCutsRef = useRef<number>(0);
+
   const phaseRef = useRef<'ready' | 'playing' | 'finished'>('ready');
   const playerCutsRef = useRef<number>(0);
   const opponentCutsRef = useRef<number>(0);
@@ -55,7 +63,6 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
   const geoRef = useRef<DrumGeometry>(getDrumGeometry());
   const lastGoldenSpawnRef = useRef<number>(0);
   const nextRivalCutTimeRef = useRef<number>(0);
-  const rivalCutsPlannedRef = useRef<number>(0);
   const lastAdvantageRef = useRef<number>(0);
   const lastP2PSendRef = useRef<number>(0);
 
@@ -64,7 +71,6 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
     setPhase(p);
   };
 
-  // Ajuste geometrico responsivo
   useEffect(() => {
     const handleResize = () => {
       geoRef.current = getDrumGeometry(window.innerWidth, window.innerHeight);
@@ -74,7 +80,6 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Generador de esferas
   const spawnInitialWave = useCallback(() => {
     const geo = geoRef.current;
     const s1 = createDuelSphere('purple', 'left', geo);
@@ -109,27 +114,43 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
     }
   }, []);
 
-  // Iniciar partida de 1 minuto
   const handleStartGame = useCallback(() => {
     setRhythmAudioMuted(false);
     playerCutsRef.current = 0;
-    opponentCutsRef.current = 0;
     timeLeftRef.current = MATCH_DURATION_SEC;
     lastGoldenSpawnRef.current = performance.now();
-    rivalCutsPlannedRef.current = 0;
     nextRivalCutTimeRef.current = performance.now() + 1500;
 
     setPlayerCuts(0);
-    setOpponentCuts(0);
     setTimeLeft(MATCH_DURATION_SEC);
     setShowMatchOverOverlay(false);
+    setShowLocalTransitionOverlay(false);
     setBannerNotice(null);
+
+    if (mode === 'local') {
+      if (localTurnRef.current === 2) {
+        opponentCutsRef.current = p1LocalCutsRef.current;
+        setOpponentCuts(p1LocalCutsRef.current);
+      } else {
+        opponentCutsRef.current = 0;
+        setOpponentCuts(0);
+      }
+    } else {
+      opponentCutsRef.current = 0;
+      setOpponentCuts(0);
+    }
+
     setPhaseBoth('playing');
-
     spawnInitialWave();
-  }, [spawnInitialWave]);
+  }, [mode, spawnInitialWave]);
 
-  // Corte de esfera por el jugador
+  const handleStartLocalTurn2 = useCallback(() => {
+    localTurnRef.current = 2;
+    setLocalTurn(2);
+    setShowLocalTransitionOverlay(false);
+    handleStartGame();
+  }, [handleStartGame]);
+
   const handleSliceSphere = useCallback(
     (sphere: ActiveSphere, _cutCoord: { x: number; y: number }) => {
       if (phaseRef.current !== 'playing') return;
@@ -146,7 +167,6 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
         playBladeSwoosh(0.9);
       }
 
-      // Reemplazo rapido
       setTimeout(() => {
         replenishSpheres();
       }, 260);
@@ -154,23 +174,17 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
     [replenishSpheres]
   );
 
-  // Escuchar paquetes WebRTC P2P
   useEffect(() => {
     if (mode !== 'realtime_p2p') return;
-
     p2pDuelService.onPacket = (packet) => {
       if (packet.type === 'rhythm') {
         opponentCutsRef.current = packet.cutCount;
         setOpponentCuts(packet.cutCount);
       }
     };
-
-    return () => {
-      p2pDuelService.onPacket = null;
-    };
+    return () => { p2pDuelService.onPacket = null; };
   }, [mode]);
 
-  // Bucle principal de fisica y tiempo (60 FPS)
   useEffect(() => {
     let animId = 0;
     let lastTime = performance.now();
@@ -183,21 +197,30 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
       lastTime = currentTime;
 
       if (phaseRef.current === 'playing') {
-        // 1. Descuento del reloj de 1 minuto
         timeLeftRef.current = Math.max(0, timeLeftRef.current - dt);
         setTimeLeft(Number(timeLeftRef.current.toFixed(1)));
 
-        // 2. Comprobacion de fin de tiempo
+        // Fin del tiempo
         if (timeLeftRef.current <= 0) {
           setPhaseBoth('finished');
           playGoldenCrashFanfare();
+
+          if (mode === 'local' && localTurnRef.current === 1) {
+            p1LocalCutsRef.current = playerCutsRef.current;
+            setP1LocalCuts(playerCutsRef.current);
+            setTimeout(() => {
+              setShowLocalTransitionOverlay(true);
+            }, 800);
+            return;
+          }
+
           setTimeout(() => {
             setShowMatchOverOverlay(true);
           }, 800);
           return;
         }
 
-        // 3. Simulador del rival asincrono (corta gradualmente hacia opponentTargetCuts)
+        // Modo Asincrono: Rival progresa gradualmente
         if (mode === 'ghost_async') {
           if (currentTime >= nextRivalCutTimeRef.current) {
             const progress = (MATCH_DURATION_SEC - timeLeftRef.current) / MATCH_DURATION_SEC;
@@ -209,27 +232,32 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
               setOpponentCuts(opponentCutsRef.current);
             }
 
-            // Intervalo organico entre 1.1s y 2.2s por corte
             const avgInterval = (60 / Math.max(10, opponentTargetCuts)) * 1000;
             const variance = (Math.random() - 0.5) * 800;
             nextRivalCutTimeRef.current = currentTime + Math.max(900, avgInterval + variance);
           }
 
-          // Notificacion de ventaja dinamica
           const diff = playerCutsRef.current - opponentCutsRef.current;
           if (diff !== lastAdvantageRef.current) {
             lastAdvantageRef.current = diff;
-            if (diff >= 3) {
-              setBannerNotice(`¡Ventaja de +${diff} esferas!`);
-            } else if (diff === 0 && playerCutsRef.current > 0) {
-              setBannerNotice('¡Empatados a cortes!');
-            } else if (diff <= -3) {
-              setBannerNotice(`${opponentName} lidera por ${Math.abs(diff)}`);
-            }
+            if (diff >= 3) setBannerNotice(`¡Ventaja de +${diff} esferas!`);
+            else if (diff === 0 && playerCutsRef.current > 0) setBannerNotice('¡Empatados a cortes!');
+            else if (diff <= -3) setBannerNotice(`${opponentName} lidera por ${Math.abs(diff)}`);
           }
         }
 
-        // 4. Envio de paquete WebRTC P2P
+        // Modo Local Turno 2: Comparacion en vivo contra la marca de Jugador 1
+        if (mode === 'local' && localTurnRef.current === 2) {
+          const diff = playerCutsRef.current - p1LocalCutsRef.current;
+          if (diff !== lastAdvantageRef.current) {
+            lastAdvantageRef.current = diff;
+            if (diff > 0) setBannerNotice(`¡${opponentName} supero la marca de J1! (+${diff})`);
+            else if (diff === 0 && playerCutsRef.current > 0) setBannerNotice('¡Empatado con Jugador 1!');
+            else if (diff < 0) setBannerNotice(`Faltan ${Math.abs(diff)} esferas para igualar`);
+          }
+        }
+
+        // Modo Realtime P2P
         if (mode === 'realtime_p2p' && currentTime - lastP2PSendRef.current > 70) {
           lastP2PSendRef.current = currentTime;
           p2pDuelService.sendPacket({
@@ -240,7 +268,6 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
           });
         }
 
-        // 5. Actualizacion fisica de esferas sobre el tambor
         updateDuelSpheresPhysics(activeSpheresRef.current, dt, geoRef.current);
       }
     };
@@ -249,11 +276,13 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
     return () => cancelAnimationFrame(animId);
   }, [mode, opponentName, opponentTargetCuts]);
 
-  const p1Won = playerCuts > opponentCuts;
-  const isTie = playerCuts === opponentCuts;
+  const p1ScoreFinal = mode === 'local' ? p1LocalCuts : playerCuts;
+  const p2ScoreFinal = mode === 'local' ? playerCuts : opponentCuts;
+  const p1Won = p1ScoreFinal > p2ScoreFinal;
+  const isTie = p1ScoreFinal === p2ScoreFinal;
 
   const handleFinishDuel = () => {
-    onFinishDuel(playerCuts, opponentCuts, p1Won);
+    onFinishDuel(p1ScoreFinal, p2ScoreFinal, p1Won);
   };
 
   return (
@@ -267,17 +296,21 @@ export const Unit3DuelArena: React.FC<Unit3DuelArenaProps> = ({
       <Unit3DuelHud
         phase={phase}
         playerCuts={playerCuts}
-        opponentCuts={opponentCuts}
+        opponentCuts={mode === 'local' && localTurn === 2 ? p1LocalCuts : opponentCuts}
         opponentName={opponentName}
-        opponentTargetCuts={opponentTargetCuts}
+        opponentTargetCuts={mode === 'local' ? p1LocalCuts : opponentTargetCuts}
         timeLeft={timeLeft}
         bannerNotice={bannerNotice}
         mode={mode}
+        localTurn={localTurn}
+        p1LocalCuts={p1LocalCuts}
+        showLocalTransitionOverlay={showLocalTransitionOverlay}
         showMatchOverOverlay={showMatchOverOverlay}
         p1Won={p1Won}
         isTie={isTie}
         onStartGame={handleStartGame}
         onExit={onExit}
+        onStartLocalTurn2={handleStartLocalTurn2}
         onFinishDuel={handleFinishDuel}
       />
     </div>

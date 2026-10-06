@@ -1,5 +1,5 @@
 // src/components/unit4-flappy/Unit4DuelArena.tsx
-// Arena multijugador para Carrera Celeste (Unit 4 Flappy Bird) (< 430 líneas)
+// Arena multijugador para Carrera Celeste (Unit 4 Flappy Bird) (< 460 lineas)
 
 'use client';
 
@@ -27,7 +27,7 @@ interface Unit4DuelArenaProps {
   opponentName: string;
   opponentAvatar?: string;
   opponentTargetScore?: number;
-  mode: 'ghost_async' | 'realtime_p2p';
+  mode: 'ghost_async' | 'realtime_p2p' | 'local';
   onFinishDuel: (playerScore: number, opponentScore: number, won: boolean) => void;
   onExit: () => void;
 }
@@ -49,31 +49,22 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
   const [showMatchOverOverlay, setShowMatchOverOverlay] = useState(false);
   const [bannerNotice, setBannerNotice] = useState<string | null>(null);
 
+  // Estados modo local 2 jugadores
+  const [localTurn, setLocalTurn] = useState<1 | 2>(1);
+  const [p1LocalScore, setP1LocalScore] = useState<number>(0);
+  const [showLocalTransitionOverlay, setShowLocalTransitionOverlay] = useState(false);
+
+  const localTurnRef = useRef<1 | 2>(1);
+  const p1LocalScoreRef = useRef<number>(0);
+
   const phaseRef = useRef<Phase>('ready');
   const setPhaseBoth = (p: Phase) => {
     phaseRef.current = p;
     setPhase(p);
   };
 
-  // Estado del jugador local
-  const birdRef = useRef<BirdState>({
-    birdY: 0,
-    vy: 0,
-    rot: 0,
-    lastFlap: 0,
-    wingT: 0,
-    floatT: 0,
-  });
-
-  // Estado del rival (fantasma asincrono o en vivo WebRTC)
-  const rivalBirdRef = useRef<BirdState>({
-    birdY: 0,
-    vy: 0,
-    rot: 0,
-    lastFlap: 0,
-    wingT: 0,
-    floatT: 0,
-  });
+  const birdRef = useRef<BirdState>({ birdY: 0, vy: 0, rot: 0, lastFlap: 0, wingT: 0, floatT: 0 });
+  const rivalBirdRef = useRef<BirdState>({ birdY: 0, vy: 0, rot: 0, lastFlap: 0, wingT: 0, floatT: 0 });
   const rivalAliveRef = useRef(true);
   const rivalScoreRef = useRef(0);
   const rivalPaletteRef = useRef<BirdPalette | null>(null);
@@ -104,17 +95,8 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
   const resetGame = useCallback(() => {
     const canvas = canvasRef.current;
     const h = canvas ? canvas.height : window.innerHeight;
-    birdRef.current.birdY = h * 0.5;
-    birdRef.current.vy = 0;
-    birdRef.current.rot = 0;
-    birdRef.current.wingT = 0;
-    birdRef.current.floatT = 0;
-
-    rivalBirdRef.current.birdY = h * 0.5 - 20;
-    rivalBirdRef.current.vy = 0;
-    rivalBirdRef.current.rot = 0;
-    rivalBirdRef.current.wingT = 0;
-    rivalBirdRef.current.floatT = 0;
+    birdRef.current = { birdY: h * 0.5, vy: 0, rot: 0, wingT: 0, floatT: 0, lastFlap: 0 };
+    rivalBirdRef.current = { birdY: h * 0.5 - 20, vy: 0, rot: 0, wingT: 0, floatT: 0, lastFlap: 0 };
     rivalAliveRef.current = true;
     rivalScoreRef.current = 0;
     rivalWinRef.current = null;
@@ -128,12 +110,12 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
     goldPipeRef.current = null;
 
     setPlayerScore(0);
-    setOpponentScore(0);
+    setOpponentScore(mode === 'local' && localTurnRef.current === 2 ? p1LocalScoreRef.current : 0);
     setOpponentCrashed(false);
     setShowMatchOverOverlay(false);
     setBannerNotice(null);
     unit4Audio.reset();
-  }, []);
+  }, [mode]);
 
   const startGame = useCallback(() => {
     resetGame();
@@ -145,14 +127,29 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
   const handlePlayerDie = useCallback((cause: 'pipe' | 'floor' = 'pipe') => {
     setPhaseBoth('dead');
     unit4Audio.die(cause, false);
-    setPlayerScore(scoreRef.current);
-    setOpponentScore(rivalScoreRef.current);
-    setTimeout(() => {
-      setShowMatchOverOverlay(true);
-    }, 900);
-  }, []);
+    const finalScore = scoreRef.current;
+    setPlayerScore(finalScore);
 
-  // Control vocal
+    if (mode === 'local' && localTurnRef.current === 1) {
+      p1LocalScoreRef.current = finalScore;
+      setP1LocalScore(finalScore);
+      setTimeout(() => setShowLocalTransitionOverlay(true), 900);
+      return;
+    }
+
+    setOpponentScore(mode === 'local' ? p1LocalScoreRef.current : rivalScoreRef.current);
+    setTimeout(() => setShowMatchOverOverlay(true), 900);
+  }, [mode]);
+
+  const handleStartLocalTurn2 = useCallback(() => {
+    localTurnRef.current = 2;
+    setLocalTurn(2);
+    setShowLocalTransitionOverlay(false);
+    rivalTargetScoreRef.current = p1LocalScoreRef.current;
+    resetGame();
+    setPhaseBoth('ready');
+  }, [resetGame]);
+
   const { micActive, ensureMic } = useVoiceGate({
     getPhase: () => phaseRef.current,
     onStart: startGame,
@@ -160,16 +157,15 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
   });
 
   const handleScreenTap = () => {
+    if (showLocalTransitionOverlay) return;
     unit4Audio.unlock();
     ensureMic();
     if (phaseRef.current === 'ready') startGame();
     else if (phaseRef.current === 'playing') flap();
   };
 
-  // Escuchar paquetes WebRTC en modo P2P
   useEffect(() => {
     if (mode !== 'realtime_p2p') return;
-
     p2pDuelService.onPacket = (packet) => {
       if (packet.type === 'sky_run') {
         rivalBirdRef.current.birdY = packet.height;
@@ -183,13 +179,9 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
         }
       }
     };
-
-    return () => {
-      p2pDuelService.onPacket = null;
-    };
+    return () => { p2pDuelService.onPacket = null; };
   }, [mode, opponentName]);
 
-  // Bucle de animacion principal (60 FPS)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -226,7 +218,6 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
       last = now;
 
       ctx.clearRect(0, 0, width, height);
-
       const sp = moveSpeed(width, height, scoreRef.current);
       const bushes = bushesRef.current;
       const obstacles = obstaclesRef.current;
@@ -278,8 +269,10 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
           handlePlayerDie('floor');
         }
 
-        // SIMULADOR DEL FANTASMA (Modo Asincrono: Vuela hasta su record y choca en su tubo)
-        if (mode === 'ghost_async') {
+        const runGhost = mode === 'ghost_async' || (mode === 'local' && localTurnRef.current === 2);
+        if (runGhost) {
+          const ghostTarget = mode === 'local' ? p1LocalScoreRef.current : rivalTargetScoreRef.current;
+          const ghostName = mode === 'local' ? 'Jugador 1' : opponentName;
           const { newWorldX } = updateGhostSimulation({
             dt,
             now,
@@ -290,13 +283,13 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
             rival,
             rivalAlive: rivalAliveRef.current,
             rivalScore: rivalScoreRef.current,
-            rivalTargetScore: rivalTargetScoreRef.current,
+            rivalTargetScore: ghostTarget,
             rivalWorldX: rivalWorldXRef.current,
             obstacles,
             onCrash: (score, winState) => {
               rivalAliveRef.current = false;
               setOpponentCrashed(true);
-              setBannerNotice(`¡${opponentName} choco en el tubo ${score}!`);
+              setBannerNotice(`${ghostName} cayo en el tubo ${score}`);
               rivalWinRef.current = winState;
             },
             onScoreIncrement: () => {
@@ -309,11 +302,10 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
 
           if (!rivalAliveRef.current && scoreRef.current > rivalScoreRef.current && !hasPassedRivalRef.current) {
             hasPassedRivalRef.current = true;
-            setBannerNotice(`¡Superaste a ${opponentName}!`);
+            setBannerNotice(`¡Superaste la marca de ${ghostName}!`);
           }
         }
 
-        // Transmision P2P
         if (mode === 'realtime_p2p' && now - lastP2PSendRef.current > 40) {
           lastP2PSendRef.current = now;
           p2pDuelService.sendPacket({
@@ -325,14 +317,12 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
           });
         }
 
-        // Generacion de obstaculos continuos (avance infinito)
         spawnTimerRef.current -= dt * speedMult(scoreRef.current);
         if (spawnTimerRef.current <= 0) {
           obstacles.push(...spawnObstacles(width, height, scoreRef.current));
           spawnTimerRef.current = interval(scoreRef.current) * speedMult(scoreRef.current);
         }
 
-        // updatePlayingObstacles con disableMilestone: true para evitar la tuberia dorada
         updatePlayingObstacles({
           width,
           height,
@@ -361,13 +351,15 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
 
         drawFloor(ctx, cachesRef.current, groundScrollRef.current, width, height, now / 1000);
 
-        // Dibujar Pato del Rival en su posicion en el mundo (sombra hasta donde choco)
-        if (rivalPaletteRef.current) {
+        const showRival = mode !== 'local' || localTurnRef.current === 2;
+        if (rivalPaletteRef.current && showRival) {
           const rivalX = rivalWorldXRef.current !== null
             ? rivalWorldXRef.current
-            : (pX + (mode === 'ghost_async' ? 25 : 0));
+            : (pX + (mode === 'ghost_async' || mode === 'local' ? 25 : 0));
 
           if (rivalX > -100 && rivalX < width + 100) {
+            const isGhost = mode === 'ghost_async' || mode === 'local';
+            const ghostTag = mode === 'local' ? 'J1 (Fantasma)' : `${opponentName} ${isGhost ? '(Fantasma)' : ''}`;
             drawBird(
               ctx,
               rival,
@@ -378,16 +370,16 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
               height,
               {
                 palette: rivalPaletteRef.current,
-                isGhost: mode === 'ghost_async',
+                isGhost,
                 ghostAlpha: 0.65,
-                label: `${opponentName} ${mode === 'ghost_async' ? '(Fantasma)' : ''}`,
+                label: ghostTag,
                 customX: rivalX,
               }
             );
           }
         }
 
-        // Dibujar Pato del Jugador
+        const playerLabel = mode === 'local' ? (localTurnRef.current === 1 ? 'J1' : 'J2') : 'TU';
         drawBird(
           ctx,
           bird,
@@ -396,7 +388,7 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
           cachesRef.current,
           width,
           height,
-          { label: 'TU' }
+          { label: playerLabel }
         );
 
         if (phaseRef.current === 'playing') {
@@ -406,7 +398,6 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
     };
 
     raf = requestAnimationFrame(loop);
-
     const handleKey = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
@@ -423,6 +414,16 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
     };
   }, [mode, opponentName, startGame, flap, handlePlayerDie, resetGame]);
 
+  const p1WonLocal = mode === 'local' ? p1LocalScore > playerScore : playerScore > opponentScore;
+
+  const handleFinish = () => {
+    if (mode === 'local') {
+      onFinishDuel(p1LocalScore, playerScore, p1LocalScore > playerScore);
+    } else {
+      onFinishDuel(playerScore, opponentScore, playerScore > opponentScore);
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -434,18 +435,22 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
       <Unit4DuelHud
         phase={phase}
         playerScore={playerScore}
-        opponentScore={opponentScore}
+        opponentScore={mode === 'local' && localTurn === 2 ? p1LocalScore : opponentScore}
         opponentName={opponentName}
         opponentCrashed={opponentCrashed}
-        opponentTargetScore={rivalTargetScoreRef.current}
+        opponentTargetScore={mode === 'local' ? p1LocalScore : rivalTargetScoreRef.current}
         micActive={micActive}
         bannerNotice={bannerNotice}
         mode={mode}
+        localTurn={localTurn}
+        p1LocalScore={p1LocalScore}
+        showLocalTransitionOverlay={showLocalTransitionOverlay}
         showMatchOverOverlay={showMatchOverOverlay}
-        p1Won={playerScore > opponentScore}
+        p1Won={p1WonLocal}
         onStartGame={handleScreenTap}
         onExit={onExit}
-        onFinishDuel={onFinishDuel}
+        onStartLocalTurn2={handleStartLocalTurn2}
+        onFinishDuel={handleFinish}
       />
     </div>
   );

@@ -58,13 +58,15 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
 
   if (!isOpen && !isEmbeddedView) return null;
 
+  const arenaMode = mode === 'local' ? 'local' : mode === 'realtime_p2p' ? 'realtime_p2p' : 'ghost_async';
+
   // Si estamos en la arena de tambor y ritmo de la Unit 3, renderizamos a pantalla completa
   if (gameState === 'unit3_arena') {
     return (
       <Unit3DuelArena
         opponentName={selectedOpponentName}
         opponentTargetCuts={opponent?.rhythmRecord ?? Math.max(20, (opponent?.level ?? 1) * 6 + 10)}
-        mode={mode === 'realtime_p2p' ? 'realtime_p2p' : 'ghost_async'}
+        mode={arenaMode}
         onFinishDuel={finishUnit3Arena}
         onExit={resetGame}
       />
@@ -77,7 +79,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
       <Unit4DuelArena
         opponentName={selectedOpponentName}
         opponentTargetScore={opponent?.skyRunRecord ?? Math.max(6, (opponent?.level ?? 1) * 3 + 2)}
-        mode={mode === 'realtime_p2p' ? 'realtime_p2p' : 'ghost_async'}
+        mode={arenaMode}
         onFinishDuel={finishUnit4Arena}
         onExit={resetGame}
       />

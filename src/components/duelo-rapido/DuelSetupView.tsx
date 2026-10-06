@@ -199,24 +199,21 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
             <span className="text-[10px] text-center font-extrabold">Fantasma</span>
           </button>
 
-          {/* Local 2p (solo para afinacion) */}
+          {/* Local 2p (Pasa el celular) */}
           <button
             type="button"
-            disabled={duelType === 'sky_run_duel'}
             onClick={() => {
               audioService.playClickSound();
               onSelectMode('local');
             }}
             className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
-              duelType === 'sky_run_duel' ? 'opacity-40 cursor-not-allowed' : ''
-            } ${
               mode === 'local'
                 ? 'bg-indigo-50 dark:bg-indigo-950/70 border-indigo-500 text-indigo-700 dark:text-indigo-300 shadow-2xs'
                 : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
             }`}
           >
-            <Mic className="w-4 h-4" />
-            <span className="text-[10px] text-center font-extrabold">Local (2p)</span>
+            <User className="w-4 h-4" />
+            <span className="text-[10px] text-center font-extrabold">Pasa Celular</span>
           </button>
         </div>
       </div>
@@ -224,7 +221,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
       {/* Oponente y Ficha de Desafio */}
       <div className="bg-[#f8fafc] dark:bg-[#0b1828] p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-1.5">
         <span className="text-[10px] font-extrabold uppercase text-slate-400 block">
-          Rival Asignado
+          {mode === 'local' ? 'Retador Local' : 'Rival Asignado'}
         </span>
         <div className="flex items-center justify-between">
           <span className="font-heading font-extrabold text-sm text-[#0b1c30] dark:text-[#d3e4fe]">
@@ -232,7 +229,13 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
           </span>
           <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
             <Flame className="w-3.5 h-3.5" />
-            {duelType === 'sky_run_duel' ? `Record: ${opponentRecord} tubos` : 'Listo para cantar'}
+            {mode === 'local'
+              ? 'Mismo celular por turnos'
+              : duelType === 'sky_run_duel'
+              ? `Record: ${opponentRecord} tubos`
+              : duelType === 'rhythm_duel'
+              ? `Record: ${opponentRhythmRecord} esferas`
+              : 'Listo para cantar'}
           </span>
         </div>
       </div>
