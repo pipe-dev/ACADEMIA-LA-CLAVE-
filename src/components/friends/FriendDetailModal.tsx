@@ -8,7 +8,12 @@ import {
   Flame, 
   Trophy, 
   Mic2, 
-  Calendar 
+  Calendar,
+  Sparkles,
+  Target,
+  BookOpen,
+  Clock,
+  Award
 } from 'lucide-react';
 import { FriendItem } from './friendsTypes';
 import { audioService } from '../../utils/audioService';
@@ -38,11 +43,11 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
   const duelsLost = friend.duelsLostAgainst ?? 0;
   const totalDuels = duelsWon + duelsLost;
 
-  const matchInterval = friend.vocalRange.match(/\((.*?)\)/);
-  const vocalInterval = matchInterval ? matchInterval[1] : '';
-  const vocalClassification = friend.vocalRange.includes('(')
-    ? friend.vocalRange.split('(')[0].trim()
-    : friend.vocalRange;
+  const totalHistoricalXp = friend.totalXp ?? (friend.xpThisWeek * 3);
+  const lessonsCount = friend.lessonsCompleted ?? Math.max(6, friend.level * 3);
+  const practiceMins = friend.practiceMinutes ?? Math.max(45, friend.streak * 15);
+  const stability = friend.stabilityScore ?? (88 + (friend.level % 10));
+  const badgesEarned = friend.badgesCount ?? Math.min(50, Math.max(5, friend.level * 2 + 3));
 
   return (
     <AnimatePresence>
@@ -51,7 +56,7 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
           audioService.playClickSound();
           onClose();
         }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
       >
         <motion.div
           onClick={(e) => e.stopPropagation()}
@@ -59,7 +64,7 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className={`w-full max-w-sm rounded-3xl p-5 shadow-2xl relative border overflow-hidden ${
+          className={`w-full max-w-sm rounded-3xl p-5 shadow-2xl relative border overflow-hidden max-h-[92vh] overflow-y-auto ${
             zenMode
               ? 'bg-[#1b1c1e] border-[#2e3138] text-[#f0ebe1]'
               : 'bg-white dark:bg-[#0e1726] border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-100'
@@ -84,8 +89,8 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
           </div>
 
           {/* Ficha de Identidad Principal */}
-          <div className="pt-4 text-center">
-            <div className="relative inline-block mx-auto mb-2.5">
+          <div className="pt-3 text-center">
+            <div className="relative inline-block mx-auto mb-2">
               <img
                 src={friend.avatar}
                 alt={friend.name}
@@ -106,48 +111,127 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
               {friend.name}
             </h3>
 
-            <p className={`text-xs font-semibold mt-1 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-400'}`}>
+            <p className={`text-xs font-semibold mt-0.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-400'}`}>
               Nivel {friend.level} &bull; {friend.levelTitle}
             </p>
 
             {/* Rango vocal completo con su intervalo */}
-            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border border-slate-200/80 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200">
-              <Mic2 className="w-3.5 h-3.5 text-indigo-500" />
+            <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+              zenMode
+                ? 'bg-[#22252a] border-[#2e3138] text-[#e5b83b]'
+                : 'bg-indigo-50/80 dark:bg-indigo-950/60 border-indigo-200/60 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300'
+            }`}>
+              <Mic2 className="w-3.5 h-3.5 shrink-0" />
               <span>{friend.vocalRange}</span>
             </div>
           </div>
 
-          {/* Cuadricula de 3 Metricas Vocales */}
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            <div className={`p-2.5 rounded-2xl text-center border ${
+          {/* Frase de Actividad Reciente Reubicada */}
+          {friend.statusText && (
+            <div className={`mt-3 p-2.5 rounded-2xl flex items-center gap-2.5 border text-left ${
+              zenMode
+                ? 'bg-[#22252a] border-[#2e3138] text-[#ded9cf]'
+                : 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 text-amber-950 dark:text-amber-200'
+            }`}>
+              <div className={`p-1.5 rounded-xl shrink-0 ${
+                zenMode ? 'bg-[#2e3138] text-[#e5b83b]' : 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
+              }`}>
+                <Sparkles className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] uppercase tracking-wider font-bold block text-slate-400">
+                  Actividad Reciente
+                </span>
+                <p className="text-xs font-semibold truncate italic">
+                  &ldquo;{friend.statusText}&rdquo;
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Parrilla de 4 Metricas Vocales y Rendimiento */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            {/* Racha */}
+            <div className={`p-2.5 rounded-2xl border ${
               zenMode ? 'bg-[#22252a] border-[#2e3138]' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800'
             }`}>
-              <Flame className={`w-4 h-4 mx-auto mb-1 ${zenMode ? 'text-[#e5b83b]' : 'text-amber-500'}`} />
+              <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                <Flame className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-amber-500'}`} />
+                <span className="text-[9px] uppercase tracking-wider font-bold">Racha</span>
+              </div>
               <span className="block font-black text-xs">{friend.streak} dias</span>
-              <span className="text-[9px] text-slate-400 font-semibold">Racha</span>
+              <span className="text-[9px] text-slate-400">Practicando diario</span>
             </div>
 
-            <div className={`p-2.5 rounded-2xl text-center border ${
+            {/* Precision / Estabilidad */}
+            <div className={`p-2.5 rounded-2xl border ${
               zenMode ? 'bg-[#22252a] border-[#2e3138]' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800'
             }`}>
-              <Mic2 className={`w-4 h-4 mx-auto mb-1 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'}`} />
-              <span className="block font-black text-[11px] truncate">{vocalClassification}</span>
-              <span className="text-[9px] text-slate-400 font-semibold block truncate">
-                {vocalInterval || 'Tesitura'}
+              <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                <Target className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'}`} />
+                <span className="text-[9px] uppercase tracking-wider font-bold">Precision</span>
+              </div>
+              <span className="block font-black text-xs">{stability}%</span>
+              <span className="text-[9px] text-slate-400">Estabilidad vocal</span>
+            </div>
+
+            {/* Lecciones */}
+            <div className={`p-2.5 rounded-2xl border ${
+              zenMode ? 'bg-[#22252a] border-[#2e3138]' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800'
+            }`}>
+              <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                <BookOpen className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'}`} />
+                <span className="text-[9px] uppercase tracking-wider font-bold">Academia</span>
+              </div>
+              <span className="block font-black text-xs">{lessonsCount} lecciones</span>
+              <span className="text-[9px] text-slate-400">Completadas</span>
+            </div>
+
+            {/* Tiempo Practicado */}
+            <div className={`p-2.5 rounded-2xl border ${
+              zenMode ? 'bg-[#22252a] border-[#2e3138]' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800'
+            }`}>
+              <div className="flex items-center gap-1.5 mb-1 text-slate-400">
+                <Clock className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-cyan-500'}`} />
+                <span className="text-[9px] uppercase tracking-wider font-bold">Tiempo</span>
+              </div>
+              <span className="block font-black text-xs">{practiceMins} min</span>
+              <span className="text-[9px] text-slate-400">Canto y ejercicios</span>
+            </div>
+          </div>
+
+          {/* Puntuacion Global: XP Semanal, XP Total e Insignias */}
+          <div className={`mt-2.5 p-3 rounded-2xl border ${
+            zenMode
+              ? 'bg-[#22252a] border-[#2e3138]'
+              : 'bg-slate-50/80 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-800'
+          }`}>
+            <div className="flex items-center justify-between text-xs pb-1.5 border-b border-slate-200/40 dark:border-slate-700/60">
+              <div className="flex items-center gap-1.5">
+                <Trophy className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-amber-500'}`} />
+                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">XP Acumulado</span>
+              </div>
+              <div className="text-right">
+                <span className={`font-black text-xs block ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                  {friend.xpThisWeek.toLocaleString()} XP
+                </span>
+                <span className="text-[9px] text-slate-400">({totalHistoricalXp.toLocaleString()} total)</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-1.5">
+              <div className="flex items-center gap-1.5">
+                <Award className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-purple-500'}`} />
+                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Insignias</span>
+              </div>
+              <span className="font-bold text-xs">
+                {badgesEarned} de 50 logradas
               </span>
-            </div>
-
-            <div className={`p-2.5 rounded-2xl text-center border ${
-              zenMode ? 'bg-[#22252a] border-[#2e3138]' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800'
-            }`}>
-              <Trophy className={`w-4 h-4 mx-auto mb-1 ${zenMode ? 'text-[#e5b83b]' : 'text-amber-500'}`} />
-              <span className="block font-black text-xs">{friend.xpThisWeek}</span>
-              <span className="text-[9px] text-slate-400 font-semibold">XP Semanal</span>
             </div>
           </div>
 
           {/* Seccion Cara a Cara (Head-to-Head) */}
-          <div className={`mt-3.5 p-3 rounded-2xl border ${
+          <div className={`mt-2.5 p-3 rounded-2xl border ${
             zenMode
               ? 'bg-[#22252a] border-[#2e3138]'
               : 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40'
@@ -177,7 +261,7 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
           </div>
 
           {/* Botones de Accion Tactiles */}
-          <div className="mt-4 space-y-2">
+          <div className="mt-3.5 space-y-2">
             <motion.button
               type="button"
               whileTap={{ scale: 0.95 }}

@@ -133,18 +133,28 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
       const sampleNames = ['Valentina Sol', 'Diego Vocal', 'Lucía Armonía', 'Gabriel Canto', 'Andrés Tenor'];
       const pickedName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
 
+      const randLevel = Math.floor(Math.random() * 6) + 2;
+      const randXp = Math.floor(Math.random() * 800) + 500;
       friendToAdd = {
         id: `friend_${Date.now()}`,
         code: formattedCode,
         name: pickedName,
         avatar: `https://images.unsplash.com/photo-${1500000000000 + (parseInt(codeSuffix) * 1000)}?w=150&auto=format&fit=crop&q=80`,
-        level: Math.floor(Math.random() * 6) + 2,
+        level: randLevel,
         levelTitle: 'Cantante Entusiasmado',
         streak: Math.floor(Math.random() * 10) + 1,
-        xpThisWeek: Math.floor(Math.random() * 800) + 500,
+        xpThisWeek: randXp,
+        totalXp: randXp * 3 + Math.floor(Math.random() * 500),
+        lessonsCompleted: randLevel * 4,
+        practiceMinutes: Math.floor(Math.random() * 120) + 60,
+        stabilityScore: Math.floor(Math.random() * 10) + 88,
+        badgesCount: Math.floor(Math.random() * 10) + 5,
         vocalRange: 'Rango Vocal por Evaluar',
-        statusText: '¡Aceptó tu solicitud de amistad!',
-        isOnline: true
+        statusText: 'Acepto tu solicitud de amistad',
+        isOnline: true,
+        duelsWonAgainst: 0,
+        duelsLostAgainst: 0,
+        joinedDate: 'Hoy'
       };
     }
 

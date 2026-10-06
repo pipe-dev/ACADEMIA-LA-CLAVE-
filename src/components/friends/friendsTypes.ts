@@ -8,7 +8,7 @@ export interface FriendItem {
   streak: number;
   xpThisWeek: number;
   vocalRange: string;
-  statusText: string;
+  statusText?: string;
   isOnline: boolean;
   duelsWonAgainst?: number;
   duelsLostAgainst?: number;
@@ -16,6 +16,11 @@ export interface FriendItem {
   lastDuelScore?: number;
   lastNudgeSent?: boolean;
   joinedDate?: string;
+  totalXp?: number;
+  lessonsCompleted?: number;
+  practiceMinutes?: number;
+  stabilityScore?: number;
+  badgesCount?: number;
 }
 
 export const DEFAULT_VOCAL_AVATARS: { id: string; name: string; url: string }[] = [
@@ -46,7 +51,12 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     duelsLostAgainst: 1,
     lastDuelNote: 'Sol4',
     lastDuelScore: 94,
-    joinedDate: 'Marzo 2026'
+    joinedDate: 'Marzo 2026',
+    totalXp: 3840,
+    lessonsCompleted: 18,
+    practiceMinutes: 142,
+    stabilityScore: 94,
+    badgesCount: 14
   },
   {
     id: 'f2',
@@ -64,7 +74,12 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     duelsLostAgainst: 2,
     lastDuelNote: 'Mi3',
     lastDuelScore: 88,
-    joinedDate: 'Febrero 2026'
+    joinedDate: 'Febrero 2026',
+    totalXp: 2950,
+    lessonsCompleted: 12,
+    practiceMinutes: 98,
+    stabilityScore: 89,
+    badgesCount: 9
   },
   {
     id: 'f3',
@@ -82,7 +97,12 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     duelsLostAgainst: 3,
     lastDuelNote: 'La4',
     lastDuelScore: 98,
-    joinedDate: 'Enero 2026'
+    joinedDate: 'Enero 2026',
+    totalXp: 4920,
+    lessonsCompleted: 26,
+    practiceMinutes: 215,
+    stabilityScore: 97,
+    badgesCount: 19
   }
 ];
 
@@ -102,7 +122,12 @@ export const DEMO_FRIEND_DIRECTORY: Record<string, Omit<FriendItem, 'id'>> = {
     duelsLostAgainst: 0,
     lastDuelNote: 'Do3',
     lastDuelScore: 91,
-    joinedDate: 'Abril 2026'
+    joinedDate: 'Abril 2026',
+    totalXp: 2100,
+    lessonsCompleted: 8,
+    practiceMinutes: 75,
+    stabilityScore: 88,
+    badgesCount: 7
   },
   'CANTO-9941': {
     code: 'CANTO-9941',
@@ -119,7 +144,12 @@ export const DEMO_FRIEND_DIRECTORY: Record<string, Omit<FriendItem, 'id'>> = {
     duelsLostAgainst: 4,
     lastDuelNote: 'Fa4',
     lastDuelScore: 96,
-    joinedDate: 'Diciembre 2025'
+    joinedDate: 'Diciembre 2025',
+    totalXp: 5800,
+    lessonsCompleted: 34,
+    practiceMinutes: 280,
+    stabilityScore: 98,
+    badgesCount: 23
   }
 };
 
