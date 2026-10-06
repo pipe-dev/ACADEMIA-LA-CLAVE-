@@ -51,7 +51,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               audioService.playClickSound();
               onSelectDuelType('pitch_duel');
             }}
-            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-3 px-2 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
               duelType === 'pitch_duel'
                 ? 'bg-amber-50 dark:bg-amber-950/70 border-amber-500 text-amber-700 dark:text-amber-300 shadow-2xs'
                 : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
@@ -59,7 +59,6 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
           >
             <Music className="w-4 h-4 text-amber-500" />
             <span className="font-heading font-black text-xs text-center">Afinacion</span>
-            <span className="text-[9px] text-slate-400 font-normal text-center">Sostener nota</span>
           </button>
 
           {/* Opcion B: Ritmo Esfera 3D */}
@@ -69,7 +68,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               audioService.playClickSound();
               onSelectDuelType('rhythm_sphere_duel');
             }}
-            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-3 px-2 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
               duelType === 'rhythm_sphere_duel'
                 ? 'bg-blue-50 dark:bg-blue-950/70 border-blue-500 text-blue-700 dark:text-blue-300 shadow-2xs'
                 : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
@@ -77,7 +76,6 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
           >
             <Activity className="w-4 h-4 text-blue-500" />
             <span className="font-heading font-black text-xs text-center">Ritmo</span>
-            <span className="text-[9px] text-slate-400 font-normal text-center">Bombo y Palmas</span>
           </button>
 
           {/* Opcion C: Carrera Celeste (Unit 4) */}
@@ -87,7 +85,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               audioService.playClickSound();
               onSelectDuelType('sky_run_duel');
             }}
-            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-3 px-2 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
               duelType === 'sky_run_duel'
                 ? 'bg-purple-50 dark:bg-purple-950/70 border-purple-500 text-purple-700 dark:text-purple-300 shadow-2xs'
                 : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
@@ -95,7 +93,6 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
           >
             <Trophy className="w-4 h-4 text-purple-500" />
             <span className="font-heading font-black text-xs text-center">Carrera</span>
-            <span className="text-[9px] text-slate-400 font-normal text-center">Vuelo Unit 4</span>
           </button>
 
           {/* Opcion D: Duelo de Tambor (Unit 3) */}
@@ -105,7 +102,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               audioService.playClickSound();
               onSelectDuelType('rhythm_duel');
             }}
-            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-3 px-2 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
               duelType === 'rhythm_duel'
                 ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-2xs'
                 : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
@@ -113,7 +110,6 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
           >
             <Drum className="w-4 h-4 text-emerald-500" />
             <span className="font-heading font-black text-xs text-center">Tambor 1m</span>
-            <span className="text-[9px] text-slate-400 font-normal text-center">Corte Unit 3</span>
           </button>
         </div>
       </div>
@@ -140,9 +136,10 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               return (
                 <button
                   key={note.name}
+                  type="button"
                   onClick={() => {
-                    audioService.playClickSound();
                     onSelectNote(note);
+                    audioService.playFrequency(note.frequency, 1.2);
                   }}
                   className={`p-2.5 rounded-2xl font-heading font-extrabold text-xs text-white flex flex-col items-center justify-center transition-all cursor-pointer ${
                     isSel ? 'ring-4 ring-indigo-400 scale-105 shadow-md' : 'opacity-80 hover:opacity-100'
