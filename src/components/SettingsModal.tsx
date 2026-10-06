@@ -41,6 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   onUpdateStats,
   onStartSplash,
+  sessionUser,
 }) => {
   const [name, setName] = useState<string>(userStats.name);
   const [savedVocalRangeData] = useState<SavedVocalRangeData | null>(() => {
@@ -207,6 +208,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onNameChange={setName}
             vocalRange={vocalRange}
             onVocalRangeChange={setVocalRange}
+            sessionUser={sessionUser}
           />
 
           <SettingsOfflineCard

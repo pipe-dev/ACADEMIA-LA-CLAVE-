@@ -72,6 +72,13 @@ interface MainAppModalsProps {
   onFinishSplash: () => void;
   onStartSplash: () => void;
   onTabChange: (tab: TabType) => void;
+  sessionUser?: {
+    id: string;
+    name: string;
+    email: string;
+    expiresAt: string;
+    daysRemaining: number;
+  } | null;
 }
 
 export const MainAppModals: React.FC<MainAppModalsProps> = ({
@@ -123,6 +130,7 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
   onFinishSplash,
   onStartSplash,
   onTabChange,
+  sessionUser,
 }) => {
   const [showCadencePrompt, setShowCadencePrompt] = React.useState<boolean>(false);
 
@@ -259,6 +267,7 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
           onClose={onCloseSettings}
           onUpdateStats={onUpdateStats}
           onStartSplash={onStartSplash}
+          sessionUser={sessionUser}
         />
       )}
 

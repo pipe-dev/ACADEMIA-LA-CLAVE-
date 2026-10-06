@@ -113,7 +113,7 @@ export default function MainApp() {
   });
 
   // Live session guard: redirects to /login immediately if expired or blocked in DB
-  useSessionGuard();
+  const { sessionUser } = useSessionGuard();
 
   // Cloud progress sync: bidirectional sync between DB and client
   useCloudProgressSync({
@@ -315,6 +315,7 @@ export default function MainApp() {
         onFinishSplash={() => setShowSplash(false)}
         onStartSplash={() => setShowSplash(true)}
         onTabChange={handleTabChange}
+        sessionUser={sessionUser}
       />
     </div>
   );
