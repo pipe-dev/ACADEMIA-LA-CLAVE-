@@ -29,7 +29,7 @@
 - Consumes: Tipos de `FriendItem`, `DuelResult`.
 - Produces: `d1/schema.sql` con tablas `singers`, `friendships`, `duel_records`, `duel_rooms`; y `d1Client.ts` que permite ejecutar consultas SQL contra D1 si las credenciales están configuradas o contra almacenamiento en memoria/local en desarrollo.
 
-- [ ] **Step 1: Crear `d1/schema.sql`**
+- [x] **Step 1: Crear `d1/schema.sql`**
 
 Crear el esquema relacional optimizado para Cloudflare D1 con índices en códigos de cantante y salas de duelo.
 
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS duel_rooms (
 CREATE INDEX IF NOT EXISTS idx_rooms_status ON duel_rooms(status);
 ```
 
-- [ ] **Step 2: Crear `src/lib/d1Client.ts`**
+- [x] **Step 2: Crear `src/lib/d1Client.ts`**
 
 Cliente adaptador con almacenamiento estructurado y transacciones seguras para Next.js API routes.
 
@@ -251,13 +251,13 @@ export const d1Db = {
 };
 ```
 
-- [ ] **Step 3: Verificar compilación TypeScript**
+- [x] **Step 3: Verificar compilación TypeScript**
 
 ```powershell
 npx tsc --noEmit
 ```
 
-- [ ] **Step 4: Commit de la capa D1**
+- [x] **Step 4: Commit de la capa D1**
 
 ```powershell
 git add d1/schema.sql src/lib/d1Client.ts
@@ -280,7 +280,7 @@ git commit -m "feat(d1): add Cloudflare D1 schema and database adapter client"
 - Consumes: `d1Db` de `src/lib/d1Client.ts`.
 - Produces: Rutas REST JSON ligeras para sincronización y señalización WebRTC.
 
-- [ ] **Step 1: Crear `src/app/api/friends/profile/route.ts`**
+- [x] **Step 1: Crear `src/app/api/friends/profile/route.ts`**
 
 Recibe el perfil del cantante (`code`, `name`, `avatarUrl`, `level`, `xp`, `vocalRange`, etc.) y hace un upsert.
 
@@ -320,27 +320,27 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 2: Crear `src/app/api/friends/search/route.ts` y `ranking/route.ts`**
+- [x] **Step 2: Crear `src/app/api/friends/search/route.ts` y `ranking/route.ts`**
 
 Búsqueda por código de cantante y obtención de tabla de posiciones de una lista de amigos.
 
-- [ ] **Step 3: Crear `src/app/api/friends/duel/route.ts`**
+- [x] **Step 3: Crear `src/app/api/friends/duel/route.ts`**
 
 Guarda el resultado de un duelo, suma XP y actualiza estadísticas.
 
-- [ ] **Step 4: Crear `src/app/api/duel/room/route.ts`**
+- [x] **Step 4: Crear `src/app/api/duel/room/route.ts`**
 
 Endpoint de señalización WebRTC:
 - `POST`: crea una sala con SDP Offer o se une a una sala con SDP Answer.
 - `GET ?roomId=XYZ`: consulta el estado de la sala (Offer / Answer).
 
-- [ ] **Step 5: Verificar compilación TypeScript**
+- [x] **Step 5: Verificar compilación TypeScript**
 
 ```powershell
 npx tsc --noEmit
 ```
 
-- [ ] **Step 6: Commit de las rutas API**
+- [x] **Step 6: Commit de las rutas API**
 
 ```powershell
 git add src/app/api/friends/ src/app/api/duel/
@@ -359,17 +359,17 @@ git commit -m "feat(api): create friends sync and duel signaling API endpoints"
 - Consumes: `localStorage`, API routes `/api/friends/*`.
 - Produces: `friendsSyncService` con métodos `syncMyProfile()`, `fetchFriendsRanking()`, `searchFriendByCode()`, `recordDuelResult()`.
 
-- [ ] **Step 1: Crear `src/utils/friendsSyncService.ts` (< 250 líneas)**
+- [x] **Step 1: Crear `src/utils/friendsSyncService.ts` (< 250 líneas)**
 
 Gestiona el almacenamiento local en `localStorage` como primera fuente de verdad y sincroniza en segundo plano cuando hay conexión sin bloquear nunca la interfaz.
 
-- [ ] **Step 2: Verificar compilación TypeScript**
+- [x] **Step 2: Verificar compilación TypeScript**
 
 ```powershell
 npx tsc --noEmit
 ```
 
-- [ ] **Step 3: Commit del servicio de sincronización**
+- [x] **Step 3: Commit del servicio de sincronización**
 
 ```powershell
 git add src/utils/friendsSyncService.ts
@@ -389,11 +389,11 @@ git commit -m "feat(friends): implement offline-first friendsSyncService"
 - Consumes: WebRTC standard APIs (`RTCPeerConnection`, `RTCDataChannel`), STUN de Google (`stun:stun.l.google.com:19302`), `/api/duel/room`.
 - Produces: `p2pDuelService` con `createRoom()`, `joinRoom()`, `sendPitchUpdate()`, `sendFinish()`, y callbacks de evento de tiempo real (`onPeerPitch`, `onPeerFinished`, `onConnected`).
 
-- [ ] **Step 1: Actualizar `dueloTypes.ts` para soportar modos y datos P2P**
+- [x] **Step 1: Actualizar `dueloTypes.ts` para soportar modos y datos P2P**
 
 Agregar `'realtime_p2p'` y `'ghost_async'` a `DuelMode`, y eventos de paquete de pitch de rival.
 
-- [ ] **Step 2: Crear `src/utils/p2pDuelService.ts` (< 300 líneas)**
+- [x] **Step 2: Crear `src/utils/p2pDuelService.ts` (< 300 líneas)**
 
 Conecta dos dispositivos de forma directa P2P con WebRTC:
 1. P1 crea sala con oferta SDP.
@@ -401,13 +401,13 @@ Conecta dos dispositivos de forma directa P2P con WebRTC:
 3. El canal de datos se abre: transmiten notas y centésimas en vivo con 15 ms de latencia.
 4. Al terminar el tiempo de canto, intercambian puntaje y declaran al ganador.
 
-- [ ] **Step 3: Verificar compilación TypeScript**
+- [x] **Step 3: Verificar compilación TypeScript**
 
 ```powershell
 npx tsc --noEmit
 ```
 
-- [ ] **Step 4: Commit del servicio WebRTC**
+- [x] **Step 4: Commit del servicio WebRTC**
 
 ```powershell
 git add src/utils/p2pDuelService.ts src/components/duelo-rapido/dueloTypes.ts
@@ -428,29 +428,35 @@ git commit -m "feat(duel): add p2pDuelService for real-time WebRTC singing battl
 - Consumes: `p2pDuelService`, `friendsSyncService`.
 - Produces: Experiencia de duelo completa donde el usuario puede desafiar en vivo a su amigo, ver el medidor de pitch de su rival en tiempo real, guardar el resultado en D1 y actualizar el balance cara a cara.
 
-- [ ] **Step 1: Conectar `p2pDuelService` en `useDuelEngine.ts`**
+- [x] **Step 1: Conectar `p2pDuelService` en `useDuelEngine.ts`**
 
 Manejar la recepción en vivo del tono del rival y registrar el resultado del duelo con `friendsSyncService.recordDuelResult()` al terminar.
 
-- [ ] **Step 2: Actualizar `DuelSetupView.tsx`**
+- [x] **Step 2: Actualizar `DuelSetupView.tsx`**
 
 Ofrecer selector entre "Duelo en Vivo P2P" y "Prueba Rápida Local/Simulada".
 
-- [ ] **Step 3: Conectar la sincronización automática en `FriendsSection.tsx`**
+- [x] **Step 3: Conectar la sincronización automática en `FriendsSection.tsx`**
 
 Al montar el componente, registrar el perfil propio y actualizar la lista de amigos con las estadísticas más recientes.
 
-- [ ] **Step 4: Verificar compilación TypeScript**
+- [x] **Step 4: Verificar compilación TypeScript**
 
 ```powershell
 npx tsc --noEmit
 ```
 
-- [ ] **Step 5: Verificar que ningún archivo supere las 500 líneas y cero emojis**
+- [x] **Step 5: Verificar que ningún archivo supere las 500 líneas y cero emojis**
 
-- [ ] **Step 6: Commit de la integración completa**
+- [x] **Step 6: Commit de la integración completa**
 
 ```powershell
 git add src/components/duelo-rapido/ src/components/FriendsSection.tsx
 git commit -m "feat(duel): wire real-time PvP duel engine and background cloud sync"
 ```
+
+
+---
+
+## Seguimiento y Tareas Pendientes
+Para el detalle exhaustivo del despliegue en produccion y tareas futuras, consultar: docs/FASE_2_DB_Y_WEBRTC_PENDIENTES.md.
