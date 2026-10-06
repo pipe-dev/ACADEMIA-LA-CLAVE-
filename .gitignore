@@ -47,3 +47,6 @@ firestore-debug.log
 
 # local data
 /data/
+
+# decoupled master admin portal (private)
+public/admin.html
