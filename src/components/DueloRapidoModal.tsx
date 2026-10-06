@@ -61,7 +61,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
     return (
       <Unit4DuelArena
         opponentName={selectedOpponentName}
-        opponentTargetScore={Math.max(3, Math.round((opponent?.stabilityScore ?? 85) / 10))}
+        opponentTargetScore={opponent?.skyRunRecord ?? Math.max(6, (opponent?.level ?? 1) * 3 + 2)}
         mode={mode === 'realtime_p2p' ? 'realtime_p2p' : 'ghost_async'}
         onFinishDuel={finishUnit4Arena}
         onExit={resetGame}
@@ -122,7 +122,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
           mode={mode}
           onSelectMode={setMode}
           selectedOpponentName={selectedOpponentName}
-          opponentRecord={Math.max(3, Math.round((opponent?.stabilityScore ?? 85) / 10))}
+          opponentRecord={opponent?.skyRunRecord ?? Math.max(6, (opponent?.level ?? 1) * 3 + 2)}
           onStartDuel={startPlayer1Turn}
         />
       )}

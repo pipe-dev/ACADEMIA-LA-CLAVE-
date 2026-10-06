@@ -1,5 +1,5 @@
 // src/components/unit4-flappy/Unit4DuelArena.tsx
-// Arena multijugador para Carrera Celeste (Unit 4 Flappy Bird) (< 400 líneas)
+// Arena multijugador para Carrera Celeste (Unit 4 Flappy Bird) (< 430 líneas)
 
 'use client';
 
@@ -21,6 +21,7 @@ import { useVoiceGate } from './useVoiceGate';
 import { unit4Audio } from './unit4Audio';
 import { p2pDuelService } from '../../utils/p2pDuelService';
 import { Unit4DuelHud } from './Unit4DuelHud';
+import { updateGhostSimulation } from './ghostSim';
 
 interface Unit4DuelArenaProps {
   opponentName: string;
@@ -33,7 +34,7 @@ interface Unit4DuelArenaProps {
 
 export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
   opponentName,
-  opponentTargetScore = 6,
+  opponentTargetScore = 10,
   mode,
   onFinishDuel,
   onExit,
@@ -77,7 +78,9 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
   const rivalScoreRef = useRef(0);
   const rivalPaletteRef = useRef<BirdPalette | null>(null);
   const rivalWinRef = useRef<WinState | null>(null);
-  const rivalTargetScoreRef = useRef(Math.max(2, opponentTargetScore));
+  const rivalTargetScoreRef = useRef(Math.max(3, opponentTargetScore));
+  const rivalWorldXRef = useRef<number | null>(null);
+  const hasPassedRivalRef = useRef(false);
 
   const obstaclesRef = useRef<Obstacle[]>([]);
   const scoreRef = useRef(0);
@@ -115,6 +118,8 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
     rivalAliveRef.current = true;
     rivalScoreRef.current = 0;
     rivalWinRef.current = null;
+    rivalWorldXRef.current = null;
+    hasPassedRivalRef.current = false;
 
     obstaclesRef.current = [];
     scoreRef.current = 0;
@@ -161,7 +166,7 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
     else if (phaseRef.current === 'playing') flap();
   };
 
-  // Escuchar paquetes WebRTC si estamos en modo P2P
+  // Escuchar paquetes WebRTC en modo P2P
   useEffect(() => {
     if (mode !== 'realtime_p2p') return;
 
@@ -273,76 +278,38 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
           handlePlayerDie('floor');
         }
 
-        // SIMULADOR DEL FANTASMA (Modo Asincrono)
+        // SIMULADOR DEL FANTASMA (Modo Asincrono: Vuela hasta su record y choca en su tubo)
         if (mode === 'ghost_async') {
-          if (rivalAliveRef.current) {
-            rival.wingT += dt;
-            rival.vy += G(height) * dt;
-            if (rival.vy > MAX_FALL(height)) rival.vy = MAX_FALL(height);
-            rival.birdY += rival.vy * dt;
+          const { newWorldX } = updateGhostSimulation({
+            dt,
+            now,
+            height,
+            fy,
+            pX,
+            sp,
+            rival,
+            rivalAlive: rivalAliveRef.current,
+            rivalScore: rivalScoreRef.current,
+            rivalTargetScore: rivalTargetScoreRef.current,
+            rivalWorldX: rivalWorldXRef.current,
+            obstacles,
+            onCrash: (score, winState) => {
+              rivalAliveRef.current = false;
+              setOpponentCrashed(true);
+              setBannerNotice(`¡${opponentName} choco en el tubo ${score}!`);
+              rivalWinRef.current = winState;
+            },
+            onScoreIncrement: () => {
+              rivalScoreRef.current += 1;
+              setOpponentScore(rivalScoreRef.current);
+            },
+          });
 
-            const nextPipe = obstacles.find((o) => o.type === 'bottom' && o.x + o.w > pX - 30);
+          rivalWorldXRef.current = newWorldX;
 
-            if (nextPipe) {
-              const distToPipe = nextPipe.x - pX;
-              const gapCenter = nextPipe.gapY - height * 0.15;
-
-              if (rivalScoreRef.current < rivalTargetScoreRef.current) {
-                if (distToPipe < 220 && distToPipe > -40) {
-                  if (rival.birdY > gapCenter + 15 && rival.vy > -120) {
-                    rival.vy = FLAP(height) * 0.95;
-                    rival.lastFlap = now / 1000;
-                    rival.rot = FLAP_ROT;
-                  }
-                }
-              } else {
-                if (distToPipe <= 40 && distToPipe >= -20) {
-                  rivalAliveRef.current = false;
-                  setOpponentCrashed(true);
-                  setBannerNotice(`¡${opponentName} choco en ${rivalScoreRef.current} puntos!`);
-                  rivalWinRef.current = {
-                    stage: 'shake',
-                    t0: performance.now(),
-                    sx: pX + 25,
-                    sy: rival.birdY,
-                    ex: pX + 25,
-                    ey: fy,
-                    x: pX + 25,
-                    scale: 1,
-                    alpha: 1,
-                    trophy: 0,
-                    tx: 0,
-                    tScale: 1,
-                    facing: 1,
-                  };
-                }
-              }
-            } else {
-              if (rival.birdY > height * 0.52 && rival.vy > 0) {
-                rival.vy = FLAP(height) * 0.8;
-                rival.rot = FLAP_ROT * 0.8;
-              }
-            }
-
-            const rivalHeld = now / 1000 - rival.lastFlap < FLAP_HOLD;
-            const rivalTargetRot = rivalHeld ? FLAP_ROT : Math.min(Math.max(rival.vy * 0.0012, -1.5), 0.6);
-            rival.rot += (rivalTargetRot - rival.rot) * 0.15;
-
-            obstacles.forEach((ob) => {
-              if (ob.type === 'bottom' && !ob.scored && ob.x + ob.w < pX) {
-                rivalScoreRef.current += 1;
-                setOpponentScore(rivalScoreRef.current);
-              }
-            });
-          } else {
-            if (rival.birdY + BIRD_R(height) < fy) {
-              rival.vy += G(height) * dt * 1.5;
-              rival.birdY += rival.vy * dt;
-              rival.rot = Math.min(Math.PI * 0.45, rival.rot + dt * 4);
-            } else {
-              rival.birdY = fy - BIRD_R(height);
-              rival.vy = 0;
-            }
+          if (!rivalAliveRef.current && scoreRef.current > rivalScoreRef.current && !hasPassedRivalRef.current) {
+            hasPassedRivalRef.current = true;
+            setBannerNotice(`¡Superaste a ${opponentName}!`);
           }
         }
 
@@ -358,12 +325,14 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
           });
         }
 
+        // Generacion de obstaculos continuos (avance infinito)
         spawnTimerRef.current -= dt * speedMult(scoreRef.current);
         if (spawnTimerRef.current <= 0) {
           obstacles.push(...spawnObstacles(width, height, scoreRef.current));
           spawnTimerRef.current = interval(scoreRef.current) * speedMult(scoreRef.current);
         }
 
+        // updatePlayingObstacles con disableMilestone: true para evitar la tuberia dorada
         updatePlayingObstacles({
           width,
           height,
@@ -379,6 +348,7 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
           meteorAtRef: { current: 0 },
           onDie: handlePlayerDie,
           onWinReached: () => handlePlayerDie('pipe'),
+          disableMilestone: true,
         });
 
         setPlayerScore(scoreRef.current);
@@ -391,25 +361,33 @@ export const Unit4DuelArena: React.FC<Unit4DuelArenaProps> = ({
 
         drawFloor(ctx, cachesRef.current, groundScrollRef.current, width, height, now / 1000);
 
+        // Dibujar Pato del Rival en su posicion en el mundo (sombra hasta donde choco)
         if (rivalPaletteRef.current) {
-          drawBird(
-            ctx,
-            rival,
-            rivalWinRef.current,
-            rivalAliveRef.current ? 'playing' : 'dead',
-            cachesRef.current,
-            width,
-            height,
-            {
-              palette: rivalPaletteRef.current,
-              isGhost: mode === 'ghost_async',
-              ghostAlpha: 0.65,
-              label: `${opponentName} ${mode === 'ghost_async' ? '(Fantasma)' : ''}`,
-              xOffset: mode === 'ghost_async' ? 25 : 0,
-            }
-          );
+          const rivalX = rivalWorldXRef.current !== null
+            ? rivalWorldXRef.current
+            : (pX + (mode === 'ghost_async' ? 25 : 0));
+
+          if (rivalX > -100 && rivalX < width + 100) {
+            drawBird(
+              ctx,
+              rival,
+              rivalWinRef.current,
+              rivalAliveRef.current ? 'playing' : 'dead',
+              cachesRef.current,
+              width,
+              height,
+              {
+                palette: rivalPaletteRef.current,
+                isGhost: mode === 'ghost_async',
+                ghostAlpha: 0.65,
+                label: `${opponentName} ${mode === 'ghost_async' ? '(Fantasma)' : ''}`,
+                customX: rivalX,
+              }
+            );
+          }
         }
 
+        // Dibujar Pato del Jugador
         drawBird(
           ctx,
           bird,
