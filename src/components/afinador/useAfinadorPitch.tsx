@@ -8,7 +8,7 @@ import {
 import { Difficulty } from '../../data/tunerLevelsData';
 import { ChromaticNoteButtonInfo, NoteInfo, SolfegeButtonInfo } from '../../utils/voicePlaybackService';
 import { TunedHistoryItem } from './afinadorTypes';
-import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { Zap, CheckCircle2, Target } from 'lucide-react';
 import { checkAndExpandVocalRange } from '../../utils/vocalRangeHelper';
 
 interface UseAfinadorPitchParams {
@@ -66,6 +66,15 @@ export function useAfinadorPitch({
   const lastVibeTimeRef = useRef<number>(0);
   const lastStateUpdateRef = useRef<number>(0);
 
+  // Play + Tune paired event tracking (Free Mode)
+  const lastPlayedReferenceNoteRef = useRef<string | null>(null);
+  const lastCountedTunedNoteRef = useRef<string | null>(null);
+  const inTuneNoteStartTimeRef = useRef<number | null>(null);
+
+  const registerPlayedNote = useCallback((noteName: string) => {
+    lastPlayedReferenceNoteRef.current = noteName.trim().toUpperCase();
+  }, []);
+
   // History state
   const [tunedHistory, setTunedHistory] = useState<TunedHistoryItem[]>(() => {
     try {
@@ -120,6 +129,7 @@ export function useAfinadorPitch({
   useEffect(() => {
     setIsPitchMatched(false);
     inTuneSinceRef.current = null;
+    inTuneNoteStartTimeRef.current = null;
     setCalentamientoProgress(0);
   }, [activeTargetNote.name, activeTargetNote.frequency]);
 
@@ -195,7 +205,7 @@ export function useAfinadorPitch({
         ? 'border-[#d8a728] bg-[#d8a728]/20'
         : 'border-amber-300 dark:border-amber-700 bg-amber-50/90 dark:bg-amber-950/90';
       statusTextColor = zenMode ? 'text-[#f5d56b]' : 'text-amber-800 dark:text-amber-200';
-      statusIcon = <Sparkles className={`w-3.5 h-3.5 ${zenMode ? 'text-[#f5d56b]' : 'text-amber-500'} animate-pulse`} />;
+      statusIcon = <Zap className={`w-3.5 h-3.5 ${zenMode ? 'text-[#f5d56b]' : 'text-amber-500'} animate-pulse`} />;
     } else {
       sphereStyle = zenMode
         ? 'bg-[#2a2d34] text-[#ded9cf] border-2 border-[#e5b83b]/50 shadow-[0_0_20px_rgba(0,0,0,0.5)] scale-100 ring-2 ring-[#e5b83b]/30'
@@ -204,7 +214,7 @@ export function useAfinadorPitch({
         ? 'border-[#383c44] bg-[#26292f]'
         : 'border-rose-300 dark:border-rose-700 bg-rose-50/90 dark:bg-rose-950/90';
       statusTextColor = zenMode ? 'text-[#ded9cf]' : 'text-rose-800 dark:text-rose-200';
-      statusIcon = <Sparkles className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-rose-500'} animate-ping`} />;
+      statusIcon = <Target className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-rose-500'} animate-ping`} />;
     }
   }
 
@@ -284,8 +294,29 @@ export function useAfinadorPitch({
             }
           }
 
-          if (onUpdateQuestProgressRef.current) {
-            onUpdateQuestProgressRef.current(1);
+          // In Modo Libre, note tuning counts as a paired event:
+          // 1) Note was played as reference
+          // 2) Note was tuned and sustained >= 450ms
+          // 3) Only counts ONCE if staying on the same note without changing
+          if (tunerModeRef.current === 'libre') {
+            const targetKey = currTarget.name.trim().toUpperCase();
+            if (!inTuneNoteStartTimeRef.current) {
+              inTuneNoteStartTimeRef.current = nowTime;
+            }
+
+            const sustainedMs = nowTime - inTuneNoteStartTimeRef.current;
+            if (sustainedMs >= 450) {
+              const isReferencePlayed = lastPlayedReferenceNoteRef.current === targetKey;
+              const hasNoteChanged = lastCountedTunedNoteRef.current !== targetKey;
+
+              if (isReferencePlayed && hasNoteChanged) {
+                lastCountedTunedNoteRef.current = targetKey;
+                lastPlayedReferenceNoteRef.current = null;
+                if (onUpdateQuestProgressRef.current) {
+                  onUpdateQuestProgressRef.current(1);
+                }
+              }
+            }
           }
 
           // Passive vocal range auto-expansion check
@@ -317,6 +348,7 @@ export function useAfinadorPitch({
           });
         } else {
           inTuneSinceRef.current = null;
+          inTuneNoteStartTimeRef.current = null;
           setCalentamientoProgress(0);
           if (currCentsOff < 0) {
             setTuningStatusMsg('Muy grueso ↑ Sube el tono');
@@ -357,6 +389,7 @@ export function useAfinadorPitch({
         setIsPitchMatched(false);
         setTuningStatusMsg('Escuchando voz...');
         inTuneSinceRef.current = null;
+        inTuneNoteStartTimeRef.current = null;
         setCalentamientoProgress(0);
       }
     });
@@ -443,6 +476,7 @@ export function useAfinadorPitch({
     toggleTuning,
     setGracePeriod,
     resetTugOfWar,
-    clearHistory
+    clearHistory,
+    registerPlayedNote
   };
 }

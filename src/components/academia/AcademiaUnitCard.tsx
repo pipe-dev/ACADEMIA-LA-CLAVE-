@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
 import { motion } from 'motion/react';
 import { Unit, LessonNode } from '../../types';
-import { Check, Wind, Lock, Trophy, Music, Mic, Sparkles, Drum, GraduationCap } from 'lucide-react';
+import { Check, Wind, Lock, Trophy, Music, Mic, Zap, Drum, GraduationCap } from 'lucide-react';
 import { audioService } from '../../utils/audioService';
 
 interface AcademiaUnitCardProps {
@@ -39,6 +39,7 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
     : unit.nodes.some((n) => n.status !== 'locked');
 
   const isUnit4 = unit.id === 4;
+  const certUnlocked = isUnitUnlocked;
   const certificationOffset = -15;
 
   const offsets = [0, 45, -45, 0, 45, -45, 0, 45, -45, 0, 45, -45, 0, 45, -45];
@@ -303,7 +304,7 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
                   ) : node.iconName === 'Drum' || node.iconName === 'Clock' || unit.id === 3 ? (
                     <Drum className="w-9 h-9 stroke-[2.5] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
                   ) : (
-                    <Sparkles className="w-9 h-9" />
+                    <Zap className="w-9 h-9" />
                   ))}
                 {isLocked && !isExam && <Lock className="w-7 h-7" />}
                 {isExam && <Trophy className="w-8 h-8 text-amber-800 dark:text-amber-300" />}
@@ -319,11 +320,10 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
             className="relative z-10 flex flex-col items-center mt-32 sm:mt-36"
             style={{ transform: `translateX(${certificationOffset}px)` }}
           >
-            {/* Glowing Pulse Aura */}
-            <div className="pulse-ring" />
-
             <motion.button
+              disabled={!certUnlocked}
               onClick={(e) => {
+                if (!certUnlocked) return;
                 audioService.playClickSound();
                 audioService.vibrate(20);
                 try {
@@ -339,31 +339,54 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
                 } catch {}
                 router.push('/certification');
               }}
-              whileHover={{ scale: 1.08, rotate: 2 }}
-              whileTap={{ scale: 0.94, y: 2 }}
+              whileHover={certUnlocked ? { scale: 1.05 } : undefined}
+              whileTap={certUnlocked ? { scale: 0.95, y: 2 } : undefined}
               transition={{ type: 'spring', stiffness: 700, damping: 14, mass: 0.5 }}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl sm:rounded-3xl transition-all relative overflow-hidden group cursor-pointer w-[96px] h-[92px] sm:w-[104px] sm:h-[100px] ${
-                zenMode
-                  ? 'bg-gradient-to-b from-[#f5d56b] via-[#e5b83b] to-[#9a7212] text-[#161719] shadow-[0px_8px_0px_0px_rgba(0,0,0,0.6),inset_0px_4px_6px_rgba(255,255,255,0.4)] border-2 border-[#fae188]'
-                  : 'bg-gradient-to-b from-[#ffe55c] via-[#f59e0b] to-[#92400e] text-white shadow-[0px_8px_0px_0px_rgba(100,45,10,1),0px_14px_20px_0px_rgba(245,158,11,0.5),inset_0px_4px_6px_rgba(255,255,255,0.8),inset_0px_-4px_6px_rgba(0,0,0,0.5)] border-2 border-amber-300 active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(100,45,10,1)]'
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl sm:rounded-3xl transition-all relative overflow-hidden group w-[96px] h-[92px] sm:w-[104px] sm:h-[100px] ${
+                certUnlocked
+                  ? zenMode
+                    ? 'bg-[#f5d56b] text-[#161719] border-2 border-[#fae188] shadow-[0px_4px_0px_0px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0px_1px_0px_0px_rgba(0,0,0,0.4)] cursor-pointer'
+                    : 'bg-gradient-to-b from-[#fcd34d] via-[#f59e0b] to-[#d97706] text-white border-2 border-amber-300/80 shadow-[0px_4px_0px_0px_#92400e] active:translate-y-1 active:shadow-[0px_1px_0px_0px_#92400e] cursor-pointer'
+                  : `cursor-not-allowed opacity-80 grayscale ${
+                      zenMode
+                        ? 'bg-[#1f2125] text-slate-500 border-2 border-[#2e3138] shadow-[0px_4px_0px_0px_rgba(0,0,0,0.4)]'
+                        : 'bg-[#dce9ff] dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-2 border-slate-300/50 shadow-[0px_4px_0px_0px_rgba(118,117,134,0.3)]'
+                    }`
               }`}
             >
-              {/* Glossy top bevel */}
-              <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent opacity-60 rounded-t-2xl sm:rounded-t-3xl h-1/2 pointer-events-none" />
-
-              {/* Icono de Birrete (Graduation Cap) */}
-              <GraduationCap className="w-8 h-8 sm:w-9 sm:h-9 text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] transition-transform group-hover:-translate-y-0.5 group-hover:rotate-6" />
+              {/* Icono: Birrete cuando está activo, candado cuando está bloqueado */}
+              {certUnlocked ? (
+                <GraduationCap className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-sm transition-transform group-hover:-translate-y-0.5 group-hover:rotate-6" />
+              ) : (
+                <Lock className="w-8 h-8 sm:w-9 sm:h-9 text-slate-400 dark:text-slate-500" />
+              )}
 
               {/* Cuadro label text: Examen Final */}
-              <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-950 font-heading leading-tight mt-1 text-center drop-shadow-[0_1px_0_rgba(255,255,255,0.4)]">
+              <span
+                className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider font-heading leading-tight mt-1 text-center ${
+                  certUnlocked
+                    ? 'text-white drop-shadow-sm'
+                    : 'text-slate-400 dark:text-slate-500'
+                }`}
+              >
                 Examen<br />Final
               </span>
             </motion.button>
 
             {/* Sub-label badge */}
-            <div className="mt-2.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400 shadow-sm flex items-center gap-1.5 backdrop-blur-sm">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-              <span>Certificación</span>
+            <div
+              className={`mt-2.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 backdrop-blur-sm border ${
+                certUnlocked
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                  : 'bg-slate-400/10 border-slate-400/30 text-slate-400 dark:text-slate-500'
+              }`}
+            >
+              {certUnlocked ? (
+                <GraduationCap className="w-3.5 h-3.5" />
+              ) : (
+                <Lock className="w-3.5 h-3.5" />
+              )}
+              <span>{certUnlocked ? 'Certificación' : 'Bloqueado'}</span>
             </div>
           </div>
         )}

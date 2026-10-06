@@ -37,16 +37,47 @@ export function updateGhostSimulation({
   onCrash,
   onScoreIncrement,
 }: UpdateGhostParams): { newWorldX: number | null } {
+  const rivalX = pX + 25;
+
   if (rivalAlive) {
     rival.wingT += dt;
     rival.vy += G(height) * dt;
     if (rival.vy > MAX_FALL(height)) rival.vy = MAX_FALL(height);
     rival.birdY += rival.vy * dt;
 
-    const nextPipe = obstacles.find((o) => o.type === 'bottom' && o.x + o.w > pX - 30);
+    // Limite superior del cielo
+    if (rival.birdY - BIRD_R(height) < -BIRD_R(height) * 0.5) {
+      rival.birdY = -BIRD_R(height) * 0.5 + BIRD_R(height);
+      rival.vy = 0;
+    }
+
+    // Suelo de proteccion: si toca el suelo, choca alli
+    if (rival.birdY + BIRD_R(height) >= fy) {
+      rival.birdY = fy - BIRD_R(height);
+      rival.vy = 0;
+      const winState: WinState = {
+        stage: 'shake',
+        t0: performance.now(),
+        sx: rivalX,
+        sy: rival.birdY,
+        ex: rivalX,
+        ey: fy,
+        x: rivalX,
+        scale: 1,
+        alpha: 1,
+        trophy: 0,
+        tx: 0,
+        tScale: 1,
+        facing: 1,
+      };
+      onCrash(rivalScore, winState);
+      return { newWorldX: rivalX };
+    }
+
+    const nextPipe = obstacles.find((o) => o.type === 'bottom' && o.x + o.w > rivalX - 30);
 
     if (nextPipe) {
-      const distToPipe = nextPipe.x - pX;
+      const distToPipe = nextPipe.x - rivalX;
       const topPipe = obstacles.find((o) => o.type === 'top' && Math.abs(o.x - nextPipe.x) < 5);
       const gapCenter = topPipe ? (nextPipe.gapY + topPipe.gapY) / 2 : nextPipe.gapY - height * 0.15;
 
@@ -59,16 +90,22 @@ export function updateGhostSimulation({
           }
         }
       } else {
-        // En el tubo de su record, deja de aletear y colisiona
-        if (distToPipe <= 40 && distToPipe >= -25) {
+        // En el tubo de su record: sigue volando hacia la boca del tubo y colisiona
+        if (distToPipe > 75) {
+          if (rival.birdY > gapCenter + 15 && rival.vy > -100) {
+            rival.vy = FLAP(height) * 0.92;
+            rival.lastFlap = now / 1000;
+            rival.rot = FLAP_ROT;
+          }
+        } else if (distToPipe <= 45 && distToPipe >= -35) {
           const winState: WinState = {
             stage: 'shake',
             t0: performance.now(),
-            sx: pX + 25,
+            sx: rivalX,
             sy: rival.birdY,
-            ex: pX + 25,
+            ex: rivalX,
             ey: fy,
-            x: pX + 25,
+            x: rivalX,
             scale: 1,
             alpha: 1,
             trophy: 0,
@@ -77,7 +114,7 @@ export function updateGhostSimulation({
             facing: 1,
           };
           onCrash(rivalScore, winState);
-          return { newWorldX: pX + 25 };
+          return { newWorldX: rivalX };
         }
       }
     } else {
@@ -92,7 +129,8 @@ export function updateGhostSimulation({
     rival.rot += (rivalTargetRot - rival.rot) * 0.15;
 
     obstacles.forEach((ob) => {
-      if (ob.type === 'bottom' && !ob.scored && ob.x + ob.w < pX) {
+      if (ob.type === 'bottom' && !ob.rivalScored && ob.x + ob.w < rivalX) {
+        ob.rivalScored = true;
         onScoreIncrement();
       }
     });
