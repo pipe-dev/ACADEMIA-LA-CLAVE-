@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,23 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [key, setKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const reason = params.get('reason');
+      if (reason === 'expired') {
+        setSessionNotice('Tu suscripcion mensual ha finalizado. Renueva tu membresia para continuar.');
+      } else if (reason === 'blocked') {
+        setSessionNotice('Tu cuenta ha sido suspendida. Por favor contacta a la academia.');
+      } else if (reason === 'ended') {
+        setSessionNotice('Tu sesion ha expirado. Por favor ingresa nuevamente.');
+      }
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +64,7 @@ export default function LoginPage() {
         duration: 3000,
       });
 
-      router.push('/clases');
+      router.push('/');
       router.refresh();
     } catch (err: any) {
       toast({
@@ -85,6 +100,11 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {sessionNotice && (
+              <div className="p-3 mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold text-center animate-in fade-in">
+                {sessionNotice}
+              </div>
+            )}
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">

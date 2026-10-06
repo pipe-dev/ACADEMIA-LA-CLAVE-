@@ -25,15 +25,17 @@ export function useSessionGuard() {
 
       if (!res.ok) {
         isKickingRef.current = true;
-        // Subscription ended, blocked, or invalid session
-        window.location.href = '/login';
+        const data = await res.json().catch(() => ({}));
+        const reason = data.reason === 'blocked' ? 'blocked' : (data.reason === 'expired' ? 'expired' : 'ended');
+        window.location.href = `/login?reason=${reason}`;
         return;
       }
 
       const data = await res.json();
       if (!data.authenticated || !data.user) {
         isKickingRef.current = true;
-        window.location.href = '/login';
+        const reason = data.reason === 'blocked' ? 'blocked' : (data.reason === 'expired' ? 'expired' : 'ended');
+        window.location.href = `/login?reason=${reason}`;
         return;
       }
 
