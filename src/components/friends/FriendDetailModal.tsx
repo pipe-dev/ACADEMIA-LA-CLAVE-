@@ -38,6 +38,12 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
   const duelsLost = friend.duelsLostAgainst ?? 0;
   const totalDuels = duelsWon + duelsLost;
 
+  const matchInterval = friend.vocalRange.match(/\((.*?)\)/);
+  const vocalInterval = matchInterval ? matchInterval[1] : '';
+  const vocalClassification = friend.vocalRange.includes('(')
+    ? friend.vocalRange.split('(')[0].trim()
+    : friend.vocalRange;
+
   return (
     <AnimatePresence>
       <div 
@@ -103,6 +109,12 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
             <p className={`text-xs font-semibold mt-1 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-400'}`}>
               Nivel {friend.level} &bull; {friend.levelTitle}
             </p>
+
+            {/* Rango vocal completo con su intervalo */}
+            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border border-slate-200/80 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200">
+              <Mic2 className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{friend.vocalRange}</span>
+            </div>
           </div>
 
           {/* Cuadricula de 3 Metricas Vocales */}
@@ -119,8 +131,10 @@ export const FriendDetailModal: React.FC<FriendDetailModalProps> = ({
               zenMode ? 'bg-[#22252a] border-[#2e3138]' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800'
             }`}>
               <Mic2 className={`w-4 h-4 mx-auto mb-1 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500'}`} />
-              <span className="block font-black text-[11px] truncate">{friend.vocalRange.split(' ')[0]}</span>
-              <span className="text-[9px] text-slate-400 font-semibold">Tesitura</span>
+              <span className="block font-black text-[11px] truncate">{vocalClassification}</span>
+              <span className="text-[9px] text-slate-400 font-semibold block truncate">
+                {vocalInterval || 'Tesitura'}
+              </span>
             </div>
 
             <div className={`p-2.5 rounded-2xl text-center border ${

@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { motion } from 'motion/react';
-import { Flame, CheckCircle2, Swords, Zap } from 'lucide-react';
+import { Flame, CheckCircle2, Swords, Zap, Mic2 } from 'lucide-react';
 import { FriendItem } from './friendsTypes';
 
 interface FriendCardItemProps {
@@ -23,6 +23,10 @@ export const FriendCardItem: React.FC<FriendCardItemProps> = ({
   onOpenDuel,
   onSendNudge
 }) => {
+  const vocalClassification = friend.vocalRange.includes('(')
+    ? friend.vocalRange.split('(')[0].trim()
+    : friend.vocalRange;
+
   return (
     <motion.div
       onClick={() => onSelectFriend(friend)}
@@ -33,7 +37,7 @@ export const FriendCardItem: React.FC<FriendCardItemProps> = ({
           : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200/70 dark:border-slate-800/80 active:border-indigo-400'
       }`}
     >
-      {/* Fila 1: Puesto, Avatar, Nombre + Nivel + Racha (Izquierda) | XP Semanal + Tesitura (Derecha) */}
+      {/* Fila 1: Puesto, Avatar, Nombre + Nivel + Racha (Izquierda) | XP Semanal (Derecha) */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           {/* Puesto */}
@@ -90,26 +94,24 @@ export const FriendCardItem: React.FC<FriendCardItemProps> = ({
           </div>
         </div>
 
-        {/* Puntuacion Semanal y Tesitura a la derecha */}
+        {/* Puntuacion Semanal a la derecha (sin rango debajo) */}
         <div className="text-right shrink-0">
           <span className={`font-heading font-black text-xs block ${
             zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-400'
           }`}>
             {friend.xpThisWeek.toLocaleString()} XP
           </span>
-          <span className="text-[9px] text-slate-400 font-medium block truncate max-w-[100px]">
-            {friend.vocalRange}
-          </span>
         </div>
       </div>
 
-      {/* Fila 2: Frase de estado a la izquierda | Botones tactiles Desafiar y Animar a la derecha */}
+      {/* Fila 2: Rango vocal a la izquierda | Botones tactiles Desafiar y Animar a la derecha */}
       <div className={`flex items-center justify-between pt-1.5 border-t text-[11px] ${
         zenMode ? 'border-[#2e3138]' : 'border-slate-200/60 dark:border-slate-800/60'
       }`}>
-        <span className="text-[10px] text-slate-400 font-normal truncate italic max-w-[130px] sm:max-w-[180px]">
-          {friend.statusText}
-        </span>
+        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-semibold truncate max-w-[130px] sm:max-w-[170px]">
+          <Mic2 className="w-3 h-3 text-slate-400 shrink-0" />
+          <span className="truncate">{vocalClassification}</span>
+        </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Boton Desafiar */}
