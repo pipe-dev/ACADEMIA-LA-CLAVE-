@@ -1,0 +1,7 @@
+name = "afinapp"
+compatibility_date = "2026-03-01"
+
+[[d1_databases]]
+binding = "AFINAPP_DB"
+database_name = "afinapp-db"
+database_id = "YOUR_CLOUDFLARE_D1_DATABASE_ID"

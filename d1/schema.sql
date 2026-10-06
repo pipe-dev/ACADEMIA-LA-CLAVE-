@@ -58,3 +58,34 @@ CREATE TABLE IF NOT EXISTS duel_rooms (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rooms_status ON duel_rooms(status);
+
+-- Tabla de Usuarios y Licencias de Suscripcion
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  access_key TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active', -- 'active' | 'blocked' | 'expired'
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  notes TEXT DEFAULT '',
+  role TEXT NOT NULL DEFAULT 'student', -- 'student' | 'admin'
+  last_login_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_access_key ON users(access_key);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+
+-- Tabla de Sincronizacion de Progreso de Usuarios
+CREATE TABLE IF NOT EXISTS user_progress (
+  user_id TEXT PRIMARY KEY,
+  user_email TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0,
+  level INTEGER NOT NULL DEFAULT 1,
+  streak INTEGER NOT NULL DEFAULT 0,
+  progress_data TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_progress_email ON user_progress(user_email);

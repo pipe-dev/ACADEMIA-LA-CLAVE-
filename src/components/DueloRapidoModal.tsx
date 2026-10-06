@@ -39,6 +39,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
     p2TimeLeft,
     p2InTuneSeconds,
     p2CurrentPitch,
+    p2PitchDiff,
     p2Score,
     p1Won,
     p2pRoomId,
@@ -213,7 +214,10 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
           p1InTuneSeconds={p1InTuneSeconds}
           p2TimeLeft={p2TimeLeft}
           p2CurrentPitch={p2CurrentPitch}
+          p2PitchDiff={p2PitchDiff}
           p2InTuneSeconds={p2InTuneSeconds}
+          p1Score={p1Score}
+          p2Score={p2Score}
           onStartLocalP2Turn={startLocalPlayer2Turn}
         />
       )}
