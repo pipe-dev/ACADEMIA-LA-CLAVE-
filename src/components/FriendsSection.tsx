@@ -14,6 +14,7 @@ import { MyFriendCodeCard } from './friends/MyFriendCodeCard';
 import { AddFriendForm } from './friends/AddFriendForm';
 import { FriendsRankingList } from './friends/FriendsRankingList';
 import { FriendDetailModal } from './friends/FriendDetailModal';
+import { friendsSyncService } from '../utils/friendsSyncService';
 
 export type { FriendItem } from './friends/friendsTypes';
 
@@ -49,6 +50,22 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
   const [isDuelModalOpen, setIsDuelModalOpen] = useState<boolean>(false);
   const [selectedDuelOpponent, setSelectedDuelOpponent] = useState<FriendItem | null>(null);
   const [selectedFriendForDetail, setSelectedFriendForDetail] = useState<FriendItem | null>(null);
+
+  // Background sync: perfil propio y clasificacion en Cloudflare D1
+  useEffect(() => {
+    friendsSyncService.syncMyProfile({
+      code: myCode,
+      name: 'Tú',
+      level: userLevel,
+      xpThisWeek: userXp
+    });
+
+    friendsSyncService.fetchFriendsRanking(friends).then((refreshed) => {
+      if (refreshed && refreshed.length > 0) {
+        setFriends(refreshed);
+      }
+    });
+  }, [myCode, userLevel, userXp]);
 
   const handleOpenDuel = (friend?: FriendItem) => {
     audioService.playOpenSound();
@@ -98,7 +115,7 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
     setTimeout(() => setFeedbackMsg(null), 3000);
   };
 
-  const handleAddFriendByCode = (e: React.FormEvent) => {
+  const handleAddFriendByCode = async (e: React.FormEvent) => {
     e.preventDefault();
     audioService.playClickSound();
 
@@ -122,7 +139,11 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
 
     let friendToAdd: FriendItem;
 
-    if (DEMO_FRIEND_DIRECTORY[formattedCode]) {
+    // 1. Intentar buscar en Cloudflare D1
+    const searchRes = await friendsSyncService.searchFriendByCode(formattedCode);
+    if (searchRes.found && searchRes.singer) {
+      friendToAdd = searchRes.singer;
+    } else if (DEMO_FRIEND_DIRECTORY[formattedCode]) {
       const demo = DEMO_FRIEND_DIRECTORY[formattedCode];
       friendToAdd = {
         ...demo,
