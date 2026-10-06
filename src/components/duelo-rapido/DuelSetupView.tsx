@@ -76,7 +76,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
             }`}
           >
             <Activity className="w-4 h-4 text-blue-500" />
-            <span className="font-heading font-black text-xs text-center">Ritmo 3D</span>
+            <span className="font-heading font-black text-xs text-center">Ritmo</span>
             <span className="text-[9px] text-slate-400 font-normal text-center">Bombo y Palmas</span>
           </button>
 
@@ -159,10 +159,10 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
         <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 space-y-2">
           <div className="flex items-center gap-2 text-xs font-heading font-black text-blue-800 dark:text-blue-300">
             <Activity className="w-4 h-4 text-blue-600" />
-            <span>Desafio de Compas con Esfera 3D:</span>
+            <span>Desafio de Ritmo por Rondas:</span>
           </div>
           <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-            Sigue el compas tocando Bombo y Palmas en el instante preciso mientras la esfera 3D salta. Gana quien logre mayor porcentaje de precision y el mejor combo (Record de {selectedOpponentName}: {opponentRhythmRecord}% de precision).
+            Sigue el ritmo tocando Bombo y Palmas en 4 rondas consecutivas de velocidad creciente (100 a 170 BPM). Gana quien logre mayor promedio acumulado de precision (Record de {selectedOpponentName}: {opponentRhythmRecord}% de precision).
           </p>
         </div>
       ) : duelType === 'sky_run_duel' ? (

@@ -1,5 +1,5 @@
 // src/components/rhythm/RhythmSphereDuelArena.tsx
-// Arena de Duelo de Ritmo con Esfera 3D (< 300 lineas)
+// Arena de Duelo de Ritmo con Esfera 3D - 4 Rondas Consecutivas (< 300 lineas)
 
 'use client';
 
@@ -8,23 +8,106 @@ import { RhythmStageArena } from './RhythmStageArena';
 import { RhythmTriggers } from './RhythmTriggers';
 import { RhythmSphereDuelHud } from './RhythmSphereDuelHud';
 import { useRhythmEngine } from './useRhythmEngine';
-import { RhythmPatternItem } from './rhythmTypes';
+import { RhythmPhase } from './rhythmTypes';
+import { rhythmPatterns } from '../../data/tunerLevelsData';
 import { p2pDuelService } from '../../utils/p2pDuelService';
+import { audioService } from '../../utils/audioService';
 
-const DUEL_BPM = 120;
+export interface DuelRhythmRoundConfig {
+  roundNumber: number;
+  levelNumber: number;
+  bpm: number;
+  name: string;
+}
 
-// Patron de 2 compases energetico de 120 BPM (9 toques)
-const DUEL_PATTERN: RhythmPatternItem[] = [
-  { time: 0, instrument: 'kick' },
-  { time: 500, instrument: 'clap' },
-  { time: 1000, instrument: 'kick' },
-  { time: 1250, instrument: 'kick' },
-  { time: 1500, instrument: 'clap' },
-  { time: 2000, instrument: 'kick' },
-  { time: 2500, instrument: 'clap' },
-  { time: 3000, instrument: 'kick' },
-  { time: 3500, instrument: 'clap' },
+// 4 Rondas consecutivas de dificultad creciente (100 a 170 BPM)
+export const DUEL_RHYTHM_ROUNDS: DuelRhythmRoundConfig[] = [
+  { roundNumber: 1, levelNumber: 9, bpm: 100, name: 'Pulso Base' },
+  { roundNumber: 2, levelNumber: 11, bpm: 120, name: 'Compas 4/4' },
+  { roundNumber: 3, levelNumber: 13, bpm: 140, name: 'Rock Groove' },
+  { roundNumber: 4, levelNumber: 16, bpm: 170, name: 'Funk Sincopado' },
 ];
+
+interface RhythmRoundRunnerProps {
+  roundConfig: DuelRhythmRoundConfig;
+  autoStart: boolean;
+  onRoundComplete: (score: number) => void;
+  onLiveUpdate: (score: number, combo: number, phase: RhythmPhase) => void;
+  onTapInstrument?: (instrument: 'kick' | 'clap', score: number, combo: number) => void;
+}
+
+const RhythmRoundRunner: React.FC<RhythmRoundRunnerProps> = ({
+  roundConfig,
+  autoStart,
+  onRoundComplete,
+  onLiveUpdate,
+  onTapInstrument,
+}) => {
+  const lastScoreRef = useRef<number>(0);
+  const pattern = rhythmPatterns[roundConfig.levelNumber] || [
+    { time: 0, instrument: 'kick' },
+    { time: 500, instrument: 'clap' },
+    { time: 1000, instrument: 'kick' },
+    { time: 1500, instrument: 'clap' },
+  ];
+
+  const {
+    phase,
+    score,
+    floatingTexts,
+    combo,
+    countInNumber,
+    ballControls,
+    handleTap,
+    startExercise,
+  } = useRhythmEngine({
+    pattern,
+    bpm: roundConfig.bpm,
+    onSuccess: (finalScore) => {
+      lastScoreRef.current = finalScore;
+      onRoundComplete(finalScore);
+    },
+    onFail: (finalScore) => {
+      const s = finalScore ?? lastScoreRef.current;
+      onRoundComplete(s);
+    },
+    autoStart,
+  });
+
+  useEffect(() => {
+    onLiveUpdate(score, combo, phase);
+  }, [score, combo, phase, onLiveUpdate]);
+
+  const handleTriggerTap = useCallback(
+    (instrument: 'kick' | 'clap') => {
+      handleTap(instrument);
+      if (onTapInstrument) {
+        onTapInstrument(instrument, score, combo);
+      }
+    },
+    [handleTap, onTapInstrument, score, combo]
+  );
+
+  return (
+    <>
+      <RhythmStageArena
+        phase={phase}
+        countInNumber={countInNumber}
+        score={score}
+        ballControls={ballControls}
+        floatingTexts={floatingTexts}
+        combo={combo}
+      />
+      <div className="mt-3">
+        <RhythmTriggers
+          phase={phase}
+          onTap={handleTriggerTap}
+          onRetry={startExercise}
+        />
+      </div>
+    </>
+  );
+};
 
 interface RhythmSphereDuelArenaProps {
   opponentName: string;
@@ -41,8 +124,15 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
   onFinishDuel,
   onExit,
 }) => {
-  const [arenaPhase, setArenaPhase] = useState<'ready' | 'playing' | 'results'>('ready');
-  const [opponentAccuracy, setOpponentAccuracy] = useState<number>(0);
+  const [arenaPhase, setArenaPhase] = useState<'ready' | 'playing' | 'round_transition'>('ready');
+  const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(0);
+  const [roundScores, setRoundScores] = useState<number[]>([]);
+  const [liveScore, setLiveScore] = useState<number>(0);
+  const [liveCombo, setLiveCombo] = useState<number>(0);
+  const [liveEnginePhase, setLiveEnginePhase] = useState<RhythmPhase>('guide');
+
+  const [p1Accuracy, setP1Accuracy] = useState<number>(0);
+  const [opponentAccuracy, setOpponentAccuracy] = useState<number>(mode === 'ghost_async' ? opponentTargetAccuracy : 0);
   const [opponentCombo, setOpponentCombo] = useState<number>(0);
   const [bannerNotice, setBannerNotice] = useState<string | null>(null);
 
@@ -50,80 +140,91 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
   const [localTurn, setLocalTurn] = useState<1 | 2>(1);
   const [p1LocalAccuracy, setP1LocalAccuracy] = useState<number>(0);
   const [p1LocalCombo, setP1LocalCombo] = useState<number>(0);
+  const [p2Accuracy, setP2Accuracy] = useState<number>(0);
   const [showLocalTransitionOverlay, setShowLocalTransitionOverlay] = useState<boolean>(false);
   const [showMatchOverOverlay, setShowMatchOverOverlay] = useState<boolean>(false);
 
   const localTurnRef = useRef<1 | 2>(1);
+  const roundIndexRef = useRef<number>(0);
+  const roundScoresRef = useRef<number[]>([]);
   const p1LocalAccuracyRef = useRef<number>(0);
   const p1LocalComboRef = useRef<number>(0);
-  const lastScoreRef = useRef<number>(0);
 
-  const handleRoundFinished = useCallback(
-    (finalScoreVal: number) => {
-      lastScoreRef.current = finalScoreVal;
+  const handleLiveUpdate = useCallback((scoreVal: number, comboVal: number, phaseVal: RhythmPhase) => {
+    setLiveScore(scoreVal);
+    setLiveCombo(comboVal);
+    setLiveEnginePhase(phaseVal);
+  }, []);
+
+  // Guardar maximo combo en local turn 1
+  useEffect(() => {
+    if (liveCombo > (localTurnRef.current === 1 ? p1LocalComboRef.current : 0)) {
+      if (localTurnRef.current === 1) {
+        p1LocalComboRef.current = liveCombo;
+        setP1LocalCombo(liveCombo);
+      }
+    }
+  }, [liveCombo]);
+
+  const handleRoundComplete = useCallback((roundScoreVal: number) => {
+    const updatedScores = [...roundScoresRef.current, roundScoreVal];
+    roundScoresRef.current = updatedScores;
+    setRoundScores(updatedScores);
+
+    if (roundIndexRef.current < DUEL_RHYTHM_ROUNDS.length - 1) {
+      const nextIdx = roundIndexRef.current + 1;
+      const nextRound = DUEL_RHYTHM_ROUNDS[nextIdx];
+      setArenaPhase('round_transition');
+      setBannerNotice(`¡Ronda ${roundIndexRef.current + 1} completada: ${roundScoreVal}%! Siguiente: ${nextRound.bpm} BPM`);
+      audioService.playSuccessBellSound();
+
+      setTimeout(() => {
+        roundIndexRef.current = nextIdx;
+        setCurrentRoundIndex(nextIdx);
+        setBannerNotice(null);
+        setArenaPhase('playing');
+      }, 1400);
+    } else {
+      const overall = Math.round(updatedScores.reduce((acc, curr) => acc + curr, 0) / updatedScores.length);
+      audioService.playBadgeUnlockedSound();
 
       if (mode === 'local' && localTurnRef.current === 1) {
-        p1LocalAccuracyRef.current = finalScoreVal;
-        setP1LocalAccuracy(finalScoreVal);
+        p1LocalAccuracyRef.current = overall;
+        setP1LocalAccuracy(overall);
+        setBannerNotice(`¡Turno 1 completado con ${overall}% promedio!`);
         setTimeout(() => {
           setShowLocalTransitionOverlay(true);
         }, 750);
-        return;
-      }
-
-      if (mode === 'ghost_async') {
-        setOpponentAccuracy(opponentTargetAccuracy);
-      }
-
-      setTimeout(() => {
-        setShowMatchOverOverlay(true);
-      }, 750);
-    },
-    [mode, opponentTargetAccuracy]
-  );
-
-  const {
-    phase: enginePhase,
-    score,
-    floatingTexts,
-    combo,
-    countInNumber,
-    ballControls,
-    handleTap,
-    startExercise,
-  } = useRhythmEngine({
-    pattern: DUEL_PATTERN,
-    bpm: DUEL_BPM,
-    onSuccess: (finalScore) => handleRoundFinished(finalScore),
-    onFail: (finalScore) => handleRoundFinished(finalScore ?? lastScoreRef.current),
-    autoStart: false,
-  });
-
-  // Guardar maximo combo
-  useEffect(() => {
-    if (combo > (localTurnRef.current === 1 ? p1LocalComboRef.current : 0)) {
-      if (localTurnRef.current === 1) {
-        p1LocalComboRef.current = combo;
-        setP1LocalCombo(combo);
+      } else {
+        if (mode === 'local') {
+          setP2Accuracy(overall);
+        } else {
+          setP1Accuracy(overall);
+        }
+        if (mode === 'ghost_async') {
+          setOpponentAccuracy(opponentTargetAccuracy);
+        }
+        setTimeout(() => {
+          setShowMatchOverOverlay(true);
+        }, 750);
       }
     }
-  }, [combo]);
+  }, [mode, opponentTargetAccuracy]);
 
   // Transmision P2P WebRTC
-  const handleDuelTap = useCallback(
-    (instrument: 'kick' | 'clap') => {
-      handleTap(instrument);
+  const handleTapInstrument = useCallback(
+    (instrument: 'kick' | 'clap', scoreVal: number, comboVal: number) => {
       if (mode === 'realtime_p2p') {
         p2pDuelService.sendPacket({
           type: 'rhythm_pattern',
-          score,
-          combo,
+          score: scoreVal,
+          combo: comboVal,
           tapsCount: 1,
-          precision: score,
+          precision: scoreVal,
         });
       }
     },
-    [handleTap, mode, score, combo]
+    [mode]
   );
 
   useEffect(() => {
@@ -145,54 +246,80 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
     setArenaPhase('playing');
     setShowMatchOverOverlay(false);
     setShowLocalTransitionOverlay(false);
-    startExercise();
-  }, [startExercise]);
+    setBannerNotice(null);
+  }, []);
 
   const handleStartLocalTurn2 = useCallback(() => {
     localTurnRef.current = 2;
     setLocalTurn(2);
-    setOpponentAccuracy(p1LocalAccuracyRef.current);
+    roundIndexRef.current = 0;
+    setCurrentRoundIndex(0);
+    roundScoresRef.current = [];
+    setRoundScores([]);
+    setLiveScore(0);
+    setLiveCombo(0);
+    setBannerNotice(null);
     setShowLocalTransitionOverlay(false);
+    setOpponentAccuracy(p1LocalAccuracyRef.current);
     setArenaPhase('ready');
   }, []);
 
   // Comparaciones en vivo para banner
   useEffect(() => {
-    if (enginePhase === 'playing') {
+    if (arenaPhase === 'playing') {
       if (mode === 'local' && localTurnRef.current === 2) {
-        const diff = score - p1LocalAccuracyRef.current;
+        const diff = liveScore - p1LocalAccuracyRef.current;
         if (diff > 5) setBannerNotice(`¡Superando a J1 por +${diff}%!`);
         else if (diff < -5) setBannerNotice(`J1 lidera por ${Math.abs(diff)}%`);
       } else if (mode === 'ghost_async') {
-        const diff = score - opponentTargetAccuracy;
+        const diff = liveScore - opponentTargetAccuracy;
         if (diff > 5) setBannerNotice(`¡Superando a ${opponentName}!`);
       }
     }
-  }, [enginePhase, mode, score, opponentTargetAccuracy, opponentName]);
+  }, [arenaPhase, mode, liveScore, opponentTargetAccuracy, opponentName]);
 
-  const finalPlayerScore = mode === 'local' ? p1LocalAccuracy : score;
-  const finalOpponentScore = mode === 'local' ? score : opponentAccuracy;
-  const p1Won = mode === 'local' ? p1LocalAccuracy > score : score > opponentAccuracy;
-  const isTie = mode === 'local' ? p1LocalAccuracy === score : score === opponentAccuracy;
+  const finalPlayerScore = mode === 'local' ? p1LocalAccuracy : p1Accuracy;
+  const finalOpponentScore = mode === 'local' ? p2Accuracy : (mode === 'ghost_async' ? opponentTargetAccuracy : opponentAccuracy);
+  const p1Won = mode === 'local' ? p1LocalAccuracy > p2Accuracy : finalPlayerScore > finalOpponentScore;
+  const isTie = mode === 'local' ? p1LocalAccuracy === p2Accuracy : finalPlayerScore === finalOpponentScore;
 
   const handleFinish = () => {
     onFinishDuel(finalPlayerScore, finalOpponentScore, p1Won);
   };
 
-  const displayPhase = arenaPhase === 'ready' ? 'ready' : enginePhase;
+  const currentRoundConfig = DUEL_RHYTHM_ROUNDS[currentRoundIndex] || DUEL_RHYTHM_ROUNDS[0];
+
+  const displayPhase: 'ready' | 'guide' | 'playing' | 'round_transition' | 'results' =
+    showMatchOverOverlay
+      ? 'results'
+      : arenaPhase === 'ready'
+      ? 'ready'
+      : arenaPhase === 'round_transition'
+      ? 'round_transition'
+      : (liveEnginePhase as any);
+
+  const displayedAccuracy =
+    arenaPhase === 'round_transition'
+      ? roundScores[roundScores.length - 1] ?? liveScore
+      : showMatchOverOverlay
+      ? (mode === 'local' ? p2Accuracy : p1Accuracy)
+      : liveScore;
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 select-none bg-gradient-to-b from-[#0a1128] via-[#0c1836] to-[#080d1e] text-white overflow-hidden">
       <div className="w-full max-w-md bg-[#102034]/95 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl relative">
         <RhythmSphereDuelHud
           phase={displayPhase}
-          playerAccuracy={score}
-          playerCombo={combo}
+          playerAccuracy={displayedAccuracy}
+          playerCombo={liveCombo}
           opponentAccuracy={mode === 'local' && localTurn === 2 ? p1LocalAccuracy : opponentAccuracy}
           opponentCombo={opponentCombo}
           opponentName={opponentName}
           opponentTargetAccuracy={mode === 'local' ? p1LocalAccuracy : opponentTargetAccuracy}
-          bpm={DUEL_BPM}
+          bpm={currentRoundConfig.bpm}
+          currentRound={currentRoundIndex + 1}
+          totalRounds={DUEL_RHYTHM_ROUNDS.length}
+          roundScores={roundScores}
           bannerNotice={bannerNotice}
           mode={mode}
           localTurn={localTurn}
@@ -208,24 +335,15 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
           onFinishDuel={handleFinish}
         />
 
-        {/* Escenario de Salto de la Esfera 3D */}
-        <RhythmStageArena
-          phase={enginePhase}
-          countInNumber={countInNumber}
-          score={score}
-          ballControls={ballControls}
-          floatingTexts={floatingTexts}
-          combo={combo}
+        {/* Runner de la ronda activa con reinicio limpio por clave */}
+        <RhythmRoundRunner
+          key={`round-runner-${localTurn}-${currentRoundIndex}`}
+          roundConfig={currentRoundConfig}
+          autoStart={arenaPhase === 'playing'}
+          onRoundComplete={handleRoundComplete}
+          onLiveUpdate={handleLiveUpdate}
+          onTapInstrument={handleTapInstrument}
         />
-
-        {/* Botones Tactiles de Bombo y Palmas */}
-        <div className="mt-3">
-          <RhythmTriggers
-            phase={enginePhase}
-            onTap={handleDuelTap}
-            onRetry={handleStartGame}
-          />
-        </div>
       </div>
     </div>
   );

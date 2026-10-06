@@ -1,13 +1,13 @@
 // src/components/rhythm/RhythmSphereDuelHud.tsx
-// Overlays y HUD de duelo para Ritmo con Esfera 3D (< 290 lineas)
+// Overlays y HUD de duelo para Ritmo con Esfera 3D (< 310 lineas)
 
 'use client';
 
 import React from 'react';
-import { Award, ShieldAlert, Activity, Zap, Timer, Flame, Smartphone, Users } from 'lucide-react';
+import { Award, ShieldAlert, Activity, Zap, Flame, Smartphone, Users } from 'lucide-react';
 
 interface RhythmSphereDuelHudProps {
-  phase: 'ready' | 'guide' | 'playing' | 'results';
+  phase: 'ready' | 'guide' | 'playing' | 'round_transition' | 'results';
   playerAccuracy: number;
   playerCombo: number;
   opponentAccuracy: number;
@@ -15,6 +15,9 @@ interface RhythmSphereDuelHudProps {
   opponentName: string;
   opponentTargetAccuracy: number;
   bpm: number;
+  currentRound: number;
+  totalRounds: number;
+  roundScores?: number[];
   bannerNotice: string | null;
   mode: 'ghost_async' | 'realtime_p2p' | 'local';
   localTurn?: 1 | 2;
@@ -39,6 +42,9 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
   opponentName,
   opponentTargetAccuracy,
   bpm,
+  currentRound,
+  totalRounds,
+  roundScores = [],
   bannerNotice,
   mode,
   localTurn = 1,
@@ -84,10 +90,10 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
           </div>
         </div>
 
-        {/* Badge Central: BPM y Modo */}
+        {/* Badge Central: Ronda, BPM y Modo */}
         <div className="bg-white/90 dark:bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700/80 text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-md">
           {isLocal ? <Smartphone className="w-3.5 h-3.5 text-blue-500" /> : <Activity className="w-3.5 h-3.5 text-blue-500" />}
-          <span>{isLocal ? `Pasa Celular • T${localTurn}` : `${bpm} BPM`}</span>
+          <span>{`Ronda ${currentRound}/${totalRounds} • ${bpm} BPM`}</span>
         </div>
 
         {/* Rival / Jugador Esperando */}
@@ -113,8 +119,32 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
         </div>
       </div>
 
-      {/* Banner de Ventaja / Noticia */}
-      {bannerNotice && (phase === 'playing' || phase === 'guide') && (
+      {/* Indicador de Rondas Completadas */}
+      {roundScores.length > 0 && phase !== 'ready' && (
+        <div className="flex items-center justify-center gap-2 mb-2 pointer-events-none">
+          {Array.from({ length: totalRounds }).map((_, idx) => {
+            const scoreVal = roundScores[idx];
+            const isCurrent = idx === currentRound - 1;
+            return (
+              <div
+                key={idx}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all ${
+                  scoreVal !== undefined
+                    ? 'bg-blue-600/30 border-blue-500 text-blue-300'
+                    : isCurrent
+                    ? 'bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse'
+                    : 'bg-slate-800/50 border-slate-700 text-slate-500'
+                }`}
+              >
+                R{idx + 1}: {scoreVal !== undefined ? `${scoreVal}%` : isCurrent ? 'Activa' : '...'}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Banner de Noticia / Transicion de Ronda */}
+      {bannerNotice && (phase === 'playing' || phase === 'guide' || phase === 'round_transition') && (
         <div className="text-center mb-2 pointer-events-none">
           <span className="inline-block animate-bounce bg-blue-950/90 border border-blue-400 text-blue-200 text-xs font-heading font-black px-4 py-1.5 rounded-full shadow-lg">
             {bannerNotice}
@@ -132,26 +162,26 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
 
             <div>
               <h3 className="font-heading font-black text-xl text-white">
-                {isLocal ? `Turno ${localTurn}: ${leftLabel}` : 'Duelo de Ritmo Esfera 3D'}
+                {isLocal ? `Turno ${localTurn}: ${leftLabel}` : 'Duelo de Ritmo'}
               </h3>
               <p className="text-xs text-slate-300 mt-1">
                 {isLocal
                   ? localTurn === 1
-                    ? `Sigue el compas tocando Bombo y Palmas. Al terminar, le pasaras el celular a ${opponentName}.`
-                    : `Tienes el mismo compas para superar el ${p1LocalAccuracy}% de precision de Jugador 1.`
+                    ? `Supera las ${totalRounds} rondas consecutivas de dificultad creciente (100 a 170 BPM). Al terminar, le pasaras el celular a ${opponentName}.`
+                    : `Supera las ${totalRounds} rondas consecutivas intentando batir el ${p1LocalAccuracy}% de precision de Jugador 1.`
                   : mode === 'ghost_async'
-                  ? `Compite contra el record de ${opponentName} (${opponentTargetAccuracy}% de precision). Gana quien tenga mejor tiempo y combo.`
-                  : `Compite en vivo y simultaneo contra ${opponentName} a ${bpm} BPM.`}
+                  ? `Compite contra el record de ${opponentName} (${opponentTargetAccuracy}% de precision) en ${totalRounds} niveles continuos.`
+                  : `Compite en vivo contra ${opponentName} en ${totalRounds} niveles continuos de ritmo.`}
               </p>
             </div>
 
             <div className="p-3 rounded-2xl bg-slate-800/80 text-left text-xs text-slate-300 space-y-1">
               <div className="font-bold text-amber-400 flex items-center gap-1.5">
                 <Zap className="w-4 h-4" />
-                <span>Como Jugar:</span>
+                <span>Evaluacion por Rondas:</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Escucha el conteo de 4 pulsos. Luego toca BOMBO o PALMAS exactamente cuando la esfera salte al suelo del compas.
+                Cada nivel aumenta la velocidad. La precision final es el promedio acumulado de todas las rondas.
               </p>
             </div>
 
@@ -174,7 +204,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
                 }}
                 className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 text-white font-heading font-black text-xs shadow-md cursor-pointer"
               >
-                {isLocal ? `Comenzar Turno ${localTurn}` : 'Comenzar Duelo de Ritmo'}
+                {isLocal ? `Comenzar Turno ${localTurn}` : 'Comenzar Duelo'}
               </button>
             </div>
           </div>
@@ -191,20 +221,20 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
 
             <div>
               <span className="text-[10px] uppercase font-extrabold tracking-widest text-blue-400">
-                Turno 1 Finalizado
+                Turno 1 Finalizado ({totalRounds} Rondas)
               </span>
               <h3 className="font-heading font-black text-2xl text-white mt-1">
                 Pasa el celular a {opponentName}
               </h3>
               <p className="text-xs text-slate-300 mt-2">
-                Jugador 1 logro <span className="text-blue-400 font-bold">{p1LocalAccuracy}% de precision</span> (Combo x{p1LocalCombo}). Ahora Jugador 2 debe intentar superarlo.
+                Jugador 1 promedio <span className="text-blue-400 font-bold">{p1LocalAccuracy}% de precision</span> (Combo max x{p1LocalCombo}). Ahora Jugador 2 debe intentar superarlo.
               </p>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-center">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Marca a batir</div>
+              <div className="text-[10px] uppercase font-bold text-slate-400">Precision promedio a batir</div>
               <div className="font-heading font-black text-3xl text-blue-400 mt-0.5">
-                {p1LocalAccuracy}% <span className="text-sm font-bold text-slate-300">precision</span>
+                {p1LocalAccuracy}% <span className="text-sm font-bold text-slate-300">promedio</span>
               </div>
             </div>
 
@@ -244,7 +274,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
 
             <div>
               <span className="text-[10px] uppercase font-extrabold tracking-widest text-slate-400">
-                Resultado del Duelo de Ritmo
+                Resultado de las {totalRounds} Rondas
               </span>
               <h3 className="font-heading font-black text-2xl text-white mt-0.5">
                 {isLocal
@@ -262,15 +292,15 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
               <p className="text-xs text-slate-300 mt-1">
                 {isLocal
                   ? p1Won
-                    ? 'Jugador 1 tuvo mayor precision con la esfera 3D (+50 XP)'
+                    ? 'Jugador 1 tuvo mayor precision promedio (+50 XP)'
                     : isTie
-                    ? 'Ambos jugadores clavaron exactamente el mismo compas (+35 XP)'
+                    ? 'Ambos jugadores promediaron exactamente la misma precision (+35 XP)'
                     : `${opponentName} supero la marca en este celular (+50 XP)`
                   : p1Won
-                  ? `Superaste el ritmo de ${opponentName} (+50 XP)`
+                  ? `Superaste el ritmo de ${opponentName} en todas las rondas (+50 XP)`
                   : isTie
                   ? `Ambos empataron con ${playerAccuracy}% de precision (+35 XP)`
-                  : `${opponentName} tuvo mejor precision en este compas (+20 XP por practica)`}
+                  : `${opponentName} tuvo mejor precision en estas rondas (+20 XP por practica)`}
               </p>
             </div>
 

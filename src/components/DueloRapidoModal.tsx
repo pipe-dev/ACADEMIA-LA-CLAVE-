@@ -150,7 +150,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
               : duelType === 'rhythm_duel'
               ? 'Duelo de Tambor (Unit 3)'
               : duelType === 'rhythm_sphere_duel'
-              ? 'Ritmo Esfera 3D'
+              ? 'Ritmo'
               : 'Duelo Rapido Vocal'}
           </h3>
           <p className="text-xs text-slate-400 font-medium">
@@ -159,7 +159,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
               : duelType === 'rhythm_duel'
               ? 'Corta la mayor cantidad de esferas rebotando en el tambor en 1 minuto'
               : duelType === 'rhythm_sphere_duel'
-              ? 'Toca Bombo y Palmas en el compas preciso siguiendo la esfera 3D'
+              ? 'Toca Bombo y Palmas en 4 niveles continuos de velocidad creciente'
               : 'Compara estabilidad y precision afinando la misma nota'}
           </p>
         </div>

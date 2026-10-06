@@ -372,7 +372,7 @@ export function useDuelEngine({
     friendsSyncService.recordDuelResult({
       challengerCode: myCode,
       opponentCode: opponent ? opponent.code : 'GHOST_RIVAL',
-      targetNote: 'Ritmo Esfera 3D',
+      targetNote: 'Ritmo',
       challengerScore: playerScoreVal,
       opponentScore: opponentScoreVal,
       winnerCode: won ? myCode : (isTie ? 'TIE' : (opponent ? opponent.code : 'GHOST_RIVAL')),
