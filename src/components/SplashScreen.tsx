@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lightbulb, DownloadCloud, CheckCircle2, User, Camera, ArrowRight, Mic } from 'lucide-react';
 import { cacheAllContentLocally, registerServiceWorker } from '../utils/offlineSync';
+import { SONGS_DATABASE } from '../data/academyData';
 import { DEFAULT_VOCAL_AVATARS } from './friends/friendsTypes';
 import { UserStats } from '../types';
 
@@ -20,7 +21,7 @@ export const VOCAL_TIPS = [
 export function getPersonalizedVocalTip(name: string): { title: string; text: string } {
   return {
     title: `Preparando tu voz, ${name}`,
-    text: `${name}, recuerda que el aire es el combustible de tu voz. Antes de emitir cualquier nota, expande tus costillas inferiores, relaja la mandíbula y permite que tu respiración fluya sin tensión.`
+    text: `${name}, recuerda que el aire es el combustible de tu voz. Antes de cantar cualquier nota, expande tus costillas inferiores, relaja la mandíbula y deja que tu respiración fluya sin tensión.`
   };
 }
 
@@ -38,7 +39,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   onUpdateStats,
 }) => {
   const [progress, setProgress] = useState(0);
-  const [loadingText, setLoadingText] = useState('Iniciando recursos de la aplicación (0%)...');
+  const [loadingText, setLoadingText] = useState('Iniciando descarga PWA...');
   const [isFullyDownloaded, setIsFullyDownloaded] = useState(false);
   const [phase, setPhase] = useState<SplashPhase>('loading_to_85');
 
@@ -87,9 +88,28 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   // Background preload execution
   useEffect(() => {
     let isCancelled = false;
-    const runBackgroundPreload = async () => {
+    const runFullPwaPreload = async () => {
       registerServiceWorker();
+
+      const songCovers = SONGS_DATABASE.map((s) => s.coverUrl).filter(Boolean);
+      const appStaticAssets = [
+        '/',
+        '/manifest.json',
+        '/icons/icon-192.png',
+        '/icons/Logo_afinapp.png',
+        'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=192&q=80',
+        ...songCovers,
+      ];
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'PRECACHE_FULL_APP',
+          urls: appStaticAssets,
+        });
+      }
+
       cacheAllContentLocally();
+
       try {
         await Promise.allSettled([
           import('../components/AfinadorView'),
@@ -100,7 +120,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           import('../components/VoiceEvalModal'),
           import('../components/VocalRangeModal'),
           import('../components/StoreModal'),
-          import('../components/SettingsModal')
+          import('../components/SettingsModal'),
         ]);
       } catch {}
 
@@ -109,12 +129,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         if (AudioCtx) {
           const tempCtx = new AudioCtx();
           if (tempCtx.state === 'suspended') tempCtx.resume().catch(() => {});
-          setTimeout(() => { try { tempCtx.close(); } catch {} }, 400);
+          setTimeout(() => {
+            try { tempCtx.close(); } catch {}
+          }, 450);
         }
       } catch {}
     };
 
-    runBackgroundPreload();
+    runFullPwaPreload();
     return () => { isCancelled = true; };
   }, []);
 
@@ -132,11 +154,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         }
         const next = prev + 1;
         if (next < 25) {
-          setLoadingText(`Registrando Service Worker & Caché (${next}%)...`);
+          setLoadingText(`Registrando Service Worker & Caché PWA... (${next}%)`);
         } else if (next < 55) {
-          setLoadingText(`Cargando lecciones y canciones vocales (${next}%)...`);
+          setLoadingText(`Cargando módulos y secciones de la aplicación... (${next}%)`);
         } else {
-          setLoadingText(`Pre-calentando sintetizadores y afinador (${next}%)...`);
+          setLoadingText(`Descargando lecciones, canciones e imágenes... (${next}%)`);
         }
         return next;
       });
@@ -158,7 +180,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           return 99;
         }
         const next = prev + 1;
-        setLoadingText(`Sincronizando perfil vocal de ${userName} (${next}%)...`);
+        setLoadingText(`Preparando entorno para ${userName}... (${next}%)`);
         return next;
       });
     }, 32);
@@ -209,7 +231,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     saveToStorage(userName, selectedAvatar);
     setPhase('completed');
     setProgress(100);
-    setLoadingText(`¡Bienvenido a AfinApp, ${userName}! Todo listo.`);
+    setLoadingText('¡Todas las secciones descargadas! App 100% lista para usar sin conexión.');
     setIsFullyDownloaded(true);
     setTimeout(() => {
       onFinish();
@@ -221,11 +243,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.35, ease: 'easeInOut' }}
-      className="fixed inset-0 z-[100] bg-gradient-to-br from-teal-900 via-slate-900 to-emerald-950 text-white flex flex-col justify-between items-center p-6 sm:p-10 select-none overflow-hidden"
+      className="fixed inset-0 z-[100] bg-gradient-to-br from-teal-700 via-emerald-700 to-green-700 text-white flex flex-col justify-between items-center p-6 sm:p-10 select-none overflow-hidden"
     >
-      {/* Top Banner - PWA Status */}
+      {/* Top Banner - PWA Offline Download Badge */}
       <div className="w-full max-w-md pt-2 flex justify-center items-center z-10">
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-400/30 text-emerald-200 text-xs font-bold shadow-sm">
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-400/30 text-emerald-200 text-xs font-bold shadow-sm">
           {isFullyDownloaded ? (
             <CheckCircle2 className="w-4 h-4 text-emerald-300 animate-bounce" />
           ) : (
@@ -235,16 +257,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </div>
       </div>
 
-      {/* Center Interactive Content Area */}
-      <div className="flex-1 flex flex-col justify-center items-center w-full max-w-md px-2">
+      {/* Center - Interactive Content Area */}
+      <div className="flex-1 flex flex-col justify-center items-center w-full max-w-md py-4">
         <AnimatePresence mode="wait">
           {phase === 'loading_to_85' && (
             <motion.div
               key="tip-initial"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.35 }}
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -12, opacity: 0 }}
+              transition={{ duration: 0.3 }}
               className="w-full bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-6 space-y-4 shadow-xl"
             >
               <div className="flex items-center gap-3">
@@ -269,26 +291,32 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
           {phase === 'name_input' && (
             <motion.div
-              key="step-name"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              key="name-step"
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -12, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="w-full bg-slate-900/80 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-2xl"
+              className="w-full bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-6 space-y-4 shadow-xl"
             >
-              <div className="text-center space-y-1.5">
-                <div className="w-10 h-10 mx-auto rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center justify-center">
-                  <User className="w-5 h-5" />
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                  <User className="w-5 h-5 text-emerald-300" />
                 </div>
-                <h2 className="font-heading font-black text-xl sm:text-2xl text-white tracking-wide uppercase">
-                  ¿CÓMO QUIERES LLAMARTE?
-                </h2>
-                <p className="text-xs text-emerald-200/80 font-medium">
-                  Escribe tu nombre o apodo para personalizar tus entrenamientos y lecciones vocales.
-                </p>
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
+                    REGISTRO DE ALUMNO
+                  </span>
+                  <h3 className="font-heading font-black text-lg sm:text-xl text-white tracking-wide uppercase">
+                    ¿CÓMO QUIERES LLAMARTE?
+                  </h3>
+                </div>
               </div>
 
-              <form onSubmit={handleConfirmName} className="space-y-4 pt-1">
+              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
+                Escribe tu nombre o apodo para personalizar tus entrenamientos y lecciones de canto.
+              </p>
+
+              <form onSubmit={handleConfirmName} className="space-y-3 pt-1">
                 <input
                   type="text"
                   value={nameInput}
@@ -296,12 +324,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   placeholder="Tu nombre o apodo..."
                   maxLength={30}
                   autoFocus
-                  className="w-full bg-emerald-950/70 border border-emerald-400/40 focus:border-emerald-300 rounded-xl px-4 py-3 text-white placeholder-emerald-300/40 font-bold text-center text-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50 shadow-inner transition-all"
+                  className="w-full bg-emerald-950/60 border border-emerald-400/40 focus:border-emerald-300 rounded-xl px-4 py-2.5 text-white placeholder-emerald-200/40 font-bold text-center text-base focus:outline-none focus:ring-2 focus:ring-emerald-400/40 shadow-inner transition-all"
                 />
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-6 rounded-xl font-bold bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 text-sm tracking-wide uppercase shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 px-5 rounded-xl font-bold bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] text-emerald-950 text-xs sm:text-sm tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Continuar</span>
                   <ArrowRight className="w-4 h-4" />
@@ -313,10 +341,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           {phase === 'tip_after_name' && (
             <motion.div
               key="tip-personalized"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.35 }}
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -12, opacity: 0 }}
+              transition={{ duration: 0.3 }}
               className="w-full bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-6 space-y-4 shadow-xl"
             >
               <div className="flex items-center gap-3">
@@ -341,33 +369,42 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
           {(phase === 'avatar_input' || phase === 'completed') && (
             <motion.div
-              key="step-avatar"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              key="avatar-step"
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -12, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="w-full bg-slate-900/80 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-6 space-y-4 shadow-2xl"
+              className="w-full bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-6 space-y-4 shadow-xl"
             >
-              <div className="text-center space-y-1">
-                <h2 className="font-heading font-black text-xl sm:text-2xl text-white tracking-wide uppercase">
-                  ELIGE TU FOTO DE PERFIL
-                </h2>
-                <p className="text-xs text-emerald-200/80 font-medium">
-                  Casi listos, {userName}. Selecciona un avatar o sube tu propia foto.
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                  <Camera className="w-5 h-5 text-emerald-300" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
+                    FOTO DE PERFIL
+                  </span>
+                  <h3 className="font-heading font-black text-lg sm:text-xl text-white tracking-wide uppercase">
+                    ELIGE TU FOTO DE PERFIL
+                  </h3>
+                </div>
               </div>
 
-              <div className="flex flex-col items-center gap-3 py-1">
-                <div className="relative group">
+              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
+                {userName}, sube tu foto o escoge uno de los avatares para tu cuenta.
+              </p>
+
+              <div className="flex flex-col items-center gap-2 py-1">
+                <div className="relative">
                   <img
                     src={selectedAvatar}
                     alt={userName}
-                    className="w-20 h-20 rounded-full object-cover border-2 border-emerald-400 shadow-lg"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-emerald-400 shadow-md"
                   />
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition-all cursor-pointer"
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-400 hover:bg-emerald-300 text-emerald-950 shadow transition-all cursor-pointer"
                     title="Subir foto desde dispositivo"
                   >
                     <Camera className="w-3.5 h-3.5" />
@@ -384,14 +421,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-xs font-semibold text-emerald-300 hover:text-emerald-200 underline cursor-pointer"
+                  className="text-xs font-semibold text-emerald-200 hover:text-white underline cursor-pointer"
                 >
-                  Subir foto desde dispositivo
+                  Subir foto desde tu dispositivo
                 </button>
               </div>
 
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">
+              <div className="space-y-1 pt-1">
+                <span className="text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider block text-center">
                   O elige un avatar vocal:
                 </span>
                 <div className="flex items-center justify-center gap-2 overflow-x-auto py-1">
@@ -402,7 +439,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                       onClick={() => setSelectedAvatar(av.url)}
                       className={`p-0.5 rounded-full transition-all cursor-pointer ${
                         selectedAvatar === av.url
-                          ? 'ring-2 ring-emerald-400 scale-110'
+                          ? 'ring-2 ring-emerald-300 scale-110'
                           : 'opacity-70 hover:opacity-100'
                       }`}
                       title={av.name}
@@ -410,7 +447,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                       <img
                         src={av.url}
                         alt={av.name}
-                        className="w-9 h-9 rounded-full object-cover"
+                        className="w-8 h-8 rounded-full object-cover"
                       />
                     </button>
                   ))}
@@ -420,7 +457,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmAvatar}
-                className="w-full py-3.5 px-6 rounded-xl font-bold bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 text-sm tracking-wide uppercase shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3 px-5 rounded-xl font-bold bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] text-emerald-950 text-xs sm:text-sm tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Continuar e Ingresar</span>
                 <CheckCircle2 className="w-4 h-4" />
