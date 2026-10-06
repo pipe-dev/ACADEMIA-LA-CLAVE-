@@ -318,17 +318,26 @@ export const userDb = {
   },
 
   async updateUser(id: string, updates: Partial<UserRecord>): Promise<UserRecord | null> {
-    if (isCloudflareConfigured) {
+    const ALLOWED_COLUMNS = new Set([
+      'name',
+      'email',
+      'access_key',
+      'status',
+      'expires_at',
+      'notes',
+      'role',
+      'last_login_at',
+    ]);
+    const validFields = Object.keys(updates).filter((f) => ALLOWED_COLUMNS.has(f));
+
+    if (isCloudflareConfigured && validFields.length > 0) {
       try {
-        const fields = Object.keys(updates);
-        if (fields.length > 0) {
-          const setClause = fields.map((f) => `${f} = ?`).join(', ');
-          const values = fields.map((f) => (updates as any)[f]);
-          await executeCloudflareQuery(
-            `UPDATE users SET ${setClause} WHERE id = ?`,
-            [...values, id]
-          );
-        }
+        const setClause = validFields.map((f) => `\`${f}\` = ?`).join(', ');
+        const values = validFields.map((f) => (updates as any)[f]);
+        await executeCloudflareQuery(
+          `UPDATE users SET ${setClause} WHERE id = ?`,
+          [...values, id]
+        );
       } catch (e) {
         console.error('Cloudflare updateUser fallback to local:', e);
       }

@@ -4,6 +4,15 @@ import { verifyJwt } from './lib/jwt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
 
+function applySecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.set('X-Content-Type-Options', 'nosniff');
+  res.headers.set('X-Frame-Options', 'DENY');
+  res.headers.set('X-XSS-Protection', '1; mode=block');
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
+  return res;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -18,7 +27,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/workbox') ||
     pathname.includes('.') // Static files like favicon.ico, manifest.json
   ) {
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next());
   }
 
   // 2. Legacy multi-page route aliases redirect cleanly to SPA root /
@@ -27,7 +36,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/afinador') ||
     pathname.startsWith('/progreso')
   ) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return applySecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
   }
 
   const sessionCookie = request.cookies.get('afinapp_session')?.value;
@@ -41,9 +50,9 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/login')) {
     if (sessionPayload && sessionPayload.sub) {
       // Already authenticated, redirect to app root
-      return NextResponse.redirect(new URL('/', request.url));
+      return applySecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
     }
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next());
   }
 
   // 4. Protected main app routes (root /)
@@ -54,10 +63,10 @@ export async function middleware(request: NextRequest) {
     if (sessionCookie) {
       response.cookies.delete('afinapp_session');
     }
-    return response;
+    return applySecurityHeaders(response);
   }
 
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {

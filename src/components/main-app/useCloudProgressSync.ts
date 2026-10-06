@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { UserStats } from '../../types';
+import { mutationQueue } from '@/lib/mutationQueue';
 
 interface UseCloudProgressSyncParams {
   userStats: UserStats;
@@ -91,18 +92,24 @@ export function useCloudProgressSync({
           voiceGender: typeof window !== 'undefined' ? localStorage.getItem('laclave_voice_gender') : null,
         };
 
-        await fetch('/api/user/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            xp: currentXp,
-            level: userStats.level || 1,
-            streak: userStats.streak || 0,
-            progressData: JSON.stringify(fullProgressPayload),
-          }),
+        mutationQueue.enqueue(async () => {
+          try {
+            await fetch('/api/user/progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                xp: currentXp,
+                level: userStats.level || 1,
+                streak: userStats.streak || 0,
+                progressData: JSON.stringify(fullProgressPayload),
+              }),
+            });
+          } catch (e) {
+            // Silently queue for next sync
+          }
         });
       } catch (e) {
-        // Silently queue for next sync
+        // Fallback catch
       }
     }, 4000);
 

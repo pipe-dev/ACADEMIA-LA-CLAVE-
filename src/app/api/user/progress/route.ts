@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/jwt';
 import { userDb } from '@/lib/userDb';
+import { checkRateLimit } from '@/lib/securityService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
 
@@ -41,8 +42,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
     }
 
+    const rate = checkRateLimit(`progress_${user.id}`, 60, 60000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiadas sincronizaciones seguidas. Operacion pausada brevemente.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { xp, level, streak, progressData } = body;
+
+    const rawData = typeof progressData === 'string' ? progressData : JSON.stringify(progressData || {});
+    // Enforce max 500KB payload to prevent bombing (Pillar 4)
+    if (rawData.length > 500000) {
+      return NextResponse.json({ error: 'Datos de progreso exceden el limite maximo permitido.' }, { status: 413 });
+    }
 
     const saved = await userDb.saveUserProgress({
       userId: user.id,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/adminAuth';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
+import { sanitizeString, sanitizeEmail, sanitizeAccessKey } from '@/lib/securityService';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -28,10 +29,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updated = await userDb.renewUser(id, additionalDays);
     } else if (action === 'toggle_block') {
       updated = await userDb.toggleUserBlock(id);
-    } else if (action === 'update') {
-      updated = await userDb.updateUser(id, updates);
     } else {
-      updated = await userDb.updateUser(id, updates);
+      const sanitizedUpdates: Record<string, any> = {};
+      if (updates.name) sanitizedUpdates.name = sanitizeString(updates.name, 80);
+      if (updates.notes) sanitizedUpdates.notes = sanitizeString(updates.notes, 300);
+      if (updates.email) sanitizedUpdates.email = sanitizeEmail(updates.email);
+      if (updates.access_key) sanitizedUpdates.access_key = sanitizeAccessKey(updates.access_key);
+      if (updates.expires_at) sanitizedUpdates.expires_at = updates.expires_at;
+      if (updates.status) sanitizedUpdates.status = updates.status;
+      updated = await userDb.updateUser(id, sanitizedUpdates);
     }
 
     if (!updated) {

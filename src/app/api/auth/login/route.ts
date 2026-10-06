@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signJwt } from '@/lib/jwt';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
+import { checkRateLimit, getClientIp, sanitizeEmail } from '@/lib/securityService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
 const APPS_SCRIPT_URL = process.env.LICENSE_APPS_SCRIPT_URL;
@@ -8,9 +9,18 @@ const SHARED_SECRET = process.env.LICENSE_SHARED_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIp = getClientIp(request.headers);
+    const rateLimit = checkRateLimit(`login_${clientIp}`, 10, 60000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de acceso. Espera 1 minuto antes de reintentar.' },
+        { status: 429 }
+      );
+    }
+
     const { username, key } = await request.json();
 
-    const cleanUsername = (username || '').trim().toLowerCase();
+    const cleanUsername = sanitizeEmail(username);
     const cleanKey = (key || '').trim();
 
     if (!cleanUsername || !cleanKey) {

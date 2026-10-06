@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/adminAuth';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
+import { sanitizeString, sanitizeEmail, sanitizeAccessKey } from '@/lib/securityService';
 
 export async function GET(request: NextRequest) {
   if (!verifyAdminRequest(request)) {
@@ -69,14 +70,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, access_key, daysDuration, notes } = body;
 
-    if (!name || !name.trim()) {
+    const cleanName = sanitizeString(name, 80);
+    const cleanEmail = sanitizeEmail(email);
+
+    if (!cleanName) {
       return NextResponse.json({ error: 'El nombre es requerido.' }, { status: 400 });
     }
-    if (!email || !email.trim()) {
-      return NextResponse.json({ error: 'El correo es requerido.' }, { status: 400 });
+    if (!cleanEmail) {
+      return NextResponse.json({ error: 'El correo electronico es invalido o requerido.' }, { status: 400 });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
     const existing = await userDb.getUserByEmail(cleanEmail);
     if (existing) {
       return NextResponse.json(
@@ -85,17 +88,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let finalKey = (access_key || '').trim();
+    let finalKey = sanitizeAccessKey(access_key);
     if (!finalKey) {
       finalKey = `CANT-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
+    const cleanNotes = sanitizeString(notes, 300);
+
     const created = await userDb.createUser({
-      name: name.trim(),
+      name: cleanName,
       email: cleanEmail,
       access_key: finalKey,
       daysDuration: typeof daysDuration === 'number' && daysDuration > 0 ? daysDuration : 30,
-      notes: notes || '',
+      notes: cleanNotes,
       role: 'student',
     });
 
