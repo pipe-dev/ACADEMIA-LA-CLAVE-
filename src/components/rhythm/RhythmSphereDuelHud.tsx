@@ -5,6 +5,12 @@
 
 import React from 'react';
 import { Award, ShieldAlert, Activity, Zap, Flame, Smartphone, Users } from 'lucide-react';
+export interface RhythmRoundPreviewItem {
+  roundNumber: number;
+  bpm: number;
+  name: string;
+  mode?: 'Fácil' | 'Medio' | 'Difícil' | 'Leyenda';
+}
 
 interface RhythmSphereDuelHudProps {
   phase: 'ready' | 'guide' | 'playing' | 'round_transition' | 'results';
@@ -19,7 +25,8 @@ interface RhythmSphereDuelHudProps {
   totalRounds: number;
   roundScores?: number[];
   roundName?: string;
-  roundsPreview?: { roundNumber: number; bpm: number; name: string }[];
+  difficultyMode?: 'Fácil' | 'Medio' | 'Difícil' | 'Leyenda';
+  roundsPreview?: RhythmRoundPreviewItem[];
   bannerNotice: string | null;
   mode: 'ghost_async' | 'realtime_p2p' | 'local';
   localTurn?: 1 | 2;
@@ -48,6 +55,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
   totalRounds,
   roundScores = [],
   roundName,
+  difficultyMode,
   roundsPreview = [],
   bannerNotice,
   mode,
@@ -95,9 +103,9 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
         </div>
 
         {/* Badge Central: Ronda, BPM, Estilo y Modo */}
-        <div className="bg-white/90 dark:bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700/80 text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-md max-w-[210px] truncate">
+        <div className="bg-white/90 dark:bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700/80 text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-md max-w-[240px] truncate">
           {isLocal ? <Smartphone className="w-3.5 h-3.5 text-blue-500 shrink-0" /> : <Activity className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
-          <span className="truncate">{`R${currentRound}/${totalRounds} • ${bpm} BPM${roundName ? ` (${roundName})` : ''}`}</span>
+          <span className="truncate">{`R${currentRound}/${totalRounds} • ${bpm} BPM${difficultyMode ? ` • ${difficultyMode}` : ''}`}</span>
         </div>
 
         {/* Rival / Jugador Esperando */}
@@ -179,25 +187,43 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
               </p>
             </div>
 
-            {/* Preview visual de las 4 rondas generadas */}
+            {/* Preview visual de las 4 rondas generadas con modo de dificultad */}
             {roundsPreview.length > 0 && (
               <div className="space-y-1 text-left">
                 <span className="text-[9px] uppercase font-extrabold tracking-wider text-slate-400">
                   Rondas generadas para este duelo:
                 </span>
                 <div className="grid grid-cols-4 gap-1.5">
-                  {roundsPreview.map((r) => (
-                    <div
-                      key={r.roundNumber}
-                      className="p-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 flex flex-col items-center justify-center text-center"
-                    >
-                      <span className="text-[8px] font-black uppercase text-blue-400">R{r.roundNumber}</span>
-                      <span className="text-[11px] font-black text-white">{r.bpm}</span>
-                      <span className="text-[7.5px] text-slate-400 truncate max-w-[60px] leading-tight mt-0.5">
-                        {r.name}
-                      </span>
-                    </div>
-                  ))}
+                  {roundsPreview.map((r) => {
+                    const badgeClass =
+                      r.mode === 'Leyenda'
+                        ? 'bg-purple-500/25 text-purple-300 border-purple-400/40'
+                        : r.mode === 'Difícil'
+                        ? 'bg-rose-500/25 text-rose-300 border-rose-400/40'
+                        : r.mode === 'Medio'
+                        ? 'bg-amber-500/25 text-amber-300 border-amber-400/40'
+                        : 'bg-emerald-500/25 text-emerald-300 border-emerald-400/40';
+
+                    return (
+                      <div
+                        key={r.roundNumber}
+                        className="p-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 flex flex-col items-center justify-center text-center"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="text-[8px] font-black uppercase text-blue-400">R{r.roundNumber}</span>
+                          {r.mode && (
+                            <span className={`text-[6.5px] font-extrabold px-1 rounded-xs border ${badgeClass}`}>
+                              {r.mode}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-black text-white mt-0.5">{r.bpm} BPM</span>
+                        <span className="text-[7.5px] text-slate-400 truncate max-w-[60px] leading-tight mt-0.5">
+                          {r.name}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -267,13 +293,31 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
 
             {roundsPreview.length > 0 && (
               <div className="grid grid-cols-4 gap-1.5 py-1">
-                {roundsPreview.map((r) => (
-                  <div key={r.roundNumber} className="p-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-center">
-                    <span className="text-[8px] font-black uppercase text-blue-400">R{r.roundNumber}</span>
-                    <div className="text-[10px] font-black text-white">{r.bpm} BPM</div>
-                    <div className="text-[7.5px] text-slate-400 truncate max-w-[60px]">{r.name}</div>
-                  </div>
-                ))}
+                {roundsPreview.map((r) => {
+                  const badgeClass =
+                    r.mode === 'Leyenda'
+                      ? 'bg-purple-500/25 text-purple-300 border-purple-400/40'
+                      : r.mode === 'Difícil'
+                      ? 'bg-rose-500/25 text-rose-300 border-rose-400/40'
+                      : r.mode === 'Medio'
+                      ? 'bg-amber-500/25 text-amber-300 border-amber-400/40'
+                      : 'bg-emerald-500/25 text-emerald-300 border-emerald-400/40';
+
+                  return (
+                    <div key={r.roundNumber} className="p-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-center">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <span className="text-[8px] font-black uppercase text-blue-400">R{r.roundNumber}</span>
+                        {r.mode && (
+                          <span className={`text-[6.5px] font-extrabold px-0.5 rounded-xs border ${badgeClass}`}>
+                            {r.mode}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] font-black text-white mt-0.5">{r.bpm} BPM</div>
+                      <div className="text-[7.5px] text-slate-400 truncate max-w-[60px]">{r.name}</div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 

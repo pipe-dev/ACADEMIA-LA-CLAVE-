@@ -18,38 +18,46 @@ export interface DuelRhythmRoundConfig {
   levelNumber: number;
   bpm: number;
   name: string;
+  mode: 'Fácil' | 'Medio' | 'Difícil' | 'Leyenda';
 }
 
 // Catalogo completo de niveles del afinador (niveles 7 a 28, de 80 a 290 BPM)
-export const RHYTHM_LEVEL_META: Record<number, { bpm: number; name: string }> = {
-  7: { bpm: 80, name: 'Pulso Lento' },
-  8: { bpm: 90, name: 'Contratiempo' },
-  9: { bpm: 100, name: 'Pulso Base' },
-  10: { bpm: 110, name: 'Marcha' },
-  11: { bpm: 120, name: 'Compas 4/4' },
-  12: { bpm: 130, name: 'Sincopa Pop' },
-  13: { bpm: 140, name: 'Rock Groove' },
-  14: { bpm: 150, name: 'Redoble' },
-  15: { bpm: 160, name: 'Upbeat Disco' },
-  16: { bpm: 170, name: 'Funk Sincopado' },
-  17: { bpm: 180, name: 'Latin Fusion' },
-  18: { bpm: 190, name: 'Furia Ritmica' },
-  19: { bpm: 200, name: 'Aceleracion' },
-  20: { bpm: 210, name: 'Tormenta' },
-  21: { bpm: 220, name: 'Maestria Veloz' },
-  22: { bpm: 230, name: 'Breakbeat' },
-  23: { bpm: 240, name: 'Hiper Groove' },
-  24: { bpm: 250, name: 'Desafio Extremo' },
-  25: { bpm: 260, name: 'Fuego Puro' },
-  26: { bpm: 270, name: 'Supersonico' },
-  27: { bpm: 280, name: 'Trance Ritmico' },
-  28: { bpm: 290, name: 'Limite Maximo' },
+export const RHYTHM_LEVEL_META: Record<number, { bpm: number; name: string; mode: 'Fácil' | 'Medio' | 'Difícil' | 'Leyenda' }> = {
+  // Modo Fácil (80 a 130 BPM)
+  7: { bpm: 80, name: 'Pulso Lento', mode: 'Fácil' },
+  8: { bpm: 90, name: 'Contratiempo', mode: 'Fácil' },
+  9: { bpm: 100, name: 'Pulso Base', mode: 'Fácil' },
+  10: { bpm: 110, name: 'Marcha', mode: 'Fácil' },
+  11: { bpm: 120, name: 'Compas 4/4', mode: 'Fácil' },
+  12: { bpm: 130, name: 'Sincopa Pop', mode: 'Fácil' },
+
+  // Modo Medio (140 a 170 BPM)
+  13: { bpm: 140, name: 'Rock Groove', mode: 'Medio' },
+  14: { bpm: 150, name: 'Redoble', mode: 'Medio' },
+  15: { bpm: 160, name: 'Upbeat Disco', mode: 'Medio' },
+  16: { bpm: 170, name: 'Funk Sincopado', mode: 'Medio' },
+
+  // Modo Difícil (180 a 210 BPM)
+  17: { bpm: 180, name: 'Latin Fusion', mode: 'Difícil' },
+  18: { bpm: 190, name: 'Furia Ritmica', mode: 'Difícil' },
+  19: { bpm: 200, name: 'Aceleracion', mode: 'Difícil' },
+  20: { bpm: 210, name: 'Tormenta', mode: 'Difícil' },
+
+  // Modo Leyenda / Maestro (220 a 290 BPM)
+  21: { bpm: 220, name: 'Maestria Veloz', mode: 'Leyenda' },
+  22: { bpm: 230, name: 'Breakbeat', mode: 'Leyenda' },
+  23: { bpm: 240, name: 'Hiper Groove', mode: 'Leyenda' },
+  24: { bpm: 250, name: 'Desafio Extremo', mode: 'Leyenda' },
+  25: { bpm: 260, name: 'Fuego Puro', mode: 'Leyenda' },
+  26: { bpm: 270, name: 'Supersonico', mode: 'Leyenda' },
+  27: { bpm: 280, name: 'Trance Ritmico', mode: 'Leyenda' },
+  28: { bpm: 290, name: 'Limite Maximo', mode: 'Leyenda' },
 };
 
 /**
  * Genera una serie rotativa de 4 rondas de ritmo sin repeticiones.
- * Empieza en cualquier tempo aleatorio (80 a 150 BPM) y escala de forma dinamica
- * rotando ejercicios del afinador para que nunca sea el mismo desafio dos veces.
+ * Selecciona progresiones variadas garantizando la participacion activa
+ * de ejercicios de Modo Medio, Modo Dificil y Modo Leyenda.
  */
 export function generateDuelRhythmPlaylist(seedLevels?: number[]): DuelRhythmRoundConfig[] {
   if (seedLevels && seedLevels.length === 4) {
@@ -57,42 +65,41 @@ export function generateDuelRhythmPlaylist(seedLevels?: number[]): DuelRhythmRou
       const meta = RHYTHM_LEVEL_META[lvl] || {
         bpm: 80 + (lvl - 7) * 10,
         name: `Nivel ${lvl}`,
+        mode: (lvl >= 21 ? 'Leyenda' : lvl >= 17 ? 'Difícil' : lvl >= 13 ? 'Medio' : 'Fácil') as 'Fácil' | 'Medio' | 'Difícil' | 'Leyenda',
       };
       return {
         roundNumber: idx + 1,
         levelNumber: lvl,
         bpm: meta.bpm,
         name: meta.name,
+        mode: meta.mode,
       };
     });
   }
 
-  // Nivel de apertura aleatorio (niveles 7 a 14: 80 a 150 BPM)
-  const startPool = [7, 8, 9, 10, 11, 12, 13, 14];
-  const r1 = startPool[Math.floor(Math.random() * startPool.length)];
+  // 4 Curvas de progresion rotativas garantizando presencia de Medio, Dificil y Leyenda
+  const curves = [
+    [[8, 9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20], [21, 22, 23, 24]], // Facil -> Medio -> Dificil -> Leyenda
+    [[13, 14], [17, 18, 19], [21, 22, 23], [24, 25, 26, 27, 28]],               // Medio -> Dificil -> Leyenda -> Leyenda Extrema
+    [[11, 12, 13], [14, 15, 16], [18, 19, 20], [22, 23, 25]],                   // Sincopado: Facil/Medio -> Medio -> Dificil -> Leyenda
+    [[14, 15, 16], [17, 18], [19, 20], [23, 24, 26, 27]],                       // Virtuoso: Medio -> Dificil -> Dificil -> Leyenda Suprema
+  ];
 
-  // Rondas subsiguientes con saltos dinamicos de +1 a +4 niveles
-  const step1 = 1 + Math.floor(Math.random() * 4);
-  const r2 = Math.min(22, r1 + step1);
-
-  const step2 = 1 + Math.floor(Math.random() * 4);
-  const r3 = Math.min(25, Math.max(r2 + 1, r2 + step2));
-
-  const step3 = 1 + Math.floor(Math.random() * 4);
-  const r4 = Math.min(28, Math.max(r3 + 1, r3 + step3));
-
-  const chosenLevels = [r1, r2, r3, r4];
+  const selectedCurve = curves[Math.floor(Math.random() * curves.length)];
+  const chosenLevels = selectedCurve.map((pool) => pool[Math.floor(Math.random() * pool.length)]);
 
   return chosenLevels.map((lvl, idx) => {
     const meta = RHYTHM_LEVEL_META[lvl] || {
       bpm: 80 + (lvl - 7) * 10,
       name: `Nivel ${lvl}`,
+      mode: (lvl >= 21 ? 'Leyenda' : lvl >= 17 ? 'Difícil' : lvl >= 13 ? 'Medio' : 'Fácil') as 'Fácil' | 'Medio' | 'Difícil' | 'Leyenda',
     };
     return {
       roundNumber: idx + 1,
       levelNumber: lvl,
       bpm: meta.bpm,
       name: meta.name,
+      mode: meta.mode,
     };
   });
 }
@@ -252,7 +259,7 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
       const nextIdx = roundIndexRef.current + 1;
       const nextRound = activePlaylist[nextIdx];
       setArenaPhase('round_transition');
-      setBannerNotice(`¡Ronda ${roundIndexRef.current + 1} completada: ${roundScoreVal}%! Siguiente: ${nextRound.name} (${nextRound.bpm} BPM)`);
+      setBannerNotice(`¡Ronda ${roundIndexRef.current + 1} completada: ${roundScoreVal}%! Siguiente: [${nextRound.mode}] ${nextRound.name} (${nextRound.bpm} BPM)`);
       audioService.playSuccessBellSound();
 
       setTimeout(() => {
@@ -412,6 +419,7 @@ export const RhythmSphereDuelArena: React.FC<RhythmSphereDuelArenaProps> = ({
           totalRounds={roundsPlaylist.length}
           roundScores={roundScores}
           roundName={currentRoundConfig.name}
+          difficultyMode={currentRoundConfig.mode}
           roundsPreview={roundsPlaylist}
           bannerNotice={bannerNotice}
           mode={mode}
