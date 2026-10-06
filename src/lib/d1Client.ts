@@ -1,6 +1,6 @@
 // Adaptador de base de datos D1 para Next.js con soporte dual (Cloudflare D1 o memoria/local)
 
-export type DuelType = 'pitch_duel' | 'rhythm_duel' | 'sky_run_duel';
+export type DuelType = 'pitch_duel' | 'rhythm_duel' | 'sky_run_duel' | 'rhythm_sphere_duel';
 
 export interface SingerRow {
   code: string;

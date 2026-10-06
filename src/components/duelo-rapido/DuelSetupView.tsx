@@ -3,7 +3,7 @@
 
 'use client';
 import React from 'react';
-import { Volume2, User, Mic, Flame, Zap, Radio, Trophy, Music, Drum } from 'lucide-react';
+import { Volume2, User, Mic, Flame, Zap, Radio, Trophy, Music, Drum, Activity } from 'lucide-react';
 import { SOLFEGE_NOTES } from '../../data/academyData';
 import { SolfegeNote } from '../../types';
 import { DuelMode, DuelType } from './dueloTypes';
@@ -43,7 +43,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
           1. Disciplina de Desafio:
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {/* Opcion A: Afinacion Pura */}
           <button
             type="button"
@@ -62,7 +62,25 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
             <span className="text-[9px] text-slate-400 font-normal text-center">Sostener nota</span>
           </button>
 
-          {/* Opcion B: Carrera Celeste (Unit 4) */}
+          {/* Opcion B: Ritmo Esfera 3D */}
+          <button
+            type="button"
+            onClick={() => {
+              audioService.playClickSound();
+              onSelectDuelType('rhythm_sphere_duel');
+            }}
+            className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+              duelType === 'rhythm_sphere_duel'
+                ? 'bg-blue-50 dark:bg-blue-950/70 border-blue-500 text-blue-700 dark:text-blue-300 shadow-2xs'
+                : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200 dark:border-slate-800 text-slate-500'
+            }`}
+          >
+            <Activity className="w-4 h-4 text-blue-500" />
+            <span className="font-heading font-black text-xs text-center">Ritmo 3D</span>
+            <span className="text-[9px] text-slate-400 font-normal text-center">Bombo y Palmas</span>
+          </button>
+
+          {/* Opcion C: Carrera Celeste (Unit 4) */}
           <button
             type="button"
             onClick={() => {
@@ -80,7 +98,7 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
             <span className="text-[9px] text-slate-400 font-normal text-center">Vuelo Unit 4</span>
           </button>
 
-          {/* Opcion C: Duelo de Tambor (Unit 3) */}
+          {/* Opcion D: Duelo de Tambor (Unit 3) */}
           <button
             type="button"
             onClick={() => {
@@ -136,6 +154,16 @@ export const DuelSetupView: React.FC<DuelSetupViewProps> = ({
               );
             })}
           </div>
+        </div>
+      ) : duelType === 'rhythm_sphere_duel' ? (
+        <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-heading font-black text-blue-800 dark:text-blue-300">
+            <Activity className="w-4 h-4 text-blue-600" />
+            <span>Desafio de Compas con Esfera 3D:</span>
+          </div>
+          <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+            Sigue el compas tocando Bombo y Palmas en el instante preciso mientras la esfera 3D salta. Gana quien logre mayor porcentaje de precision y el mejor combo (Record de {selectedOpponentName}: {opponentRhythmRecord}% de precision).
+          </p>
         </div>
       ) : duelType === 'sky_run_duel' ? (
         <div className="p-3.5 rounded-2xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 space-y-2">

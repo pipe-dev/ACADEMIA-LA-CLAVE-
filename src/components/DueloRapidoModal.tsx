@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { audioService } from '../utils/audioService';
-import { Swords, ArrowLeft, Trophy, Drum } from 'lucide-react';
+import { Swords, ArrowLeft, Trophy, Drum, Activity } from 'lucide-react';
 import { DueloRapidoModalProps, DuelResult } from './duelo-rapido/dueloTypes';
 import { useDuelEngine } from './duelo-rapido/useDuelEngine';
 import { DuelSetupView } from './duelo-rapido/DuelSetupView';
@@ -10,6 +10,7 @@ import { DuelSingingView } from './duelo-rapido/DuelSingingView';
 import { DuelResultsView } from './duelo-rapido/DuelResultsView';
 import { Unit4DuelArena } from './unit4-flappy/Unit4DuelArena';
 import { Unit3DuelArena } from './unit3-rhythm/Unit3DuelArena';
+import { RhythmSphereDuelArena } from './rhythm/RhythmSphereDuelArena';
 
 export type { DueloRapidoModalProps, DuelResult };
 
@@ -46,6 +47,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
     startPlayer1Turn,
     finishUnit4Arena,
     finishUnit3Arena,
+    finishRhythmSphereArena,
     startLocalPlayer2Turn,
     resetGame,
   } = useDuelEngine({
@@ -68,6 +70,19 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
         opponentTargetCuts={opponent?.rhythmRecord ?? Math.max(20, (opponent?.level ?? 1) * 6 + 10)}
         mode={arenaMode}
         onFinishDuel={finishUnit3Arena}
+        onExit={resetGame}
+      />
+    );
+  }
+
+  // Si estamos en la arena de ritmo con esfera 3D, renderizamos a pantalla completa
+  if (gameState === 'rhythm_sphere_arena') {
+    return (
+      <RhythmSphereDuelArena
+        opponentName={selectedOpponentName}
+        opponentTargetAccuracy={opponent?.rhythmRecord ?? Math.max(70, (opponent?.level ?? 1) * 3 + 65)}
+        mode={arenaMode}
+        onFinishDuel={finishRhythmSphereArena}
         onExit={resetGame}
       />
     );
@@ -114,12 +129,16 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
             ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-300'
             : duelType === 'rhythm_duel'
             ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-300'
+            : duelType === 'rhythm_sphere_duel'
+            ? 'bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-300'
             : 'bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-300'
         }`}>
           {duelType === 'sky_run_duel' ? (
             <Trophy className="w-6 h-6" />
           ) : duelType === 'rhythm_duel' ? (
             <Drum className="w-6 h-6" />
+          ) : duelType === 'rhythm_sphere_duel' ? (
+            <Activity className="w-6 h-6" />
           ) : (
             <Swords className="w-6 h-6" />
           )}
@@ -130,6 +149,8 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
               ? 'Carrera Celeste (Unit 4)'
               : duelType === 'rhythm_duel'
               ? 'Duelo de Tambor (Unit 3)'
+              : duelType === 'rhythm_sphere_duel'
+              ? 'Ritmo Esfera 3D'
               : 'Duelo Rapido Vocal'}
           </h3>
           <p className="text-xs text-slate-400 font-medium">
@@ -137,6 +158,8 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
               ? 'Vuela esquivando tubos con tu voz en vivo o contra la sombra de tu amigo'
               : duelType === 'rhythm_duel'
               ? 'Corta la mayor cantidad de esferas rebotando en el tambor en 1 minuto'
+              : duelType === 'rhythm_sphere_duel'
+              ? 'Toca Bombo y Palmas en el compas preciso siguiendo la esfera 3D'
               : 'Compara estabilidad y precision afinando la misma nota'}
           </p>
         </div>

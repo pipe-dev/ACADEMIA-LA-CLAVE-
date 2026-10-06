@@ -1,7 +1,7 @@
 import { SolfegeNote } from '../../types';
 import { FriendItem } from '../FriendsSection';
 
-export type DuelType = 'pitch_duel' | 'rhythm_duel' | 'sky_run_duel';
+export type DuelType = 'pitch_duel' | 'rhythm_duel' | 'sky_run_duel' | 'rhythm_sphere_duel';
 
 export type DuelGameState = 
   | 'setup' 
@@ -11,6 +11,7 @@ export type DuelGameState =
   | 'realtime_singing' 
   | 'unit4_arena'
   | 'unit3_arena'
+  | 'rhythm_sphere_arena'
   | 'results';
 
 export type DuelMode = 'simulated' | 'local' | 'realtime_p2p' | 'ghost_async';
@@ -70,4 +71,18 @@ export interface P2PFinishPacket {
   stabilitySec: number;
 }
 
-export type P2PDataPacket = P2PPitchPacket | P2PRhythmPacket | P2PSkyRunPacket | P2PFinishPacket;
+export interface P2PRhythmPatternPacket {
+  type: 'rhythm_pattern';
+  score: number;
+  combo: number;
+  tapsCount: number;
+  precision: number;
+  finished?: boolean;
+}
+
+export type P2PDataPacket =
+  | P2PPitchPacket
+  | P2PRhythmPacket
+  | P2PSkyRunPacket
+  | P2PFinishPacket
+  | P2PRhythmPatternPacket;
