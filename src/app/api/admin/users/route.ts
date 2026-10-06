@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAdminRequest } from '@/lib/adminAuth';
+import { verifyAdminRequest, getCorsHeaders } from '@/lib/adminAuth';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
 import { sanitizeString, sanitizeEmail, sanitizeAccessKey } from '@/lib/securityService';
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(),
+  });
+}
+
 export async function GET(request: NextRequest) {
   if (!verifyAdminRequest(request)) {
-    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401 });
+    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401, headers: getCorsHeaders() });
   }
 
   try {
@@ -52,18 +59,18 @@ export async function GET(request: NextRequest) {
         expired: expiredCount,
         blocked: blockedCount,
       },
-    });
+    }, { headers: getCorsHeaders() });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || 'Error al listar usuarios.' },
-      { status: 500 }
+      { status: 500, headers: getCorsHeaders() }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   if (!verifyAdminRequest(request)) {
-    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401 });
+    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401, headers: getCorsHeaders() });
   }
 
   try {
@@ -74,17 +81,17 @@ export async function POST(request: NextRequest) {
     const cleanEmail = sanitizeEmail(email);
 
     if (!cleanName) {
-      return NextResponse.json({ error: 'El nombre es requerido.' }, { status: 400 });
+      return NextResponse.json({ error: 'El nombre es requerido.' }, { status: 400, headers: getCorsHeaders() });
     }
     if (!cleanEmail) {
-      return NextResponse.json({ error: 'El correo electronico es invalido o requerido.' }, { status: 400 });
+      return NextResponse.json({ error: 'El correo electronico es invalido o requerido.' }, { status: 400, headers: getCorsHeaders() });
     }
 
     const existing = await userDb.getUserByEmail(cleanEmail);
     if (existing) {
       return NextResponse.json(
         { error: 'Ya existe un alumno registrado con este correo electronico.' },
-        { status: 409 }
+        { status: 409, headers: getCorsHeaders() }
       );
     }
 
@@ -113,11 +120,11 @@ export async function POST(request: NextRequest) {
         effectiveStatus: computed.status,
         daysRemaining: computed.daysRemaining,
       },
-    });
+    }, { headers: getCorsHeaders() });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || 'Error al crear alumno.' },
-      { status: 500 }
+      { status: 500, headers: getCorsHeaders() }
     );
   }
 }

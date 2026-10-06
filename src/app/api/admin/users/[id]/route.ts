@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAdminRequest } from '@/lib/adminAuth';
+import { verifyAdminRequest, getCorsHeaders } from '@/lib/adminAuth';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
 import { sanitizeString, sanitizeEmail, sanitizeAccessKey } from '@/lib/securityService';
 
@@ -7,9 +7,16 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(),
+  });
+}
+
 export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!verifyAdminRequest(request)) {
-    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401 });
+    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401, headers: getCorsHeaders() });
   }
 
   try {
@@ -19,7 +26,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const user = await userDb.getUserById(id);
     if (!user) {
-      return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
+      return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404, headers: getCorsHeaders() });
     }
 
     let updated = null;
@@ -41,7 +48,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (!updated) {
-      return NextResponse.json({ error: 'No se pudo actualizar el usuario.' }, { status: 500 });
+      return NextResponse.json({ error: 'No se pudo actualizar el usuario.' }, { status: 500, headers: getCorsHeaders() });
     }
 
     const computed = computeUserEffectiveStatus(updated);
@@ -53,25 +60,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         effectiveStatus: computed.status,
         daysRemaining: computed.daysRemaining,
       },
-    });
+    }, { headers: getCorsHeaders() });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || 'Error al actualizar usuario.' },
-      { status: 500 }
+      { status: 500, headers: getCorsHeaders() }
     );
   }
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   if (!verifyAdminRequest(request)) {
-    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401 });
+    return NextResponse.json({ error: 'No autorizado como administrador.' }, { status: 401, headers: getCorsHeaders() });
   }
 
   try {
     const { id } = await context.params;
     const user = await userDb.getUserById(id);
     if (!user) {
-      return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
+      return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404, headers: getCorsHeaders() });
     }
 
     await userDb.deleteUser(id);
@@ -79,11 +86,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       success: true,
       message: 'Usuario eliminado exitosamente.',
-    });
+    }, { headers: getCorsHeaders() });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || 'Error al eliminar usuario.' },
-      { status: 500 }
+      { status: 500, headers: getCorsHeaders() }
     );
   }
 }

@@ -50,3 +50,5 @@ firestore-debug.log
 
 # decoupled master admin portal (private)
 public/admin.html
+admin.html
+
