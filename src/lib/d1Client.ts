@@ -1,4 +1,6 @@
-// Adaptador de base de datos D1 para Next.js con soporte dual (Cloudflare D1 o memoria/local)
+// Adaptador de base de datos D1 para Next.js con soporte dual (Cloudflare D1 o almacenamiento local persistente)
+import fs from 'fs';
+import path from 'path';
 
 export type DuelType = 'pitch_duel' | 'rhythm_duel' | 'sky_run_duel' | 'rhythm_sphere_duel';
 
@@ -46,6 +48,16 @@ export interface DuelRoomRow {
   created_at: number;
 }
 
+interface D1StorageState {
+  singers: SingerRow[];
+  friendships: string[];
+  duels: DuelRecordRow[];
+  rooms: DuelRoomRow[];
+}
+
+const DATA_DIR = path.join(process.cwd(), 'data');
+const DB_FILE_PATH = path.join(DATA_DIR, 'afinapp_db.json');
+
 const D1_ACCOUNT_ID = process.env.CLOUDFLARE_D1_ACCOUNT_ID;
 const D1_DATABASE_ID = process.env.CLOUDFLARE_D1_DATABASE_ID;
 const D1_API_TOKEN = process.env.CLOUDFLARE_D1_API_TOKEN;
@@ -54,36 +66,6 @@ const isCloudflareConfigured = Boolean(
   D1_ACCOUNT_ID && D1_DATABASE_ID && D1_API_TOKEN
 );
 
-async function executeCloudflareQuery(sql: string, params: any[] = []): Promise<any> {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${D1_ACCOUNT_ID}/d1/database/${D1_DATABASE_ID}/query`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${D1_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ sql, params }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Cloudflare D1 query failed (${response.status}): ${errorText}`);
-  }
-
-  const json = await response.json();
-  if (!json.success) {
-    throw new Error(`Cloudflare D1 reported errors: ${JSON.stringify(json.errors)}`);
-  }
-  return json.result?.[0]?.results || [];
-}
-
-// Almacenamiento en memoria para desarrollo local y modo offline
-const mockSingers = new Map<string, SingerRow>();
-const mockFriendships = new Set<string>();
-const mockDuels: DuelRecordRow[] = [];
-const mockRooms = new Map<string, DuelRoomRow>();
-
-// Inicializar cantantes demo base en el mock para pruebas
 const DEMO_PRELOAD: SingerRow[] = [
   {
     code: 'VOCAL-9821',
@@ -141,12 +123,80 @@ const DEMO_PRELOAD: SingerRow[] = [
   }
 ];
 
-DEMO_PRELOAD.forEach(s => mockSingers.set(s.code, s));
+function loadLocalD1State(): D1StorageState {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(DB_FILE_PATH)) {
+      const raw = fs.readFileSync(DB_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(raw);
+      return {
+        singers: parsed.singers && parsed.singers.length > 0 ? parsed.singers : [...DEMO_PRELOAD],
+        friendships: parsed.friendships || [],
+        duels: parsed.duels || [],
+        rooms: parsed.rooms || [],
+      };
+    }
+  } catch (e) {
+    console.error('Error reading local D1 state:', e);
+  }
+
+  return {
+    singers: [...DEMO_PRELOAD],
+    friendships: [],
+    duels: [],
+    rooms: [],
+  };
+}
+
+function saveLocalD1State(state: Partial<D1StorageState>): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    let currentRaw: any = {};
+    if (fs.existsSync(DB_FILE_PATH)) {
+      try {
+        currentRaw = JSON.parse(fs.readFileSync(DB_FILE_PATH, 'utf-8'));
+      } catch {}
+    }
+    const merged = {
+      ...currentRaw,
+      ...state,
+    };
+    fs.writeFileSync(DB_FILE_PATH, JSON.stringify(merged, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Error writing local D1 state:', e);
+  }
+}
+
+async function executeCloudflareQuery(sql: string, params: any[] = []): Promise<any> {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${D1_ACCOUNT_ID}/d1/database/${D1_DATABASE_ID}/query`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${D1_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ sql, params }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Cloudflare D1 query failed (${response.status}): ${errorText}`);
+  }
+
+  const json = await response.json();
+  return json.result?.[0]?.results || [];
+}
 
 export const d1Db = {
   async upsertSinger(singer: Partial<SingerRow> & { code: string; name: string }): Promise<SingerRow> {
-    const existing = mockSingers.get(singer.code);
+    const local = loadLocalD1State();
+    const existing = local.singers.find((s) => s.code === singer.code);
     const now = new Date().toISOString();
+
     const updated: SingerRow = {
       code: singer.code,
       name: singer.name,
@@ -163,10 +213,8 @@ export const d1Db = {
       practice_minutes: singer.practice_minutes ?? existing?.practice_minutes ?? 0,
       badges_count: singer.badges_count ?? existing?.badges_count ?? 0,
       last_active_at: now,
-      created_at: existing?.created_at ?? now
+      created_at: existing?.created_at ?? now,
     };
-
-    mockSingers.set(singer.code, updated);
 
     if (isCloudflareConfigured) {
       try {
@@ -182,8 +230,8 @@ export const d1Db = {
           [
             updated.code, updated.name, updated.avatar_url, updated.level, updated.level_title,
             updated.streak, updated.xp_this_week, updated.total_xp, updated.vocal_range,
-            updated.status_text || '', updated.stability_score || 85, updated.lessons_completed || 0,
-            updated.practice_minutes || 0, updated.badges_count || 0, updated.last_active_at, updated.created_at
+            updated.status_text, updated.stability_score, updated.lessons_completed,
+            updated.practice_minutes, updated.badges_count, updated.last_active_at, updated.created_at,
           ]
         );
       } catch (e) {
@@ -191,72 +239,92 @@ export const d1Db = {
       }
     }
 
+    const idx = local.singers.findIndex((s) => s.code === singer.code);
+    if (idx >= 0) {
+      local.singers[idx] = updated;
+    } else {
+      local.singers.push(updated);
+    }
+    saveLocalD1State({ singers: local.singers });
     return updated;
   },
 
   async getSinger(code: string): Promise<SingerRow | null> {
+    const cleanCode = code.trim().toUpperCase();
     if (isCloudflareConfigured) {
       try {
         const rows = await executeCloudflareQuery(
           'SELECT * FROM singers WHERE code = ? LIMIT 1',
-          [code]
+          [cleanCode]
         );
         if (rows[0]) return rows[0];
       } catch (e) {
         console.error('Cloudflare getSinger fallback to local:', e);
       }
     }
-    return mockSingers.get(code) || null;
+
+    const local = loadLocalD1State();
+    const existing = local.singers.find((s) => s.code.toUpperCase() === cleanCode);
+    if (existing) return existing;
+
+    // Check if a registered user exists with this access key and auto-provision their singer profile
+    try {
+      if (fs.existsSync(DB_FILE_PATH)) {
+        const raw = JSON.parse(fs.readFileSync(DB_FILE_PATH, 'utf-8'));
+        const foundUser = (raw.users || []).find((u: any) => u.access_key?.toUpperCase() === cleanCode);
+        if (foundUser) {
+          const newSinger: SingerRow = {
+            code: foundUser.access_key.toUpperCase(),
+            name: foundUser.name,
+            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+            level: 1,
+            level_title: 'Estudiante Academia',
+            streak: 1,
+            xp_this_week: 0,
+            total_xp: 0,
+            vocal_range: 'Voz por Evaluar',
+            status_text: 'Estudiante activo',
+            stability_score: 80,
+            lessons_completed: 0,
+            practice_minutes: 0,
+            badges_count: 0,
+            last_active_at: new Date().toISOString(),
+            created_at: foundUser.created_at || new Date().toISOString(),
+          };
+          local.singers.push(newSinger);
+          saveLocalD1State({ singers: local.singers });
+          return newSinger;
+        }
+      }
+    } catch {}
+
+    return null;
   },
 
   async getSingersByCodes(codes: string[]): Promise<SingerRow[]> {
-    if (isCloudflareConfigured && codes.length > 0) {
-      try {
-        const placeholders = codes.map(() => '?').join(',');
-        const rows = await executeCloudflareQuery(
-          `SELECT * FROM singers WHERE code IN (${placeholders}) ORDER BY xp_this_week DESC`,
-          codes
-        );
-        if (rows && rows.length > 0) return rows;
-      } catch (e) {
-        console.error('Cloudflare getSingersByCodes fallback to local:', e);
-      }
-    }
-
-    const results: SingerRow[] = [];
-    for (const code of codes) {
-      const s = mockSingers.get(code);
-      if (s) results.push(s);
-    }
-    return results.sort((a, b) => b.xp_this_week - a.xp_this_week);
+    const local = loadLocalD1State();
+    const codeSet = new Set(codes.map((c) => c.toUpperCase()));
+    return local.singers
+      .filter((s) => codeSet.has(s.code.toUpperCase()))
+      .sort((a, b) => b.xp_this_week - a.xp_this_week);
   },
 
   async addFriendship(userCode: string, friendCode: string): Promise<void> {
-    mockFriendships.add(`${userCode}:${friendCode}`);
-    mockFriendships.add(`${friendCode}:${userCode}`);
-
-    if (isCloudflareConfigured) {
-      try {
-        const now = new Date().toISOString();
-        await executeCloudflareQuery(
-          `INSERT OR IGNORE INTO friendships (user_code, friend_code, created_at) VALUES (?, ?, ?)`,
-          [userCode, friendCode, now]
-        );
-        await executeCloudflareQuery(
-          `INSERT OR IGNORE INTO friendships (user_code, friend_code, created_at) VALUES (?, ?, ?)`,
-          [friendCode, userCode, now]
-        );
-      } catch (e) {
-        console.error('Cloudflare addFriendship fallback to local:', e);
-      }
-    }
+    const local = loadLocalD1State();
+    const pair1 = `${userCode}:${friendCode}`;
+    const pair2 = `${friendCode}:${userCode}`;
+    const set = new Set(local.friendships);
+    set.add(pair1);
+    set.add(pair2);
+    local.friendships = Array.from(set);
+    saveLocalD1State({ friendships: local.friendships });
   },
 
   async recordDuel(record: DuelRecordRow): Promise<void> {
-    mockDuels.push(record);
+    const local = loadLocalD1State();
+    local.duels.push(record);
 
-    // Sumar XP a ambos cantantes
-    const challenger = mockSingers.get(record.challenger_code);
+    const challenger = local.singers.find((s) => s.code === record.challenger_code);
     if (challenger) {
       const addedXp = record.winner_code === record.challenger_code ? record.xp_awarded : Math.floor(record.xp_awarded * 0.3);
       challenger.xp_this_week += addedXp;
@@ -264,7 +332,7 @@ export const d1Db = {
       challenger.status_text = `Duelo en ${record.target_note} (${record.challenger_score}%)`;
     }
 
-    const opponent = mockSingers.get(record.opponent_code);
+    const opponent = local.singers.find((s) => s.code === record.opponent_code);
     if (opponent) {
       const addedXp = record.winner_code === record.opponent_code ? record.xp_awarded : Math.floor(record.xp_awarded * 0.3);
       opponent.xp_this_week += addedXp;
@@ -272,27 +340,15 @@ export const d1Db = {
       opponent.status_text = `Duelo en ${record.target_note} (${record.opponent_score}%)`;
     }
 
-    if (isCloudflareConfigured) {
-      try {
-        await executeCloudflareQuery(
-          `INSERT INTO duel_records (id, duel_type, challenger_code, opponent_code, target_note, challenger_score, opponent_score, winner_code, xp_awarded, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            record.id, record.duel_type, record.challenger_code, record.opponent_code,
-            record.target_note, record.challenger_score, record.opponent_score,
-            record.winner_code, record.xp_awarded, record.created_at
-          ]
-        );
-      } catch (e) {
-        console.error('Cloudflare recordDuel fallback to local:', e);
-      }
-    }
+    saveLocalD1State({ duels: local.duels, singers: local.singers });
   },
 
   async getHeadToHead(userCode: string, friendCode: string) {
-    const duels = mockDuels.filter(
-      d => (d.challenger_code === userCode && d.opponent_code === friendCode) ||
-           (d.challenger_code === friendCode && d.opponent_code === userCode)
+    const local = loadLocalD1State();
+    const duels = local.duels.filter(
+      (d) =>
+        (d.challenger_code === userCode && d.opponent_code === friendCode) ||
+        (d.challenger_code === friendCode && d.opponent_code === userCode)
     );
 
     let userWins = 0;
@@ -310,66 +366,32 @@ export const d1Db = {
       userWins,
       friendWins,
       lastDuelNote: lastDuel?.target_note,
-      lastDuelScore: lastDuel ? (lastDuel.challenger_code === userCode ? lastDuel.challenger_score : lastDuel.opponent_score) : undefined
+      lastDuelScore: lastDuel
+        ? lastDuel.challenger_code === userCode
+          ? lastDuel.challenger_score
+          : lastDuel.opponent_score
+        : undefined,
     };
   },
 
   async createDuelRoom(room: DuelRoomRow): Promise<void> {
-    mockRooms.set(room.room_id, room);
-    if (isCloudflareConfigured) {
-      try {
-        await executeCloudflareQuery(
-          `INSERT INTO duel_rooms (room_id, duel_type, challenger_code, opponent_code, target_note, offer_sdp, answer_sdp, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            room.room_id, room.duel_type, room.challenger_code, room.opponent_code || null,
-            room.target_note, room.offer_sdp || null, room.answer_sdp || null,
-            room.status, room.created_at
-          ]
-        );
-      } catch (e) {
-        console.error('Cloudflare createDuelRoom fallback to local:', e);
-      }
-    }
+    const local = loadLocalD1State();
+    const filtered = local.rooms.filter((r) => r.room_id !== room.room_id);
+    filtered.push(room);
+    saveLocalD1State({ rooms: filtered });
   },
 
   async getDuelRoom(roomId: string): Promise<DuelRoomRow | null> {
-    if (isCloudflareConfigured) {
-      try {
-        const rows = await executeCloudflareQuery(
-          'SELECT * FROM duel_rooms WHERE room_id = ? LIMIT 1',
-          [roomId]
-        );
-        if (rows[0]) return rows[0];
-      } catch (e) {
-        console.error('Cloudflare getDuelRoom fallback to local:', e);
-      }
-    }
-    return mockRooms.get(roomId) || null;
+    const local = loadLocalD1State();
+    return local.rooms.find((r) => r.room_id === roomId) || null;
   },
 
   async updateDuelRoom(roomId: string, updates: Partial<DuelRoomRow>): Promise<DuelRoomRow | null> {
-    const r = mockRooms.get(roomId);
-    if (!r) return null;
-    const updated = { ...r, ...updates };
-    mockRooms.set(roomId, updated);
-
-    if (isCloudflareConfigured) {
-      try {
-        const fields = Object.keys(updates);
-        if (fields.length > 0) {
-          const setClause = fields.map(f => `${f} = ?`).join(', ');
-          const values = fields.map(f => (updates as any)[f]);
-          await executeCloudflareQuery(
-            `UPDATE duel_rooms SET ${setClause} WHERE room_id = ?`,
-            [...values, roomId]
-          );
-        }
-      } catch (e) {
-        console.error('Cloudflare updateDuelRoom fallback to local:', e);
-      }
-    }
-
-    return updated;
-  }
+    const local = loadLocalD1State();
+    const idx = local.rooms.findIndex((r) => r.room_id === roomId);
+    if (idx === -1) return null;
+    local.rooms[idx] = { ...local.rooms[idx], ...updates };
+    saveLocalD1State({ rooms: local.rooms });
+    return local.rooms[idx];
+  },
 };

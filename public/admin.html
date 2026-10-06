@@ -59,6 +59,9 @@
         <p class="text-xs md:text-sm text-slate-400 mt-1">Gestion de estudiantes, licencias y suscripciones activas</p>
       </div>
       <div class="flex items-center gap-3">
+        <button onclick="downloadBackup()" class="px-4 py-2.5 rounded-2xl font-semibold border border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-xs md:text-sm transition-all">
+          Copia Backup
+        </button>
         <button onclick="openNewUserModal()" class="px-5 py-2.5 rounded-2xl font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm shadow-lg shadow-emerald-500/20 transition-all">
           + Nuevo Alumno
         </button>
@@ -391,6 +394,20 @@
       const domain = window.location.origin;
       const msg = `Hola ${name}, tu acceso a AfinApp esta activo.\n\nAccede en: ${domain}/login\nUsuario: ${email}\nClave: ${key}\nDias de acceso: ${days} dias\n\nBienvenido a la academia!`;
       copyToClipboard(msg, 'Mensaje de WhatsApp copiado');
+    }
+
+    async function downloadBackup() {
+      try {
+        const res = await fetch('/api/admin/backup', { headers: { 'x-admin-key': masterKey } });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Error al exportar');
+        const blob = new Blob([JSON.stringify(data.backup, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `afinapp_db_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        showToast('Copia de seguridad descargada');
+      } catch (err) { alert(err.message); }
     }
 
     function generateRandomKey() {
