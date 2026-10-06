@@ -13,6 +13,8 @@ import { useThemeAndZen } from './main-app/useThemeAndZen';
 import { WebShareTargetBanner } from './main-app/WebShareTargetBanner';
 import { useGlobalAppListeners } from './main-app/useGlobalAppListeners';
 import { useGlobalGameState } from './main-app/useGlobalGameState';
+import { useSessionGuard } from './main-app/useSessionGuard';
+import { useCloudProgressSync } from './main-app/useCloudProgressSync';
 import { MainAppContent } from './main-app/MainAppContent';
 import { MainAppModals } from './main-app/MainAppModals';
 
@@ -85,6 +87,9 @@ export default function MainApp() {
     handleUpdatePracticeTime,
     handleUpdateStats,
     handleClaimReward,
+    bonusChestClaimed,
+    bonusChestReward,
+    handleClaimBonusChest,
     handleLoseLife,
     handleGainLife,
     handleBuyLife,
@@ -105,6 +110,16 @@ export default function MainApp() {
       setShowUnit3Celebration(true);
     },
     onSetActiveTab: setActiveTab,
+  });
+
+  // Live session guard: redirects to /login immediately if expired or blocked in DB
+  useSessionGuard();
+
+  // Cloud progress sync: bidirectional sync between DB and client
+  useCloudProgressSync({
+    userStats,
+    setUserStats,
+    isOnline,
   });
 
   // Evaluación del Módulo 4 (u4-node33.5): se marca completado al cerrar la celebración.
@@ -186,6 +201,9 @@ export default function MainApp() {
         onUpdateNotesTuned={handleUpdateNotesTuned}
         onUpdatePracticeTime={handleUpdatePracticeTime}
         onClaimReward={handleClaimReward}
+        bonusChestClaimed={bonusChestClaimed}
+        bonusChestReward={bonusChestReward}
+        onClaimBonusChest={handleClaimBonusChest}
         onStreakPromptClose={() => setStreakPromptOpen(false)}
         onStreakIgniteComplete={handleStreakIgniteComplete}
         onTabChange={handleTabChange}
