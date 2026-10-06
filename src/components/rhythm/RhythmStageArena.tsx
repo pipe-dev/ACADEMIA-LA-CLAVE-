@@ -61,21 +61,6 @@ export const RhythmStageArena: React.FC<RhythmStageArenaProps> = ({
 
       {/* Main Jump Arena: Stage with Baseline Plunging to Buttons */}
       <div className="relative w-full flex-1 min-h-[220px] flex items-end justify-center pb-3 overflow-visible">
-        {/* Left & Right Target Landing Indicators matching kick (-105px) and clap (+105px) */}
-        <div
-          style={{ transform: 'translateX(-105px)' }}
-          className="absolute bottom-2 w-20 h-5 rounded-full bg-blue-500/15 border border-blue-500/30 blur-[1px] pointer-events-none flex items-center justify-center"
-        >
-          <span className="text-[8px] font-black text-blue-400 tracking-wider">BOMBO</span>
-        </div>
-        <div
-          style={{ transform: 'translateX(105px)' }}
-          className="absolute bottom-2 w-20 h-5 rounded-full bg-rose-500/15 border border-rose-500/30 blur-[1px] pointer-events-none flex items-center justify-center"
-        >
-          <span className="text-[8px] font-black text-rose-400 tracking-wider">PALMAS</span>
-        </div>
-        <div className="absolute bottom-2 w-16 h-4 rounded-full bg-indigo-500/20 border border-indigo-400/40 blur-[1px] pointer-events-none" />
-
         {/* 3D Ball with Spherical Shaders: Hardware GPU accelerated */}
         <motion.div
           initial={{ x: 0, y: -90, scaleX: 1, scaleY: 1, rotate: 0 }}
