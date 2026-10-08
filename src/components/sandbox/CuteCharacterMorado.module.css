@@ -6,23 +6,15 @@
   padding-bottom: 40px;
 }
 
-.dropWrapper {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transform-origin: 50% 100%;
-}
-
 /* Cuerpo del personaje morado */
 .purple-char {
   position: relative;
   z-index: 3;
   width: 250px;
   height: 400px;
-  /* Bloque vertical con esquinas redondeadas y silueta recta original */
+  /* Bloque vertical con esquinas redondeadas y silueta recta en reposo */
   border-radius: 46px 46px 18px 18px;
-  clip-path: var(--morado-clip, none);
+  clip-path: none;
   /* Inclinacion organica hacia la derecha: la base permanece 100% anclada al suelo
      mientras el torso y la parte superior se arquean elasticamente hacia el formulario */
   transform-origin: 50% 100%;

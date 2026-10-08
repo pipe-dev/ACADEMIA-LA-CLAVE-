@@ -7,24 +7,23 @@ import {
 } from './useTactileJellyPhysics';
 import styles from './CuteCharacterTactileCage.module.css';
 
-export interface PinchEventData {
-  originClientX: number;
-  originClientY: number;
-  currentClientX: number;
-  currentClientY: number;
-  localOriginX: number;
-  localOriginY: number;
-  localCurrentX: number;
-  localCurrentY: number;
+export interface TactileWaveState {
+  waveAmp: number;
+  wavePhase: number;
 }
+
+export const TactileWaveContext = React.createContext<TactileWaveState>({
+  waveAmp: 0,
+  wavePhase: 0,
+});
+
+export const useTactileWave = () => React.useContext(TactileWaveContext);
 
 export interface CuteCharacterTactileCageProps {
   children: React.ReactNode;
   config: JellyPhysicsConfig;
   onRippleTrigger?: (originX: number, originY: number, intensity: number) => void;
   onTouchPress?: (x: number, y: number, active: boolean) => void;
-  onPinchMove?: (data: PinchEventData) => void;
-  onPinchRelease?: (data: PinchEventData) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -34,19 +33,11 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
   config,
   onRippleTrigger,
   onTouchPress,
-  onPinchMove,
-  onPinchRelease,
   className = '',
   style = {},
 }) => {
   const cageRef = useRef<HTMLDivElement>(null);
-  const dragStartRef = useRef<{
-    clientX: number;
-    clientY: number;
-    localX: number;
-    localY: number;
-    time: number;
-  } | null>(null);
+  const dragStartRef = useRef<{x: number; y: number; time: number} | null>(null);
 
   const {
     state,
@@ -54,6 +45,8 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
     updateDrag,
     releaseDrag,
     triggerPoke,
+    triggerHover,
+    clearHover,
   } = useTactileJellyPhysics(config);
 
   const getLocalCoords = useCallback((clientX: number, clientY: number) => {
@@ -78,19 +71,16 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
         // Ignorar si no soporta captura de puntero
       }
 
-      const coords = getLocalCoords(e.clientX, e.clientY);
       dragStartRef.current = {
-        clientX: e.clientX,
-        clientY: e.clientY,
-        localX: coords.x,
-        localY: coords.y,
+        x: e.clientX,
+        y: e.clientY,
         time: performance.now(),
       };
 
       startDrag(e.clientX, e.clientY);
       onTouchPress?.(e.clientX, e.clientY, true);
     },
-    [getLocalCoords, startDrag, onTouchPress]
+    [startDrag, onTouchPress]
   );
 
   const handlePointerMove = useCallback(
@@ -98,23 +88,17 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
       const coords = getLocalCoords(e.clientX, e.clientY);
 
       if (dragStartRef.current) {
-        const dx = e.clientX - dragStartRef.current.clientX;
-        const dy = e.clientY - dragStartRef.current.clientY;
+        const dx = e.clientX - dragStartRef.current.x;
+        const dy = e.clientY - dragStartRef.current.y;
         updateDrag(dx, dy);
         onTouchPress?.(e.clientX, e.clientY, true);
-        onPinchMove?.({
-          originClientX: dragStartRef.current.clientX,
-          originClientY: dragStartRef.current.clientY,
-          currentClientX: e.clientX,
-          currentClientY: e.clientY,
-          localOriginX: dragStartRef.current.localX,
-          localOriginY: dragStartRef.current.localY,
-          localCurrentX: coords.x,
-          localCurrentY: coords.y,
-        });
+      } else if (coords.width > 0) {
+        // Hover: direccion normalizada de -1 (izq) a 1 (der)
+        const dir = (coords.x - coords.width / 2) / (coords.width / 2);
+        triggerHover(dir);
       }
     },
-    [getLocalCoords, updateDrag, onTouchPress, onPinchMove]
+    [getLocalCoords, updateDrag, triggerHover, onTouchPress]
   );
 
   const handlePointerUp = useCallback(
@@ -128,25 +112,13 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
       }
 
       onTouchPress?.(e.clientX, e.clientY, false);
-      const coords = getLocalCoords(e.clientX, e.clientY);
 
       if (dragStartRef.current) {
         const duration = performance.now() - dragStartRef.current.time;
         const dist = Math.hypot(
-          e.clientX - dragStartRef.current.clientX,
-          e.clientY - dragStartRef.current.clientY
+          e.clientX - dragStartRef.current.x,
+          e.clientY - dragStartRef.current.y
         );
-
-        onPinchRelease?.({
-          originClientX: dragStartRef.current.clientX,
-          originClientY: dragStartRef.current.clientY,
-          currentClientX: e.clientX,
-          currentClientY: e.clientY,
-          localOriginX: dragStartRef.current.localX,
-          localOriginY: dragStartRef.current.localY,
-          localCurrentX: coords.x,
-          localCurrentY: coords.y,
-        });
 
         if (duration < 240 && dist < 14) {
           // Tap / Poke directo
@@ -166,37 +138,24 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
 
       dragStartRef.current = null;
     },
-    [
-      getLocalCoords,
-      onTouchPress,
-      onPinchRelease,
-      triggerPoke,
-      releaseDrag,
-      onRippleTrigger,
-    ]
+    [onTouchPress, triggerPoke, releaseDrag, onRippleTrigger]
   );
 
   const handlePointerCancel = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      const coords = getLocalCoords(e.clientX, e.clientY);
-      if (dragStartRef.current) {
-        onPinchRelease?.({
-          originClientX: dragStartRef.current.clientX,
-          originClientY: dragStartRef.current.clientY,
-          currentClientX: e.clientX,
-          currentClientY: e.clientY,
-          localOriginX: dragStartRef.current.localX,
-          localOriginY: dragStartRef.current.localY,
-          localCurrentX: coords.x,
-          localCurrentY: coords.y,
-        });
-      }
       dragStartRef.current = null;
+      const coords = getLocalCoords(e.clientX, e.clientY);
       onTouchPress?.(coords.x, coords.y, false);
       releaseDrag();
     },
-    [getLocalCoords, onPinchRelease, onTouchPress, releaseDrag]
+    [getLocalCoords, onTouchPress, releaseDrag]
   );
+
+  const handlePointerLeave = useCallback(() => {
+    if (!dragStartRef.current) {
+      clearHover();
+    }
+  }, [clearHover]);
 
   const isActive = state.isInteracting || state.isSettling;
   const transformStyle: React.CSSProperties = isActive
@@ -218,8 +177,16 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      onPointerLeave={handlePointerLeave}
     >
-      {children}
+      <TactileWaveContext.Provider
+        value={{
+          waveAmp: state.waveAmp ?? 0,
+          wavePhase: state.wavePhase ?? 0,
+        }}
+      >
+        {children}
+      </TactileWaveContext.Provider>
     </div>
   );
 };

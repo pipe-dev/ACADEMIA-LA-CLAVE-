@@ -20,6 +20,8 @@ export interface JellyTransformState {
   offsetY: number;
   isInteracting: boolean;
   isSettling: boolean;
+  waveAmp: number;
+  wavePhase: number;
 }
 
 export const JELLY_PRESET_MORADO: JellyPhysicsConfig = {
@@ -71,6 +73,8 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
     offsetY: 0,
     isInteracting: false,
     isSettling: false,
+    waveAmp: 0,
+    wavePhase: 0,
   });
 
   const stateRef = useRef({
@@ -85,6 +89,8 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
     jiggleTime: 0,
     isDragging: false,
     isSettling: false,
+    hoverLean: 0,
+    waveTime: 0,
   });
 
   const animFrameRef = useRef<number | null>(null);
@@ -103,6 +109,10 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
 
       if (s.isDragging) {
         // En arrastre activo: la transformacion ya fue calculada en updateDrag
+        s.waveTime += dt * 14;
+        const stretch = Math.abs(s.scaleY - 1);
+        const dragWaveAmp = Math.min(1.2, stretch * 2.6 + Math.abs(s.skewX) * 0.05);
+
         setTransform({
           scaleX: s.scaleX,
           scaleY: s.scaleY,
@@ -111,6 +121,8 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
           offsetY: s.offsetY,
           isInteracting: true,
           isSettling: false,
+          waveAmp: dragWaveAmp,
+          wavePhase: s.waveTime,
         });
         animFrameRef.current = requestAnimationFrame(tick);
         return;
@@ -147,15 +159,15 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
       s.skewX += s.velSkew * dt;
 
       // Retorno suave de rotacion
-      s.rotate += (0 - s.rotate) * Math.min(1, dt * 16);
+      s.rotate += (s.hoverLean - s.rotate) * Math.min(1, dt * 14);
 
       // Condicion de reposo
       const isStillY = Math.abs(s.scaleY - 1) < 0.002 && Math.abs(s.velY) < 0.005;
       const isStillSkew = Math.abs(s.skewX) < 0.04 && Math.abs(s.velSkew) < 0.08;
       const isStillJiggle = s.jiggleAmp < 0.002;
-      const isStillRotate = Math.abs(s.rotate) < 0.04;
+      const isStillHover = Math.abs(s.rotate - s.hoverLean) < 0.04;
 
-      if (isStillY && isStillSkew && isStillJiggle && isStillRotate) {
+      if (isStillY && isStillSkew && isStillJiggle && isStillHover && s.hoverLean === 0) {
         s.scaleX = 1;
         s.scaleY = 1;
         s.skewX = 0;
@@ -164,6 +176,7 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
         s.velY = 0;
         s.velSkew = 0;
         s.jiggleAmp = 0;
+        s.waveTime = 0;
         s.isSettling = false;
 
         setTransform({
@@ -174,12 +187,19 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
           offsetY: 0,
           isInteracting: false,
           isSettling: false,
+          waveAmp: 0,
+          wavePhase: 0,
         });
 
         animFrameRef.current = null;
         lastTimeRef.current = null;
         return;
       }
+
+      s.waveTime += dt * 16;
+      const motionIntensity =
+        Math.abs(s.velY) * 0.045 + s.jiggleAmp * 2.2 + Math.abs(s.scaleY - 1) * 1.5;
+      const fallWaveAmp = Math.min(1.4, motionIntensity);
 
       setTransform({
         scaleX: s.scaleX,
@@ -189,6 +209,8 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
         offsetY: s.offsetY,
         isInteracting: false,
         isSettling: true,
+        waveAmp: fallWaveAmp,
+        wavePhase: s.waveTime,
       });
 
       animFrameRef.current = requestAnimationFrame(tick);
@@ -272,9 +294,21 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
     [config, startLoop]
   );
 
-  const triggerHover = useCallback((_direction: number) => {}, []);
+  const triggerHover = useCallback(
+    (direction: number) => {
+      const s = stateRef.current;
+      if (s.isDragging) return;
+      s.hoverLean = Math.max(-2, Math.min(2, direction * 1.8));
+      startLoop();
+    },
+    [startLoop]
+  );
 
-  const clearHover = useCallback(() => {}, []);
+  const clearHover = useCallback(() => {
+    const s = stateRef.current;
+    s.hoverLean = 0;
+    startLoop();
+  }, [startLoop]);
 
   useEffect(() => {
     return () => {
