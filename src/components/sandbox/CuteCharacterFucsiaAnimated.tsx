@@ -41,169 +41,158 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       onComplete,
     });
 
-    // 1. ESTADO INICIAL: Colgado del techo invertido (cabeza abajo, base arriba)
-    tl.set(carrier, { x: 100, y: -450 })
-      .set(rotator, { rotation: 195, transformOrigin: 'center center' })
+    // 0. ESTADO INICIAL: Colgado del techo invertido a la derecha
+    tl.set(carrier, { x: 120, y: -450 })
+      .set(rotator, { rotation: 198, transformOrigin: 'center center' })
       .set(squash, { scaleX: 1, scaleY: 1, skewX: 0, transformOrigin: 'bottom center' })
       .set(face, { y: 0, x: 0 })
-      .set(shadowContact, { scaleX: 0.3, opacity: 0.08 })
-      .set(shadowAmbient, { scaleX: 0.3, opacity: 0.05 })
+      .set(shadowContact, { scaleX: 0.25, opacity: 0.05 })
+      .set(shadowAmbient, { scaleX: 0.25, opacity: 0.03 });
 
-      // FASE 1: Balanceo pendular hacia la izquierda con flexión de látigo
-      .to(carrier, { x: -60, duration: 0.65, ease: 'sine.inOut' })
-      .to(carrier, { y: -475, duration: 0.32, ease: 'sine.out', yoyo: true, repeat: 1 }, '<')
-      .to(rotator, { rotation: 162, duration: 0.65, ease: 'sine.inOut' }, '<')
+    // =========================================================================
+    // FASE 1: ENTRADA PENDULAR EN ONDAS SINUSOIDALES (Derecha -> Izquierda -> Retorno)
+    // El cuerpo viaja mientras ondula continuamente en ciclos sinusoidales
+    // =========================================================================
+
+    // Traslación general suave en X de derecha a izquierda
+    tl.to(carrier, { x: -80, duration: 0.75, ease: 'sine.inOut' }, 'swingLeft')
+      // Onda sinusoidal en Y (ondulación vertical de cresta y valle)
+      .to(carrier, { y: -475, duration: 0.38, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 'swingLeft')
+      // Onda sinusoidal de rotación pendular
+      .to(rotator, { rotation: 160, duration: 0.75, ease: 'sine.inOut' }, 'swingLeft')
+      // ONDULACIÓN DE AGUA 1: Skew sinusoidal (el cuerpo serpentea como líquido)
+      .to(squash, { skewX: 24, duration: 0.38, ease: 'sine.inOut' }, 'swingLeft')
+      .to(squash, { skewX: -12, duration: 0.37, ease: 'sine.inOut' })
+      // ONDULACIÓN DE AGUA 1: Volumen sinusoidal (se estira y comprime como ola)
+      .to(squash, { scaleY: 1.18, scaleX: 0.85, duration: 0.38, ease: 'sine.inOut' }, 'swingLeft')
+      .to(squash, { scaleY: 0.90, scaleX: 1.12, duration: 0.37, ease: 'sine.inOut' }, 'swingLeft+=0.38')
+      // Arrastre sinusoidal de los ojos
+      .to(face, { x: 8, duration: 0.38, ease: 'sine.inOut' }, 'swingLeft')
+      .to(face, { x: -4, duration: 0.37, ease: 'sine.inOut' }, 'swingLeft+=0.38');
+
+    // Retorno sinusoidal hacia el centro de soltado (x: 0)
+    tl.to(carrier, { x: 0, duration: 0.60, ease: 'sine.inOut' }, 'swingReturn')
+      .to(carrier, { y: -455, duration: 0.30, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 'swingReturn')
+      .to(rotator, { rotation: 196, duration: 0.60, ease: 'sine.inOut' }, 'swingReturn')
+      // ONDULACIÓN DE AGUA 2: Skew inverso sinusoidal
+      .to(squash, { skewX: -26, duration: 0.30, ease: 'sine.inOut' }, 'swingReturn')
+      .to(squash, { skewX: 6, duration: 0.30, ease: 'sine.inOut' })
+      // ONDULACIÓN DE AGUA 2: Volumen sinusoidal inverso
+      .to(squash, { scaleY: 1.20, scaleX: 0.84, duration: 0.30, ease: 'sine.inOut' }, 'swingReturn')
+      .to(squash, { scaleY: 0.92, scaleX: 1.10, duration: 0.30, ease: 'sine.inOut' }, 'swingReturn+=0.30')
+      .to(face, { x: -8, duration: 0.30, ease: 'sine.inOut' }, 'swingReturn')
+      .to(face, { x: 2, duration: 0.30, ease: 'sine.inOut' }, 'swingReturn+=0.30');
+
+    // =========================================================================
+    // FASE 2: VOLTERETA DE 180° Y CAÍDA ONDULANDO COMO AGUA
+    // El personaje da la vuelta completa y cae bamboleándose en ondas sinusoidales
+    // =========================================================================
+
+    // Anticipación de soltado: contracción elástica hacia el techo
+    tl.to(squash, { scaleY: 0.88, scaleX: 1.14, duration: 0.08, ease: 'sine.out' });
+
+    // Caída en Y acelerada
+    tl.to(carrier, { y: 0, duration: 0.45, ease: 'power3.in' }, 'fallAndFlip')
+      // Giro de 180° hasta quedar vertical en 360° (0°)
+      .to(rotator, { rotation: 360, duration: 0.45, ease: 'sine.inOut' }, 'fallAndFlip')
+
+      // ONDA SINUSOIDAL EN X DURANTE LA CAÍDA (bamboleo líquido de lado a lado)
+      .to(carrier, { x: 16, duration: 0.15, ease: 'sine.inOut' }, 'fallAndFlip')
+      .to(carrier, { x: -14, duration: 0.15, ease: 'sine.inOut' })
+      .to(carrier, { x: 0, duration: 0.15, ease: 'sine.inOut' })
+
+      // ONDULACIÓN DE CUERPO EN EL AIRE (el líquido ondea en forma de onda mientras gira)
+      .to(squash, { skewX: 20, duration: 0.15, ease: 'sine.inOut' }, 'fallAndFlip')
+      .to(squash, { skewX: -18, duration: 0.15, ease: 'sine.inOut' })
+      .to(squash, { skewX: 0, duration: 0.15, ease: 'sine.inOut' })
+
+      // Estiramiento vertical en el aire tipo lágrima de agua antes de chocar
+      .to(squash, { scaleY: 1.40, scaleX: 0.72, duration: 0.18, ease: 'sine.in' }, 'fallAndFlip+=0.27')
+      .to(face, { x: 0, y: -4, duration: 0.25, ease: 'sine.out' }, 'fallAndFlip')
+      .to(shadowContact, { scaleX: 0.80, opacity: 0.25, duration: 0.25, ease: 'sine.in' }, 'fallAndFlip+=0.20');
+
+    // =========================================================================
+    // FASE 3: IMPACTO Y DISIPACIÓN SINUSOIDAL PURA (Harmonic Damped Wave)
+    // El impacto se propaga en ondas senoidales amortiguadas de alta frecuencia
+    // =========================================================================
+
+    // Semi-ciclo 0: Aplastamiento violento contra el piso (Splash / Valle)
+    tl.to(squash, { scaleY: 0.38, scaleX: 1.72, skewX: 0, duration: 0.05, ease: 'sine.out' }, 'hit')
+      .to(shadowContact, { scaleX: 1.80, opacity: 0.65, duration: 0.05, ease: 'sine.out' }, 'hit')
+      .to(shadowAmbient, { scaleX: 1.55, opacity: 0.35, duration: 0.05, ease: 'sine.out' }, 'hit')
+      .to(face, { y: 20, duration: 0.07, ease: 'sine.out' }, 'hit+=0.01')
+
+      // Semi-ciclo 1: Cresta explosiva hacia arriba con torsión sinusoidal
+      .to(squash, { scaleY: 1.38, scaleX: 0.72, skewX: -9, duration: 0.07, ease: 'sine.inOut' })
+      .to(face, { y: -12, duration: 0.07, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 0.72, opacity: 0.20, duration: 0.07, ease: 'sine.inOut' }, '<')
+
+      // Semi-ciclo 2: Valle de compresión secundaria
+      .to(squash, { scaleY: 0.68, scaleX: 1.34, skewX: 7, duration: 0.07, ease: 'sine.inOut' })
+      .to(face, { y: 10, duration: 0.07, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 1.35, opacity: 0.52, duration: 0.07, ease: 'sine.inOut' }, '<')
+
+      // Semi-ciclo 3: Cresta amortiguada
+      .to(squash, { scaleY: 1.22, scaleX: 0.82, skewX: -5, duration: 0.06, ease: 'sine.inOut' })
+      .to(face, { y: -6, duration: 0.06, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 0.82, opacity: 0.26, duration: 0.06, ease: 'sine.inOut' }, '<')
+
+      // Semi-ciclo 4: Valle amortiguado
+      .to(squash, { scaleY: 0.85, scaleX: 1.15, skewX: 3.5, duration: 0.06, ease: 'sine.inOut' })
+      .to(face, { y: 4, duration: 0.06, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 1.15, opacity: 0.42, duration: 0.06, ease: 'sine.inOut' }, '<')
+
+      // Semi-ciclo 5: Micro-cresta
+      .to(squash, { scaleY: 1.08, scaleX: 0.93, skewX: -2, duration: 0.05, ease: 'sine.inOut' })
+      .to(face, { y: -2, duration: 0.05, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 0.93, opacity: 0.32, duration: 0.05, ease: 'sine.inOut' }, '<')
+
+      // Semi-ciclo 6: Micro-valle
+      .to(squash, { scaleY: 0.96, scaleX: 1.04, skewX: 1, duration: 0.05, ease: 'sine.inOut' })
+      .to(face, { y: 1, duration: 0.05, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 1.04, opacity: 0.37, duration: 0.05, ease: 'sine.inOut' }, '<')
+
+      // Asentamiento final al punto neutro (0,0)
+      .to(squash, { scaleY: 1.0, scaleX: 1.0, skewX: 0, duration: 0.15, ease: 'sine.out' })
+      .to(face, { y: 0, duration: 0.15, ease: 'sine.out' }, '<')
+      .to(shadowContact, { scaleX: 1.0, opacity: 0.38, duration: 0.15, ease: 'sine.out' }, '<')
+      .to(shadowAmbient, { scaleX: 1.0, opacity: 0.22, duration: 0.15, ease: 'sine.out' }, '<');
+
+    // =========================================================================
+    // FASE 4: RESPIRACIÓN SINUSOIDAL INFINITA EN REPOSO (Idle vivo continuo)
+    // El personaje nunca está estático: respira con una suave onda senoidal viva
+    // =========================================================================
+    tl.to(squash, {
+      scaleY: 1.03,
+      scaleX: 0.97,
+      duration: 1.6,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut',
+    })
       .to(
         squash,
         {
-          skewX: 18,
-          scaleY: 1.14,
-          scaleX: 0.88,
-          duration: 0.65,
+          skewX: 1.5,
+          duration: 2.1,
+          repeat: -1,
+          yoyo: true,
           ease: 'sine.inOut',
         },
         '<'
       )
-      .to(face, { x: 6, duration: 0.65, ease: 'sine.inOut' }, '<')
-
-      // FASE 2: Retorno pendular hacia el centro de soltado (x: 0) con látigo inverso
-      .to(carrier, { x: 0, duration: 0.55, ease: 'sine.inOut' })
-      .to(rotator, { rotation: 192, duration: 0.55, ease: 'sine.inOut' }, '<')
       .to(
-        squash,
+        shadowContact,
         {
-          skewX: -20,
-          scaleY: 1.15,
-          scaleX: 0.87,
-          duration: 0.55,
+          scaleX: 1.05,
+          opacity: 0.40,
+          duration: 1.6,
+          repeat: -1,
+          yoyo: true,
           ease: 'sine.inOut',
         },
         '<'
-      )
-      .to(face, { x: -6, duration: 0.55, ease: 'sine.inOut' }, '<')
-
-      // FASE 3: Desprendimiento y caída libre acelerada con voltereta de 180°
-      // Anticipación breve de compresión antes de soltarse
-      .to(squash, { scaleY: 0.92, scaleX: 1.09, duration: 0.06, ease: 'power1.out' })
-      // Caída acelerada hacia el suelo (y: 0)
-      .to(carrier, { y: 0, duration: 0.38, ease: 'power3.in' }, 'fall')
-      // Giro de 180° hacia la posición neutra (360° / 0°)
-      .to(rotator, { rotation: 360, duration: 0.38, ease: 'power1.inOut' }, 'fall')
-      // Deformación de gota líquida estirada en el aire
-      .to(
-        squash,
-        {
-          scaleY: 1.36,
-          scaleX: 0.74,
-          skewX: 0,
-          duration: 0.18,
-          ease: 'power2.in',
-        },
-        'fall+=0.18'
-      )
-      .to(face, { x: 0, duration: 0.2, ease: 'power1.out' }, 'fall')
-      .to(shadowContact, { scaleX: 0.85, opacity: 0.28, duration: 0.2, ease: 'power2.in' }, 'fall+=0.18')
-
-      // FASE 4: IMPACTO BALÍSTICO Y DISIPACIÓN DE FLAN / GELATINA (7 ciclos rápidos)
-      // Onda 0: Aplastamiento violento contra el suelo (Splash)
-      .to(squash, {
-        scaleY: 0.40,
-        scaleX: 1.70,
-        skewX: 0,
-        duration: 0.05,
-        ease: 'power2.out',
-      })
-      .to(shadowContact, { scaleX: 1.75, opacity: 0.65, duration: 0.05 }, '<')
-      .to(shadowAmbient, { scaleX: 1.50, opacity: 0.35, duration: 0.05 }, '<')
-      .to(face, { y: 18, duration: 0.07, ease: 'power2.out' }, '<0.01')
-
-      // Onda 1: Expansión vertical elástica explosiva con torsión
-      .to(squash, {
-        scaleY: 1.35,
-        scaleX: 0.74,
-        skewX: -8,
-        duration: 0.07,
-        ease: 'power1.out',
-      })
-      .to(face, { y: -10, duration: 0.07, ease: 'power1.out' }, '<')
-      .to(shadowContact, { scaleX: 0.75, opacity: 0.22, duration: 0.07 }, '<')
-
-      // Onda 2: Segunda compresión violenta
-      .to(squash, {
-        scaleY: 0.72,
-        scaleX: 1.28,
-        skewX: 6,
-        duration: 0.07,
-        ease: 'sine.inOut',
-      })
-      .to(face, { y: 8, duration: 0.07, ease: 'sine.inOut' }, '<')
-      .to(shadowContact, { scaleX: 1.30, opacity: 0.50, duration: 0.07 }, '<')
-
-      // Onda 3: Tercer rebote
-      .to(squash, {
-        scaleY: 1.18,
-        scaleX: 0.85,
-        skewX: -4,
-        duration: 0.06,
-        ease: 'sine.inOut',
-      })
-      .to(face, { y: -5, duration: 0.06, ease: 'sine.inOut' }, '<')
-      .to(shadowContact, { scaleX: 0.86, opacity: 0.28, duration: 0.06 }, '<')
-
-      // Onda 4: Cuarta compresión amortiguada
-      .to(squash, {
-        scaleY: 0.88,
-        scaleX: 1.10,
-        skewX: 2.5,
-        duration: 0.06,
-        ease: 'sine.inOut',
-      })
-      .to(face, { y: 3, duration: 0.06, ease: 'sine.inOut' }, '<')
-      .to(shadowContact, { scaleX: 1.12, opacity: 0.40, duration: 0.06 }, '<')
-
-      // Onda 5: Micro-rebote elástico
-      .to(squash, {
-        scaleY: 1.06,
-        scaleX: 0.95,
-        skewX: -1.2,
-        duration: 0.05,
-        ease: 'sine.inOut',
-      })
-      .to(face, { y: -1.5, duration: 0.05, ease: 'sine.inOut' }, '<')
-      .to(shadowContact, { scaleX: 0.95, opacity: 0.33, duration: 0.05 }, '<')
-
-      // Onda 6: Micro-compresión final
-      .to(squash, {
-        scaleY: 0.97,
-        scaleX: 1.03,
-        skewX: 0.6,
-        duration: 0.05,
-        ease: 'sine.inOut',
-      })
-      .to(face, { y: 0.8, duration: 0.05, ease: 'sine.inOut' }, '<')
-      .to(shadowContact, { scaleX: 1.03, opacity: 0.36, duration: 0.05 }, '<')
-
-      // Onda 7: Asentamiento final al punto neutro
-      .to(squash, {
-        scaleY: 1.0,
-        scaleX: 1.0,
-        skewX: 0,
-        duration: 0.15,
-        ease: 'power2.out',
-      })
-      .to(face, { y: 0, duration: 0.15, ease: 'power2.out' }, '<')
-      .to(shadowContact, { scaleX: 1.0, opacity: 0.38, duration: 0.15, ease: 'power2.out' }, '<')
-      .to(shadowAmbient, { scaleX: 1.0, opacity: 0.22, duration: 0.15, ease: 'power2.out' }, '<')
-
-      // FASE 5: Respiración gelatinosa sutil en reposo (Idle continuo)
-      .to(squash, {
-        scaleY: 1.025,
-        scaleX: 0.975,
-        duration: 1.8,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
-      });
+      );
 
     return tl;
   };
