@@ -54,15 +54,16 @@ export const CuteCharacterBreathe: React.FC<CuteCharacterBreatheProps> = ({
         delay,
       });
 
-      // 2. Ciclo de inclinacion lateral asincrono (Lissajous suave)
+      // 2. Ciclo de inclinacion lateral asincrono y ondulacion de gelatina (Lissajous)
       if (skewDelta !== 0) {
         gsap.to(el, {
           skewX: skewDelta,
+          rotate: skewDelta * 0.32,
           duration: swayDuration,
           ease: 'sine.inOut',
           yoyo: true,
           repeat: -1,
-          delay: delay + 0.4,
+          delay: delay + 0.3,
         });
       }
     }, containerRef);

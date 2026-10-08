@@ -23,43 +23,43 @@ export interface JellyTransformState {
 }
 
 export const JELLY_PRESET_MORADO: JellyPhysicsConfig = {
-  mass: 1.35,
-  stiffness: 180,
-  damping: 14,
-  volumeFactor: 0.85,
-  jiggleFrequency: 24,
-  jiggleDamping: 8,
-  skewFactor: 11,
+  mass: 1.2,
+  stiffness: 130,
+  damping: 9.0,
+  volumeFactor: 0.96,
+  jiggleFrequency: 20,
+  jiggleDamping: 4.8,
+  skewFactor: 18,
 };
 
 export const JELLY_PRESET_FUCSIA: JellyPhysicsConfig = {
-  mass: 0.95,
-  stiffness: 240,
-  damping: 16,
-  volumeFactor: 0.88,
-  jiggleFrequency: 30,
-  jiggleDamping: 9,
-  skewFactor: 14,
+  mass: 0.9,
+  stiffness: 150,
+  damping: 9.5,
+  volumeFactor: 0.98,
+  jiggleFrequency: 24,
+  jiggleDamping: 5.2,
+  skewFactor: 22,
 };
 
 export const JELLY_PRESET_AMARILLO: JellyPhysicsConfig = {
-  mass: 0.75,
-  stiffness: 280,
-  damping: 18,
-  volumeFactor: 0.80,
-  jiggleFrequency: 36,
-  jiggleDamping: 11,
-  skewFactor: 10,
+  mass: 0.7,
+  stiffness: 170,
+  damping: 10.0,
+  volumeFactor: 0.92,
+  jiggleFrequency: 28,
+  jiggleDamping: 5.8,
+  skewFactor: 16,
 };
 
 export const JELLY_PRESET_NARANJA: JellyPhysicsConfig = {
-  mass: 1.45,
-  stiffness: 200,
-  damping: 15,
-  volumeFactor: 0.92,
-  jiggleFrequency: 22,
-  jiggleDamping: 7,
-  skewFactor: 16,
+  mass: 1.3,
+  stiffness: 140,
+  damping: 9.2,
+  volumeFactor: 1.02,
+  jiggleFrequency: 18,
+  jiggleDamping: 4.5,
+  skewFactor: 24,
 };
 
 export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
@@ -126,12 +126,13 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
       s.velY += accelY * dt;
       s.scaleY += s.velY * dt;
 
-      // Jiggle secundario superficial de alta frecuencia
+      // Jiggle secundario superficial de alta frecuencia con ondulacion de masa
       if (s.jiggleAmp > 0.001) {
         s.jiggleTime += dt;
         s.jiggleAmp *= Math.exp(-config.jiggleDamping * dt);
         const jiggleOffset = s.jiggleAmp * Math.sin(config.jiggleFrequency * s.jiggleTime);
-        s.scaleY += jiggleOffset * 0.25;
+        s.scaleY += jiggleOffset * 0.45;
+        s.skewX += jiggleOffset * 4.8;
       }
 
       // Compensacion volumetrica con desfase de masa (oleaje fluido asincrono)
@@ -217,18 +218,18 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
 
       // Resistencia elastica no lineal (rubber-band)
       if (dy > 0) {
-        // Hacia abajo: compresion (squash)
-        s.scaleY = 1 - Math.tanh(dy / 220) * 0.42;
+        // Hacia abajo: compresion profunda (squash)
+        s.scaleY = 1 - Math.tanh(dy / 170) * 0.48;
       } else {
-        // Hacia arriba: estiramiento (stretch)
-        s.scaleY = 1 + Math.tanh(-dy / 260) * 0.38;
+        // Hacia arriba: estiramiento fluido (stretch)
+        s.scaleY = 1 + Math.tanh(-dy / 190) * 0.46;
       }
 
       s.scaleX = 1 + (1 - s.scaleY) * config.volumeFactor;
 
-      const skewFactor = config.skewFactor ?? 12;
-      s.skewX = -Math.tanh(dx / 180) * skewFactor;
-      s.rotate = Math.tanh(dx / 240) * 3.5;
+      const skewFactor = config.skewFactor ?? 20;
+      s.skewX = -Math.tanh(dx / 140) * skewFactor;
+      s.rotate = Math.tanh(dx / 200) * 4.2;
       s.offsetY = dy * 0.08;
     },
     [config]
@@ -242,29 +243,29 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
     s.isSettling = true;
     s.offsetY = 0;
 
-    // Disparar impulso de jiggle proporcional a la deformacion acumulada
+    // Disparar impulso de jiggle vibrante proporcional a la deformacion acumulada
     const deformation = Math.abs(s.scaleY - 1);
-    s.jiggleAmp = Math.min(0.22, deformation * 0.75 + 0.04);
+    s.jiggleAmp = Math.min(0.42, deformation * 1.5 + 0.14);
     s.jiggleTime = 0;
 
     // Inercia inicial contraria
-    s.velY = (1 - s.scaleY) * 22;
-    s.velSkew = -s.skewX * 18;
+    s.velY = (1 - s.scaleY) * 26;
+    s.velSkew = -s.skewX * 22;
 
     startLoop();
   }, [startLoop]);
 
   const triggerPoke = useCallback(
-    (force = 0.22) => {
+    (force = 0.25) => {
       const s = stateRef.current;
       s.isDragging = false;
       s.isSettling = true;
 
-      // Impulso de impacto instantaneo hacia abajo
-      s.scaleY = Math.max(0.72, 1 - force);
-      s.scaleX = 1 + force * config.volumeFactor;
-      s.velY = -force * 28;
-      s.jiggleAmp = force * 0.85;
+      // Impulso de impacto instantaneo con fuerte compresion y temblor gelatinoso
+      s.scaleY = Math.max(0.66, 1 - force * 1.3);
+      s.scaleX = 1 + force * 1.3 * config.volumeFactor;
+      s.velY = -force * 36;
+      s.jiggleAmp = force * 1.5;
       s.jiggleTime = 0;
 
       startLoop();

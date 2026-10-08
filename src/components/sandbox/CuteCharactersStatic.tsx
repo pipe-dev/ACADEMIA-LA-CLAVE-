@@ -122,10 +122,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             breathDuration={3.1}
             swayDuration={4.3}
             delay={0.8}
-            scaleYDelta={0.016}
-            scaleXDelta={0.013}
-            skewDelta={0.5}
-            yDelta={-1.5}
+            scaleYDelta={0.045}
+            scaleXDelta={0.038}
+            skewDelta={1.8}
+            yDelta={-3.5}
           >
             <CuteCharacterMorado typing={typing} />
           </CuteCharacterBreathe>
@@ -148,10 +148,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             breathDuration={2.4}
             swayDuration={3.3}
             delay={0.2}
-            scaleYDelta={0.024}
-            scaleXDelta={0.020}
-            skewDelta={0.8}
-            yDelta={-2}
+            scaleYDelta={0.052}
+            scaleXDelta={0.042}
+            skewDelta={2.2}
+            yDelta={-4.5}
           >
             {animateFucsia && fucsiaRef ? (
               <CuteCharacterFucsiaAnimated ref={fucsiaRef} />
@@ -178,10 +178,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             breathDuration={1.85}
             swayDuration={2.7}
             delay={1.3}
-            scaleYDelta={0.030}
-            scaleXDelta={0.025}
-            skewDelta={-1.0}
-            yDelta={-1.8}
+            scaleYDelta={0.058}
+            scaleXDelta={0.046}
+            skewDelta={-2.6}
+            yDelta={-4.0}
           >
             <CuteCharacterAmarillo typing={typing} shy={shy} />
           </CuteCharacterBreathe>
@@ -205,10 +205,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             breathDuration={3.5}
             swayDuration={4.7}
             delay={0.5}
-            scaleYDelta={0.015}
-            scaleXDelta={0.012}
-            skewDelta={0.4}
-            yDelta={-1.2}
+            scaleYDelta={0.038}
+            scaleXDelta={0.032}
+            skewDelta={1.4}
+            yDelta={-2.8}
           >
             <CuteCharacterNaranja typing={typing} />
           </CuteCharacterBreathe>

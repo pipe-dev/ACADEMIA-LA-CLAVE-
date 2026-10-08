@@ -43,10 +43,14 @@
   /* Domo superior con curvatura de arcilla organica y leve conicidad */
   border-radius: 88px 88px 12px 12px;
   clip-path: path("M 88 0 Q 176 0 176 88 C 176 150 174 210 175 250 C 175.5 275 176 288 174 295 L 2 295 C 0 288 0.5 275 1 250 C 2 210 0 150 0 88 Q 0 0 88 0 Z");
-  /* Torso que crece hacia el lado del email: crece a la derecha, la base se mantiene plana y clavada */
-  transform-origin: 0% 100%;
-  transform: scaleX(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 0.08));
-  transition: transform 250ms ease;
+  /* Inclinacion organica hacia la derecha: la base permanece 100% anclada al suelo
+     mientras el torso y la cupula se arquean elasticamente hacia el formulario */
+  transform-origin: 50% 100%;
+  transform:
+    skewX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -6.5deg))
+    rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 2.8deg))
+    translateY(calc(var(--excited, 0) * -2px));
+  transition: transform 380ms cubic-bezier(0.25, 1.4, 0.5, 1);
 
   /* Gradiente de volumen cilíndrico: luz suave a la izquierda y sombra ocre a la derecha */
   background: linear-gradient(
@@ -154,39 +158,65 @@
   z-index: 1;
 }
 
-/* Ojo derecho abierto: se espía a escondidas mientras finge dormir */
-.eye-right-open {
-  width: 14px;
-  height: 14px;
+/* Ojos abiertos: mientras se espía son solo puntos negros */
+.peek-eye {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 35%, #fffdf4 0%, #f5ecd4 55%, #dfcda6 100%);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  background: radial-gradient(circle at 40% 35%, #303036 0%, #0b0b0f 75%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-.eye-right-open::before {
+.peek-eye::before {
   transform: translateY(-100%);
 }
 
-.eye-right-open::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 3px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #2b2b30 0%, #101014 100%);
-}
-
-/* Cara negando con la cabeza mientras espía */
+/* Corteo del espía: abre ojos (dormido) -> espera 400ms -> gira 600ms hacia la clave
+   -> se queda 600ms -> dice "no" 400ms -> vuelve 600ms -> despierto 400ms -> dormir */
 .face.peek {
-  animation: peekShake 0.5s ease-in-out 2;
+  animation: peekTimeline 3s linear forwards;
 }
 
-@keyframes peekShake {
-  0%, 100% { translate: 0 0; }
-  20%, 60% { translate: -5px 0; }
-  40%, 80% { translate: 5px 0; }
+@keyframes peekTimeline {
+  0% {
+    transform: translateY(-65px) translate(-14px, 4px) rotate(-18deg);
+    animation-timing-function: ease-in-out;
+  }
+  13.33% {
+    transform: translateY(-65px) translate(-14px, 4px) rotate(-18deg);
+    animation-timing-function: ease-in-out;
+  }
+  33.33% {
+    transform: translateY(-65px) translate(18px, -6px) rotate(18deg) scale(1.05, 1.07);
+    animation-timing-function: ease-in-out;
+  }
+  53.33% {
+    transform: translateY(-65px) translate(18px, -6px) rotate(18deg) scale(1.05, 1.07);
+    animation-timing-function: ease-in-out;
+  }
+  56.66% {
+    transform: translateY(-65px) translate(12px, -6px) rotate(18deg) scale(1.05, 1.07);
+    animation-timing-function: ease-in-out;
+  }
+  60% {
+    transform: translateY(-65px) translate(24px, -6px) rotate(18deg) scale(1.05, 1.07);
+    animation-timing-function: ease-in-out;
+  }
+  63.33% {
+    transform: translateY(-65px) translate(12px, -6px) rotate(18deg) scale(1.05, 1.07);
+    animation-timing-function: ease-in-out;
+  }
+  66.66% {
+    transform: translateY(-65px) translate(18px, -6px) rotate(18deg) scale(1.05, 1.07);
+    animation-timing-function: ease-in-out;
+  }
+  86.66% {
+    transform: translateY(-65px) translate(-14px, 4px) rotate(-18deg);
+    animation-timing-function: ease-in-out;
+  }
+  100% {
+    transform: translateY(-65px) translate(-14px, 4px) rotate(-18deg);
+  }
 }
 
 /* Boca: barra horizontal recta y seria, estilo tira de arcilla incrustada */

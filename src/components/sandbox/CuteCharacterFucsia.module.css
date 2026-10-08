@@ -44,7 +44,13 @@
   flex-direction: column;
   align-items: center;
   will-change: transform;
-  transform: translateZ(0);
+  transform-origin: 50% 100%;
+  transform:
+    translateZ(0)
+    skewX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -5.8deg))
+    rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 2.5deg))
+    translateY(calc(var(--excited, 0) * -2px));
+  transition: transform 380ms cubic-bezier(0.25, 1.4, 0.5, 1);
   backface-visibility: hidden;
 }
 

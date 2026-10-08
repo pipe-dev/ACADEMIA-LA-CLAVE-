@@ -41,10 +41,14 @@
   width: 300px;
   height: 150px;
   cursor: pointer;
-  /* Torso que crece hacia el lado del email: crece a la derecha, la base se mantiene plana y clavada */
-  transform-origin: 0% 100%;
-  transform: scaleX(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 0.08));
-  transition: transform 250ms ease;
+  /* Inclinacion organica hacia la derecha: la base permanece 100% anclada al suelo
+     mientras la cuspide se inclina suavemente hacia el formulario */
+  transform-origin: 50% 100%;
+  transform:
+    skewX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -4.5deg))
+    rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 1.8deg))
+    translateY(calc(var(--excited, 0) * -1px));
+  transition: transform 380ms cubic-bezier(0.25, 1.4, 0.5, 1);
   /* Semicírculo achatado arriba y base de arcilla suave asentada en el suelo */
   border-radius: 160px 160px 14px 14px / 160px 160px 8px 8px;
   clip-path: path("M 150 0 Q 300 0 300 138 Q 300 150 286 150 L 14 150 Q 0 150 0 138 Q 0 0 150 0 Z");
