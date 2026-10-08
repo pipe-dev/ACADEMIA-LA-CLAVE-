@@ -1,0 +1,277 @@
+/* Escenario y soporte */
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 25px;
+}
+
+/* 1. SOMBRAS DE APOYO EN EL SUELO */
+.shadow-ambient {
+  position: absolute;
+  bottom: 18px;
+  width: 210px;
+  height: 28px;
+  background: radial-gradient(ellipse at center, rgba(60, 50, 10, 0.22) 0%, rgba(60, 50, 10, 0.05) 55%, transparent 75%);
+  filter: blur(7px);
+  border-radius: 50%;
+  z-index: 1;
+  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 0.9) * 12px)) scale(calc(1 + var(--excited, 0) * 0.06));
+  transition: transform 300ms ease;
+}
+
+.shadow-contact {
+  position: absolute;
+  bottom: 23px;
+  width: 176px;
+  height: 14px;
+  background: rgba(45, 35, 8, 0.45);
+  filter: blur(2px);
+  border-radius: 50%;
+  z-index: 2;
+  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 0.9) * 12px)) scale(calc(1 + var(--excited, 0) * 0.06));
+  transition: transform 300ms ease;
+}
+
+/* 2. CUERPO: CÁPSULA / CILINDRO CON DOMO SUPERIOR */
+.yellow-char {
+  position: relative;
+  z-index: 3;
+  width: 176px;
+  height: 295px;
+  /* Domo superior con curvatura de arcilla organica y leve conicidad */
+  border-radius: 88px 88px 12px 12px;
+  clip-path: path("M 88 0 Q 176 0 176 88 C 176 150 174 210 175 250 C 175.5 275 176 288 174 295 L 2 295 C 0 288 0.5 275 1 250 C 2 210 0 150 0 88 Q 0 0 88 0 Z");
+  /* Torso que crece hacia el lado del email: crece a la derecha, la base se mantiene plana y clavada */
+  transform-origin: 0% 100%;
+  transform: scaleX(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 0.08));
+  transition: transform 250ms ease;
+
+  /* Gradiente de volumen cilíndrico: luz suave a la izquierda y sombra ocre a la derecha */
+  background: linear-gradient(
+    96deg,
+    #fbe674 0%,
+    #f6da56 16%,
+    #eed045 45%,
+    #e3c333 75%,
+    #cba71e 96%,
+    #be9b16 100%
+  );
+
+  /* Multi-capa de luz cenital de cúpula y biseles de arcilla */
+  box-shadow:
+    /* Rim highlight superior en la cúpula */
+    inset 0 8px 10px rgba(255, 255, 255, 0.6),
+    /* Brillo sutil en el lateral izquierdo */
+    inset 6px 0 9px rgba(255, 255, 255, 0.22),
+    /* Sombra de oclusión en lateral derecho */
+    inset -8px 0 12px rgba(140, 105, 5, 0.25),
+    /* Sombra en la base inferior */
+    inset 0 -10px 14px rgba(110, 80, 5, 0.35),
+    /* Sombra proyectada detrás */
+    0 16px 22px -6px rgba(70, 55, 10, 0.16);
+
+  overflow: visible;
+}
+
+/* Brillo difuso envolvente en la coronación de la cúpula */
+.yellow-char::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 14px;
+  right: 14px;
+  height: 70px;
+  border-radius: 80px 80px 20px 20px;
+  background: radial-gradient(ellipse at top, rgba(255, 255, 255, 0.45) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* 3. ROSTRO EN PERSPECTIVA 3/4 */
+.face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: bottom center;
+  transform: translateY(-65px) translate(calc(var(--look-x, 0) * 16px), calc(var(--look-y, 0) * 12px)) rotate(calc(var(--look-x, 0) * 4deg)) translate(calc(var(--shy, 0) * -14px), calc(var(--shy, 0) * 4px)) rotate(calc(var(--shy, 0) * -18deg)) translate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 17px), calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -3px)) rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 3.5deg)) scale(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.02), calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.04));
+  transition: transform 300ms ease-out;
+}
+
+/* Ojo izquierdo: raya horizontal entrecerrada (-_-) */
+.eye-left {
+  position: absolute;
+  top: 131px;
+  left: 4px;
+  width: 10px;
+  height: 6px;
+  background: #111114;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transform: translate(calc(var(--look-x, 0) * 2px), calc(var(--look-y, 0) * 2px));
+  transition: transform 150ms ease-out;
+  overflow: hidden;
+}
+
+/* Párpado: cubre el ojo cuando no quieren ver (--shy) */
+.eye-left::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: #e9c83e;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+  transform: translateY(calc(-100% + var(--shy, 0) * 100%));
+  transition: transform 300ms ease-out;
+  z-index: 1;
+}
+
+/* Ojo derecho: raya horizontal entrecerrada, más hacia el extremo derecho */
+.eye-right {
+  position: absolute;
+  top: 131px;
+  right: 30px;
+  width: 10px;
+  height: 6px;
+  background: #111114;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transform: translate(calc(var(--look-x, 0) * 2px), calc(var(--look-y, 0) * 2px));
+  transition: transform 150ms ease-out;
+  overflow: hidden;
+}
+
+/* Párpado: cubre el ojo cuando no quieren ver (--shy) */
+.eye-right::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: #e9c83e;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+  transform: translateY(calc(-100% + var(--shy, 0) * 100%));
+  transition: transform 300ms ease-out;
+  z-index: 1;
+}
+
+/* Ojo derecho abierto: se espía a escondidas mientras finge dormir */
+.eye-right-open {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #fffdf4 0%, #f5ecd4 55%, #dfcda6 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.eye-right-open::before {
+  transform: translateY(-100%);
+}
+
+.eye-right-open::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #2b2b30 0%, #101014 100%);
+}
+
+/* Cara negando con la cabeza mientras espía */
+.face.peek {
+  animation: peekShake 0.5s ease-in-out 2;
+}
+
+@keyframes peekShake {
+  0%, 100% { translate: 0 0; }
+  20%, 60% { translate: -5px 0; }
+  40%, 80% { translate: 5px 0; }
+}
+
+/* Boca: barra horizontal recta y seria, estilo tira de arcilla incrustada */
+.mouth-line {
+  position: absolute;
+  top: 162px;
+  left: 14px;
+  width: 114px;
+  height: 6.5px;
+  background: #121118;
+  border-radius: 4px;
+  /* Micro-sombra y realce de luz inferior para dar relieve físico */
+  box-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.3),
+    0 1px 1px rgba(255, 255, 255, 0.4);
+  transform-origin: center;
+  transition: transform 200ms ease;
+}
+
+/* Gestos aleatorios de boca */
+.g-smile {
+  transform: scale(1.25, 1.5);
+}
+
+.g-small {
+  transform: scale(0.72);
+}
+
+.g-flat {
+  transform: scale(1.35, 0.45);
+}
+
+/* Zzz de sueño: aparecen al escribir la contraseña */
+.zzz {
+  position: absolute;
+  top: 4px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 50;
+  opacity: calc(var(--shy, 0));
+  transition: opacity 300ms ease-out;
+}
+
+.zzz .z {
+  font-family: ui-rounded, "Segoe UI", system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 36px;
+  line-height: 0.85;
+  color: #b8952a;
+  text-shadow: 0 2px 6px rgba(255, 255, 255, 0.5), 0 3px 8px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  animation: zzzFloat 2.4s ease-in-out infinite;
+}
+
+.zzz .z:nth-child(2) {
+  font-size: 28px;
+  animation-delay: 0.8s;
+}
+
+.zzz .z:nth-child(3) {
+  font-size: 20px;
+  animation-delay: 1.6s;
+}
+
+@keyframes zzzFloat {
+  0% { opacity: 0; transform: translateY(10px) scale(0.85); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-54px) scale(1.45); }
+}
+
+.reach {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+  opacity: calc(var(--excited, 0) * 0.85);
+  background:
+    radial-gradient(ellipse 55% 70% at 12% 52%, rgba(60, 40, 6, 0.2), transparent 72%),
+    radial-gradient(ellipse 55% 70% at 86% 46%, rgba(255, 255, 255, 0.22), transparent 72%);
+  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 5px));
+  transition: transform 250ms ease, opacity 200ms ease;
+}

@@ -1,0 +1,278 @@
+/* Contenedor general del personaje y su sombra */
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+/* 1. SOMBRAS DE CONTACTO Y OCLUSIÓN EN EL SUELO */
+.shadow-ground {
+  position: absolute;
+  bottom: 12px;
+  width: 320px;
+  height: 30px;
+  background: radial-gradient(ellipse at center, rgba(30, 25, 20, 0.45) 0%, rgba(30, 25, 20, 0.15) 50%, transparent 75%);
+  filter: blur(6px);
+  border-radius: 50%;
+  z-index: 1;
+  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 0.9) * 12px)) scale(calc(1 + var(--excited, 0) * 0.06));
+  transition: transform 300ms ease;
+}
+
+.shadow-contact {
+  position: absolute;
+  bottom: 18px;
+  width: 300px;
+  height: 16px;
+  background: rgba(40, 20, 10, 0.55);
+  filter: blur(2.5px);
+  border-radius: 50%;
+  z-index: 2;
+  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 0.9) * 12px)) scale(calc(1 + var(--excited, 0) * 0.06));
+  transition: transform 300ms ease;
+}
+
+/* 2. CUERPO DE ARCILLA (CLAYMORPHISM) */
+.character-orange {
+  position: relative;
+  z-index: 3;
+  width: 300px;
+  height: 150px;
+  cursor: pointer;
+  /* Torso que crece hacia el lado del email: crece a la derecha, la base se mantiene plana y clavada */
+  transform-origin: 0% 100%;
+  transform: scaleX(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 0.08));
+  transition: transform 250ms ease;
+  /* Semicírculo achatado arriba y base de arcilla suave asentada en el suelo */
+  border-radius: 160px 160px 14px 14px / 160px 160px 8px 8px;
+  clip-path: path("M 150 0 Q 300 0 300 138 Q 300 150 286 150 L 14 150 Q 0 150 0 138 Q 0 0 150 0 Z");
+
+  /* Gradiente de curvatura volumétrica */
+  background: linear-gradient(
+    170deg,
+    #ff9352 0%,
+    #f47a32 30%,
+    #e3631b 70%,
+    #c84e0e 100%
+  );
+
+  /* Multi-capa de sombras para volumen 3D */
+  box-shadow:
+    /* Luz cenital principal (Rim highlight superior) */
+    inset 0 10px 14px rgba(255, 255, 255, 0.6),
+    /* Brillo difuso en la cúpula */
+    inset 0 28px 25px rgba(255, 255, 255, 0.25),
+    /* Sombra de curvatura lateral izquierda suave */
+    inset 10px 0 18px rgba(255, 255, 255, 0.18),
+    /* Sombra de oclusión lateral derecha */
+    inset -12px 0 20px rgba(120, 30, 0, 0.25),
+    /* Oscurecimiento profundo en la base */
+    inset 0 -14px 16px rgba(90, 20, 0, 0.45),
+    /* Sombra de caída propia suave */
+    0 8px 16px rgba(0, 0, 0, 0.08);
+
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Brillo especular suave en la parte superior */
+.character-orange::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 20%;
+  width: 60%;
+  height: 45%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at top, rgba(255, 255, 255, 0.45) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* 3. ROSTRO */
+.face {
+  position: absolute;
+  bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transform-origin: bottom center;
+  transform: translate(calc(var(--look-x, 0) * 20px), calc(var(--look-y, 0) * 14px)) rotate(calc(var(--look-x, 0) * 4deg)) translate(calc(var(--shy, 0) * -18px), calc(var(--shy, 0) * 5px)) rotate(calc(var(--shy, 0) * -24deg)) translate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 20px), calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -3px)) rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 4deg)) scale(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.03), calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.06));
+  transition: transform 300ms ease-out;
+}
+
+.eyes {
+  display: flex;
+  gap: 52px;
+}
+
+/* Ojos 3D esféricos e incrustados */
+.eye {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2a2a2a 0%, #111111 60%, #050505 100%);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Párpado: cubre el ojo cuando no quieren ver (--shy) */
+.eye::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: #ee7328;
+  box-shadow: 0 3px 4px rgba(90, 20, 0, 0.3);
+  transform: translateY(calc(-100% + var(--shy, 0) * 100%));
+  transition: transform 300ms ease-out;
+  z-index: 1;
+}
+
+/* Reflejo de luz minúsculo, sutil y alargado (en forma de semilla) en cada ojo.
+   Ahora actúa como pupila: se desacopla del ojo y sigue el cursor */
+.eye::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 2.5px;
+  width: 4.5px;
+  height: 2.5px;
+  background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.15) 50%, transparent 80%);
+  filter: blur(0.5px);
+  border-radius: 50%;
+  transform: translate(calc(var(--look-x, 0) * 3px), calc(var(--look-y, 0) * 3px)) rotate(-35deg);
+  transition: transform 150ms ease-out;
+}
+
+/* Boca semicircular tallada */
+.mouth-wrap {
+  position: relative;
+  transform-origin: center;
+  transition: transform 200ms ease;
+}
+
+.mouth {
+  width: 26px;
+  height: 14px;
+  background: #1a0808;
+  border-radius: 2px 2px 14px 14px;
+  box-shadow:
+    inset 0 3px 3px rgba(0, 0, 0, 0.8),
+    0 1px 2px rgba(255, 255, 255, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Lengüita interior sutil */
+.mouth::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 3px;
+  width: 20px;
+  height: 10px;
+  background: #b53842;
+  border-radius: 50%;
+}
+
+/* Lengua exterior: nace desde la parte rosa de la boca (más arriba del borde)
+   para que se una con la lenguíta interior y no parezcan dos lenguas */
+.tongue {
+  position: absolute;
+  top: calc(100% - 3px);
+  left: 50%;
+  width: 14px;
+  height: 13px;
+  background: #b53842;
+  border-radius: 5px 5px 12px 12px;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%) scaleY(0);
+  transform-origin: top;
+  transition: transform 180ms ease;
+}
+
+/* Gestos aleatorios de boca */
+.g-smile {
+  transform: scale(1.3, 1.15);
+}
+
+.g-small {
+  transform: scale(0.72);
+}
+
+.g-flat {
+  transform: scale(1.2, 0.6);
+}
+
+.g-tongue {
+  transform: scale(1.05, 1.1);
+}
+
+.g-tongue .tongue {
+  transform: translateX(-50%) scaleY(1);
+}
+
+/* Zzz de sueño: aparecen al escribir la contraseña */
+.zzz {
+  position: absolute;
+  top: -14px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 50;
+  opacity: calc(var(--shy, 0));
+  transition: opacity 300ms ease-out;
+}
+
+.zzz .z {
+  font-family: ui-rounded, "Segoe UI", system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 36px;
+  line-height: 0.85;
+  color: #d96a1f;
+  text-shadow: 0 2px 6px rgba(255, 255, 255, 0.5), 0 3px 8px rgba(90, 20, 0, 0.25);
+  opacity: 0;
+  animation: zzzFloat 2.4s ease-in-out infinite;
+}
+
+.zzz .z:nth-child(2) {
+  font-size: 28px;
+  animation-delay: 0.8s;
+}
+
+.zzz .z:nth-child(3) {
+  font-size: 15px;
+  animation-delay: 1.6s;
+}
+
+@keyframes zzzFloat {
+  0% { opacity: 0; transform: translateY(10px) scale(0.85); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-54px) scale(1.45); }
+}
+
+.reach {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+  opacity: calc(var(--excited, 0) * 0.9);
+  background:
+    radial-gradient(ellipse 55% 70% at 12% 52%, rgba(70, 24, 6, 0.2), transparent 72%),
+    radial-gradient(ellipse 55% 70% at 86% 46%, rgba(255, 255, 255, 0.24), transparent 72%);
+  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 5px));
+  transition: transform 250ms ease, opacity 200ms ease;
+}

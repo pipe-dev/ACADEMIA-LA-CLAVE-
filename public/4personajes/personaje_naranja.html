@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personaje Naranja - Exacto</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #f1f2f4;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    /* Contenedor general del personaje y su sombra */
+    .stage {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* 1. Sombras de contacto y oclusión en el suelo */
+    .shadow-ground {
+      position: absolute;
+      bottom: 12px;
+      width: 320px;
+      height: 30px;
+      background: radial-gradient(ellipse at center, rgba(30, 25, 20, 0.45) 0%, rgba(30, 25, 20, 0.15) 50%, transparent 75%);
+      filter: blur(6px);
+      border-radius: 50%;
+      z-index: 1;
+    }
+
+    .shadow-contact {
+      position: absolute;
+      bottom: 18px;
+      width: 300px;
+      height: 16px;
+      background: rgba(40, 20, 10, 0.55);
+      filter: blur(2.5px);
+      border-radius: 50%;
+      z-index: 2;
+    }
+
+    /* 2. Cuerpo de arcilla (Claymorphism) */
+    .character-orange {
+      position: relative;
+      z-index: 3;
+      width: 300px;
+      height: 150px;
+      /* Semicírculo achatado arriba y base de arcilla suave asentada en el suelo */
+      border-radius: 160px 160px 14px 14px / 160px 160px 8px 8px;
+      clip-path: path("M 150 0 Q 300 0 300 138 Q 300 150 286 150 L 14 150 Q 0 150 0 138 Q 0 0 150 0 Z");
+      background: linear-gradient(
+        170deg,
+        #ff9352 0%,
+        #f47a32 30%,
+        #e3631b 70%,
+        #c84e0e 100%
+      );
+      box-shadow:
+        inset 0 10px 14px rgba(255, 255, 255, 0.6),
+        inset 0 28px 25px rgba(255, 255, 255, 0.25),
+        inset 10px 0 18px rgba(255, 255, 255, 0.18),
+        inset -12px 0 20px rgba(120, 30, 0, 0.25),
+        inset 0 -14px 16px rgba(90, 20, 0, 0.45),
+        0 8px 16px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Brillo especular en la parte superior */
+    .character-orange::before {
+      content: '';
+      position: absolute;
+      top: 6px;
+      left: 20%;
+      width: 60%;
+      height: 45%;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at top, rgba(255, 255, 255, 0.45) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* 3. Rostro */
+    .face {
+      position: absolute;
+      bottom: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .eyes {
+      display: flex;
+      gap: 52px;
+    }
+
+    /* Ojos 3D esféricos */
+    .eye {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #2a2a2a 0%, #111111 60%, #050505 100%);
+      box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.4),
+        inset 0 -1px 2px rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Reflejo de luz sutil en forma de semilla */
+    .eye::after {
+      content: '';
+      position: absolute;
+      top: 1.5px;
+      left: 2.5px;
+      width: 4.5px;
+      height: 2.5px;
+      background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.15) 50%, transparent 80%);
+      filter: blur(0.5px);
+      border-radius: 50%;
+      transform: rotate(-35deg);
+    }
+
+    /* Boca semicircular tallada */
+    .mouth-wrap {
+      position: relative;
+    }
+
+    .mouth {
+      width: 26px;
+      height: 14px;
+      background: #1a0808;
+      border-radius: 2px 2px 14px 14px;
+      box-shadow:
+        inset 0 3px 3px rgba(0, 0, 0, 0.8),
+        0 1px 2px rgba(255, 255, 255, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Lengüita interior */
+    .mouth::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 3px;
+      width: 20px;
+      height: 10px;
+      background: #b53842;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="stage">
+    <div class="shadow-ground"></div>
+    <div class="shadow-contact"></div>
+
+    <div class="character-orange">
+      <div class="face">
+        <div class="eyes">
+          <div class="eye"></div>
+          <div class="eye"></div>
+        </div>
+        <div class="mouth-wrap">
+          <div class="mouth"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
