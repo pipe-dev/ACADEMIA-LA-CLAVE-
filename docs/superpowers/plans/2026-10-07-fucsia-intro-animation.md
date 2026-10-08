@@ -49,7 +49,7 @@ In `src/components/sandbox/CuteCharacterFucsia.module.css`, add composition laye
 }
 ```
 
-- [ ] **Step 2: Commit Task 1 changes**
+- [x] **Step 2: Commit Task 1 changes**
 
 ```bash
 git add src/components/sandbox/CuteCharacterFucsia.module.css
@@ -67,7 +67,7 @@ git commit -m "feat(sandbox): add gpu layer isolation and motion classes for fuc
 - Consumes: `<CuteCharacterFucsia />` from `./CuteCharacterFucsia`
 - Produces: Exported component `CuteCharacterFucsiaAnimated` with optional `onComplete` callback and ref forward / replay support.
 
-- [ ] **Step 1: Create `CuteCharacterFucsiaAnimated.tsx` with GSAP timeline**
+- [x] **Step 1: Create `CuteCharacterFucsiaAnimated.tsx` with GSAP timeline**
 
 ```tsx
 'use client';
@@ -175,7 +175,7 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
 CuteCharacterFucsiaAnimated.displayName = 'CuteCharacterFucsiaAnimated';
 ```
 
-- [ ] **Step 2: Update `CuteCharacterFucsia.tsx` to support `showShadows` prop**
+- [x] **Step 2: Update `CuteCharacterFucsia.tsx` to support `showShadows` prop**
 
 In `src/components/sandbox/CuteCharacterFucsia.tsx`, allow `showShadows = true` by default so the animated wrapper can independently manipulate ground shadows:
 
@@ -218,7 +218,7 @@ export const CuteCharacterFucsia: React.FC<CuteCharacterFucsiaProps> = ({
 };
 ```
 
-- [ ] **Step 3: Commit Task 2 changes**
+- [x] **Step 3: Commit Task 2 changes**
 
 ```bash
 git add src/components/sandbox/CuteCharacterFucsiaAnimated.tsx src/components/sandbox/CuteCharacterFucsia.tsx
@@ -237,7 +237,7 @@ git commit -m "feat(sandbox): implement decoupled gsap intro animation for fucsi
 - Consumes: `<CuteCharacterFucsiaAnimated ref={fucsiaRef} />`
 - Produces: Replay trigger button in sandbox view.
 
-- [ ] **Step 1: Integrate animated Fucsia in `CuteCharactersStatic.tsx`**
+- [x] **Step 1: Integrate animated Fucsia in `CuteCharactersStatic.tsx`**
 
 Allow an optional `animateFucsia?: boolean` and ref forwarding in `CuteCharactersStatic.tsx`:
 
@@ -252,11 +252,11 @@ Allow an optional `animateFucsia?: boolean` and ref forwarding in `CuteCharacter
 }
 ```
 
-- [ ] **Step 2: Add floating 'Repetir animacion' button in `src/app/sandbox/cutelogin/page.tsx`**
+- [x] **Step 2: Add floating 'Repetir animacion' button in `src/app/sandbox/cutelogin/page.tsx`**
 
 Add a neat, non-intrusive floating button at the top/bottom of the characters column in `cutelogin/page.tsx` that calls `fucsiaRef.current?.replay()`.
 
-- [ ] **Step 3: Commit Task 3 changes**
+- [x] **Step 3: Commit Task 3 changes**
 
 ```bash
 git add src/components/sandbox/CuteCharactersStatic.tsx src/app/sandbox/cutelogin/page.tsx
@@ -270,12 +270,12 @@ git commit -m "feat(sandbox): integrate animated fucsia character with sandbox r
 **Files:**
 - Check: All modified project files
 
-- [ ] **Step 1: Run typecheck to verify zero TypeScript errors**
+- [x] **Step 1: Run typecheck to verify zero TypeScript errors**
 
 Run: `npm run typecheck`
 Expected: Output indicates `exit code 0` with zero diagnostic errors.
 
-- [ ] **Step 2: Verify git status and line constraints**
+- [x] **Step 2: Verify git status and line constraints**
 
 Check that all modified/created files are strictly under 500 lines.
 
