@@ -1,0 +1,13 @@
+.cage {
+  position: relative;
+  display: inline-block;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transform-origin: 50% 100%;
+}
+
+.cage:active {
+  cursor: grabbing;
+}
