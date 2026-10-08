@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {CuteCharacterMorado} from './CuteCharacterMorado';
 import {CuteCharacterFucsia} from './CuteCharacterFucsia';
 import {
@@ -10,11 +10,23 @@ import {
 import {CuteCharacterAmarillo} from './CuteCharacterAmarillo';
 import {CuteCharacterNaranja} from './CuteCharacterNaranja';
 import {CuteCharacterBreathe} from './CuteCharacterBreathe';
+import {CuteCharacterTactileCage} from './CuteCharacterTactileCage';
+import {
+  JELLY_PRESET_MORADO,
+  JELLY_PRESET_FUCSIA,
+  JELLY_PRESET_AMARILLO,
+  JELLY_PRESET_NARANJA,
+} from './useTactileJellyPhysics';
+import {CuteTactileCanvas, CuteTactileCanvasRef} from './CuteTactileCanvas';
 
 export type {CuteCharacterFucsiaAnimatedRef};
 
 export interface CuteCharactersStaticProps {
   className?: string;
+  excited?: boolean;
+  shy?: boolean;
+  typing?: boolean;
+  typingProgress?: number;
   animateFucsia?: boolean;
   fucsiaRef?: React.Ref<CuteCharacterFucsiaAnimatedRef>;
 }
@@ -41,11 +53,56 @@ interface CharacterSlot {
 
 export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   className = '',
+  excited = false,
+  shy = false,
+  typing = false,
+  typingProgress = 0,
   animateFucsia = true,
   fucsiaRef,
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
+  const [look, setLook] = useState({x: 0, y: 0});
+
+  const handleLook = (e: MouseEvent) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const x = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / rect.width) * 2 - 1));
+    const y = Math.max(-1, Math.min(1, ((e.clientY - rect.top) / rect.height) * 2 - 1));
+    setLook({x, y});
+  };
+
+  const tactileCanvasRef = useRef<CuteTactileCanvasRef>(null);
+
+  const handleRippleTrigger = useCallback(
+    (clientX: number, clientY: number, intensity: number) => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const currentScale = rect.width / DESIGN_WIDTH;
+      const stageX = (clientX - rect.left) / currentScale;
+      const stageY = (clientY - rect.top) / currentScale;
+      tactileCanvasRef.current?.spawnRipple(stageX, stageY, intensity);
+    },
+    []
+  );
+
+  const handleTouchPress = useCallback(
+    (clientX: number, clientY: number, active: boolean) => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const currentScale = rect.width / DESIGN_WIDTH;
+      const stageX = (clientX - rect.left) / currentScale;
+      const stageY = (clientY - rect.top) / currentScale;
+      tactileCanvasRef.current?.setTouchGlow(stageX, stageY, active);
+    },
+    []
+  );
 
   const characterSlots: CharacterSlot[] = [
     {
@@ -56,17 +113,23 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scaleY: 1.5,
       origin: 'bottom right',
       character: (
-        <CuteCharacterBreathe
-          breathDuration={3.1}
-          swayDuration={4.3}
-          delay={0.8}
-          scaleYDelta={0.016}
-          scaleXDelta={0.013}
-          skewDelta={0.5}
-          yDelta={-1.5}
+        <CuteCharacterTactileCage
+          config={JELLY_PRESET_MORADO}
+          onRippleTrigger={handleRippleTrigger}
+          onTouchPress={handleTouchPress}
         >
-          <CuteCharacterMorado />
-        </CuteCharacterBreathe>
+          <CuteCharacterBreathe
+            breathDuration={3.1}
+            swayDuration={4.3}
+            delay={0.8}
+            scaleYDelta={0.016}
+            scaleXDelta={0.013}
+            skewDelta={0.5}
+            yDelta={-1.5}
+          >
+            <CuteCharacterMorado typing={typing} />
+          </CuteCharacterBreathe>
+        </CuteCharacterTactileCage>
       ),
     },
     {
@@ -76,21 +139,27 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1,
       origin: 'bottom left',
       character: (
-        <CuteCharacterBreathe
-          breathDuration={2.4}
-          swayDuration={3.3}
-          delay={0.2}
-          scaleYDelta={0.024}
-          scaleXDelta={0.020}
-          skewDelta={0.8}
-          yDelta={-2}
+        <CuteCharacterTactileCage
+          config={JELLY_PRESET_FUCSIA}
+          onRippleTrigger={handleRippleTrigger}
+          onTouchPress={handleTouchPress}
         >
-          {animateFucsia && fucsiaRef ? (
-            <CuteCharacterFucsiaAnimated ref={fucsiaRef} />
-          ) : (
-            <CuteCharacterFucsia />
-          )}
-        </CuteCharacterBreathe>
+          <CuteCharacterBreathe
+            breathDuration={2.4}
+            swayDuration={3.3}
+            delay={0.2}
+            scaleYDelta={0.024}
+            scaleXDelta={0.020}
+            skewDelta={0.8}
+            yDelta={-2}
+          >
+            {animateFucsia && fucsiaRef ? (
+              <CuteCharacterFucsiaAnimated ref={fucsiaRef} />
+            ) : (
+              <CuteCharacterFucsia />
+            )}
+          </CuteCharacterBreathe>
+        </CuteCharacterTactileCage>
       ),
     },
     {
@@ -100,17 +169,23 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1,
       origin: 'bottom left',
       character: (
-        <CuteCharacterBreathe
-          breathDuration={1.85}
-          swayDuration={2.7}
-          delay={1.3}
-          scaleYDelta={0.030}
-          scaleXDelta={0.025}
-          skewDelta={-1.0}
-          yDelta={-1.8}
+        <CuteCharacterTactileCage
+          config={JELLY_PRESET_AMARILLO}
+          onRippleTrigger={handleRippleTrigger}
+          onTouchPress={handleTouchPress}
         >
-          <CuteCharacterAmarillo />
-        </CuteCharacterBreathe>
+          <CuteCharacterBreathe
+            breathDuration={1.85}
+            swayDuration={2.7}
+            delay={1.3}
+            scaleYDelta={0.030}
+            scaleXDelta={0.025}
+            skewDelta={-1.0}
+            yDelta={-1.8}
+          >
+            <CuteCharacterAmarillo typing={typing} shy={shy} />
+          </CuteCharacterBreathe>
+        </CuteCharacterTactileCage>
       ),
     },
     {
@@ -121,20 +196,31 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scaleY: 1.472,
       origin: 'bottom left',
       character: (
-        <CuteCharacterBreathe
-          breathDuration={3.5}
-          swayDuration={4.7}
-          delay={0.5}
-          scaleYDelta={0.015}
-          scaleXDelta={0.012}
-          skewDelta={0.4}
-          yDelta={-1.2}
+        <CuteCharacterTactileCage
+          config={JELLY_PRESET_NARANJA}
+          onRippleTrigger={handleRippleTrigger}
+          onTouchPress={handleTouchPress}
         >
-          <CuteCharacterNaranja />
-        </CuteCharacterBreathe>
+          <CuteCharacterBreathe
+            breathDuration={3.5}
+            swayDuration={4.7}
+            delay={0.5}
+            scaleYDelta={0.015}
+            scaleXDelta={0.012}
+            skewDelta={0.4}
+            yDelta={-1.2}
+          >
+            <CuteCharacterNaranja typing={typing} />
+          </CuteCharacterBreathe>
+        </CuteCharacterTactileCage>
       ),
     },
   ];
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleLook);
+    return () => window.removeEventListener('mousemove', handleLook);
+  }, []);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -166,7 +252,13 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           height: DESIGN_HEIGHT,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
-        }}
+          ['--look-x']: look.x,
+          ['--look-y']: look.y,
+          ['--shy']: shy ? 1 : 0,
+          ['--excited']: excited && !shy ? 1 : 0,
+          ['--typing']: typing ? 1 : 0,
+          ['--typing-progress']: typingProgress,
+        } as React.CSSProperties}
       >
         {characterSlots.map((slot, index) => (
           <div
@@ -183,6 +275,11 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             {slot.character}
           </div>
         ))}
+        <CuteTactileCanvas
+          ref={tactileCanvasRef}
+          width={DESIGN_WIDTH}
+          height={DESIGN_HEIGHT}
+        />
       </div>
     </div>
   );
