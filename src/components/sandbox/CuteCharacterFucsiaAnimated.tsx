@@ -39,18 +39,20 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       onComplete,
     });
 
-    // 1. PENDULO CON FLEXION DE GOMA (Skew contrario a la trayectoria)
+    // 1. PENDULO CON FLEXION DE GOMA (Skew e inercia hidrodinamica)
     tl.set(carrier, { x: 110, y: -280 })
       .set(body, { rotation: 180, skewX: 0, transformOrigin: 'top center', scaleX: 1, scaleY: 1 })
       .set(face, { y: 0 })
       .set(shadowContact, { scaleX: 0.3, opacity: 0.08 })
       .set(shadowAmbient, { scaleX: 0.3, opacity: 0.05 })
 
-      // Oscilacion hacia la izquierda: latigazo de inercia (skewX opuesto)
-      .to(carrier, { x: -50, duration: 0.65, ease: 'sine.inOut' })
+      // Oscilacion hacia la izquierda: la inercia estira la masa y curva la cola
+      .to(carrier, { x: -55, duration: 0.65, ease: 'sine.inOut' })
       .to(body, {
-        rotation: 162,
-        skewX: 12, // Se arquea como latigo por inercia
+        rotation: 160,
+        skewX: 14,
+        scaleY: 1.06,
+        scaleX: 0.94,
         duration: 0.65,
         ease: 'sine.inOut',
       }, '<')
@@ -58,13 +60,15 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       // Retorno pendular: latigazo inverso hacia la derecha
       .to(carrier, { x: 0, duration: 0.55, ease: 'sine.inOut' })
       .to(body, {
-        rotation: 195,
-        skewX: -14, // Se dobla en sentido contrario
+        rotation: 198,
+        skewX: -16,
+        scaleY: 1.08,
+        scaleX: 0.92,
         duration: 0.55,
         ease: 'sine.inOut',
       }, '<')
 
-      // 2. DESPRENDIMIENTO Y ESTIRAMIENTO TIPO CHICLE
+      // 2. DESPRENDIMIENTO Y CAIDA LIBRE TIPO GOTA / CHICLE
       .set(body, { transformOrigin: 'center center' })
       .to(carrier, { y: 0, duration: 0.38, ease: 'power3.in' })
       .to(body, {
@@ -73,61 +77,84 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
         duration: 0.38,
         ease: 'power1.inOut',
       }, '<')
-      // Estiramiento vertical alargado en la caida libre (chicle)
+      // Estiramiento vertical en el aire tipo gota que cae
       .to(body, {
-        scaleY: 1.24,
-        scaleX: 0.82,
-        duration: 0.14,
+        scaleY: 1.28,
+        scaleX: 0.78,
+        duration: 0.16,
         ease: 'power2.in',
-      }, '-=0.14')
-      .to(shadowContact, { scaleX: 0.8, opacity: 0.25, duration: 0.18, ease: 'power2.in' }, '-=0.18')
+      }, '-=0.16')
+      .to(shadowContact, { scaleX: 0.85, opacity: 0.28, duration: 0.18, ease: 'power2.in' }, '-=0.18')
 
-      // 3. IMPACTO Y WOBBLE DE GELATINA (Secuencia armonica)
+      // 3. IMPACTO CON EL PISO Y OLEAJE DE FLAN / LIQUIDO (Harmonic Wobble)
       .set(body, { transformOrigin: 'bottom center' })
-      // SPLASH EFFECT: Spike the displacement scale on impact
-      .to('#water-displacement', {
-        attr: { scale: 35 },
-        duration: 0.08,
-        ease: 'power1.out',
-      }, '<')
-      .to('#water-displacement', {
-        attr: { scale: 8 },
-        duration: 0.8,
-        ease: 'elastic.out(1, 0.3)',
-      }, '>')
-      // Compresion inicial violenta
-      .to(body, {
-        scaleY: 0.62,
-        scaleX: 1.34,
-        duration: 0.07,
-        ease: 'power2.out',
-      }, '<')
-      .to(shadowContact, { scaleX: 1.4, opacity: 0.5, duration: 0.07 }, '<')
-      .to(shadowAmbient, { scaleX: 1.3, opacity: 0.3, duration: 0.07 }, '<')
-      // Inercia retardada de los ojos que se hunden una fraccion despues
-      .to(face, { y: 8, duration: 0.07, ease: 'power2.out' }, '<0.02')
 
-      // Rebote hacia arriba (la gelatina se dispara y torsiona)
+      // Contacto violento: splash y desparrame lateral
       .to(body, {
-        scaleY: 1.16,
-        scaleX: 0.88,
-        skewX: 4,
+        scaleY: 0.52,
+        scaleX: 1.55,
+        duration: 0.06,
+        ease: 'power2.out',
+      })
+      .to(shadowContact, { scaleX: 1.55, opacity: 0.58, duration: 0.06 }, '<')
+      .to(shadowAmbient, { scaleX: 1.4, opacity: 0.32, duration: 0.06 }, '<')
+      // Retraso de inercia en la cara (sigue bajando despues de la base)
+      .to(face, { y: 10, duration: 0.08, ease: 'power2.out' }, '<0.01')
+
+      // Onda 1: rebote alto y torsion elástica
+      .to(body, {
+        scaleY: 1.22,
+        scaleX: 0.84,
+        skewX: -5,
         duration: 0.12,
         ease: 'power1.out',
       })
-      .to(face, { y: -4, duration: 0.12, ease: 'power1.out' }, '<')
+      .to(face, { y: -6, duration: 0.12, ease: 'power1.out' }, '<')
+      .to(shadowContact, { scaleX: 0.85, opacity: 0.25, duration: 0.12 }, '<')
 
-      // Asentamiento elastico procedural con micro-temblor
+      // Onda 2: compresion secundaria amortiguada
+      .to(body, {
+        scaleY: 0.88,
+        scaleX: 1.12,
+        skewX: 3.5,
+        duration: 0.11,
+        ease: 'sine.inOut',
+      })
+      .to(face, { y: 2, duration: 0.11, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 1.15, opacity: 0.42, duration: 0.11 }, '<')
+
+      // Onda 3: micro-rebote armonico
+      .to(body, {
+        scaleY: 1.05,
+        scaleX: 0.96,
+        skewX: -1.5,
+        duration: 0.11,
+        ease: 'sine.inOut',
+      })
+      .to(face, { y: -1, duration: 0.11, ease: 'sine.inOut' }, '<')
+      .to(shadowContact, { scaleX: 0.96, opacity: 0.32, duration: 0.11 }, '<')
+
+      // Asentamiento al punto neutral
       .to(body, {
         scaleY: 1.0,
         scaleX: 1.0,
         skewX: 0,
-        duration: 0.5,
-        ease: 'elastic.out(1.5, 0.25)', // Ondulacion cerrada y viscosa
+        duration: 0.2,
+        ease: 'power2.out',
       })
-      .to(face, { y: 0, duration: 0.45, ease: 'elastic.out(1.2, 0.3)' }, '<0.03')
-      .to(shadowContact, { scaleX: 1.0, opacity: 0.35, duration: 0.5, ease: 'power2.out' }, '<')
-      .to(shadowAmbient, { scaleX: 1.0, opacity: 0.22, duration: 0.5, ease: 'power2.out' }, '<');
+      .to(face, { y: 0, duration: 0.2, ease: 'power2.out' }, '<')
+      .to(shadowContact, { scaleX: 1.0, opacity: 0.38, duration: 0.2, ease: 'power2.out' }, '<')
+      .to(shadowAmbient, { scaleX: 1.0, opacity: 0.22, duration: 0.2, ease: 'power2.out' }, '<')
+
+      // 4. RESPIRACION ORGANICA EN REPOSO (Idle vivo)
+      .to(body, {
+        scaleY: 1.025,
+        scaleX: 0.975,
+        duration: 1.8,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
 
     return tl;
   };
@@ -135,23 +162,8 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
   useEffect(() => {
     timelineRef.current = buildTimeline();
 
-    const ctx = gsap.context(() => {
-      const waterTl = gsap.timeline({ repeat: -1, yoyo: true });
-      waterTl.to('#water-displacement', {
-        attr: { scale: 14 },
-        duration: 1.5,
-        ease: 'sine.inOut',
-      }, 0);
-      waterTl.to('#water-turbulence', {
-        attr: { baseFrequency: 0.018 },
-        duration: 1.5,
-        ease: 'sine.inOut',
-      }, 0);
-    });
-
     return () => {
       timelineRef.current?.kill();
-      ctx.revert();
     };
   }, []);
 

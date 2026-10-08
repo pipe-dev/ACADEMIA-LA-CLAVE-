@@ -14,12 +14,6 @@ export const CuteCharacterFucsia: React.FC<CuteCharacterFucsiaProps> = ({
 }) => {
   const charBody = (
     <div className={styles['fuchsia-char']}>
-      <svg width="0" height="0" style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
-        <filter id="water-filter" x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence id="water-turbulence" type="fractalNoise" baseFrequency="0.015" numOctaves="1" result="noise" />
-          <feDisplacementMap id="water-displacement" in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </svg>
       <div className={styles['fuchsia-body']}></div>
       <div ref={faceRef} className={styles.face}>
         <div className={styles.eyes}>

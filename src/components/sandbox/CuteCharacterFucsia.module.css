@@ -41,7 +41,6 @@
   align-items: center;
   will-change: transform;
   transform: translateZ(0);
-  filter: url(#water-filter);
   backface-visibility: hidden;
   transform-origin: 50% 100%;
   animation:
