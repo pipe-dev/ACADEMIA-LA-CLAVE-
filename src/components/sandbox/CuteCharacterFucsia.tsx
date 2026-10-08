@@ -5,15 +5,17 @@ import styles from './CuteCharacterFucsia.module.css';
 
 export interface CuteCharacterFucsiaProps {
   showShadows?: boolean;
+  faceRef?: React.Ref<HTMLDivElement>;
 }
 
 export const CuteCharacterFucsia: React.FC<CuteCharacterFucsiaProps> = ({
   showShadows = true,
+  faceRef,
 }) => {
   const charBody = (
     <div className={styles['fuchsia-char']}>
       <div className={styles['fuchsia-body']}></div>
-      <div className={styles.face}>
+      <div ref={faceRef} className={styles.face}>
         <div className={styles.eyes}>
           <div className={styles.eye}>
             <div className={styles.pupil}></div>

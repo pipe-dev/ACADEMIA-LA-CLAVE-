@@ -123,6 +123,7 @@
   flex-direction: column;
   align-items: center;
   z-index: 4;
+  will-change: transform;
 }
 
 .eyes {
