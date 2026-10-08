@@ -58,19 +58,21 @@ interface D1StorageState {
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE_PATH = path.join(DATA_DIR, 'afinapp_db.json');
 
+import { executeD1Query, getNativeD1 } from './d1Binding';
+
 const D1_ACCOUNT_ID = process.env.CLOUDFLARE_D1_ACCOUNT_ID;
 const D1_DATABASE_ID = process.env.CLOUDFLARE_D1_DATABASE_ID;
 const D1_API_TOKEN = process.env.CLOUDFLARE_D1_API_TOKEN;
 
-const isCloudflareConfigured = Boolean(
-  D1_ACCOUNT_ID && D1_DATABASE_ID && D1_API_TOKEN
+const isCloudflareConfigured = () => Boolean(
+  getNativeD1() || (D1_ACCOUNT_ID && D1_DATABASE_ID && D1_API_TOKEN)
 );
 
 const DEMO_PRELOAD: SingerRow[] = [
   {
     code: 'VOCAL-9821',
     name: 'Camila Rios',
-    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+    avatar_url: '/avatars/avatar-soprano.svg',
     level: 5,
     level_title: 'Soprano Aficionada',
     streak: 8,
@@ -88,7 +90,7 @@ const DEMO_PRELOAD: SingerRow[] = [
   {
     code: 'CANTO-4102',
     name: 'Mateo Fernandez',
-    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+    avatar_url: '/avatars/avatar-tenor.svg',
     level: 4,
     level_title: 'Tenor Lirico',
     streak: 5,
@@ -106,7 +108,7 @@ const DEMO_PRELOAD: SingerRow[] = [
   {
     code: 'SOLFEO-8830',
     name: 'Sofia Mendoza',
-    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
+    avatar_url: '/avatars/avatar-mezzosoprano.svg',
     level: 6,
     level_title: 'Mezzosoprano Vocal',
     streak: 12,
@@ -172,23 +174,11 @@ function saveLocalD1State(state: Partial<D1StorageState>): void {
 }
 
 async function executeCloudflareQuery(sql: string, params: any[] = []): Promise<any> {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${D1_ACCOUNT_ID}/d1/database/${D1_DATABASE_ID}/query`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${D1_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ sql, params }),
+  return executeD1Query(sql, params, {
+    accountId: D1_ACCOUNT_ID,
+    databaseId: D1_DATABASE_ID,
+    apiToken: D1_API_TOKEN,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Cloudflare D1 query failed (${response.status}): ${errorText}`);
-  }
-
-  const json = await response.json();
-  return json.result?.[0]?.results || [];
 }
 
 export const d1Db = {
@@ -200,7 +190,7 @@ export const d1Db = {
     const updated: SingerRow = {
       code: singer.code,
       name: singer.name,
-      avatar_url: singer.avatar_url ?? existing?.avatar_url ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+      avatar_url: singer.avatar_url ?? existing?.avatar_url ?? '/avatars/avatar-soprano.svg',
       level: singer.level ?? existing?.level ?? 1,
       level_title: singer.level_title ?? existing?.level_title ?? 'Cantante Principiante',
       streak: singer.streak ?? existing?.streak ?? 0,
@@ -216,7 +206,7 @@ export const d1Db = {
       created_at: existing?.created_at ?? now,
     };
 
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         await executeCloudflareQuery(
           `INSERT INTO singers (code, name, avatar_url, level, level_title, streak, xp_this_week, total_xp, vocal_range, status_text, stability_score, lessons_completed, practice_minutes, badges_count, last_active_at, created_at)
@@ -251,7 +241,7 @@ export const d1Db = {
 
   async getSinger(code: string): Promise<SingerRow | null> {
     const cleanCode = code.trim().toUpperCase();
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         const rows = await executeCloudflareQuery(
           'SELECT * FROM singers WHERE code = ? LIMIT 1',
@@ -276,7 +266,7 @@ export const d1Db = {
           const newSinger: SingerRow = {
             code: foundUser.access_key.toUpperCase(),
             name: foundUser.name,
-            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+            avatar_url: '/avatars/avatar-soprano.svg',
             level: 1,
             level_title: 'Estudiante Academia',
             streak: 1,

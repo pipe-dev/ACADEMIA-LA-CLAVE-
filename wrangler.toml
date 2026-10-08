@@ -1,7 +1,15 @@
 name = "afinapp"
-compatibility_date = "2026-03-01"
+compatibility_date = "2026-10-06"
+compatibility_flags = ["nodejs_compat"]
 
+# Binding nativo primario para Cloudflare D1
+[[d1_databases]]
+binding = "DB"
+database_name = "afinapp-db"
+database_id = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"
+
+# Alias secundario de compatibilidad
 [[d1_databases]]
 binding = "AFINAPP_DB"
 database_name = "afinapp-db"
-database_id = "YOUR_CLOUDFLARE_D1_DATABASE_ID"
+database_id = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"

@@ -27,6 +27,8 @@ export interface UserProgressRecord {
   updated_at: string;
 }
 
+import { executeD1Query, getNativeD1 } from './d1Binding';
+
 interface LocalDatabaseState {
   users: UserRecord[];
   progress: UserProgressRecord[];
@@ -36,8 +38,8 @@ const D1_ACCOUNT_ID = process.env.CLOUDFLARE_D1_ACCOUNT_ID;
 const D1_DATABASE_ID = process.env.CLOUDFLARE_D1_DATABASE_ID;
 const D1_API_TOKEN = process.env.CLOUDFLARE_D1_API_TOKEN;
 
-const isCloudflareConfigured = Boolean(
-  D1_ACCOUNT_ID && D1_DATABASE_ID && D1_API_TOKEN
+const isCloudflareConfigured = () => Boolean(
+  getNativeD1() || (D1_ACCOUNT_ID && D1_DATABASE_ID && D1_API_TOKEN)
 );
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -154,32 +156,17 @@ export function computeUserEffectiveStatus(user: UserRecord): {
 }
 
 async function executeCloudflareQuery(sql: string, params: any[] = []): Promise<any> {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${D1_ACCOUNT_ID}/d1/database/${D1_DATABASE_ID}/query`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${D1_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ sql, params }),
+  return executeD1Query(sql, params, {
+    accountId: D1_ACCOUNT_ID,
+    databaseId: D1_DATABASE_ID,
+    apiToken: D1_API_TOKEN,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Cloudflare D1 query failed (${response.status}): ${errorText}`);
-  }
-
-  const json = await response.json();
-  if (!json.success) {
-    throw new Error(`Cloudflare D1 reported errors: ${JSON.stringify(json.errors)}`);
-  }
-  return json.result?.[0]?.results || [];
 }
 
 export const userDb = {
   async getUserByEmail(email: string): Promise<UserRecord | null> {
     const normalized = email.trim().toLowerCase();
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         const rows = await executeCloudflareQuery(
           'SELECT * FROM users WHERE LOWER(email) = ? LIMIT 1',
@@ -197,7 +184,7 @@ export const userDb = {
 
   async getUserByKey(key: string): Promise<UserRecord | null> {
     const cleanKey = key.trim();
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         const rows = await executeCloudflareQuery(
           'SELECT * FROM users WHERE access_key = ? LIMIT 1',
@@ -214,7 +201,7 @@ export const userDb = {
   },
 
   async getUserById(id: string): Promise<UserRecord | null> {
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         const rows = await executeCloudflareQuery(
           'SELECT * FROM users WHERE id = ? LIMIT 1',
@@ -232,7 +219,7 @@ export const userDb = {
 
   async listUsers(search?: string): Promise<UserRecord[]> {
     let list: UserRecord[] = [];
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         list = await executeCloudflareQuery(
           'SELECT * FROM users ORDER BY created_at DESC'
@@ -287,7 +274,7 @@ export const userDb = {
       role: data.role || 'student',
     };
 
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         await executeCloudflareQuery(
           `INSERT INTO users (id, name, email, access_key, status, expires_at, created_at, notes, role)
@@ -330,7 +317,7 @@ export const userDb = {
     ]);
     const validFields = Object.keys(updates).filter((f) => ALLOWED_COLUMNS.has(f));
 
-    if (isCloudflareConfigured && validFields.length > 0) {
+    if (isCloudflareConfigured() && validFields.length > 0) {
       try {
         const setClause = validFields.map((f) => `\`${f}\` = ?`).join(', ');
         const values = validFields.map((f) => (updates as any)[f]);
@@ -378,7 +365,7 @@ export const userDb = {
   },
 
   async deleteUser(id: string): Promise<boolean> {
-    if (isCloudflareConfigured) {
+    if (isCloudflareConfigured()) {
       try {
         await executeCloudflareQuery('DELETE FROM users WHERE id = ?', [id]);
       } catch (e) {
@@ -394,6 +381,18 @@ export const userDb = {
 
   async getUserProgress(userIdOrEmail: string): Promise<UserProgressRecord | null> {
     const needle = userIdOrEmail.trim().toLowerCase();
+    if (isCloudflareConfigured()) {
+      try {
+        const rows = await executeCloudflareQuery(
+          'SELECT * FROM user_progress WHERE user_id = ? OR LOWER(user_email) = ? LIMIT 1',
+          [needle, needle]
+        );
+        if (rows[0]) return rows[0];
+      } catch (e) {
+        console.error('Cloudflare getUserProgress fallback to local:', e);
+      }
+    }
+
     const state = loadLocalState();
     return (
       state.progress.find(
@@ -410,12 +409,7 @@ export const userDb = {
     streak: number;
     progressData: string;
   }): Promise<UserProgressRecord> {
-    const state = loadLocalState();
     const now = new Date().toISOString();
-    const existingIndex = state.progress.findIndex(
-      (p) => p.user_id === data.userId || p.user_email.toLowerCase() === data.userEmail.toLowerCase()
-    );
-
     const record: UserProgressRecord = {
       user_id: data.userId,
       user_email: data.userEmail.toLowerCase(),
@@ -425,6 +419,38 @@ export const userDb = {
       progress_data: data.progressData,
       updated_at: now,
     };
+
+    if (isCloudflareConfigured()) {
+      try {
+        await executeCloudflareQuery(
+          `INSERT INTO user_progress (user_id, user_email, xp, level, streak, progress_data, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET
+             user_email = excluded.user_email,
+             xp = excluded.xp,
+             level = excluded.level,
+             streak = excluded.streak,
+             progress_data = excluded.progress_data,
+             updated_at = excluded.updated_at`,
+          [
+            record.user_id,
+            record.user_email,
+            record.xp,
+            record.level,
+            record.streak,
+            record.progress_data,
+            record.updated_at,
+          ]
+        );
+      } catch (e) {
+        console.error('Cloudflare saveUserProgress fallback to local:', e);
+      }
+    }
+
+    const state = loadLocalState();
+    const existingIndex = state.progress.findIndex(
+      (p) => p.user_id === data.userId || p.user_email.toLowerCase() === data.userEmail.toLowerCase()
+    );
 
     if (existingIndex >= 0) {
       state.progress[existingIndex] = record;
