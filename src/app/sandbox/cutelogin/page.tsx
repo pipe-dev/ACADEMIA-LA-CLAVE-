@@ -1,11 +1,8 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { Eye, EyeOff, RotateCcw } from 'lucide-react';
-import {
-  CuteCharactersStatic,
-  CuteCharacterFucsiaAnimatedRef,
-} from '@/components/sandbox/CuteCharactersStatic';
+import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic';
 
 /**
  * Sandbox Cute Login - Fase 1: Diseno Plano y Estatico
@@ -17,7 +14,6 @@ export default function CuteLoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const fucsiaRef = useRef<CuteCharacterFucsiaAnimatedRef>(null);
 
   return (
     <main className="min-h-[100dvh] w-full flex items-center justify-center bg-[#e5e9ee] p-4 sm:p-6 lg:p-8 select-none">
@@ -27,20 +23,8 @@ export default function CuteLoginPage() {
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes */}
         {/* ========================================================= */}
         <div className="relative flex flex-col justify-end items-center bg-[#e9e9e9] p-6 sm:p-10 border-b md:border-b-0 md:border-r border-slate-200">
-          {/* Boton para reiniciar animacion de Fucsia */}
-          <button
-            type="button"
-            onClick={() => fucsiaRef.current?.replay()}
-            className="absolute top-4 left-4 z-50 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white/85 hover:bg-white backdrop-blur-sm rounded-full shadow-sm border border-slate-200 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-            title="Repetir animacion de Fucsia"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Repetir entrada</span>
-          </button>
-
           <div className="w-full flex items-end justify-center pb-1">
             <CuteCharactersStatic
-              fucsiaRef={fucsiaRef}
               className="w-full max-w-[420px]"
             />
           </div>

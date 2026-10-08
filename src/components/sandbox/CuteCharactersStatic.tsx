@@ -9,6 +9,7 @@ import {
 } from './CuteCharacterFucsiaAnimated';
 import {CuteCharacterAmarillo} from './CuteCharacterAmarillo';
 import {CuteCharacterNaranja} from './CuteCharacterNaranja';
+import {CuteCharacterBreathe} from './CuteCharacterBreathe';
 
 export type {CuteCharacterFucsiaAnimatedRef};
 
@@ -22,15 +23,7 @@ export interface CuteCharactersStaticProps {
  * CuteCharactersStatic
  * Escenario de los 4 personajes agrupados, cada uno construido con su HTML/CSS
  * original (public/4personajes) sin alterar medidas, gradientes ni sombras.
- * El grupo se dibuja en un lienzo de 640x705 y se escala al ancho disponible.
- * Escalas por personaje (desde la base, sin mover a los demas):
- * Morado ancho x1.04534 (borde izq. alineado al ojo izq. del Naranja, anclado a la
- * derecha) y alto x1.5, Naranja ancho x1.408 y alto x1.472 (z al frente,
- * anclado izquierda a -50 para que pise lo menos posible a Fucsia/Amarillo),
- * Fucsia y Amarillo x1.
- * Bases alineadas: cada slot lleva un `bottom` en unidades de diseño que compensa
- * (padding-bottom de su .stage) x (scaleY) para que la base plana de los 4 quede
- * a la misma altura del lienzo.
+ * Cada personaje tiene respiracion sinusoidal viva con parametros asincronos.
  */
 const DESIGN_WIDTH = 640;
 const DESIGN_HEIGHT = 705;
@@ -55,21 +48,92 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   const [scale, setScale] = useState(DEFAULT_SCALE);
 
   const characterSlots: CharacterSlot[] = [
-    {left: 144.375, bottom: 0, zIndex: 10, scale: 1.04534, scaleY: 1.5, origin: 'bottom right', character: <CuteCharacterMorado />},
+    {
+      left: 144.375,
+      bottom: 0,
+      zIndex: 10,
+      scale: 1.04534,
+      scaleY: 1.5,
+      origin: 'bottom right',
+      character: (
+        <CuteCharacterBreathe
+          breathDuration={3.1}
+          swayDuration={4.3}
+          delay={0.8}
+          scaleYDelta={0.016}
+          scaleXDelta={0.013}
+          skewDelta={0.5}
+          yDelta={-1.5}
+        >
+          <CuteCharacterMorado />
+        </CuteCharacterBreathe>
+      ),
+    },
     {
       left: 294,
       bottom: 30,
       zIndex: 20,
       scale: 1,
       origin: 'bottom left',
-      character: animateFucsia ? (
-        <CuteCharacterFucsiaAnimated ref={fucsiaRef} />
-      ) : (
-        <CuteCharacterFucsia />
+      character: (
+        <CuteCharacterBreathe
+          breathDuration={2.4}
+          swayDuration={3.3}
+          delay={0.2}
+          scaleYDelta={0.024}
+          scaleXDelta={0.020}
+          skewDelta={0.8}
+          yDelta={-2}
+        >
+          {animateFucsia && fucsiaRef ? (
+            <CuteCharacterFucsiaAnimated ref={fucsiaRef} />
+          ) : (
+            <CuteCharacterFucsia />
+          )}
+        </CuteCharacterBreathe>
       ),
     },
-    {left: 440, bottom: 35, zIndex: 30, scale: 1, origin: 'bottom left', character: <CuteCharacterAmarillo />},
-    {left: -50, bottom: 30.56, zIndex: 40, scale: 1.408, scaleY: 1.472, origin: 'bottom left', character: <CuteCharacterNaranja />},
+    {
+      left: 440,
+      bottom: 35,
+      zIndex: 30,
+      scale: 1,
+      origin: 'bottom left',
+      character: (
+        <CuteCharacterBreathe
+          breathDuration={1.85}
+          swayDuration={2.7}
+          delay={1.3}
+          scaleYDelta={0.030}
+          scaleXDelta={0.025}
+          skewDelta={-1.0}
+          yDelta={-1.8}
+        >
+          <CuteCharacterAmarillo />
+        </CuteCharacterBreathe>
+      ),
+    },
+    {
+      left: -50,
+      bottom: 30.56,
+      zIndex: 40,
+      scale: 1.408,
+      scaleY: 1.472,
+      origin: 'bottom left',
+      character: (
+        <CuteCharacterBreathe
+          breathDuration={3.5}
+          swayDuration={4.7}
+          delay={0.5}
+          scaleYDelta={0.015}
+          scaleXDelta={0.012}
+          skewDelta={0.4}
+          yDelta={-1.2}
+        >
+          <CuteCharacterNaranja />
+        </CuteCharacterBreathe>
+      ),
+    },
   ];
 
   useEffect(() => {
