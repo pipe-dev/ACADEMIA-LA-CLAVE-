@@ -37,31 +37,31 @@ function getMoradoSinuousPath(
   const sin2 = Math.sin(w + 1.8) * amp;
   const sin3 = Math.sin(w + 3.4) * amp;
 
-  // Puntos base de las paredes: en reposo (s=0, amp=0) x1=232, x2=244, x3=248
-  let x1 = 232 - 16 * clampedS - 12 * sin1;
-  let x2 = 244 + 6 * clampedS + 14 * sin2;
-  let x3 = 248 + 2 * clampedS + 10 * sin3;
+  // Puntos base de las paredes: en reposo (s=0, amp=0) x1=250, x2=250, x3=250 (pared recta vertical)
+  let x1 = 250 + 18 * clampedS + 14 * sin1;
+  let x2 = 250 + 26 * clampedS + 18 * sin2;
+  let x3 = 250 + 12 * clampedS + 10 * sin3;
 
-  // Pared izquierda en reposo: xl1=18, xl2=6, xl3=2
-  let xl1 = 18 + 16 * clampedS + 12 * sin1;
-  let xl2 = 6 - 6 * clampedS - 14 * sin2;
-  let xl3 = 2 - 2 * clampedS - 10 * sin3;
+  // Pared izquierda en reposo: xl1=0, xl2=0, xl3=0 (pared recta vertical)
+  let xl1 = 0 - 18 * clampedS - 14 * sin1;
+  let xl2 = 0 - 26 * clampedS - 18 * sin2;
+  let xl3 = 0 - 12 * clampedS - 10 * sin3;
 
-  // Asas Bézier intermedias para fluidez de curvas (en reposo: 242, 236, 242)
-  let cpR1_x1 = 242 - 10 * clampedS + 9 * Math.sin(w + 0.8) * amp;
+  // Asas Bézier intermedias para fluidez de curvas (en reposo alineadas a 250 y 0)
+  let cpR1_x1 = 250 + 10 * clampedS + 10 * Math.sin(w + 0.8) * amp;
   let cpR1_x2 = x1 + 5 * Math.sin(w + 1.4) * amp;
-  let cpR2_x1 = x1 + 4 - 8 * Math.sin(w + 2.0) * amp;
+  let cpR2_x1 = x1 + 4 * Math.sin(w + 2.0) * amp;
   let cpR2_x2 = x2 + 6 * Math.sin(w + 2.6) * amp;
-  let cpR3_x1 = x2 - 2 - 7 * Math.sin(w + 3.0) * amp;
+  let cpR3_x1 = x2 - 2 * Math.sin(w + 3.0) * amp;
   let cpR3_x2 = x3 + 5 * Math.sin(w + 3.6) * amp;
 
-  // Asas izquierdas (en reposo: 2, 8, 6, 14, 18, 8)
+  // Asas izquierdas (en reposo alineadas a 0)
   let cpL3_x1 = xl3 - 5 * Math.sin(w + 3.6) * amp;
-  let cpL3_x2 = xl2 + 2 + 7 * Math.sin(w + 3.0) * amp;
+  let cpL3_x2 = xl2 + 2 * Math.sin(w + 3.0) * amp;
   let cpL2_x1 = xl2 - 6 * Math.sin(w + 2.6) * amp;
-  let cpL2_x2 = xl1 - 4 + 8 * Math.sin(w + 2.0) * amp;
+  let cpL2_x2 = xl1 - 4 * Math.sin(w + 2.0) * amp;
   let cpL1_x1 = xl1 - 5 * Math.sin(w + 1.4) * amp;
-  let cpL1_x2 = 8 + 10 * clampedS - 9 * Math.sin(w + 0.8) * amp;
+  let cpL1_x2 = 0 - 10 * clampedS - 10 * Math.sin(w + 0.8) * amp;
 
   let topY = 0;
 
@@ -112,7 +112,7 @@ function getMoradoSinuousPath(
     }
   }
 
-  return `M 46 ${topY} L 204 ${topY} Q 245 ${topY} 245 46 C ${cpR1_x1} 90 ${cpR1_x2} 120 ${x1} 160 C ${cpR2_x1} 200 ${cpR2_x2} 235 ${x2} 275 C ${cpR3_x1} 315 ${cpR3_x2} 350 ${x3} 382 Q ${x3} 400 ${x3 - 22} 400 L ${xl3 + 22} 400 Q ${xl3} 400 ${xl3} 382 C ${cpL3_x1} 350 ${cpL3_x2} 315 ${xl2} 275 C ${cpL2_x1} 235 ${cpL2_x2} 200 ${xl1} 160 C ${cpL1_x1} 120 ${cpL1_x2} 90 5 46 Q 5 ${topY} 46 ${topY} Z`;
+  return `M 46 ${topY} L 204 ${topY} Q 250 ${topY} 250 46 C ${cpR1_x1} 90 ${cpR1_x2} 120 ${x1} 160 C ${cpR2_x1} 200 ${cpR2_x2} 235 ${x2} 275 C ${cpR3_x1} 315 ${cpR3_x2} 350 ${x3} 382 Q ${x3} 400 ${x3 - 18} 400 L ${xl3 + 18} 400 Q ${xl3} 400 ${xl3} 382 C ${cpL3_x1} 350 ${cpL3_x2} 315 ${xl2} 275 C ${cpL2_x1} 235 ${cpL2_x2} 200 ${xl1} 160 C ${cpL1_x1} 120 ${cpL1_x2} 90 0 46 Q 0 ${topY} 46 ${topY} Z`;
 }
 
 export const CuteCharacterMorado = forwardRef<
@@ -122,13 +122,14 @@ export const CuteCharacterMorado = forwardRef<
   const rawId = useId();
   const clipId = `morado-sinuous-${rawId.replace(/:/g, '')}`;
 
+  const charRef = useRef<HTMLDivElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
 
   const squashRef = useRef(0);
   const velSquashRef = useRef(0);
   const wavePhaseRef = useRef(0);
-  const waveAmpRef = useRef(0);
+  const waveAmpRef = useRef(playIntroDrop ? 0.85 : 0);
   const pinchRef = useRef({
     active: false,
     localY: 200,
@@ -219,8 +220,23 @@ export const CuteCharacterMorado = forwardRef<
         waveAmpRef.current = 0;
       }
 
-      // 4. Actualizar el path SVG en el DOM
-      if (pathRef.current) {
+      // 4. Gestion dinamica del clip-path: solo activo durante caida o deformacion elastica
+      const isDynamic =
+        waveAmpRef.current > 0.005 ||
+        p.active ||
+        Math.abs(p.currentDx) > 0.05 ||
+        Math.abs(p.currentDy) > 0.05 ||
+        Math.abs(squashRef.current) > 0.005;
+
+      if (charRef.current) {
+        if (isDynamic) {
+          charRef.current.style.setProperty('--morado-clip', `url(#${clipId})`);
+        } else {
+          charRef.current.style.removeProperty('--morado-clip');
+        }
+      }
+
+      if (pathRef.current && isDynamic) {
         const d = getMoradoSinuousPath(
           squashRef.current,
           wavePhaseRef.current,
@@ -322,14 +338,7 @@ export const CuteCharacterMorado = forwardRef<
       </svg>
 
       <div ref={dropRef} className={styles.dropWrapper}>
-        <div
-          className={styles['purple-char']}
-          style={
-            {
-              '--morado-clip': `url(#${clipId})`,
-            } as React.CSSProperties
-          }
-        >
+        <div ref={charRef} className={styles['purple-char']}>
           <div className={styles.reach}></div>
           <div className={styles.face}>
             <div className={styles.eyes}>

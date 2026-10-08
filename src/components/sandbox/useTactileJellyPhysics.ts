@@ -85,7 +85,6 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
     jiggleTime: 0,
     isDragging: false,
     isSettling: false,
-    hoverLean: 0,
   });
 
   const animFrameRef = useRef<number | null>(null);
@@ -148,15 +147,15 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
       s.skewX += s.velSkew * dt;
 
       // Retorno suave de rotacion
-      s.rotate += (s.hoverLean - s.rotate) * Math.min(1, dt * 14);
+      s.rotate += (0 - s.rotate) * Math.min(1, dt * 16);
 
       // Condicion de reposo
       const isStillY = Math.abs(s.scaleY - 1) < 0.002 && Math.abs(s.velY) < 0.005;
       const isStillSkew = Math.abs(s.skewX) < 0.04 && Math.abs(s.velSkew) < 0.08;
       const isStillJiggle = s.jiggleAmp < 0.002;
-      const isStillHover = Math.abs(s.rotate - s.hoverLean) < 0.04;
+      const isStillRotate = Math.abs(s.rotate) < 0.04;
 
-      if (isStillY && isStillSkew && isStillJiggle && isStillHover && s.hoverLean === 0) {
+      if (isStillY && isStillSkew && isStillJiggle && isStillRotate) {
         s.scaleX = 1;
         s.scaleY = 1;
         s.skewX = 0;
@@ -273,21 +272,9 @@ export function useTactileJellyPhysics(config: JellyPhysicsConfig) {
     [config, startLoop]
   );
 
-  const triggerHover = useCallback(
-    (direction: number) => {
-      const s = stateRef.current;
-      if (s.isDragging) return;
-      s.hoverLean = Math.max(-2, Math.min(2, direction * 1.8));
-      startLoop();
-    },
-    [startLoop]
-  );
+  const triggerHover = useCallback((_direction: number) => {}, []);
 
-  const clearHover = useCallback(() => {
-    const s = stateRef.current;
-    s.hoverLean = 0;
-    startLoop();
-  }, [startLoop]);
+  const clearHover = useCallback(() => {}, []);
 
   useEffect(() => {
     return () => {

@@ -54,8 +54,6 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
     updateDrag,
     releaseDrag,
     triggerPoke,
-    triggerHover,
-    clearHover,
   } = useTactileJellyPhysics(config);
 
   const getLocalCoords = useCallback((clientX: number, clientY: number) => {
@@ -114,13 +112,9 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
           localCurrentX: coords.x,
           localCurrentY: coords.y,
         });
-      } else if (coords.width > 0) {
-        // Hover: direccion normalizada de -1 (izq) a 1 (der)
-        const dir = (coords.x - coords.width / 2) / (coords.width / 2);
-        triggerHover(dir);
       }
     },
-    [getLocalCoords, updateDrag, triggerHover, onTouchPress, onPinchMove]
+    [getLocalCoords, updateDrag, onTouchPress, onPinchMove]
   );
 
   const handlePointerUp = useCallback(
@@ -204,12 +198,6 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
     [getLocalCoords, onPinchRelease, onTouchPress, releaseDrag]
   );
 
-  const handlePointerLeave = useCallback(() => {
-    if (!dragStartRef.current) {
-      clearHover();
-    }
-  }, [clearHover]);
-
   const isActive = state.isInteracting || state.isSettling;
   const transformStyle: React.CSSProperties = isActive
     ? {
@@ -230,7 +218,6 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
-      onPointerLeave={handlePointerLeave}
     >
       {children}
     </div>

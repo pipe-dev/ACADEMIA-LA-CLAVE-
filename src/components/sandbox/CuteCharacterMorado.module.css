@@ -20,9 +20,9 @@
   z-index: 3;
   width: 250px;
   height: 400px;
-  /* Bloque vertical con esquinas redondeadas y silueta organica de arcilla */
+  /* Bloque vertical con esquinas redondeadas y silueta recta original */
   border-radius: 46px 46px 18px 18px;
-  clip-path: var(--morado-clip, path("M 46 0 L 204 0 Q 245 0 245 46 C 242 90 232 120 232 160 C 236 200 244 235 244 275 C 242 315 248 350 248 382 Q 248 400 226 400 L 24 400 Q 2 400 2 382 C 2 350 8 315 6 275 C 6 235 14 200 18 160 C 18 120 8 90 5 46 Q 5 0 46 0 Z"));
+  clip-path: var(--morado-clip, none);
   /* Inclinacion organica hacia la derecha: la base permanece 100% anclada al suelo
      mientras el torso y la parte superior se arquean elasticamente hacia el formulario */
   transform-origin: 50% 100%;
