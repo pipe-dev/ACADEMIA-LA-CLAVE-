@@ -1,0 +1,168 @@
+/* Escenario y soporte */
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 30px;
+}
+
+/* Sombras en el suelo (oclusión ambiental suave) */
+.shadow-ambient {
+  position: absolute;
+  bottom: 22px;
+  width: 190px;
+  height: 26px;
+  background: radial-gradient(ellipse at center, rgba(60, 10, 30, 0.22) 0%, rgba(60, 10, 30, 0.05) 55%, transparent 75%);
+  filter: blur(8px);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.shadow-contact {
+  position: absolute;
+  bottom: 29px;
+  width: 175px;
+  height: 10px;
+  background: rgba(45, 8, 22, 0.38);
+  filter: blur(2.5px);
+  border-radius: 50%;
+  z-index: 2;
+}
+
+/* CONTENEDOR DEL CUERPO */
+.fuchsia-char {
+  position: relative;
+  z-index: 3;
+  width: 190px;
+  height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.carrier {
+  position: relative;
+  will-change: transform;
+}
+
+.bodyMotion {
+  position: relative;
+  will-change: transform;
+}
+
+/* MALLA DEL CUERPO (SILUETA LEVEMENTE INFLADA + VOLUMEN DE LUZ) */
+.fuchsia-body {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Esquinas biseladas firmes (no ovaladas ni de píldora) */
+  border-radius: 20px 20px 10px 10px;
+
+  /* Inflado orgánico: curva de contorno convexa que ensancha el torso
+     antes de llegar a la coronación de los ojos */
+  clip-path: path("M 20 0 Q 0 0 0 20 C 0 110 -4 280 4 395 Q 6 420 20 420 L 170 420 Q 184 420 186 395 C 194 280 190 110 190 20 Q 190 0 170 0 Z");
+
+  /* 1. Iluminación cilíndrica transversal: luz suave a la izquierda,
+     tono base central y caída a sombra profunda a la derecha */
+  background: linear-gradient(
+    92deg,
+    #d85292 0%,
+    #d04583 14%,
+    #c73773 40%,
+    #c3326d 68%,
+    #a82155 96%,
+    #9b1b4c 100%
+  );
+}
+
+/* 2. Capa de iluminación cenital y biseles superiores/inferiores */
+.fuchsia-body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.12) 3%,
+    transparent 15%,
+    transparent 85%,
+    rgba(40, 5, 20, 0.35) 100%
+  );
+  pointer-events: none;
+}
+
+/* 3. Rim highlight sutil en el borde izquierdo simulando volumen curvo */
+.fuchsia-body::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.25) 30%,
+    transparent 90%
+  );
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+/* ROSTRO (Ojos juntos, colocados cerca de la coronación) */
+.face {
+  position: absolute;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 4;
+}
+
+.eyes {
+  display: flex;
+  gap: 16px;
+}
+
+/* Ojos circulares con volumen propio tipo tachuela/botón */
+.eye {
+  width: 36px;
+  height: 36px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Sombra que arroja el relieve sobre la arcilla fucsia */
+  box-shadow:
+    0 2.5px 4px rgba(0, 0, 0, 0.26),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.12);
+  position: relative;
+}
+
+/* Pupila oscura */
+.pupil {
+  width: 14.4px;
+  height: 14.4px;
+  background: #111116;
+  border-radius: 50%;
+  position: relative;
+}
+
+/* Punto especular */
+.pupil::after {
+  content: '';
+  position: absolute;
+  top: 1.8px;
+  left: 1.8px;
+  width: 3.6px;
+  height: 3.6px;
+  background: #ffffff;
+  border-radius: 50%;
+}
