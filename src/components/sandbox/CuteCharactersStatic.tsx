@@ -127,7 +127,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             skewDelta={1.8}
             yDelta={-3.5}
           >
-            <CuteCharacterMorado typing={typing} />
+            <CuteCharacterMorado
+              typing={typing}
+              onDropImpact={() => handleRippleTrigger(260, 480, 1.2)}
+            />
           </CuteCharacterBreathe>
         </CuteCharacterTactileCage>
       ),
