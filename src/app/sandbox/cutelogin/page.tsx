@@ -11,20 +11,37 @@ import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic'
  */
 export default function CuteLoginPage() {
   const [email, setEmail] = useState('');
+  const [emailFocused, setEmailFocused] = useState(false);
   const [password, setPassword] = useState('');
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [wrong, setWrong] = useState(false);
+  const wrongTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (wrongTimer.current) clearTimeout(wrongTimer.current);
+    setWrong(true);
+    wrongTimer.current = setTimeout(() => setWrong(false), 4000);
+  };
 
   return (
-    <main className="min-h-[100dvh] w-full flex items-center justify-center bg-[#e5e9ee] p-4 sm:p-6 lg:p-8 select-none">
-      {/* Contenedor Split Card principal */}
-      <div className="w-full max-w-[960px] min-h-[580px] rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-1 md:grid-cols-2 border border-slate-200/60">
+    <main className="min-h-[100dvh] w-full flex items-center justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 select-none overflow-y-auto">
+      {/* Contenedor Split Card principal: horizontal en movil y desktop */}
+      <div className="w-full max-w-[960px] min-h-0 sm:min-h-[580px] rounded-[24px] sm:rounded-[36px] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.16)] overflow-hidden grid grid-cols-[40%_60%] sm:grid-cols-2 border border-slate-200/60">
         {/* ========================================================= */}
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes */}
         {/* ========================================================= */}
-        <div className="relative flex flex-col justify-end items-center bg-[#e9e9e9] p-6 sm:p-10 border-b md:border-b-0 md:border-r border-slate-200">
-          <div className="w-full flex items-end justify-center pb-1">
+        <div className="relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 sm:p-10 border-r border-slate-200 overflow-hidden">
+          <div className="w-full flex items-end justify-center pb-0.5 sm:pb-1">
             <CuteCharactersStatic
+              excited={emailFocused}
+              shy={passwordFocused}
+              reveal={showPassword}
+              error={wrong}
+              typing={emailFocused && email.length > 0}
+              typingProgress={Math.min(email.length / 7, 1)}
               className="w-full max-w-[420px]"
             />
           </div>
@@ -33,11 +50,11 @@ export default function CuteLoginPage() {
         {/* ========================================================= */}
         {/* LADO DERECHO: Formulario de Acceso Minimalista */}
         {/* ========================================================= */}
-        <div className="flex flex-col justify-center px-8 py-10 sm:px-14 sm:py-14 bg-white">
-          <div className="max-w-[340px] mx-auto w-full space-y-6">
+        <div className="flex flex-col justify-center px-3 py-3.5 sm:px-14 sm:py-14 bg-white overflow-hidden">
+          <div className="max-w-[340px] mx-auto w-full space-y-2.5 sm:space-y-6">
             {/* Isotipo de marca geometrico */}
-            <div className="flex justify-center md:justify-start">
-              <svg width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <div className="flex justify-start">
+              <svg className="w-5 h-5 sm:w-[34px] sm:h-[34px]" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M17 2L31 10.5V23.5L17 32L3 23.5V10.5L17 2Z" fill="#111827" />
                 <path d="M17 5L28 11.5L17 18L6 11.5L17 5Z" fill="#ffffff" fillOpacity="0.9" />
                 <path d="M17 18L28 11.5V22.5L17 29V18Z" fill="#1f2937" />
@@ -46,20 +63,20 @@ export default function CuteLoginPage() {
             </div>
 
             {/* Titulares principales */}
-            <div className="space-y-1.5 text-center md:text-left">
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#111827]">
+            <div className="space-y-0.5 sm:space-y-1.5 text-left">
+              <h1 className="text-base sm:text-4xl font-extrabold tracking-tight text-[#111827] leading-tight">
                 Welcome back!
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-normal">
+              <p className="text-[10px] sm:text-sm text-slate-500 font-normal leading-tight">
                 Please enter your details
               </p>
             </div>
 
             {/* Formulario */}
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-5 pt-1">
+            <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-5 pt-0.5 sm:pt-1">
               {/* Campo Email */}
-              <div className="space-y-1">
-                <label htmlFor="static-email" className="block text-xs font-semibold text-slate-700">
+              <div className="space-y-0.5 sm:space-y-1">
+                <label htmlFor="static-email" className="block text-[10px] sm:text-xs font-semibold text-slate-700">
                   Email
                 </label>
                 <div className="relative">
@@ -68,15 +85,17 @@ export default function CuteLoginPage() {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
                     placeholder=""
-                    className="w-full bg-transparent border-b border-slate-300 py-2 text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
+                    className="w-full bg-transparent border-b border-slate-300 py-1 sm:py-2 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Campo Password */}
-              <div className="space-y-1">
-                <label htmlFor="static-password" className="block text-xs font-semibold text-slate-700">
+              <div className="space-y-0.5 sm:space-y-1">
+                <label htmlFor="static-password" className="block text-[10px] sm:text-xs font-semibold text-slate-700">
                   Password
                 </label>
                 <div className="relative flex items-center">
@@ -84,33 +103,44 @@ export default function CuteLoginPage() {
                     id="static-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (wrong) {
+                        setWrong(false);
+                        if (wrongTimer.current) {
+                          clearTimeout(wrongTimer.current);
+                          wrongTimer.current = null;
+                        }
+                      }
+                    }}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
                     placeholder=""
-                    className="w-full bg-transparent border-b border-slate-300 py-2 pr-8 text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
+                    className="w-full bg-transparent border-b border-slate-300 py-1 sm:py-2 pr-6 sm:pr-8 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-0 text-slate-500 hover:text-slate-900 transition-colors p-1"
+                    className="absolute right-0 text-slate-500 hover:text-slate-900 transition-colors p-0.5 sm:p-1"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                   </button>
                 </div>
               </div>
 
               {/* Fila Remember me / Forgot password */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 font-medium">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[10px] sm:text-xs pt-0.5 gap-1 sm:gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none text-slate-600 font-medium">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3.5 w-3.5"
+                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3 w-3 sm:h-3.5 sm:w-3.5"
                   />
-                  <span>Remember me</span>
+                  <span className="truncate">Remember me</span>
                 </label>
-                <a href="#forgot" className="text-slate-500 hover:text-slate-900 transition-colors">
+                <a href="#forgot" className="text-slate-500 hover:text-slate-900 transition-colors truncate">
                   Forgot password?
                 </a>
               </div>
@@ -118,7 +148,7 @@ export default function CuteLoginPage() {
               {/* Boton Primario: Log in (negro redondeado) */}
               <button
                 type="submit"
-                className="w-full h-11 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-sm shadow-sm active:scale-[0.99] transition-all mt-3"
+                className="w-full h-8 sm:h-11 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-xs sm:text-sm shadow-sm active:scale-[0.99] transition-all mt-1.5 sm:mt-3"
               >
                 Log in
               </button>
@@ -126,9 +156,9 @@ export default function CuteLoginPage() {
               {/* Boton Secundario: Log in with Google */}
               <button
                 type="button"
-                className="w-full h-11 rounded-full font-semibold border border-slate-200 bg-[#f9fafb] hover:bg-slate-100 text-slate-700 text-xs flex items-center justify-center gap-2.5 shadow-none transition-all"
+                className="w-full h-7 sm:h-11 rounded-full font-semibold border border-slate-200 bg-[#f9fafb] hover:bg-slate-100 text-slate-700 text-[10px] sm:text-xs flex items-center justify-center gap-1.5 sm:gap-2.5 shadow-none transition-all"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -146,13 +176,13 @@ export default function CuteLoginPage() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                   />
                 </svg>
-                <span>Log in with Google</span>
+                <span className="truncate">Log in with Google</span>
               </button>
             </form>
 
             {/* Pie de registro */}
-            <div className="text-center pt-3">
-              <p className="text-xs text-slate-500 font-normal">
+            <div className="text-center pt-1 sm:pt-3">
+              <p className="text-[10px] sm:text-xs text-slate-500 font-normal">
                 Don't have an account?{' '}
                 <a href="#signup" className="font-semibold text-slate-900 hover:underline">
                   Sign Up
