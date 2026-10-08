@@ -1,6 +1,12 @@
 'use client';
 
-import React, {useEffect, useId, useRef} from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useRef,
+} from 'react';
 import gsap from 'gsap';
 import styles from './CuteCharacterMorado.module.css';
 
@@ -10,23 +16,70 @@ export interface CuteCharacterMoradoProps {
   onDropImpact?: () => void;
 }
 
-function getMoradoSinuousPath(s: number, w: number): string {
-  const clampedS = Math.max(-0.4, Math.min(0.95, s));
-  const x1 = 232 - 16 * clampedS - 5 * Math.sin(w);
-  const x2 = 244 + 6 * clampedS + 6 * Math.sin(w + 1.8);
-  const x3 = 248 + 2 * clampedS + 3 * Math.sin(w + 3.2);
-
-  const xl1 = 250 - x1;
-  const xl2 = 250 - x2;
-  const xl3 = 250 - x3;
-
-  return `M 46 0 L 204 0 Q 245 0 245 46 C ${242 - 10 * clampedS} 90 ${x1} 120 ${x1} 160 C ${x1 + 4} 200 ${x2} 235 ${x2} 275 C ${x2 - 2} 315 ${x3} 350 ${x3} 382 Q ${x3} 400 ${x3 - 22} 400 L ${xl3 + 22} 400 Q ${xl3} 400 ${xl3} 382 C ${xl3} 350 ${xl2 - 2} 315 ${xl2} 275 C ${xl2} 235 ${xl1 - 4} 200 ${xl1} 160 C ${xl1} 120 ${8 + 10 * clampedS} 90 5 46 Q 5 0 46 0 Z`;
+export interface CuteCharacterMoradoRef {
+  setPinch: (active: boolean, localY: number, dx: number, dy: number) => void;
 }
 
-export const CuteCharacterMorado: React.FC<CuteCharacterMoradoProps> = ({
-  playIntroDrop = true,
-  onDropImpact,
-}) => {
+function getMoradoSinuousPath(
+  s: number,
+  w: number,
+  pinchActive = false,
+  pinchY = 200,
+  pinchDx = 0,
+  pinchDy = 0
+): string {
+  const clampedS = Math.max(-0.4, Math.min(0.95, s));
+  let x1 = 232 - 16 * clampedS - 5 * Math.sin(w);
+  let x2 = 244 + 6 * clampedS + 6 * Math.sin(w + 1.8);
+  let x3 = 248 + 2 * clampedS + 3 * Math.sin(w + 3.2);
+
+  let xl1 = 250 - x1;
+  let xl2 = 250 - x2;
+  let xl3 = 250 - x3;
+
+  let topY = 0;
+
+  if (pinchActive) {
+    // Gauss bell curve weighting based on proximity to grab height
+    const w1 = Math.exp(-Math.pow((160 - pinchY) / 75, 2));
+    const w2 = Math.exp(-Math.pow((275 - pinchY) / 75, 2));
+    const w3 = Math.exp(-Math.pow((360 - pinchY) / 75, 2));
+    const wTop = Math.exp(-Math.pow((25 - pinchY) / 55, 2));
+
+    // Deformacion elastica local de la pared halada
+    const pullX = Math.max(-60, Math.min(60, pinchDx * 0.45));
+    const pullY = Math.max(-45, Math.min(45, pinchDy * 0.45));
+
+    if (pullX > 0) {
+      // Halando hacia la derecha: estirar pared derecha hacia afuera
+      x1 += pullX * w1;
+      x2 += pullX * w2;
+      x3 += pullX * w3 * 0.7;
+      // Pared contraria acompaña sutilmente
+      xl1 += pullX * 0.16 * w1;
+      xl2 += pullX * 0.16 * w2;
+    } else if (pullX < 0) {
+      // Halando hacia la izquierda: estirar pared izquierda hacia afuera
+      xl1 += pullX * w1;
+      xl2 += pullX * w2;
+      xl3 += pullX * w3 * 0.7;
+      // Pared contraria acompaña sutilmente
+      x1 += pullX * 0.16 * w1;
+      x2 += pullX * 0.16 * w2;
+    }
+
+    if (pullY < 0) {
+      topY += pullY * wTop;
+    }
+  }
+
+  return `M 46 ${topY} L 204 ${topY} Q 245 ${topY} 245 46 C ${242 - 10 * clampedS} 90 ${x1} 120 ${x1} 160 C ${x1 + 4} 200 ${x2} 235 ${x2} 275 C ${x2 - 2} 315 ${x3} 350 ${x3} 382 Q ${x3} 400 ${x3 - 22} 400 L ${xl3 + 22} 400 Q ${xl3} 400 ${xl3} 382 C ${xl3} 350 ${xl2 - 2} 315 ${xl2} 275 C ${xl2} 235 ${xl1 - 4} 200 ${xl1} 160 C ${xl1} 120 ${8 + 10 * clampedS} 90 5 46 Q 5 ${topY} 46 ${topY} Z`;
+}
+
+export const CuteCharacterMorado = forwardRef<
+  CuteCharacterMoradoRef,
+  CuteCharacterMoradoProps
+>(({playIntroDrop = true, onDropImpact}, ref) => {
   const rawId = useId();
   const clipId = `morado-sinuous-${rawId.replace(/:/g, '')}`;
 
@@ -36,7 +89,31 @@ export const CuteCharacterMorado: React.FC<CuteCharacterMoradoProps> = ({
   const squashRef = useRef(0);
   const velSquashRef = useRef(0);
   const waveRef = useRef(0);
+  const pinchRef = useRef({
+    active: false,
+    localY: 200,
+    dx: 0,
+    dy: 0,
+    currentDx: 0,
+    currentDy: 0,
+    velDx: 0,
+    velDy: 0,
+  });
   const animFrameRef = useRef<number | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      setPinch: (active: boolean, localY: number, dx: number, dy: number) => {
+        const p = pinchRef.current;
+        p.active = active;
+        p.localY = localY;
+        p.dx = dx;
+        p.dy = dy;
+      },
+    }),
+    []
+  );
 
   useEffect(() => {
     let lastTime = performance.now();
@@ -53,8 +130,41 @@ export const CuteCharacterMorado: React.FC<CuteCharacterMoradoProps> = ({
       // Ondulacion fluida continua de las paredes sinuosas
       waveRef.current += dt * 3.2;
 
+      // Dinamica elastica del estiramiento de piel local
+      const p = pinchRef.current;
+      if (p.active) {
+        // Seguir suavemente la traccion de los dedos
+        p.currentDx += (p.dx - p.currentDx) * Math.min(1, dt * 28);
+        p.currentDy += (p.dy - p.currentDy) * Math.min(1, dt * 28);
+        p.velDx = 0;
+        p.velDy = 0;
+      } else if (Math.abs(p.currentDx) > 0.05 || Math.abs(p.currentDy) > 0.05) {
+        // Retorno elastico oscilatorio amortiguado al soltar
+        const springX = -220 * p.currentDx - 14 * p.velDx;
+        const springY = -220 * p.currentDy - 14 * p.velDy;
+        p.velDx += springX * dt;
+        p.velDy += springY * dt;
+        p.currentDx += p.velDx * dt;
+        p.currentDy += p.velDy * dt;
+        if (Math.abs(p.currentDx) < 0.05 && Math.abs(p.velDx) < 0.05) {
+          p.currentDx = 0;
+          p.velDx = 0;
+        }
+        if (Math.abs(p.currentDy) < 0.05 && Math.abs(p.velDy) < 0.05) {
+          p.currentDy = 0;
+          p.velDy = 0;
+        }
+      }
+
       if (pathRef.current) {
-        const d = getMoradoSinuousPath(squashRef.current, waveRef.current);
+        const d = getMoradoSinuousPath(
+          squashRef.current,
+          waveRef.current,
+          p.active || Math.abs(p.currentDx) > 0.05 || Math.abs(p.currentDy) > 0.05,
+          p.localY,
+          p.currentDx,
+          p.currentDy
+        );
         pathRef.current.setAttribute('d', d);
       }
 
@@ -205,4 +315,6 @@ export const CuteCharacterMorado: React.FC<CuteCharacterMoradoProps> = ({
       </div>
     </div>
   );
-};
+});
+
+CuteCharacterMorado.displayName = 'CuteCharacterMorado';

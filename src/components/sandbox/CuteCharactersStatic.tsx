@@ -1,16 +1,19 @@
 'use client';
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {CuteCharacterMorado} from './CuteCharacterMorado';
+import {CuteCharacterMorado, CuteCharacterMoradoRef} from './CuteCharacterMorado';
 import {CuteCharacterFucsia} from './CuteCharacterFucsia';
 import {
   CuteCharacterFucsiaAnimated,
   CuteCharacterFucsiaAnimatedRef,
 } from './CuteCharacterFucsiaAnimated';
 import {CuteCharacterAmarillo} from './CuteCharacterAmarillo';
-import {CuteCharacterNaranja} from './CuteCharacterNaranja';
+import {CuteCharacterNaranja, CuteCharacterNaranjaRef} from './CuteCharacterNaranja';
 import {CuteCharacterBreathe} from './CuteCharacterBreathe';
-import {CuteCharacterTactileCage} from './CuteCharacterTactileCage';
+import {
+  CuteCharacterTactileCage,
+  PinchEventData,
+} from './CuteCharacterTactileCage';
 import {
   JELLY_PRESET_MORADO,
   JELLY_PRESET_FUCSIA,
@@ -104,6 +107,98 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     []
   );
 
+  const moradoRef = useRef<CuteCharacterMoradoRef>(null);
+  const naranjaRef = useRef<CuteCharacterNaranjaRef>(null);
+
+  const TACTILE_SKIN_COLORS = {
+    morado: {
+      primary: 'rgba(121, 73, 207, 0.90)',
+      highlight: 'rgba(164, 122, 245, 0.96)',
+    },
+    fucsia: {
+      primary: 'rgba(199, 55, 115, 0.90)',
+      highlight: 'rgba(240, 96, 158, 0.96)',
+    },
+    amarillo: {
+      primary: 'rgba(238, 208, 69, 0.90)',
+      highlight: 'rgba(251, 230, 116, 0.96)',
+    },
+    naranja: {
+      primary: 'rgba(244, 122, 50, 0.90)',
+      highlight: 'rgba(255, 160, 95, 0.96)',
+    },
+  };
+
+  const handlePinchMove = useCallback(
+    (
+      data: PinchEventData,
+      color: {primary: string; highlight: string},
+      isMorado = false
+    ) => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const currentScale = rect.width / DESIGN_WIDTH;
+      const originStageX = (data.originClientX - rect.left) / currentScale;
+      const originStageY = (data.originClientY - rect.top) / currentScale;
+      const targetStageX = (data.currentClientX - rect.left) / currentScale;
+      const targetStageY = (data.currentClientY - rect.top) / currentScale;
+
+      tactileCanvasRef.current?.setPinchPull(
+        originStageX,
+        originStageY,
+        targetStageX,
+        targetStageY,
+        true,
+        color.primary,
+        color.highlight
+      );
+
+      if (isMorado) {
+        const dx = data.localCurrentX - data.localOriginX;
+        const dy = data.localCurrentY - data.localOriginY;
+        moradoRef.current?.setPinch(true, data.localOriginY, dx, dy);
+      }
+    },
+    []
+  );
+
+  const handlePinchRelease = useCallback(
+    (data: PinchEventData, isMorado = false) => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const currentScale = rect.width / DESIGN_WIDTH;
+      const originStageX = (data.originClientX - rect.left) / currentScale;
+      const originStageY = (data.originClientY - rect.top) / currentScale;
+      const targetStageX = (data.currentClientX - rect.left) / currentScale;
+      const targetStageY = (data.currentClientY - rect.top) / currentScale;
+
+      tactileCanvasRef.current?.setPinchPull(
+        originStageX,
+        originStageY,
+        targetStageX,
+        targetStageY,
+        false
+      );
+
+      if (isMorado) {
+        moradoRef.current?.setPinch(false, 0, 0, 0);
+      }
+    },
+    []
+  );
+
+  const handleNaranjaTouch = useCallback(
+    (clientX: number, clientY: number, active: boolean) => {
+      if (active) naranjaRef.current?.poke();
+      handleTouchPress(clientX, clientY, active);
+    },
+    [handleTouchPress]
+  );
+
   const characterSlots: CharacterSlot[] = [
     {
       left: 144.375,
@@ -117,6 +212,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           config={JELLY_PRESET_MORADO}
           onRippleTrigger={handleRippleTrigger}
           onTouchPress={handleTouchPress}
+          onPinchMove={(data) =>
+            handlePinchMove(data, TACTILE_SKIN_COLORS.morado, true)
+          }
+          onPinchRelease={(data) => handlePinchRelease(data, true)}
         >
           <CuteCharacterBreathe
             breathDuration={3.1}
@@ -128,6 +227,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             yDelta={-3.5}
           >
             <CuteCharacterMorado
+              ref={moradoRef}
               typing={typing}
               onDropImpact={() => handleRippleTrigger(260, 480, 1.2)}
             />
@@ -146,6 +246,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           config={JELLY_PRESET_FUCSIA}
           onRippleTrigger={handleRippleTrigger}
           onTouchPress={handleTouchPress}
+          onPinchMove={(data) =>
+            handlePinchMove(data, TACTILE_SKIN_COLORS.fucsia)
+          }
+          onPinchRelease={(data) => handlePinchRelease(data)}
         >
           <CuteCharacterBreathe
             breathDuration={2.4}
@@ -176,6 +280,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           config={JELLY_PRESET_AMARILLO}
           onRippleTrigger={handleRippleTrigger}
           onTouchPress={handleTouchPress}
+          onPinchMove={(data) =>
+            handlePinchMove(data, TACTILE_SKIN_COLORS.amarillo)
+          }
+          onPinchRelease={(data) => handlePinchRelease(data)}
         >
           <CuteCharacterBreathe
             breathDuration={1.85}
@@ -202,7 +310,11 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
         <CuteCharacterTactileCage
           config={JELLY_PRESET_NARANJA}
           onRippleTrigger={handleRippleTrigger}
-          onTouchPress={handleTouchPress}
+          onTouchPress={handleNaranjaTouch}
+          onPinchMove={(data) =>
+            handlePinchMove(data, TACTILE_SKIN_COLORS.naranja)
+          }
+          onPinchRelease={(data) => handlePinchRelease(data)}
         >
           <CuteCharacterBreathe
             breathDuration={3.5}
@@ -213,7 +325,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             skewDelta={1.4}
             yDelta={-2.8}
           >
-            <CuteCharacterNaranja typing={typing} />
+            <CuteCharacterNaranja ref={naranjaRef} typing={typing} />
           </CuteCharacterBreathe>
         </CuteCharacterTactileCage>
       ),
