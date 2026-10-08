@@ -13,10 +13,13 @@ interface CuteCharacterFucsiaAnimatedProps {
 
 /**
  * CuteCharacterFucsiaAnimated
- * Motor procedural 2D en Canvas que replica 1:1 el diseno original de Fucsia
- * (gradientes cilindricos a 92°, biseles de arcilla, ojos de 20px y sombras)
- * mientras calcula en tiempo real ondas sinusoidales continuas de fluidos
- * y deformacion elastica de cuerpo blando (soft-body jelly physics).
+ * Coreografia procedural exacta:
+ * 1. Entra a 0° desde arriba.
+ * 2. Se queda colgado del techo y se mueve de derecha a izquierda ondulando su cuerpo.
+ * 3. Da una vuelta ondulando fuertemente.
+ * 4. Cae derecho hacia el suelo.
+ * 5. Se asienta y se mueve por la fisica de un lado a otro hasta frenar y quedar recto.
+ * Estilo visual 1:1 con personaje_fucsia.html (ojos 20px, pupilas 8px, gradientes de arcilla).
  */
 export const CuteCharacterFucsiaAnimated = forwardRef<
   CuteCharacterFucsiaAnimatedRef,
@@ -28,8 +31,8 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
   const hasCompletedRef = useRef<boolean>(false);
 
   const CANVAS_WIDTH = 440;
-  const CANVAS_HEIGHT = 520;
-  const GROUND_Y = 470;
+  const CANVAS_HEIGHT = 560;
+  const GROUND_Y = 500;
   const BASE_WIDTH = 190;
   const BASE_HEIGHT = 420;
 
@@ -47,7 +50,7 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Soporte para pantallas Retina y pantallas de alta densidad
+    // Pantallas Retina / High-DPI
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     canvas.width = CANVAS_WIDTH * dpr;
     canvas.height = CANVAS_HEIGHT * dpr;
@@ -62,104 +65,123 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
       // =======================================================================
-      // FISICA PROCEDURAL: Calculo de trayectoria, rotacion y ondas sinusoidales
+      // COREOGRAFIA PROCEDURAL EXACTA
       // =======================================================================
       let posX = CANVAS_WIDTH / 2;
       let posY = GROUND_Y;
-      let rotation = 0; // Radianes
-      let waveAmp = 0; // Amplitud de la onda senoidal (px)
-      let waveFreq = 2.4; // Frecuencia espacial
-      let squashX = 0; // Deformacion lateral de masa
-      let squashY = 0; // Deformacion vertical de masa
+      let rotation = 0; // Radianes (0 rad = 0 grados, cabeza arriba)
+      let skewX = 0; // Deformacion lateral por fisica
+      let waveAmp = 0; // Amplitud de onda transversal del cuerpo (px)
+      let waveFreq = 2.4;
+      let squashX = 0;
+      let squashY = 0;
       let shadowScale = 1;
       let shadowOpacity = 0.38;
 
-      if (elapsed < 0.75) {
-        // FASE 1: Colgado del techo invertido, balanceo pendular hacia la izquierda
-        const progress = elapsed / 0.75;
-        const sineT = Math.sin((progress * Math.PI) / 2);
+      if (elapsed < 0.3) {
+        // PASO 1: Entra en cero grados bajando desde arriba
+        const p = elapsed / 0.3;
+        const ease = Math.sin((p * Math.PI) / 2);
 
-        posX = CANVAS_WIDTH / 2 + 85 - 150 * sineT; // 85 -> -65
-        posY = 65 + 28 * Math.sin(progress * Math.PI); // Arco pendular
-        rotation = Math.PI + 0.28 - 0.58 * sineT; // Invertido (~180°) oscilando
-
-        // Onda senoidal continua que viaja a lo largo de la columna de liquido
-        waveAmp = 32 * Math.sin(progress * Math.PI);
-        squashY = 0.14 * Math.sin(progress * Math.PI * 2);
-        squashX = -squashY * 0.85;
+        // Desciende desde arriba (-100px) hasta el techo de suspension (360px)
+        posY = 280 + 80 * ease;
+        posX = CANVAS_WIDTH / 2 + 80;
+        rotation = 0; // 0 grados estricto
+        waveAmp = 12 * p;
 
         shadowScale = 0.35;
         shadowOpacity = 0.08;
-      } else if (elapsed < 1.35) {
-        // FASE 2: Retorno pendular hacia el centro de desprendimiento
-        const progress = (elapsed - 0.75) / 0.60;
-        const sineT = (1 - Math.cos(progress * Math.PI)) / 2;
+      } else if (elapsed < 1.1) {
+        // PASO 2: Se queda colgado del techo y se mueve de derecha a izquierda ondulando su cuerpo
+        const p = (elapsed - 0.3) / 0.8;
 
-        posX = CANVAS_WIDTH / 2 - 65 + 65 * sineT; // -65 -> 0
-        posY = 65 + 22 * Math.sin(progress * Math.PI);
-        rotation = Math.PI - 0.30 + 0.46 * sineT;
+        // Se desplaza en X de derecha (+80) a izquierda (-65) y retorna al centro (0)
+        const waveX = Math.cos(p * Math.PI * 2); // 1 -> -1 -> 1
+        posX = CANVAS_WIDTH / 2 + 75 * waveX;
+        posY = 360 + 15 * Math.sin(p * Math.PI * 2); // Leve arqueo en Y
 
-        // Onda reactiva inversa
-        waveAmp = -28 * Math.sin(progress * Math.PI);
-        squashY = 0.12 * Math.sin(progress * Math.PI * 2);
-        squashX = -squashY * 0.85;
+        rotation = -0.08 * Math.sin(p * Math.PI * 2); // Leve vaiven natural
 
-        shadowScale = 0.38;
+        // Ondulacion liquida continua a lo largo del cuerpo
+        waveAmp = 30 * Math.sin(p * Math.PI * 3);
+        squashY = 0.08 * Math.cos(p * Math.PI * 3);
+        squashX = -squashY * 0.8;
+
+        shadowScale = 0.40;
         shadowOpacity = 0.10;
-      } else if (elapsed < 1.85) {
-        // FASE 3: Desprendimiento, voltereta de 180° y caida acelerada tipo lagrima
-        const progress = (elapsed - 1.35) / 0.50;
+      } else if (elapsed < 1.6) {
+        // PASO 3: Da una vuelta en el aire ondulando mucho
+        const p = (elapsed - 1.1) / 0.5;
 
-        // Caida balistica acelerada hacia el suelo
-        const fallEase = Math.pow(progress, 2.4);
-        posY = 65 + (GROUND_Y - 65) * fallEase;
+        // Vuelta completa fluida (360° / 2*PI rad)
+        const flipEase = (1 - Math.cos(p * Math.PI)) / 2;
+        rotation = Math.PI * 2 * flipEase;
 
-        // Bamboleo senoidal en X durante el descenso
-        posX = CANVAS_WIDTH / 2 + 16 * Math.sin(progress * Math.PI * 2);
+        posX = CANVAS_WIDTH / 2 + 10 * Math.sin(p * Math.PI * 2);
+        posY = 360 + 20 * Math.sin(p * Math.PI);
 
-        // Giro de 180° hacia la vertical neutral
-        const flipEase = (1 - Math.cos(progress * Math.PI)) / 2;
-        rotation = Math.PI + 0.16 + (Math.PI - 0.16) * flipEase;
+        // ONDULANDO MUCHO (amplitud maxima de agua/goma)
+        waveAmp = 42 * Math.sin(p * Math.PI * 4);
+        squashY = 0.22 * Math.sin(p * Math.PI * 2);
+        squashX = -squashY * 0.8;
 
-        // Estiramiento hidrodinamico de gota de agua
-        squashY = 0.34 * progress;
-        squashX = -0.24 * progress;
-        waveAmp = 14 * Math.sin(progress * Math.PI * 3);
+        shadowScale = 0.45;
+        shadowOpacity = 0.12;
+      } else if (elapsed < 1.95) {
+        // PASO 4: Cae derecho hacia el suelo
+        const p = (elapsed - 1.6) / 0.35;
 
-        shadowScale = 0.38 + 0.52 * progress;
-        shadowOpacity = 0.10 + 0.24 * progress;
+        // Caida vertical recta hacia el suelo
+        const fallEase = Math.pow(p, 2.4);
+        posY = 360 + (GROUND_Y - 360) * fallEase;
+        posX = CANVAS_WIDTH / 2; // Derecho en X
+        rotation = 0; // Derecho a 0 grados
+        skewX = 0;
+
+        // Estiramiento vertical en caida libre
+        squashY = 0.28 * p;
+        squashX = -0.20 * p;
+        waveAmp = 10 * (1 - p);
+
+        shadowScale = 0.45 + 0.55 * p;
+        shadowOpacity = 0.12 + 0.26 * p;
+      } else if (elapsed < 3.1) {
+        // PASO 5: Impacta en el suelo y se mueve por la fisica de un lado a otro hasta parar
+        const tImpact = elapsed - 1.95;
+        posY = GROUND_Y;
+        rotation = 0; // 0 grados
+
+        // Oscilacion amortiguada: e^(-lambda*t)
+        const decay = Math.exp(-3.6 * tImpact);
+
+        // Bamboleo fisico de un lado a otro (izquierda y derecha)
+        const sway = Math.sin(15 * tImpact);
+        posX = CANVAS_WIDTH / 2 + 22 * decay * sway;
+        skewX = (15 * decay * Math.cos(15 * tImpact) * Math.PI) / 180;
+
+        // Aplastamiento y rebote vertical de flan
+        const bounce = Math.cos(22 * tImpact);
+        squashY = -0.52 * decay * bounce;
+        squashX = 0.58 * decay * bounce;
+        waveAmp = 14 * decay * Math.sin(18 * tImpact);
+
+        shadowScale = 1.0 + 0.50 * decay * bounce;
+        shadowOpacity = 0.38 + 0.20 * decay * bounce;
       } else {
-        // FASE 4: Impacto balistico y temblor armonico amortiguado de gelatina
-        const tImpact = elapsed - 1.85;
+        // FINAL: Se queda parado, completamente recto y quieto en su posicion final
         posX = CANVAS_WIDTH / 2;
         posY = GROUND_Y;
         rotation = 0;
+        skewX = 0;
+        squashX = 0;
+        squashY = 0;
+        waveAmp = 0;
+        shadowScale = 1.0;
+        shadowOpacity = 0.38;
 
-        if (tImpact < 0.75) {
-          // Oscilador armonico amortiguado puro: e^(-lambda*t) * cos(omega*t)
-          const decay = Math.exp(-5.2 * tImpact);
-          const oscillation = Math.cos(25 * tImpact);
-
-          squashY = -0.58 * decay * oscillation;
-          squashX = 0.64 * decay * oscillation;
-          waveAmp = 12 * decay * Math.sin(20 * tImpact);
-
-          shadowScale = 1.0 + 0.65 * decay * oscillation;
-          shadowOpacity = 0.38 + 0.25 * decay * oscillation;
-        } else {
-          // FASE 5: Respiracion continua en reposo (Idle organico vivo)
-          const idleTime = tImpact - 0.75;
-          squashY = 0.022 * Math.sin(idleTime * 2.6);
-          squashX = -0.022 * Math.sin(idleTime * 2.6);
-          waveAmp = 1.8 * Math.sin(idleTime * 2.0);
-
-          shadowScale = 1.0 + 0.03 * Math.sin(idleTime * 2.6);
-          shadowOpacity = 0.38;
-
-          if (!hasCompletedRef.current && onComplete) {
-            hasCompletedRef.current = true;
-            onComplete();
-          }
+        if (!hasCompletedRef.current && onComplete) {
+          hasCompletedRef.current = true;
+          onComplete();
         }
       }
 
@@ -170,7 +192,7 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       ctx.translate(CANVAS_WIDTH / 2, GROUND_Y);
       const sScale = Math.max(0.1, shadowScale);
 
-      // 1. Sombra ambiental difusa (.shadow-ambient: 220px x 26px, blur suave)
+      // 1. Sombra ambiental difusa (.shadow-ambient: 220px x 26px)
       ctx.save();
       ctx.scale(sScale, sScale);
       const ambGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 110);
@@ -196,11 +218,14 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       ctx.restore();
 
       // =======================================================================
-      // RENDERIZADO: Masa de arcilla fucsia procedural con contorno exacto
+      // RENDERIZADO: Masa de arcilla fucsia procedural
       // =======================================================================
       ctx.save();
       ctx.translate(posX, posY);
       ctx.rotate(rotation);
+      if (skewX !== 0) {
+        ctx.transform(1, 0, Math.tan(skewX), 1, 0, 0);
+      }
 
       const curH = BASE_HEIGHT * (1 + squashY);
       const curW = BASE_WIDTH * (1 + squashX);
@@ -212,17 +237,17 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
         const t = i / numSegments; // 0 = base, 1 = coronacion
         const spineY = -curH * t;
 
-        // Onda transversal viajera a traves de la masa
+        // Onda transversal continua a lo largo del cuerpo
         const waveOffset = waveAmp * Math.sin(t * Math.PI * waveFreq);
 
-        // Curvatura convexa original del cuerpo (abultamiento del torso de Fucsia)
-        const profileBulge = (t > 0.15 && t < 0.85) ? 1.025 : 1.0;
+        // Curvatura convexa original del cuerpo de Fucsia
+        const profileBulge = t > 0.15 && t < 0.85 ? 1.025 : 1.0;
         const spineW = curW * profileBulge;
 
         spinePoints.push({ x: waveOffset, y: spineY, w: spineW });
       }
 
-      // 1. Sombra arrojada por la masa (.fuchsia-char: drop-shadow(0 16px 20px rgba(80,15,40,0.18)))
+      // Sombra arrojada por la masa (.fuchsia-char: drop-shadow(0 16px 20px rgba(80,15,40,0.18)))
       ctx.shadowColor = 'rgba(80, 15, 40, 0.18)';
       ctx.shadowOffsetY = 16;
       ctx.shadowBlur = 20;
@@ -286,9 +311,9 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
-      // 2. Capa de iluminacion cenital y biseles volumetricos (.fuchsia-body::before)
+      // Capa de iluminacion cenital y biseles volumetricos (.fuchsia-body::before)
       ctx.save();
-      ctx.clip(); // Restringir exactamente al cuerpo deformado
+      ctx.clip();
 
       const lightGrad = ctx.createLinearGradient(0, -curH, 0, 0);
       lightGrad.addColorStop(0.00, 'rgba(255, 255, 255, 0.42)');
@@ -300,7 +325,7 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       ctx.fillStyle = lightGrad;
       ctx.fill();
 
-      // 3. Rim highlight sutil en el borde izquierdo (.fuchsia-body::after, 6px ancho)
+      // Rim highlight sutil en el borde izquierdo (.fuchsia-body::after, 6px ancho)
       const rimGrad = ctx.createLinearGradient(0, -curH, 0, 0);
       rimGrad.addColorStop(0.00, 'rgba(255, 255, 255, 0.50)');
       rimGrad.addColorStop(0.30, 'rgba(255, 255, 255, 0.25)');
@@ -317,22 +342,22 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
       ctx.strokeStyle = rimGrad;
       ctx.stroke();
 
-      ctx.restore(); // Fin del clip
+      ctx.restore();
 
       // =======================================================================
       // RENDERIZADO: Ojos exactos de 20px (1:1 con personaje_fucsia.html)
       // .face { top: 40px; } .eyes { gap: 16px; } .eye { 20px x 20px; }
       // =======================================================================
-      const headAnchor = spinePoints[numSegments]; // Punto en la coronacion
+      const headAnchor = spinePoints[numSegments]; // Coronacion
       const eyeCenterY = headAnchor.y + 50; // 40px top + 10px radio
       const eyeCenterX = headAnchor.x;
-      const eyeOffset = 18; // 16px gap / 2 + 10px radio = 18px del centro
+      const eyeOffset = 18; // 16px gap / 2 + 10px radio
       const eyeRadius = 10; // 20px diametro exacto
       const pupilRadius = 4; // 8px diametro exacto
 
-      // Inercia secundaria en la mirada (los ojos responden al movimiento)
-      const eyeLagX = -waveAmp * 0.10;
-      const eyeLagY = -squashY * 14;
+      // Inercia secundaria en la mirada
+      const eyeLagX = -waveAmp * 0.10 - skewX * 12;
+      const eyeLagY = -squashY * 12;
 
       const drawEyeExact = (cx: number, cy: number) => {
         ctx.save();
@@ -357,13 +382,13 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // 4. Pupila oscura (.pupil: 8px diametro = 4px radio, #111116)
+        // 4. Pupila oscura (8px diametro = 4px radio, #111116)
         ctx.beginPath();
         ctx.arc(eyeLagX, eyeLagY, pupilRadius, 0, Math.PI * 2);
         ctx.fillStyle = '#111116';
         ctx.fill();
 
-        // 5. Punto especular exacto (.pupil::after: 2px diametro = 1px radio, blanco, top: 1px, left: 1px)
+        // 5. Punto especular exacto (2px diametro = 1px radio, blanco, top: 1px, left: 1px)
         ctx.beginPath();
         ctx.arc(eyeLagX - 1.5, eyeLagY - 1.5, 1, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
@@ -372,7 +397,6 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
         ctx.restore();
       };
 
-      // Ojo izquierdo y derecho con separacion exacta de 16px
       drawEyeExact(eyeCenterX - eyeOffset, eyeCenterY);
       drawEyeExact(eyeCenterX + eyeOffset, eyeCenterY);
 
