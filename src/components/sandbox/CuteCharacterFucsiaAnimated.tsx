@@ -84,13 +84,24 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
 
       // 3. IMPACTO Y WOBBLE DE GELATINA (Secuencia armonica)
       .set(body, { transformOrigin: 'bottom center' })
+      // SPLASH EFFECT: Spike the displacement scale on impact
+      .to('#water-displacement', {
+        attr: { scale: 35 },
+        duration: 0.08,
+        ease: 'power1.out',
+      }, '<')
+      .to('#water-displacement', {
+        attr: { scale: 8 },
+        duration: 0.8,
+        ease: 'elastic.out(1, 0.3)',
+      }, '>')
       // Compresion inicial violenta
       .to(body, {
         scaleY: 0.62,
         scaleX: 1.34,
         duration: 0.07,
         ease: 'power2.out',
-      })
+      }, '<')
       .to(shadowContact, { scaleX: 1.4, opacity: 0.5, duration: 0.07 }, '<')
       .to(shadowAmbient, { scaleX: 1.3, opacity: 0.3, duration: 0.07 }, '<')
       // Inercia retardada de los ojos que se hunden una fraccion despues
@@ -124,8 +135,23 @@ export const CuteCharacterFucsiaAnimated = forwardRef<
   useEffect(() => {
     timelineRef.current = buildTimeline();
 
+    const ctx = gsap.context(() => {
+      const waterTl = gsap.timeline({ repeat: -1, yoyo: true });
+      waterTl.to('#water-displacement', {
+        attr: { scale: 14 },
+        duration: 1.5,
+        ease: 'sine.inOut',
+      }, 0);
+      waterTl.to('#water-turbulence', {
+        attr: { baseFrequency: 0.018 },
+        duration: 1.5,
+        ease: 'sine.inOut',
+      }, 0);
+    });
+
     return () => {
       timelineRef.current?.kill();
+      ctx.revert();
     };
   }, []);
 
