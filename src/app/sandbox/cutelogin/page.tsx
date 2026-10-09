@@ -6,8 +6,8 @@ import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic'
 
 /**
  * Sandbox Cute Login - Split card horizontal
- * Blobs estaticos y visibles siempre en movil y desktop.
- * Previene auto-zoom en iOS y desplazamiento indebido al abrir el teclado.
+ * Blobs estaticos y visibles siempre arriba en movil y desktop.
+ * Bloqueado contra scroll y auto-zoom para que nunca se corte con el teclado.
  */
 export default function CuteLoginPage() {
   const [email, setEmail] = useState('');
@@ -17,36 +17,42 @@ export default function CuteLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [wrong, setWrong] = useState(false);
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const wrongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    const vv = window.visualViewport;
-    const handleResize = () => {
-      // Si el visualViewport se reduce drásticamente, el teclado virtual está abierto
-      setIsKeyboardOpen(vv.height < window.innerHeight * 0.78);
-    };
-    vv.addEventListener('resize', handleResize);
-    return () => vv.removeEventListener('resize', handleResize);
-  }, []);
+  // Bloqueo estricto de scroll en movil: mantiene la tarjeta firmemente arriba
+  const lockScrollToTop = () => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }
+  };
 
-  const isTypingActive = isKeyboardOpen || emailFocused || passwordFocused;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        lockScrollToTop();
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.visualViewport?.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.visualViewport?.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const handleInputFocus = (field: 'email' | 'password') => {
     if (field === 'email') setEmailFocused(true);
     if (field === 'password') setPasswordFocused(true);
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
-    }
+    requestAnimationFrame(lockScrollToTop);
   };
 
   const handleInputBlur = (field: 'email' | 'password') => {
     if (field === 'email') setEmailFocused(false);
     if (field === 'password') setPasswordFocused(false);
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
-    }
+    requestAnimationFrame(lockScrollToTop);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,15 +63,9 @@ export default function CuteLoginPage() {
   };
 
   return (
-    <main
-      className={`min-h-[100dvh] w-full flex bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 select-none overflow-x-hidden transition-all duration-300 ${
-        isTypingActive
-          ? 'items-start pt-2 sm:items-center sm:pt-6'
-          : 'items-center justify-center'
-      }`}
-    >
-      {/* Card split: 50% escena / 50% formulario, estable y sin desborde */}
-      <div className="w-full max-w-[960px] min-h-[380px] sm:min-h-[580px] rounded-[24px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-2 border border-slate-200/60 my-auto sm:my-0 transition-all duration-300">
+    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2.5 sm:p-6 lg:p-8 pt-[max(10px,env(safe-area-inset-top))] select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
+      {/* Card split: 50% escena / 50% formulario, anclada arriba en movil para dejar el espacio del teclado abajo */}
+      <div className="w-full max-w-[960px] min-h-[460px] sm:min-h-[580px] rounded-[28px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-2 border border-slate-200/60 shrink-0">
         {/* ================================================== */}
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
@@ -87,11 +87,11 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO DERECHO: Formulario de Acceso Minimalista      */}
         {/* ================================================== */}
-        <div className="min-w-0 flex flex-col justify-center px-3 py-3.5 sm:px-14 sm:py-14 bg-white overflow-hidden">
+        <div className="min-w-0 flex flex-col justify-center px-3.5 py-4 sm:px-14 sm:py-14 bg-white overflow-hidden">
           <div className="max-w-[340px] mx-auto w-full space-y-2.5 sm:space-y-6">
             {/* Titulares principales */}
             <div className="space-y-0.5 sm:space-y-1.5 text-left">
-              <h1 className="text-lg sm:text-4xl font-extrabold tracking-tight text-[#111827] leading-tight truncate sm:whitespace-normal">
+              <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight text-[#111827] leading-tight truncate sm:whitespace-normal">
                 ¡Bienvenido!
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 font-normal leading-tight truncate sm:whitespace-normal">
@@ -100,7 +100,7 @@ export default function CuteLoginPage() {
             </div>
 
             {/* Formulario */}
-            <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-5 pt-0.5 sm:pt-1">
+            <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-5 pt-0.5 sm:pt-1">
               {/* Campo Email */}
               <div className="space-y-0.5 sm:space-y-1">
                 <label htmlFor="static-email" className="block text-xs font-semibold text-slate-700">
@@ -115,7 +115,7 @@ export default function CuteLoginPage() {
                     onFocus={() => handleInputFocus('email')}
                     onBlur={() => handleInputBlur('email')}
                     placeholder=""
-                    className="w-full bg-transparent border-b border-slate-300 py-1 sm:py-2 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
+                    className="w-full bg-transparent border-b border-slate-300 py-1.5 sm:py-2 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
                 </div>
               </div>
@@ -143,7 +143,7 @@ export default function CuteLoginPage() {
                     onFocus={() => handleInputFocus('password')}
                     onBlur={() => handleInputBlur('password')}
                     placeholder=""
-                    className="w-full bg-transparent border-b border-slate-300 py-1 sm:py-2 pr-7 sm:pr-8 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
+                    className="w-full bg-transparent border-b border-slate-300 py-1.5 sm:py-2 pr-7 sm:pr-8 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
                   <button
                     type="button"
@@ -157,7 +157,7 @@ export default function CuteLoginPage() {
               </div>
 
               {/* Fila Recordarme / Forgot password */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] sm:text-xs pt-0.5 gap-1 sm:gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] sm:text-xs pt-0.5 gap-1.5 sm:gap-2">
                 <label className="flex items-center gap-1.5 cursor-pointer select-none text-slate-600 font-medium shrink-0">
                   <input
                     type="checkbox"
@@ -175,7 +175,7 @@ export default function CuteLoginPage() {
               {/* Boton Primario: Iniciar sesion */}
               <button
                 type="submit"
-                className="w-full h-9 sm:h-11 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-xs sm:text-sm shadow-sm active:scale-[0.99] transition-all mt-1.5 sm:mt-3"
+                className="w-full h-10 sm:h-11 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-xs sm:text-sm shadow-sm active:scale-[0.99] transition-all mt-1.5 sm:mt-3"
               >
                 Iniciar sesión
               </button>
@@ -183,9 +183,9 @@ export default function CuteLoginPage() {
               {/* Boton Secundario: Iniciar sesion con Google */}
               <button
                 type="button"
-                className="w-full h-8 sm:h-11 rounded-full font-semibold border border-slate-200 bg-[#f9fafb] hover:bg-slate-100 text-slate-700 text-xs flex items-center justify-center gap-1.5 sm:gap-2 shadow-none transition-all"
+                className="w-full h-9 sm:h-11 rounded-full font-semibold border border-slate-200 bg-[#f9fafb] hover:bg-slate-100 text-slate-700 text-xs flex items-center justify-center gap-1.5 sm:gap-2 shadow-none transition-all"
               >
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
