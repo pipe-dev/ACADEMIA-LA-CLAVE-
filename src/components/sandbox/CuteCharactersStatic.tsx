@@ -20,6 +20,7 @@ import {
   JELLY_PRESET_NARANJA,
 } from './useTactileJellyPhysics';
 import {CuteTactileCanvas, CuteTactileCanvasRef} from './CuteTactileCanvas';
+import {useJellyAsmrAudio} from '../../utils/useJellyAsmrAudio';
 
 export type {CuteCharacterFucsiaAnimatedRef};
 
@@ -34,6 +35,9 @@ export interface CuteCharactersStaticProps {
   animateFucsia?: boolean;
   fucsiaRef?: React.Ref<CuteCharacterFucsiaAnimatedRef>;
   passwordLength?: number;
+  emailValid?: boolean;
+  submitHovered?: boolean;
+  rememberChecked?: boolean;
 }
 
 /**
@@ -67,6 +71,9 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   animateFucsia = true,
   fucsiaRef,
   passwordLength = 0,
+  emailValid = false,
+  submitHovered = false,
+  rememberChecked = false,
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
@@ -78,6 +85,14 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     const t = setTimeout(() => setReady(true), 5400);
     return () => clearTimeout(t);
   }, []);
+
+  const {playSquish, playDroplet, playWinkPop, playValidationChime} = useJellyAsmrAudio();
+
+  const [blinkMorado, setBlinkMorado] = useState(false);
+  const [blinkFucsia, setBlinkFucsia] = useState(false);
+  const [blinkAmarillo, setBlinkAmarillo] = useState(false);
+  const [blinkNaranja, setBlinkNaranja] = useState(false);
+  const [winkAmarillo, setWinkAmarillo] = useState(false);
 
   // Coreografia de ver contrasena:
   // 1) Al destapar el ojo, se acercan fluidamente a mirar de cerca (transicion nativa CSS).
@@ -99,6 +114,69 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   }, [reveal, passwordLength >= 5]);
 
   const effShy = error ? 0 : reveal ? 0 : shy ? 1 : 0;
+
+  // Ciclos de parpadeo biologico asincrono (suspendido cuando estan dormidos)
+  useEffect(() => {
+    if (effShy === 1) return;
+
+    const setupBlink = (
+      setBlink: React.Dispatch<React.SetStateAction<boolean>>,
+      minMs: number,
+      maxMs: number
+    ) => {
+      let active = true;
+      let timer: ReturnType<typeof setTimeout>;
+      const run = () => {
+        const delay = minMs + Math.random() * (maxMs - minMs);
+        timer = setTimeout(() => {
+          if (!active) return;
+          setBlink(true);
+          setTimeout(() => {
+            if (active) setBlink(false);
+          }, 130);
+          run();
+        }, delay);
+      };
+      run();
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    };
+
+    const cM = setupBlink(setBlinkMorado, 3400, 6200);
+    const cF = setupBlink(setBlinkFucsia, 3800, 6800);
+    const cA = setupBlink(setBlinkAmarillo, 3200, 5900);
+    const cN = setupBlink(setBlinkNaranja, 4000, 7200);
+
+    return () => {
+      cM();
+      cF();
+      cA();
+      cN();
+    };
+  }, [effShy]);
+
+  // Reaccion al validar email con exito
+  const prevEmailValidRef = useRef(false);
+  useEffect(() => {
+    if (emailValid && !prevEmailValidRef.current) {
+      playValidationChime();
+    }
+    prevEmailValidRef.current = !!emailValid;
+  }, [emailValid, playValidationChime]);
+
+  // Reaccion al alternar Recordarme (guiño de Amarillo + pop ASMR)
+  const prevRememberRef = useRef(rememberChecked);
+  useEffect(() => {
+    if (rememberChecked !== prevRememberRef.current) {
+      playWinkPop();
+      setWinkAmarillo(true);
+      const t = setTimeout(() => setWinkAmarillo(false), 280);
+      return () => clearTimeout(t);
+    }
+    prevRememberRef.current = rememberChecked;
+  }, [rememberChecked, playWinkPop]);
 
   // Progreso de acercamiento a la contrasena:
   // 0 chars: 1.0 (miran de cerca)
@@ -141,8 +219,9 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       const stageX = (clientX - rect.left) / currentScale;
       const stageY = (clientY - rect.top) / currentScale;
       tactileCanvasRef.current?.spawnRipple(stageX, stageY, intensity);
+      playDroplet('fucsia', 1 + intensity * 0.2);
     },
-    []
+    [playDroplet]
   );
 
   const handleTouchPress = useCallback(
@@ -159,24 +238,52 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     []
   );
 
+  const handleMoradoTouch = useCallback(
+    (clientX: number, clientY: number, active: boolean) => {
+      if (active) playSquish('morado', 1.1);
+      else playDroplet('morado');
+      handleTouchPress(clientX, clientY, active);
+    },
+    [playSquish, playDroplet, handleTouchPress]
+  );
+
   const naranjaRef = useRef<CuteCharacterNaranjaRef>(null);
 
   const handleNaranjaTouch = useCallback(
     (clientX: number, clientY: number, active: boolean) => {
-      if (active) naranjaRef.current?.poke();
+      if (active) {
+        naranjaRef.current?.poke();
+        playSquish('naranja', 1.0);
+      } else {
+        playDroplet('naranja');
+      }
       handleTouchPress(clientX, clientY, active);
     },
-    [handleTouchPress]
+    [playSquish, playDroplet, handleTouchPress]
   );
 
   const fucsiaBlushRef = useRef<CuteCharacterFucsiaRef>(null);
 
   const handleFucsiaTouch = useCallback(
     (clientX: number, clientY: number, active: boolean) => {
-      if (active) fucsiaBlushRef.current?.blush();
+      if (active) {
+        fucsiaBlushRef.current?.blush();
+        playSquish('fucsia', 1.0);
+      } else {
+        playDroplet('fucsia');
+      }
       handleTouchPress(clientX, clientY, active);
     },
-    [handleTouchPress]
+    [playSquish, playDroplet, handleTouchPress]
+  );
+
+  const handleAmarilloTouch = useCallback(
+    (clientX: number, clientY: number, active: boolean) => {
+      if (active) playSquish('amarillo', 1.2);
+      else playDroplet('amarillo');
+      handleTouchPress(clientX, clientY, active);
+    },
+    [playSquish, playDroplet, handleTouchPress]
   );
 
   const characterSlots: CharacterSlot[] = [
@@ -191,9 +298,9 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
         <CuteCharacterTactileCage
           config={JELLY_PRESET_MORADO}
           onRippleTrigger={handleRippleTrigger}
-          onTouchPress={handleTouchPress}
+          onTouchPress={handleMoradoTouch}
         >
-          <CharacterMorado typing={typing} error={error} />
+          <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
         </CuteCharacterTactileCage>
       ),
     },
@@ -211,6 +318,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
         >
           <CharacterFucsia
             error={error}
+            blink={blinkFucsia}
             animate={animateFucsia && !!fucsiaRef}
             animatedRef={fucsiaRef}
             fucsiaRef={fucsiaBlushRef}
@@ -228,12 +336,14 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
         <CuteCharacterTactileCage
           config={JELLY_PRESET_AMARILLO}
           onRippleTrigger={handleRippleTrigger}
-          onTouchPress={handleTouchPress}
+          onTouchPress={handleAmarilloTouch}
         >
           <CharacterAmarillo
             typing={typing}
             shy={shy && !reveal && !error}
             error={error}
+            blink={blinkAmarillo}
+            wink={winkAmarillo}
           />
         </CuteCharacterTactileCage>
       ),
@@ -251,7 +361,12 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           onRippleTrigger={handleRippleTrigger}
           onTouchPress={handleNaranjaTouch}
         >
-          <CharacterNaranja ref={naranjaRef} typing={typing} error={error} />
+          <CharacterNaranja
+            ref={naranjaRef}
+            typing={typing}
+            error={error}
+            blink={blinkNaranja}
+          />
         </CuteCharacterTactileCage>
       ),
     },
@@ -279,6 +394,9 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  const finalLookX = submitHovered ? 0.35 : ready ? look.x : 0;
+  const finalLookY = submitHovered ? 0.65 : ready ? look.y : 0;
+
   return (
     <div
       ref={wrapRef}
@@ -292,8 +410,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           height: DESIGN_HEIGHT,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
-          ['--look-x']: ready ? look.x : 0,
-          ['--look-y']: ready ? look.y : 0,
+          ['--look-x']: finalLookX,
+          ['--look-y']: finalLookY,
           ['--shy']: effShy,
           ['--excited']: effExcited,
           ['--typing']: typing ? 1 : 0,
