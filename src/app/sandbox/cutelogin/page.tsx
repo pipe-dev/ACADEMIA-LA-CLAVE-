@@ -69,8 +69,8 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-hidden">
-          <div className="w-full flex items-end justify-center pb-2 sm:pb-1">
+        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-20">
+          <div className="w-full flex items-end justify-center pb-2 sm:pb-1 overflow-visible">
             <CuteCharactersStatic
               excited={emailFocused}
               shy={passwordFocused}
@@ -87,7 +87,7 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO DERECHO: Formulario de Acceso Minimalista      */}
         {/* ================================================== */}
-        <div className="min-w-0 flex flex-col justify-center px-3 pt-2 pb-6 sm:py-14 sm:px-14 bg-white overflow-hidden">
+        <div className="min-w-0 relative flex flex-col justify-center pl-4 pr-3 pt-2 pb-6 sm:py-14 sm:px-14 bg-white z-0">
           <div className="max-w-[340px] mx-auto w-full space-y-1.5 sm:space-y-6">
             {/* Titulares principales */}
             <div className="space-y-0 sm:space-y-1.5 text-left">

@@ -254,7 +254,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       ),
     },
     {
-      left: 440,
+      left: 455,
       bottom: 35,
       zIndex: 30,
       scale: 1,
@@ -319,11 +319,11 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   return (
     <div
       ref={wrapRef}
-      className={`relative w-full select-none overflow-hidden ${className}`}
+      className={`relative w-full select-none overflow-visible ${className}`}
       style={{height: DESIGN_HEIGHT * scale}}
     >
       <div
-        className="absolute top-0 left-0"
+        className="absolute top-0 left-0 overflow-visible"
         style={{
           width: DESIGN_WIDTH,
           height: DESIGN_HEIGHT,
