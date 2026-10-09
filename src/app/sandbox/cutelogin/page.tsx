@@ -63,14 +63,14 @@ export default function CuteLoginPage() {
   };
 
   return (
-    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 pt-[max(8px,env(safe-area-inset-top))] select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
-      {/* Card split: 50% escena / 50% formulario, altura calibrada a 370px en movil para terminar limpio sobre el teclado */}
+    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 pt-[max(4px,env(safe-area-inset-top))] select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
+      {/* Card split: 50% escena / 50% formulario, altura calibrada a 370px en movil */}
       <div className="w-full max-w-[960px] h-[370px] sm:h-auto sm:min-h-[580px] rounded-[24px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-2 border border-slate-200/60 shrink-0">
         {/* ================================================== */}
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 sm:p-10 border-r border-slate-200 overflow-hidden">
-          <div className="w-full flex items-end justify-center pb-0.5 sm:pb-1">
+        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-hidden">
+          <div className="w-full flex items-end justify-center pb-2 sm:pb-1">
             <CuteCharactersStatic
               excited={emailFocused}
               shy={passwordFocused}
@@ -87,7 +87,7 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO DERECHO: Formulario de Acceso Minimalista      */}
         {/* ================================================== */}
-        <div className="min-w-0 flex flex-col justify-center px-3 py-2.5 sm:px-14 sm:py-14 bg-white overflow-hidden">
+        <div className="min-w-0 flex flex-col justify-center px-3 pt-2 pb-6 sm:py-14 sm:px-14 bg-white overflow-hidden">
           <div className="max-w-[340px] mx-auto w-full space-y-1.5 sm:space-y-6">
             {/* Titulares principales */}
             <div className="space-y-0 sm:space-y-1.5 text-left">
