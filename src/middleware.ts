@@ -24,6 +24,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/sounds') ||
     pathname.startsWith('/icons') ||
     pathname.startsWith('/workbox') ||
+    pathname.startsWith('/sandbox') ||
     pathname.includes('.') // Static files like favicon.ico, manifest.json
   ) {
     return applySecurityHeaders(NextResponse.next());
