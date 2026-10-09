@@ -1,8 +1,19 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
 export const metadata: Metadata = {
   title: 'AfinApp',
   description: 'A voice tuner for the 12 musical notes.',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({
@@ -13,7 +24,6 @@ export default function RootLayout({
   return (
     <html lang="es" className="bg-[#f8f9ff] dark:bg-[#071322]" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -34,7 +44,9 @@ export default function RootLayout({
       <body className="font-body antialiased bg-[#f8f9ff] dark:bg-[#071322] text-[#0b1c30] dark:text-[#d3e4fe]" suppressHydrationWarning>
           <div className="flex flex-col min-h-screen bg-[#f8f9ff] dark:bg-[#071322]">
             <main className="flex-1 overflow-x-hidden relative">
-              {children}
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
             </main>
           </div>
         <script
