@@ -65,7 +65,10 @@ function getMoradoSinuousPath(amp: number, phase: number): string {
   return cmd.join(' ');
 }
 
-export const CuteCharacterMorado: React.FC<{ typing?: boolean }> = () => {
+export const CuteCharacterMorado: React.FC<{ typing?: boolean; error?: boolean; blink?: boolean }> = ({
+  error = false,
+  blink = false,
+}) => {
   const { waveAmp, wavePhase } = useTactileWave();
   const pathRef = useRef<SVGPathElement>(null);
   const charRef = useRef<HTMLDivElement>(null);
@@ -106,12 +109,12 @@ export const CuteCharacterMorado: React.FC<{ typing?: boolean }> = () => {
 
       <div ref={charRef} className={styles['purple-char']}>
         <div className={styles.reach}></div>
-        <div className={styles.face}>
+        <div className={(error ? `${styles.err} ` : '') + styles.face}>
           <div className={styles.eyes}>
-            <div className={styles.eye}>
+            <div className={`${styles.eye}${blink ? ' ' + styles.blink : ''}`}>
               <div className={styles.pupil}></div>
             </div>
-            <div className={styles.eye}>
+            <div className={`${styles.eye}${blink ? ' ' + styles.blink : ''}`}>
               <div className={styles.pupil}></div>
             </div>
           </div>

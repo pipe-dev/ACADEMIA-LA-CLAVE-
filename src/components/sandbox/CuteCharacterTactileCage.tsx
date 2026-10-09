@@ -10,11 +10,15 @@ import styles from './CuteCharacterTactileCage.module.css';
 export interface TactileWaveState {
   waveAmp: number;
   wavePhase: number;
+  isInteracting: boolean;
+  stretch: number;
 }
 
 export const TactileWaveContext = React.createContext<TactileWaveState>({
   waveAmp: 0,
   wavePhase: 0,
+  isInteracting: false,
+  stretch: 0,
 });
 
 export const useTactileWave = () => React.useContext(TactileWaveContext);
@@ -183,6 +187,8 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
         value={{
           waveAmp: state.waveAmp ?? 0,
           wavePhase: state.wavePhase ?? 0,
+          isInteracting: state.isInteracting,
+          stretch: state.scaleY - 1,
         }}
       >
         {children}
