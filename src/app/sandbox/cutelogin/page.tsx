@@ -15,9 +15,15 @@ export default function CuteLoginPage() {
   const [password, setPassword] = useState('');
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [eyeInteracted, setEyeInteracted] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [wrong, setWrong] = useState(false);
   const wrongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isPasswordActive =
+    passwordFocused ||
+    (password.length > 0 && !emailFocused) ||
+    (eyeInteracted && !emailFocused);
 
   // Bloqueo estricto de scroll en movil: mantiene la tarjeta firmemente arriba
   const lockScrollToTop = () => {
@@ -44,7 +50,10 @@ export default function CuteLoginPage() {
   }, []);
 
   const handleInputFocus = (field: 'email' | 'password') => {
-    if (field === 'email') setEmailFocused(true);
+    if (field === 'email') {
+      setEmailFocused(true);
+      setEyeInteracted(false);
+    }
     if (field === 'password') setPasswordFocused(true);
     requestAnimationFrame(lockScrollToTop);
   };
@@ -73,9 +82,8 @@ export default function CuteLoginPage() {
           <div className="w-full flex items-end justify-center pb-2 sm:pb-1 overflow-visible">
             <CuteCharactersStatic
               excited={emailFocused}
-              shy={passwordFocused}
+              shy={isPasswordActive}
               reveal={showPassword}
-              backInput={showPassword && password.length >= 5}
               error={wrong}
               typing={emailFocused && email.length > 0}
               typingProgress={Math.min(email.length / 7, 1)}
@@ -147,7 +155,11 @@ export default function CuteLoginPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setEyeInteracted(true);
+                      setShowPassword((prev) => !prev);
+                    }}
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                     className="absolute right-0 text-slate-500 hover:text-slate-900 transition-colors p-1"
                   >

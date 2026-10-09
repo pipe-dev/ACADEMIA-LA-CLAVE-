@@ -101,6 +101,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
     ]);
 
+    let rafId: number | null = null;
     const t = setTimeout(() => {
       setSee({armed: true, progress: 0});
       let start: number | null = null;
@@ -108,49 +109,29 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
         if (start === null) start = now;
         const p = Math.min(1, (now - start) / 700);
         setSee((prev) => ({...prev, progress: p}));
-        if (p < 1) requestAnimationFrame(step);
+        if (p < 1) {
+          rafId = requestAnimationFrame(step);
+        }
       };
-      requestAnimationFrame(step);
+      rafId = requestAnimationFrame(step);
     }, 1150);
 
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [reveal]);
 
   const effShy = error ? 0 : reveal ? 0 : shy ? 1 : 0;
-  // Reversa: al escribir >=5 caracteres con la contrasena visible, los blobs
-  // hacen la secuencia de inclinacion del email INVERTIDA (progreso 1->0) y
-  // se quedan en la posicion inicial.
-  const [back, setBack] = useState({on: false, progress: 0});
-
-  useEffect(() => {
-    if (!(reveal && backInput)) {
-      if (back.on) setBack({on: false, progress: 0});
-      return;
-    }
-    if (back.on) return;
-    setBack({on: true, progress: 1});
-    let start: number | null = null;
-    const step = (now: number) => {
-      if (start === null) start = now;
-      const p = Math.max(0, 1 - (now - start) / 800);
-      setBack({on: true, progress: p});
-      if (p > 0) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [reveal, backInput, back.on]);
 
   const effExcited = error
     ? 0
-    : back.on
-      ? back.progress > 0 ? 1 : 0
-      : reveal && see.armed
-        ? 1
-        : excited && !shy ? 1 : 0;
-  const effProgress = back.on
-    ? back.progress
     : reveal && see.armed
-      ? see.progress
-      : typingProgress;
+      ? 1
+      : excited && !shy ? 1 : 0;
+  const effProgress = reveal && see.armed
+    ? see.progress
+    : typingProgress;
 
   const handleLook = (e: MouseEvent) => {
     const el = wrapRef.current;
