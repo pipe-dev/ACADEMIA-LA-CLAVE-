@@ -84,6 +84,7 @@ export default function CuteLoginPage() {
               excited={emailFocused}
               shy={isPasswordActive}
               reveal={showPassword}
+              passwordLength={password.length}
               error={wrong}
               typing={emailFocused && email.length > 0}
               typingProgress={Math.min(email.length / 7, 1)}

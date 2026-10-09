@@ -4,6 +4,46 @@
   flex-direction: column;
   align-items: center;
   padding-bottom: 40px;
+  /* Entrada independiente: se ejecuta una vez al montar, solo en este wrapper
+     (no pisa el transform de reacciones que vive en .purple-char y .face).
+     Optimizada: solo transform/opacity (compositor) con capa propia. */
+  will-change: transform;
+  animation: morado-enter 1.5s 0.2s both;
+}
+
+@keyframes morado-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-110px) scale(0.9, 0.7) rotate(-10deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1, 0.86) rotate(2deg);
+  }
+  72% {
+    transform: translateY(-18px) scale(0.98, 1.05) rotate(-1deg);
+  }
+  88% {
+    transform: translateY(0) scale(1.02, 0.97) rotate(0deg);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1) rotate(0deg);
+  }
+}
+
+@keyframes morado-greet {
+  0% {
+    --nod: 0;
+  }
+  40% {
+    --nod: 1;
+  }
+  60% {
+    --nod: -0.2;
+  }
+  100% {
+    --nod: 0;
+  }
 }
 
 /* Cuerpo del personaje morado */
@@ -22,7 +62,7 @@
     skewX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -5.2deg))
     rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 2.4deg))
     translateY(calc(var(--excited, 0) * -2px));
-  transition: transform 380ms cubic-bezier(0.25, 1.4, 0.5, 1);
+  transition: transform 450ms cubic-bezier(0.25, 1.1, 0.45, 1);
 
   /* Color exacto: violeta vibrante mate (no morado oscuro) */
   background: linear-gradient(
@@ -55,7 +95,8 @@
   position: absolute;
   top: 20px;
   transform-origin: bottom center;
-  transform: translateX(3px) translate(calc(var(--look-x, 0) * 18px), calc(var(--look-y, 0) * 14px)) rotate(calc(var(--look-x, 0) * 3.5deg)) translate(calc(var(--shy, 0) * -16px), calc(var(--shy, 0) * 4px)) rotate(calc(var(--shy, 0) * -22deg)) translate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 20px), calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -4px)) rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 4deg)) scale(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.02), calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.05));
+  animation: morado-greet 0.42s ease-in-out 3.95s 3;
+  transform: translateY(calc(var(--nod, 0) * 9px)) translateX(3px) translate(calc(var(--look-x, 0) * 18px), calc(var(--look-y, 0) * 14px)) rotate(calc(var(--look-x, 0) * 3.5deg)) translate(calc(var(--shy, 0) * -16px), calc(var(--shy, 0) * 4px)) rotate(calc(var(--shy, 0) * -22deg)) translate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 20px), calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -4px)) rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 4deg)) scale(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.02), calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.05));
   transition: transform 300ms ease-out;
   display: flex;
   flex-direction: column;
@@ -171,6 +212,31 @@
   transform: scale(1.2, 0.6);
 }
 
+/* Miedo al meter la contrasena mal: temblor, pupilas diminutas y boca "O" abierta */
+.err {
+  animation: scaredShiver 0.9s ease-in-out infinite;
+}
+
+.err .mouth {
+  transform: scale(0.001, 0.001);
+}
+
+.err .oMouth {
+  transform: translate(-50%, -50%) scale(1);
+  transition: transform 200ms ease;
+}
+
+.err .pupil {
+  transform: translate(0, 0) scale(0.45);
+}
+
+@keyframes scaredShiver {
+  0%, 100% { translate: 0 0; }
+  25% { translate: -2px 1.5px; }
+  50% { translate: 2px -1.5px; }
+  75% { translate: -1.5px 0.8px; }
+}
+
 /* Zzz de sueño: aparecen al escribir la contraseña */
 .zzz {
   position: absolute;
@@ -232,3 +298,5 @@
   0%, 100% { --sleep-progress: 0; }
   50% { --sleep-progress: 1; }
 }
+
+

@@ -33,9 +33,7 @@ export interface CuteCharactersStaticProps {
   typingProgress?: number;
   animateFucsia?: boolean;
   fucsiaRef?: React.Ref<CuteCharacterFucsiaAnimatedRef>;
-  /** True cuando la contrasena es visible y lleva >=5 caracteres: los blobs
-      hacen la secuencia del email INVERTIDA (se retiran a la posicion inicial). */
-  backInput?: boolean;
+  passwordLength?: number;
 }
 
 /**
@@ -68,7 +66,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   typingProgress = 0,
   animateFucsia = true,
   fucsiaRef,
-  backInput = false,
+  passwordLength = 0,
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
@@ -81,56 +79,42 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     return () => clearTimeout(t);
   }, []);
 
-  // Coreografia del ojo de ver contrasena:
-  // 1) abren los ojos 2) saltan de alegria (rebote aleatorio por personaje)
-  // 3) luego se estiran a la derecha con progreso creciente para seguir viendo
-  const [see, setSee] = useState({armed: false, progress: 0});
-  const [jump, setJump] = useState<(number[] | null)[] | null>(null);
+  // Coreografia de ver contrasena:
+  // 1) Al destapar el ojo, se acercan fluidamente a mirar de cerca (transicion nativa CSS).
+  // 2) A medida que se escriben 4 caracteres, se retiran progresivamente hasta la posicion original.
+  // 3) Si se destapa el ojo con >=4 caracteres ya escritos, se acercan fluidamente por 1.2s y regresan.
+  const [forcePeek, setForcePeek] = useState(false);
 
   useEffect(() => {
-    if (!reveal) {
-      setSee({armed: false, progress: 0});
-      setJump(null);
-      return;
+    if (reveal && passwordLength >= 4) {
+      setForcePeek(true);
+      const timer = setTimeout(() => {
+        setForcePeek(false);
+      }, 1200);
+      return () => clearTimeout(timer);
+    } else {
+      setForcePeek(false);
     }
-
-    setJump([
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-    ]);
-
-    let rafId: number | null = null;
-    const t = setTimeout(() => {
-      setSee({armed: true, progress: 0});
-      let start: number | null = null;
-      const step = (now: number) => {
-        if (start === null) start = now;
-        const p = Math.min(1, (now - start) / 700);
-        setSee((prev) => ({...prev, progress: p}));
-        if (p < 1) {
-          rafId = requestAnimationFrame(step);
-        }
-      };
-      rafId = requestAnimationFrame(step);
-    }, 1150);
-
-    return () => {
-      clearTimeout(t);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
-  }, [reveal]);
+  }, [reveal, passwordLength >= 4]);
 
   const effShy = error ? 0 : reveal ? 0 : shy ? 1 : 0;
 
+  // Progreso de acercamiento a la contrasena:
+  // 0 chars: 1.0 (miran de cerca)
+  // 1 char: 0.75
+  // 2 chars: 0.50
+  // 3 chars: 0.25
+  // 4+ chars: 0.0 (posicion original)
+  const retreatRatio = forcePeek ? 1 : Math.max(0, 1 - passwordLength / 4);
+
   const effExcited = error
     ? 0
-    : reveal && see.armed
-      ? 1
+    : reveal
+      ? (retreatRatio > 0 ? 1 : 0)
       : excited && !shy ? 1 : 0;
-  const effProgress = reveal && see.armed
-    ? see.progress
+
+  const effProgress = reveal
+    ? retreatRatio
     : typingProgress;
 
   const handleLook = (e: MouseEvent) => {
@@ -202,14 +186,13 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scaleY: 1.5,
       origin: 'bottom right',
       character: (
-<CuteCharacterTactileCage
-            config={JELLY_PRESET_MORADO}
-            className={reveal ? 'hop-cage' : ''}
-            onRippleTrigger={handleRippleTrigger}
-            onTouchPress={handleTouchPress}
-          >
-            <CharacterMorado typing={typing} error={error} />
-          </CuteCharacterTactileCage>
+        <CuteCharacterTactileCage
+          config={JELLY_PRESET_MORADO}
+          onRippleTrigger={handleRippleTrigger}
+          onTouchPress={handleTouchPress}
+        >
+          <CharacterMorado typing={typing} error={error} />
+        </CuteCharacterTactileCage>
       ),
     },
     {
@@ -219,19 +202,18 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1,
       origin: 'bottom left',
       character: (
-<CuteCharacterTactileCage
-            config={JELLY_PRESET_FUCSIA}
-            className={reveal ? 'hop-cage' : ''}
-            onRippleTrigger={handleRippleTrigger}
-            onTouchPress={handleFucsiaTouch}
-          >
-            <CharacterFucsia
-              error={error}
-              animate={animateFucsia && !!fucsiaRef}
-              animatedRef={fucsiaRef}
-              fucsiaRef={fucsiaBlushRef}
-            />
-          </CuteCharacterTactileCage>
+        <CuteCharacterTactileCage
+          config={JELLY_PRESET_FUCSIA}
+          onRippleTrigger={handleRippleTrigger}
+          onTouchPress={handleFucsiaTouch}
+        >
+          <CharacterFucsia
+            error={error}
+            animate={animateFucsia && !!fucsiaRef}
+            animatedRef={fucsiaRef}
+            fucsiaRef={fucsiaBlushRef}
+          />
+        </CuteCharacterTactileCage>
       ),
     },
     {
@@ -241,18 +223,17 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1,
       origin: 'bottom left',
       character: (
-<CuteCharacterTactileCage
-            config={JELLY_PRESET_AMARILLO}
-            className={reveal ? 'hop-cage' : ''}
-            onRippleTrigger={handleRippleTrigger}
-            onTouchPress={handleTouchPress}
-          >
-            <CharacterAmarillo
-              typing={typing}
-              shy={shy && !reveal && !error}
-              error={error}
-            />
-          </CuteCharacterTactileCage>
+        <CuteCharacterTactileCage
+          config={JELLY_PRESET_AMARILLO}
+          onRippleTrigger={handleRippleTrigger}
+          onTouchPress={handleTouchPress}
+        >
+          <CharacterAmarillo
+            typing={typing}
+            shy={shy && !reveal && !error}
+            error={error}
+          />
+        </CuteCharacterTactileCage>
       ),
     },
     {
@@ -263,9 +244,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scaleY: 1.472,
       origin: 'bottom left',
       character: (
-<CuteCharacterTactileCage
+        <CuteCharacterTactileCage
           config={JELLY_PRESET_NARANJA}
-          className={reveal ? 'hop-cage' : ''}
           onRippleTrigger={handleRippleTrigger}
           onTouchPress={handleNaranjaTouch}
         >
@@ -328,9 +308,6 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
               zIndex: slot.zIndex,
               transform: `scale(${slot.scale}, ${slot.scaleY ?? slot.scale})`,
               transformOrigin: slot.origin,
-              ['--hop-h']: jump?.[index]?.[0] ? `${jump[index][0]}px` : '0px',
-              ['--hop-dur']: jump?.[index]?.[1] ? `${jump[index][1]}s` : '0s',
-              ['--hop-delay']: jump?.[index]?.[2] ? `${jump[index][2]}s` : '0s',
             } as React.CSSProperties}
           >
             {slot.character}
