@@ -63,14 +63,14 @@ export default function CuteLoginPage() {
   };
 
   return (
-    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2.5 sm:p-6 lg:p-8 pt-[max(10px,env(safe-area-inset-top))] select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
-      {/* Card split: 50% escena / 50% formulario, anclada arriba en movil para dejar el espacio del teclado abajo */}
-      <div className="w-full max-w-[960px] min-h-[460px] sm:min-h-[580px] rounded-[28px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-2 border border-slate-200/60 shrink-0">
+    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 pt-[max(8px,env(safe-area-inset-top))] select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
+      {/* Card split: 50% escena / 50% formulario, altura calibrada a 370px en movil para terminar limpio sobre el teclado */}
+      <div className="w-full max-w-[960px] h-[370px] sm:h-auto sm:min-h-[580px] rounded-[24px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-2 border border-slate-200/60 shrink-0">
         {/* ================================================== */}
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-2 sm:p-10 border-r border-slate-200 overflow-hidden">
-          <div className="w-full flex items-end justify-center pb-1">
+        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 sm:p-10 border-r border-slate-200 overflow-hidden">
+          <div className="w-full flex items-end justify-center pb-0.5 sm:pb-1">
             <CuteCharactersStatic
               excited={emailFocused}
               shy={passwordFocused}
@@ -87,23 +87,23 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO DERECHO: Formulario de Acceso Minimalista      */}
         {/* ================================================== */}
-        <div className="min-w-0 flex flex-col justify-center px-3.5 py-4 sm:px-14 sm:py-14 bg-white overflow-hidden">
-          <div className="max-w-[340px] mx-auto w-full space-y-2.5 sm:space-y-6">
+        <div className="min-w-0 flex flex-col justify-center px-3 py-2.5 sm:px-14 sm:py-14 bg-white overflow-hidden">
+          <div className="max-w-[340px] mx-auto w-full space-y-1.5 sm:space-y-6">
             {/* Titulares principales */}
-            <div className="space-y-0.5 sm:space-y-1.5 text-left">
-              <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight text-[#111827] leading-tight truncate sm:whitespace-normal">
+            <div className="space-y-0 sm:space-y-1.5 text-left">
+              <h1 className="text-lg sm:text-4xl font-extrabold tracking-tight text-[#111827] leading-tight truncate sm:whitespace-normal">
                 ¡Bienvenido!
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-normal leading-tight truncate sm:whitespace-normal">
+              <p className="text-[11px] sm:text-sm text-slate-500 font-normal leading-tight truncate sm:whitespace-normal">
                 Ingresa tus datos
               </p>
             </div>
 
             {/* Formulario */}
-            <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-5 pt-0.5 sm:pt-1">
+            <form onSubmit={handleSubmit} className="space-y-1.5 sm:space-y-5 pt-0.5 sm:pt-1">
               {/* Campo Email */}
-              <div className="space-y-0.5 sm:space-y-1">
-                <label htmlFor="static-email" className="block text-xs font-semibold text-slate-700">
+              <div className="space-y-0 sm:space-y-1">
+                <label htmlFor="static-email" className="block text-[11px] sm:text-xs font-semibold text-slate-700">
                   Correo
                 </label>
                 <div className="relative">
@@ -115,14 +115,14 @@ export default function CuteLoginPage() {
                     onFocus={() => handleInputFocus('email')}
                     onBlur={() => handleInputBlur('email')}
                     placeholder=""
-                    className="w-full bg-transparent border-b border-slate-300 py-1.5 sm:py-2 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
+                    className="w-full bg-transparent border-b border-slate-300 py-1 sm:py-2 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Campo Password */}
-              <div className="space-y-0.5 sm:space-y-1">
-                <label htmlFor="static-password" className="block text-xs font-semibold text-slate-700">
+              <div className="space-y-0 sm:space-y-1">
+                <label htmlFor="static-password" className="block text-[11px] sm:text-xs font-semibold text-slate-700">
                   Contraseña
                 </label>
                 <div className="relative flex items-center">
@@ -143,7 +143,7 @@ export default function CuteLoginPage() {
                     onFocus={() => handleInputFocus('password')}
                     onBlur={() => handleInputBlur('password')}
                     placeholder=""
-                    className="w-full bg-transparent border-b border-slate-300 py-1.5 sm:py-2 pr-7 sm:pr-8 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
+                    className="w-full bg-transparent border-b border-slate-300 py-1 sm:py-2 pr-7 sm:pr-8 text-[16px] sm:text-sm text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
                   <button
                     type="button"
@@ -157,13 +157,13 @@ export default function CuteLoginPage() {
               </div>
 
               {/* Fila Recordarme / Forgot password */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] sm:text-xs pt-0.5 gap-1.5 sm:gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-[10px] sm:text-xs pt-0.5 gap-1 sm:gap-2">
                 <label className="flex items-center gap-1.5 cursor-pointer select-none text-slate-600 font-medium shrink-0">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3.5 w-3.5"
+                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3 w-3 sm:h-3.5 sm:w-3.5"
                   />
                   <span className="truncate">Recordarme</span>
                 </label>
@@ -175,7 +175,7 @@ export default function CuteLoginPage() {
               {/* Boton Primario: Iniciar sesion */}
               <button
                 type="submit"
-                className="w-full h-10 sm:h-11 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-xs sm:text-sm shadow-sm active:scale-[0.99] transition-all mt-1.5 sm:mt-3"
+                className="w-full h-8 sm:h-11 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-xs sm:text-sm shadow-sm active:scale-[0.99] transition-all mt-1 sm:mt-3"
               >
                 Iniciar sesión
               </button>
@@ -183,9 +183,9 @@ export default function CuteLoginPage() {
               {/* Boton Secundario: Iniciar sesion con Google */}
               <button
                 type="button"
-                className="w-full h-9 sm:h-11 rounded-full font-semibold border border-slate-200 bg-[#f9fafb] hover:bg-slate-100 text-slate-700 text-xs flex items-center justify-center gap-1.5 sm:gap-2 shadow-none transition-all"
+                className="w-full h-7 sm:h-11 rounded-full font-semibold border border-slate-200 bg-[#f9fafb] hover:bg-slate-100 text-slate-700 text-xs flex items-center justify-center gap-1.5 sm:gap-2 shadow-none transition-all"
               >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -209,8 +209,8 @@ export default function CuteLoginPage() {
             </form>
 
             {/* Pie de registro */}
-            <div className="text-center pt-1 sm:pt-3">
-              <p className="text-[11px] sm:text-xs text-slate-500 font-normal">
+            <div className="text-center pt-0.5 sm:pt-3">
+              <p className="text-[10px] sm:text-xs text-slate-500 font-normal">
                 ¿No tienes una cuenta?{' '}
                 <a href="#signup" className="font-semibold text-slate-900 hover:underline">
                   Regístrate
