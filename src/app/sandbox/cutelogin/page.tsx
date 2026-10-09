@@ -17,8 +17,11 @@ export default function CuteLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [eyeInteracted, setEyeInteracted] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [submitHovered, setSubmitHovered] = useState(false);
   const [wrong, setWrong] = useState(false);
   const wrongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const isPasswordActive =
     passwordFocused ||
@@ -88,6 +91,9 @@ export default function CuteLoginPage() {
               error={wrong}
               typing={emailFocused && email.length > 0}
               typingProgress={Math.min(email.length / 7, 1)}
+              emailValid={isEmailValid}
+              submitHovered={submitHovered}
+              rememberChecked={rememberMe}
               className="w-full max-w-[560px]"
             />
           </div>
@@ -188,6 +194,10 @@ export default function CuteLoginPage() {
               {/* Boton Primario: Iniciar sesion */}
               <button
                 type="submit"
+                onMouseEnter={() => setSubmitHovered(true)}
+                onMouseLeave={() => setSubmitHovered(false)}
+                onFocus={() => setSubmitHovered(true)}
+                onBlur={() => setSubmitHovered(false)}
                 className="w-full h-8 sm:h-11 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-xs sm:text-sm shadow-sm active:scale-[0.99] transition-all mt-1 sm:mt-3"
               >
                 Iniciar sesión
