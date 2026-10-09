@@ -81,12 +81,13 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
 
   // Coreografia de ver contrasena:
   // 1) Al destapar el ojo, se acercan fluidamente a mirar de cerca (transicion nativa CSS).
-  // 2) A medida que se escriben 4 caracteres, se retiran progresivamente hasta la posicion original.
-  // 3) Si se destapa el ojo con >=4 caracteres ya escritos, se acercan fluidamente por 1.2s y regresan.
+  // 2) A medida que se van escribiendo caracteres, van volviendo a la posicion inicial.
+  // 3) Al escribir el 5to caracter ya quedan bien atras en la posicion de reposo original.
+  // 4) Si se destapa el ojo con >=5 caracteres ya escritos, se acercan fluidamente por 1.2s y regresan.
   const [forcePeek, setForcePeek] = useState(false);
 
   useEffect(() => {
-    if (reveal && passwordLength >= 4) {
+    if (reveal && passwordLength >= 5) {
       setForcePeek(true);
       const timer = setTimeout(() => {
         setForcePeek(false);
@@ -95,17 +96,18 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     } else {
       setForcePeek(false);
     }
-  }, [reveal, passwordLength >= 4]);
+  }, [reveal, passwordLength >= 5]);
 
   const effShy = error ? 0 : reveal ? 0 : shy ? 1 : 0;
 
   // Progreso de acercamiento a la contrasena:
   // 0 chars: 1.0 (miran de cerca)
-  // 1 char: 0.75
-  // 2 chars: 0.50
-  // 3 chars: 0.25
-  // 4+ chars: 0.0 (posicion original)
-  const retreatRatio = forcePeek ? 1 : Math.max(0, 1 - passwordLength / 4);
+  // 1 char: 0.80
+  // 2 chars: 0.60
+  // 3 chars: 0.40
+  // 4 chars: 0.20
+  // 5+ chars: 0.0 (bien atras, en la posicion de reposo inicial)
+  const retreatRatio = forcePeek ? 1 : Math.max(0, 1 - passwordLength / 5);
 
   const effExcited = error
     ? 0
