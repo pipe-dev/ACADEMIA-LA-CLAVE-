@@ -254,7 +254,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       ),
     },
     {
-      left: 455,
+      left: 440,
       bottom: 35,
       zIndex: 30,
       scale: 1,
