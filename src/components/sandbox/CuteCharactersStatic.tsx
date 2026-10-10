@@ -55,8 +55,6 @@ const DESIGN_WIDTH = 640;
 const DESIGN_HEIGHT = 705;
 const DEFAULT_SCALE = 420 / DESIGN_WIDTH;
 
-const SLOT_JUMP_DELAYS = [0.04, 0.0, 0.08, 0.05];
-const SLOT_JUMP_HEIGHTS = [-32, -42, -46, -34];
 
 interface CharacterSlot {
   left: number;
@@ -156,36 +154,61 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     };
   }, [caravanToRight, playDroplet, playSquish]);
 
-  // Secuencia donde los blobs saltan de felicidad al destapar el ojo
-  const [isHappyJumping, setIsHappyJumping] = useState(false);
-  const prevRevealRef = useRef(reveal);
+  // Coreografia del ojo de ver contrasena:
+  // 1) abren los ojos 2) saltan 3 veces de alegria en su puesto (rebote aleatorio por personaje)
+  // 3) luego se estiran con progreso creciente hacia la clave y miran fijamente
+  const [see, setSee] = useState({armed: false, progress: 0});
+  const [jump, setJump] = useState<(number[] | null)[] | null>(null);
 
   useEffect(() => {
-    if (reveal && !prevRevealRef.current) {
-      setIsHappyJumping(true);
-      playHappyHop();
-      const timer = setTimeout(() => {
-        setIsHappyJumping(false);
-      }, 900);
-      return () => clearTimeout(timer);
+    if (!reveal) {
+      setSee({armed: false, progress: 0});
+      setJump(null);
+      return;
     }
-    prevRevealRef.current = reveal;
+
+    setJump([
+      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
+      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
+      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
+      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
+    ]);
+    playHappyHop();
+
+    let rafId: number | null = null;
+    const t = setTimeout(() => {
+      setSee({armed: true, progress: 0});
+      let start: number | null = null;
+      const step = (now: number) => {
+        if (start === null) start = now;
+        const p = Math.min(1, (now - start) / 700);
+        setSee((prev) => ({...prev, progress: p}));
+        if (p < 1) {
+          rafId = requestAnimationFrame(step);
+        }
+      };
+      rafId = requestAnimationFrame(step);
+    }, 1150);
+
+    return () => {
+      clearTimeout(t);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [reveal, playHappyHop]);
 
-  // Coreografia de ver contrasena:
-  // 1) Al destapar el ojo, se acercan fluidamente a mirar de cerca (transicion nativa CSS).
-  // 2) A medida que se van escribiendo caracteres, van volviendo a la posicion inicial.
-  // 3) Al escribir el 5to caracter ya quedan bien atras en la posicion de reposo original.
-  // 4) Si se destapa el ojo con >=5 caracteres ya escritos, se acercan fluidamente por 1.2s y regresan.
+  // Si se destapa el ojo con >=4 caracteres ya escritos, se acercan a mirar por 1.2s tras completar los 3 saltos
   const [forcePeek, setForcePeek] = useState(false);
 
   useEffect(() => {
     if (reveal && passwordLength >= 4) {
-      setForcePeek(true);
-      const timer = setTimeout(() => {
-        setForcePeek(false);
-      }, 1200);
-      return () => clearTimeout(timer);
+      const timerPeek = setTimeout(() => {
+        setForcePeek(true);
+        const timerBack = setTimeout(() => {
+          setForcePeek(false);
+        }, 1200);
+        return () => clearTimeout(timerBack);
+      }, 1150);
+      return () => clearTimeout(timerPeek);
     } else {
       setForcePeek(false);
     }
@@ -267,11 +290,11 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   const effExcited = error
     ? 0
     : reveal
-      ? (retreatRatio > 0 ? 1 : 0)
+      ? (see.armed && retreatRatio > 0 ? 1 : 0)
       : excited && !shy ? 1 : 0;
 
   const effProgress = reveal
-    ? retreatRatio
+    ? (see.armed ? Math.min(see.progress, retreatRatio) : 0)
     : typingProgress;
 
   const handleLook = (e: MouseEvent) => {
@@ -483,7 +506,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       // Mirando hacia el boton "Crear cuenta" abajo a la izquierda
       finalLookX = -0.65;
       finalLookY = 0.65;
-    } else if (reveal) {
+    } else if (reveal && see.armed) {
       // Mirando con atencion y curiosidad hacia la contrasena destapada a la izquierda
       finalLookX = -0.75;
       finalLookY = 0.15;
@@ -505,7 +528,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     if (submitHovered) {
       finalLookX = 0.35;
       finalLookY = 0.65;
-    } else if (reveal) {
+    } else if (reveal && see.armed) {
       finalLookX = 0.65;
       finalLookY = 0.15;
     } else if (excited) {
@@ -552,16 +575,21 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             } as React.CSSProperties}
           >
             <div
-              className={`${isHappyJumping ? styles.happyJump : ''} ${
-                caravanToRight ? styles.caravanWrapper : ''
-              }`}
+              className={caravanToRight ? styles.caravanWrapper : ''}
               style={{
-                ['--jump-delay']: `${SLOT_JUMP_DELAYS[index]}s`,
-                ['--jump-height']: `${SLOT_JUMP_HEIGHTS[index]}px`,
                 ['--caravan-delay']: `${CARAVAN_DELAYS[index]}s`,
               } as React.CSSProperties}
             >
-              {slot.character}
+              <div
+                className={reveal && jump ? styles.hopCage : ''}
+                style={{
+                  ['--hop-h']: jump?.[index]?.[0] ? `${jump[index][0]}px` : '-40px',
+                  ['--hop-dur']: jump?.[index]?.[1] ? `${jump[index][1]}s` : '0.7s',
+                  ['--hop-delay']: jump?.[index]?.[2] ? `${jump[index][2]}s` : '0s',
+                } as React.CSSProperties}
+              >
+                {slot.character}
+              </div>
             </div>
           </div>
         ))}
