@@ -1,0 +1,44 @@
+.card {
+  transition: height 450ms cubic-bezier(0.16, 1, 0.3, 1),
+              margin-top 450ms cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 450ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 450ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 450ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: height, margin-top, transform;
+}
+
+@media (max-width: 639px) {
+  /* Al entrar: tamaño generoso y centrado verticalmente */
+  .cardIdle {
+    height: min(515px, calc(100vh - 36px));
+    height: min(515px, calc(100dvh - 36px));
+    margin-top: max(14px, calc((100vh - 515px) / 2));
+    margin-top: max(14px, calc((100dvh - 515px) / 2));
+    transform: scale(1);
+  }
+
+  /* Al tocar email o contraseña: se encoge hacia arriba para convivir con el teclado virtual */
+  .cardFocused {
+    height: 370px;
+    margin-top: max(4px, env(safe-area-inset-top));
+    transform: scale(1);
+  }
+}
+
+@media (min-width: 640px) {
+  /* En escritorio: buen tamaño amplio en reposo */
+  .cardIdle {
+    min-height: 600px;
+    max-width: 980px;
+    transform: scale(1);
+    margin-top: 0;
+  }
+
+  /* En escritorio: respuesta táctil suave al enfocar campos */
+  .cardFocused {
+    min-height: 580px;
+    max-width: 960px;
+    transform: scale(0.985);
+    margin-top: 0;
+  }
+}

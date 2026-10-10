@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic';
 import { useJellyAsmrAudio } from '@/utils/useJellyAsmrAudio';
+import styles from './CuteLogin.module.css';
 
 /**
  * Sandbox Cute Login - Split card horizontal
- * Blobs estaticos y visibles siempre arriba en movil y desktop.
- * Bloqueado contra scroll y auto-zoom para que nunca se corte con el teclado.
+ * Al entrar tiene buen tamaño; al tocar email o clave se encoge suavemente
+ * para convivir sin cortes con el teclado virtual en movil y desktop.
  */
 export default function CuteLoginPage() {
   const [email, setEmail] = useState('');
@@ -20,6 +21,10 @@ export default function CuteLoginPage() {
   const [submitHovered, setSubmitHovered] = useState(false);
   const [wrong, setWrong] = useState(false);
   const wrongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Control dinamico para encoger la tarjeta solo al interactuar con campos
+  const [isFieldFocused, setIsFieldFocused] = useState(false);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Estados de registro y transicion
   const [isRegisterMode, setIsRegisterMode] = useState(false);
@@ -36,6 +41,8 @@ export default function CuteLoginPage() {
 
   const handleSwitchToRegister = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    setIsFieldFocused(false);
     playSlideTransition();
     setIsRegisterMode(true);
     setEmailFocused(false);
@@ -45,6 +52,8 @@ export default function CuteLoginPage() {
 
   const handleSwitchToLogin = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    setIsFieldFocused(false);
     playSlideTransition();
     setIsRegisterMode(false);
     setRegNameFocused(false);
@@ -96,6 +105,11 @@ export default function CuteLoginPage() {
   }, []);
 
   const handleInputFocus = (field: 'email' | 'password') => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+    setIsFieldFocused(true);
     if (field === 'email') {
       setEmailFocused(true);
       setEyeInteracted(false);
@@ -107,6 +121,10 @@ export default function CuteLoginPage() {
   const handleInputBlur = (field: 'email' | 'password') => {
     if (field === 'email') setEmailFocused(false);
     if (field === 'password') setPasswordFocused(false);
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    blurTimeoutRef.current = setTimeout(() => {
+      setIsFieldFocused(false);
+    }, 120);
     requestAnimationFrame(lockScrollToTop);
   };
 
@@ -118,6 +136,11 @@ export default function CuteLoginPage() {
   };
 
   const handleRegInputFocus = (field: 'name' | 'email' | 'password') => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+    setIsFieldFocused(true);
     if (field === 'name') setRegNameFocused(true);
     if (field === 'email') {
       setRegEmailFocused(true);
@@ -131,6 +154,10 @@ export default function CuteLoginPage() {
     if (field === 'name') setRegNameFocused(false);
     if (field === 'email') setRegEmailFocused(false);
     if (field === 'password') setRegPasswordFocused(false);
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    blurTimeoutRef.current = setTimeout(() => {
+      setIsFieldFocused(false);
+    }, 120);
     requestAnimationFrame(lockScrollToTop);
   };
 
@@ -142,9 +169,11 @@ export default function CuteLoginPage() {
   };
 
   return (
-    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 pt-[max(4px,env(safe-area-inset-top))] select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
-      {/* Card split: 50%+5px escena / 50%-5px formulario, altura calibrada a 370px en movil */}
-      <div className="w-full max-w-[960px] h-[370px] sm:h-auto sm:min-h-[580px] rounded-[24px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-[calc(50%+5px)_calc(50%-5px)] border border-slate-200/60 shrink-0 relative">
+    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
+      {/* Card split: 50%+5px escena / 50%-5px formulario. Al entrar tiene buen tamaño, al tocar email/clave se encoge suavemente */}
+      <div className={`w-full rounded-[24px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-[calc(50%+5px)_calc(50%-5px)] border border-slate-200/60 shrink-0 relative ${styles.card} ${
+        isFieldFocused ? styles.cardFocused : styles.cardIdle
+      }`}>
         {/* ================================================== */}
         {/* BASE IZQUIERDA: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
@@ -213,7 +242,9 @@ export default function CuteLoginPage() {
         >
           {/* Contenido en Login Mode */}
           <div
-            className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full space-y-3 sm:space-y-6 transition-opacity duration-300 ${
+            className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full transition-all duration-300 ${
+              isFieldFocused ? 'space-y-2.5 sm:space-y-6' : 'space-y-4 sm:space-y-6'
+            } ${
               isRegisterMode ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'
             }`}
           >
@@ -228,7 +259,7 @@ export default function CuteLoginPage() {
             </div>
 
             {/* Formulario */}
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6 pt-1 sm:pt-2">
+            <form onSubmit={handleSubmit} className={`${isFieldFocused ? 'space-y-2 sm:space-y-6 pt-0.5 sm:pt-2' : 'space-y-3 sm:space-y-6 pt-1 sm:pt-2'}`}>
               {/* Campo Email */}
               <div className="space-y-0.5 sm:space-y-1">
                 <label htmlFor="static-email" className="block text-xs sm:text-sm font-semibold text-slate-700">
@@ -322,7 +353,9 @@ export default function CuteLoginPage() {
 
           {/* Contenido en Register Mode (Modo Oscuro) */}
           <div
-            className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full space-y-2 sm:space-y-4 transition-opacity duration-300 ${
+            className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full transition-all duration-300 ${
+              isFieldFocused ? 'space-y-1.5 sm:space-y-4' : 'space-y-3 sm:space-y-4'
+            } ${
               !isRegisterMode ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'
             }`}
           >
@@ -337,7 +370,7 @@ export default function CuteLoginPage() {
 
             <form
               onSubmit={handleRegSubmit}
-              className="space-y-2 sm:space-y-4 pt-0.5 sm:pt-1"
+              className={`${isFieldFocused ? 'space-y-1.5 sm:space-y-4 pt-0 sm:pt-1' : 'space-y-2.5 sm:space-y-4 pt-0.5 sm:pt-1'}`}
             >
               {/* Campo Nombre */}
               <div className="space-y-0.5 sm:space-y-1">
