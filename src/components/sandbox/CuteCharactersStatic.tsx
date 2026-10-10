@@ -21,6 +21,7 @@ import {
 } from './useTactileJellyPhysics';
 import {CuteTactileCanvas, CuteTactileCanvasRef} from './CuteTactileCanvas';
 import {useJellyAsmrAudio} from '../../utils/useJellyAsmrAudio';
+import styles from './CuteCharactersStatic.module.css';
 
 export type {CuteCharacterFucsiaAnimatedRef};
 
@@ -49,6 +50,9 @@ export interface CuteCharactersStaticProps {
 const DESIGN_WIDTH = 640;
 const DESIGN_HEIGHT = 705;
 const DEFAULT_SCALE = 420 / DESIGN_WIDTH;
+
+const SLOT_JUMP_DELAYS = [0.04, 0.0, 0.08, 0.05];
+const SLOT_JUMP_HEIGHTS = [-32, -42, -46, -34];
 
 interface CharacterSlot {
   left: number;
@@ -86,13 +90,35 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     return () => clearTimeout(t);
   }, []);
 
-  const {playSquish, playDroplet, playWinkPop, playValidationChime} = useJellyAsmrAudio();
+  const {
+    playSquish,
+    playDroplet,
+    playWinkPop,
+    playValidationChime,
+    playHappyHop,
+  } = useJellyAsmrAudio();
 
   const [blinkMorado, setBlinkMorado] = useState(false);
   const [blinkFucsia, setBlinkFucsia] = useState(false);
   const [blinkAmarillo, setBlinkAmarillo] = useState(false);
   const [blinkNaranja, setBlinkNaranja] = useState(false);
   const [winkAmarillo, setWinkAmarillo] = useState(false);
+
+  // Secuencia donde los blobs saltan de felicidad al destapar el ojo
+  const [isHappyJumping, setIsHappyJumping] = useState(false);
+  const prevRevealRef = useRef(reveal);
+
+  useEffect(() => {
+    if (reveal && !prevRevealRef.current) {
+      setIsHappyJumping(true);
+      playHappyHop();
+      const timer = setTimeout(() => {
+        setIsHappyJumping(false);
+      }, 900);
+      return () => clearTimeout(timer);
+    }
+    prevRevealRef.current = reveal;
+  }, [reveal, playHappyHop]);
 
   // Coreografia de ver contrasena:
   // 1) Al destapar el ojo, se acercan fluidamente a mirar de cerca (transicion nativa CSS).
@@ -430,7 +456,15 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
               transformOrigin: slot.origin,
             } as React.CSSProperties}
           >
-            {slot.character}
+            <div
+              className={isHappyJumping ? styles.happyJump : ''}
+              style={{
+                ['--jump-delay']: `${SLOT_JUMP_DELAYS[index]}s`,
+                ['--jump-height']: `${SLOT_JUMP_HEIGHTS[index]}px`,
+              } as React.CSSProperties}
+            >
+              {slot.character}
+            </div>
           </div>
         ))}
         <CuteTactileCanvas

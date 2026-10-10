@@ -1,0 +1,29 @@
+.happyJump {
+  animation: blobHappyHop 0.78s cubic-bezier(0.28, 0.84, 0.42, 1) var(--jump-delay, 0s) both;
+  transform-origin: 50% 100%;
+}
+
+@keyframes blobHappyHop {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  14% {
+    /* Anticipacion elastica: se agachan y ensanchan */
+    transform: translateY(6px) scale(1.15, 0.85);
+  }
+  42% {
+    /* Salto de felicidad hacia arriba con estiramiento vertical */
+    transform: translateY(var(--jump-height, -36px)) scale(0.92, 1.12);
+  }
+  68% {
+    /* Aterrizaje suave con compresion elastica */
+    transform: translateY(3px) scale(1.08, 0.92);
+  }
+  84% {
+    /* Pequeno rebote secundario alegre */
+    transform: translateY(-8px) scale(0.97, 1.03);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
