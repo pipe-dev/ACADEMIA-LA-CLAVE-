@@ -41,6 +41,7 @@ export interface CuteCharactersStaticProps {
   submitHovered?: boolean;
   rememberChecked?: boolean;
   caravanToRight?: boolean;
+  mirrored?: boolean;
 }
 
 const CARAVAN_DELAYS = [1.15, 0.75, 0.55, 0.95];
@@ -82,7 +83,9 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   submitHovered = false,
   rememberChecked = false,
   caravanToRight = false,
+  mirrored = false,
 }) => {
+  const isMirrored = mirrored || caravanToRight;
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [look, setLook] = useState({x: 0, y: 0});
@@ -386,91 +389,177 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     [playSquish, playDroplet, handleTouchPress]
   );
 
-  const characterSlots: CharacterSlot[] = [
-    {
-      left: 144.375,
-      bottom: 0,
-      zIndex: 10,
-      scale: 1.04534,
-      scaleY: 1.5,
-      origin: 'bottom right',
-      character: (
-        <CuteCharacterTactileCage
-          config={JELLY_PRESET_MORADO}
-          onRippleTrigger={handleRippleTrigger}
-          onTouchPress={handleMoradoTouch}
-        >
-          <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
-        </CuteCharacterTactileCage>
-      ),
-    },
-    {
-      left: 294,
-      bottom: 30,
-      zIndex: 20,
-      scale: 1,
-      origin: 'bottom left',
-      character: (
-        <CuteCharacterTactileCage
-          config={JELLY_PRESET_FUCSIA}
-          onRippleTrigger={handleRippleTrigger}
-          onTouchPress={handleFucsiaTouch}
-        >
-          <CharacterFucsia
-            error={error}
-            blink={blinkFucsia}
-            animate={animateFucsia && !!fucsiaRef}
-            animatedRef={fucsiaRef}
-            fucsiaRef={fucsiaBlushRef}
-          />
-        </CuteCharacterTactileCage>
-      ),
-    },
-    {
-      left: 470,
-      bottom: 35,
-      zIndex: 45,
-      scale: 1,
-      origin: 'bottom left',
-      character: (
-        <CuteCharacterTactileCage
-          config={JELLY_PRESET_AMARILLO}
-          onRippleTrigger={handleRippleTrigger}
-          onTouchPress={handleAmarilloTouch}
-        >
-          <CharacterAmarillo
-            typing={typing}
-            shy={shy && !reveal && !error}
-            error={error}
-            blink={blinkAmarillo}
-            wink={winkAmarillo}
-          />
-        </CuteCharacterTactileCage>
-      ),
-    },
-    {
-      left: -50,
-      bottom: 30.56,
-      zIndex: 40,
-      scale: 1.408,
-      scaleY: 1.472,
-      origin: 'bottom left',
-      character: (
-        <CuteCharacterTactileCage
-          config={JELLY_PRESET_NARANJA}
-          onRippleTrigger={handleRippleTrigger}
-          onTouchPress={handleNaranjaTouch}
-        >
-          <CharacterNaranja
-            ref={naranjaRef}
-            typing={typing}
-            error={error}
-            blink={blinkNaranja}
-          />
-        </CuteCharacterTactileCage>
-      ),
-    },
-  ];
+  const characterSlots: CharacterSlot[] = isMirrored
+    ? [
+        {
+          left: 355.625,
+          bottom: 0,
+          zIndex: 10,
+          scale: 1.04534,
+          scaleY: 1.5,
+          origin: 'bottom left',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_MORADO}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleMoradoTouch}
+            >
+              <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
+            </CuteCharacterTactileCage>
+          ),
+        },
+        {
+          left: 206,
+          bottom: 30,
+          zIndex: 20,
+          scale: 1,
+          origin: 'bottom right',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_FUCSIA}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleFucsiaTouch}
+            >
+              <CharacterFucsia
+                error={error}
+                blink={blinkFucsia}
+                animate={animateFucsia && !!fucsiaRef}
+                animatedRef={fucsiaRef}
+                fucsiaRef={fucsiaBlushRef}
+              />
+            </CuteCharacterTactileCage>
+          ),
+        },
+        {
+          left: 60,
+          bottom: 35,
+          zIndex: 30,
+          scale: 1,
+          origin: 'bottom right',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_AMARILLO}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleAmarilloTouch}
+            >
+              <CharacterAmarillo
+                typing={typing}
+                shy={shy && !reveal && !error}
+                error={error}
+                blink={blinkAmarillo}
+                wink={winkAmarillo}
+              />
+            </CuteCharacterTactileCage>
+          ),
+        },
+        {
+          left: 550,
+          bottom: 30.56,
+          zIndex: 40,
+          scale: 1.408,
+          scaleY: 1.472,
+          origin: 'bottom right',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_NARANJA}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleNaranjaTouch}
+            >
+              <CharacterNaranja
+                ref={naranjaRef}
+                typing={typing}
+                error={error}
+                blink={blinkNaranja}
+              />
+            </CuteCharacterTactileCage>
+          ),
+        },
+      ]
+    : [
+        {
+          left: 144.375,
+          bottom: 0,
+          zIndex: 10,
+          scale: 1.04534,
+          scaleY: 1.5,
+          origin: 'bottom right',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_MORADO}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleMoradoTouch}
+            >
+              <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
+            </CuteCharacterTactileCage>
+          ),
+        },
+        {
+          left: 294,
+          bottom: 30,
+          zIndex: 20,
+          scale: 1,
+          origin: 'bottom left',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_FUCSIA}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleFucsiaTouch}
+            >
+              <CharacterFucsia
+                error={error}
+                blink={blinkFucsia}
+                animate={animateFucsia && !!fucsiaRef}
+                animatedRef={fucsiaRef}
+                fucsiaRef={fucsiaBlushRef}
+              />
+            </CuteCharacterTactileCage>
+          ),
+        },
+        {
+          left: 440,
+          bottom: 35,
+          zIndex: 30,
+          scale: 1,
+          origin: 'bottom left',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_AMARILLO}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleAmarilloTouch}
+            >
+              <CharacterAmarillo
+                typing={typing}
+                shy={shy && !reveal && !error}
+                error={error}
+                blink={blinkAmarillo}
+                wink={winkAmarillo}
+              />
+            </CuteCharacterTactileCage>
+          ),
+        },
+        {
+          left: -50,
+          bottom: 30.56,
+          zIndex: 40,
+          scale: 1.408,
+          scaleY: 1.472,
+          origin: 'bottom left',
+          character: (
+            <CuteCharacterTactileCage
+              config={JELLY_PRESET_NARANJA}
+              onRippleTrigger={handleRippleTrigger}
+              onTouchPress={handleNaranjaTouch}
+            >
+              <CharacterNaranja
+                ref={naranjaRef}
+                typing={typing}
+                error={error}
+                blink={blinkNaranja}
+              />
+            </CuteCharacterTactileCage>
+          ),
+        },
+      ];
 
   useEffect(() => {
     window.addEventListener('mousemove', handleLook);
@@ -497,12 +586,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   let finalLookX = 0;
   let finalLookY = 0;
 
-  if (caravanToRight) {
-    if (!settledGaze) {
-      // Durante el salto inicial hacia la derecha en la caravana
-      finalLookX = 0.4;
-      finalLookY = 0;
-    } else if (submitHovered) {
+  if (isMirrored) {
+    if (submitHovered) {
       // Mirando hacia el boton "Crear cuenta" abajo a la izquierda
       finalLookX = -0.65;
       finalLookY = 0.65;
@@ -553,7 +638,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           height: DESIGN_HEIGHT,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
-          ['--dir']: caravanToRight ? -1 : 1,
+          ['--dir']: isMirrored ? -1 : 1,
           ['--look-x']: finalLookX,
           ['--look-y']: finalLookY,
           ['--shy']: effShy,
@@ -575,21 +660,14 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             } as React.CSSProperties}
           >
             <div
-              className={caravanToRight ? styles.caravanWrapper : ''}
+              className={reveal && jump ? styles.hopCage : ''}
               style={{
-                ['--caravan-delay']: `${CARAVAN_DELAYS[index]}s`,
+                ['--hop-h']: jump?.[index]?.[0] ? `${jump[index][0]}px` : '-40px',
+                ['--hop-dur']: jump?.[index]?.[1] ? `${jump[index][1]}s` : '0.7s',
+                ['--hop-delay']: jump?.[index]?.[2] ? `${jump[index][2]}s` : '0s',
               } as React.CSSProperties}
             >
-              <div
-                className={reveal && jump ? styles.hopCage : ''}
-                style={{
-                  ['--hop-h']: jump?.[index]?.[0] ? `${jump[index][0]}px` : '-40px',
-                  ['--hop-dur']: jump?.[index]?.[1] ? `${jump[index][1]}s` : '0.7s',
-                  ['--hop-delay']: jump?.[index]?.[2] ? `${jump[index][2]}s` : '0s',
-                } as React.CSSProperties}
-              >
-                {slot.character}
-              </div>
+              {slot.character}
             </div>
           </div>
         ))}
