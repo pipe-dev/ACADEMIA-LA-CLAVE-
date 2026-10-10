@@ -427,9 +427,9 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       ),
     },
     {
-      left: 440,
+      left: 470,
       bottom: 35,
-      zIndex: 30,
+      zIndex: 45,
       scale: 1,
       origin: 'bottom left',
       character: (

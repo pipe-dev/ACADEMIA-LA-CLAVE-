@@ -170,14 +170,24 @@ export default function CuteLoginPage() {
 
   return (
     <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
-      {/* Card split: 50%+5px escena / 50%-5px formulario. Al entrar tiene buen tamaño, al tocar email/clave se encoge suavemente */}
-      <div className={`w-full rounded-[24px] sm:rounded-[36px] bg-white shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden grid grid-cols-[calc(50%+5px)_calc(50%-5px)] border border-slate-200/60 shrink-0 relative ${styles.card} ${
+      {/* Card: 60% Blobs / 40% Formulario. Al entrar tiene buen tamaño, al tocar email/clave se encoge suavemente */}
+      <div className={`w-full rounded-[24px] sm:rounded-[36px] bg-[#0f172a] shadow-[0_25px_60px_rgba(15,23,42,0.18)] overflow-hidden border border-slate-200/60 shrink-0 relative ${styles.card} ${
         isFieldFocused ? styles.cardFocused : styles.cardIdle
       }`}>
         {/* ================================================== */}
-        {/* BASE IZQUIERDA: Escenario de los 4 Personajes       */}
+        {/* ESCENARIO DE LOS BLOBS (60% de ancho en ambos modos) */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-20">
+        <div
+          className={`absolute top-0 bottom-0 w-[60%] z-20 flex flex-col justify-end items-center overflow-visible pointer-events-auto p-1.5 pb-8 sm:p-10 ${
+            isRegisterMode
+              ? 'bg-[#0f172a] border-l border-slate-800'
+              : 'bg-[#e9e9e9] border-r border-slate-200'
+          }`}
+          style={{
+            left: isRegisterMode ? '40%' : '0%',
+            transition: 'left 600ms cubic-bezier(0.16, 1, 0.3, 1), background-color 450ms ease',
+          }}
+        >
           <div className="w-full flex items-end justify-center pb-2 sm:pb-1 overflow-visible">
             <CuteCharactersStatic
               excited={isEmailActive || isNameActive}
@@ -204,40 +214,17 @@ export default function CuteLoginPage() {
         </div>
 
         {/* ================================================== */}
-        {/* BASE DERECHA: Panel Nocturno Ambiental Revelado    */}
-        {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-12 bg-[#0f172a] text-white z-10 border-l border-slate-800">
-          <div
-            className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full space-y-2 sm:space-y-4 transition-all duration-700 ease-out ${
-              isRegisterMode
-                ? 'opacity-0 filter blur-sm -translate-y-4 pointer-events-none'
-                : 'opacity-100 filter-none translate-y-0'
-            }`}
-            style={{
-              transitionDelay: isRegisterMode ? '600ms' : '0ms',
-            }}
-          >
-            <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
-              Únete a AfinApp
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 font-normal leading-relaxed">
-              El afinador inteligente para tu voz. Descubre tu rango y entrena tu afinación en tiempo real.
-            </p>
-          </div>
-        </div>
-
-        {/* ================================================== */}
-        {/* CAPA SUPERIOR DESLIZANTE: Formulario Dinamico       */}
+        {/* CAPA DESLIZANTE DEL FORMULARIO (40% de ancho)       */}
         {/* ================================================== */}
         <div
-          className={`absolute top-0 bottom-0 left-0 w-[calc(50%+5px)] z-30 flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-14 ${
+          className={`absolute top-0 bottom-0 w-[40%] z-30 flex flex-col justify-center px-3 py-3 sm:py-14 sm:px-10 ${
             isRegisterMode
               ? 'bg-[#0f172a] text-white border-r border-slate-800 shadow-2xl'
               : 'bg-white text-slate-900 shadow-[-12px_0_35px_rgba(0,0,0,0.06)]'
           }`}
           style={{
-            transform: isRegisterMode ? 'translateX(0%)' : 'translateX(100%)',
-            transition: 'transform 600ms cubic-bezier(0.16, 1, 0.3, 1), background-color 450ms ease',
+            left: isRegisterMode ? '0%' : '60%',
+            transition: 'left 600ms cubic-bezier(0.16, 1, 0.3, 1), background-color 450ms ease',
           }}
         >
           {/* Contenido en Login Mode */}
