@@ -49,6 +49,7 @@ export interface UseJellyAsmrAudioReturn {
   playWinkPop: () => void;
   playValidationChime: () => void;
   playHappyHop: () => void;
+  playSlideTransition: () => void;
 }
 
 /**
@@ -331,11 +332,46 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
     } catch {}
   }, [getAudioContext]);
 
+  /**
+   * Micro-deslizamiento acustico suave para la transicion de registro
+   */
+  const playSlideTransition = useCallback(() => {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const dur = 0.26;
+
+      const noiseBuf = getPinkNoiseBuffer(ctx);
+      const noiseSrc = ctx.createBufferSource();
+      noiseSrc.buffer = noiseBuf;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1100, now);
+      filter.frequency.exponentialRampToValueAtTime(360, now + dur);
+      filter.Q.setValueAtTime(1.8, now);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.045, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      noiseSrc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      noiseSrc.start(now);
+      noiseSrc.stop(now + dur + 0.02);
+    } catch {}
+  }, [getAudioContext, getPinkNoiseBuffer]);
+
   return {
     playSquish,
     playDroplet,
     playWinkPop,
     playValidationChime,
     playHappyHop,
+    playSlideTransition,
   };
 }
