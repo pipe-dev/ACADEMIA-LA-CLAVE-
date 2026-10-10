@@ -39,7 +39,10 @@ export interface CuteCharactersStaticProps {
   emailValid?: boolean;
   submitHovered?: boolean;
   rememberChecked?: boolean;
+  caravanToRight?: boolean;
 }
+
+const CARAVAN_DELAYS = [1.15, 0.75, 0.55, 0.95];
 
 /**
  * CuteCharactersStatic
@@ -78,6 +81,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   emailValid = false,
   submitHovered = false,
   rememberChecked = false,
+  caravanToRight = false,
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
@@ -103,6 +107,52 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   const [blinkAmarillo, setBlinkAmarillo] = useState(false);
   const [blinkNaranja, setBlinkNaranja] = useState(false);
   const [winkAmarillo, setWinkAmarillo] = useState(false);
+
+  // Mirada atenta hacia la izquierda tras acomodarse en el lado derecho
+  const [settledGaze, setSettledGaze] = useState(false);
+
+  useEffect(() => {
+    if (caravanToRight) {
+      const timer = setTimeout(() => {
+        setSettledGaze(true);
+      }, 1750);
+      return () => {
+        clearTimeout(timer);
+      };
+    } else {
+      setSettledGaze(false);
+    }
+  }, [caravanToRight]);
+
+  // Coordinacion de audio ASMR para cada aterrizaje de la caravana
+  useEffect(() => {
+    if (!caravanToRight) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    // Amarillo: primer explorador en cruzar dando saltos agiles
+    timers.push(setTimeout(() => playDroplet('amarillo', 1.1), 870));
+    timers.push(setTimeout(() => playDroplet('amarillo', 1.2), 1240));
+    timers.push(setTimeout(() => playSquish('amarillo', 1.0), 1600));
+
+    // Fucsia: segundo personaje en cruzar con rebotes acuosos
+    timers.push(setTimeout(() => playDroplet('fucsia', 1.0), 1070));
+    timers.push(setTimeout(() => playDroplet('fucsia', 1.1), 1440));
+    timers.push(setTimeout(() => playSquish('fucsia', 0.9), 1800));
+
+    // Naranja: tercer personaje con saltitos ritmicos
+    timers.push(setTimeout(() => playDroplet('naranja', 1.0), 1270));
+    timers.push(setTimeout(() => playDroplet('naranja', 1.1), 1640));
+    timers.push(setTimeout(() => playSquish('naranja', 1.1), 2000));
+
+    // Morado: ultimo personaje en cruzar con aterrizaje pesado y gomoso
+    timers.push(setTimeout(() => playDroplet('morado', 1.0), 1470));
+    timers.push(setTimeout(() => playDroplet('morado', 1.1), 1840));
+    timers.push(setTimeout(() => playSquish('morado', 1.3), 2200));
+
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [caravanToRight, playDroplet, playSquish]);
 
   // Secuencia donde los blobs saltan de felicidad al destapar el ojo
   const [isHappyJumping, setIsHappyJumping] = useState(false);
@@ -420,8 +470,20 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  const finalLookX = submitHovered ? 0.35 : ready ? look.x : 0;
-  const finalLookY = submitHovered ? 0.65 : ready ? look.y : 0;
+  const finalLookX = caravanToRight
+    ? (settledGaze ? -0.7 : 0.4)
+    : submitHovered
+    ? 0.35
+    : ready
+    ? look.x
+    : 0;
+  const finalLookY = caravanToRight
+    ? (settledGaze ? 0.05 : 0)
+    : submitHovered
+    ? 0.65
+    : ready
+    ? look.y
+    : 0;
 
   return (
     <div
@@ -457,10 +519,13 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             } as React.CSSProperties}
           >
             <div
-              className={isHappyJumping ? styles.happyJump : ''}
+              className={`${isHappyJumping ? styles.happyJump : ''} ${
+                caravanToRight ? styles.caravanWrapper : ''
+              }`}
               style={{
                 ['--jump-delay']: `${SLOT_JUMP_DELAYS[index]}s`,
                 ['--jump-height']: `${SLOT_JUMP_HEIGHTS[index]}px`,
+                ['--caravan-delay']: `${CARAVAN_DELAYS[index]}s`,
               } as React.CSSProperties}
             >
               {slot.character}

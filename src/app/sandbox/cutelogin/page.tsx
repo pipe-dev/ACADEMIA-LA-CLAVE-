@@ -35,6 +35,12 @@ export default function CuteLoginPage() {
     setIsRegisterMode(true);
   };
 
+  const handleSwitchToLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    playSlideTransition();
+    setIsRegisterMode(false);
+  };
+
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const isPasswordActive =
@@ -95,7 +101,7 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* BASE IZQUIERDA: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-10">
+        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-20">
           <div className="w-full flex items-end justify-center pb-2 sm:pb-1 overflow-visible">
             <CuteCharactersStatic
               excited={emailFocused}
@@ -107,6 +113,7 @@ export default function CuteLoginPage() {
               typingProgress={Math.min(email.length / 7, 1)}
               emailValid={isEmailValid}
               submitHovered={submitHovered}
+              caravanToRight={isRegisterMode}
               className="w-full max-w-[560px]"
             />
           </div>
@@ -116,10 +123,16 @@ export default function CuteLoginPage() {
         {/* BASE DERECHA: Panel Nocturno Ambiental Revelado    */}
         {/* ================================================== */}
         <div className="min-w-0 relative flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-12 bg-[#0f172a] text-white z-10 border-l border-slate-800">
-          <div className="max-w-[340px] sm:max-w-[360px] mx-auto w-full space-y-2 sm:space-y-4">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-white/10 text-slate-300 border border-white/10 w-fit">
-              AfinApp Studio
-            </span>
+          <div
+            className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full space-y-2 sm:space-y-4 transition-all duration-700 ease-out ${
+              isRegisterMode
+                ? 'opacity-0 filter blur-sm -translate-y-4 pointer-events-none'
+                : 'opacity-100 filter-none translate-y-0'
+            }`}
+            style={{
+              transitionDelay: isRegisterMode ? '600ms' : '0ms',
+            }}
+          >
             <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
               Únete a AfinApp
             </h2>
@@ -345,6 +358,20 @@ export default function CuteLoginPage() {
                 Crear cuenta
               </button>
             </form>
+
+            {/* Pie de login */}
+            <div className="text-center pt-1 sm:pt-2">
+              <p className="text-xs sm:text-sm text-slate-400 font-normal">
+                ¿Ya tienes una cuenta?{' '}
+                <a
+                  href="#login"
+                  onClick={handleSwitchToLogin}
+                  className="font-semibold text-white hover:underline cursor-pointer"
+                >
+                  Inicia sesión
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </div>
