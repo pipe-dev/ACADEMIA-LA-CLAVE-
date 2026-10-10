@@ -59,8 +59,8 @@
      mientras el torso y la parte superior se arquean elasticamente hacia el formulario */
   transform-origin: 50% 100%;
   transform:
-    skewX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -5.2deg))
-    rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 2.4deg))
+    skewX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -5.2deg * var(--dir, 1)))
+    rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 2.4deg * var(--dir, 1)))
     translateY(calc(var(--excited, 0) * -2px));
   transition: transform 450ms cubic-bezier(0.25, 1.1, 0.45, 1);
 
@@ -96,7 +96,7 @@
   top: 20px;
   transform-origin: bottom center;
   animation: morado-greet 0.42s ease-in-out 3.95s 3;
-  transform: translateY(calc(var(--nod, 0) * 9px)) translateX(3px) translate(calc(var(--look-x, 0) * 18px), calc(var(--look-y, 0) * 14px)) rotate(calc(var(--look-x, 0) * 3.5deg)) translate(calc(var(--shy, 0) * -16px), calc(var(--shy, 0) * 4px)) rotate(calc(var(--shy, 0) * -22deg)) translate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 20px), calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -4px)) rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 4deg)) scale(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.02), calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.05));
+  transform: translateY(calc(var(--nod, 0) * 9px)) translateX(3px) translate(calc(var(--look-x, 0) * 18px), calc(var(--look-y, 0) * 14px)) rotate(calc(var(--look-x, 0) * 3.5deg)) translate(calc(var(--shy, 0) * -16px * var(--dir, 1)), calc(var(--shy, 0) * 4px)) rotate(calc(var(--shy, 0) * -22deg * var(--dir, 1))) translate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 20px * var(--dir, 1)), calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * -4px)) rotate(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 4deg * var(--dir, 1))) scale(calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.02), calc(1 + var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.2) * 0.05));
   transition: transform 300ms ease-out;
   display: flex;
   flex-direction: column;
@@ -290,7 +290,7 @@
   background:
     radial-gradient(ellipse 55% 70% at 12% 52%, rgba(24, 12, 40, 0.2), transparent 72%),
     radial-gradient(ellipse 55% 70% at 86% 46%, rgba(255, 255, 255, 0.26), transparent 72%);
-  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 5px));
+  transform: translateX(calc(var(--excited, 0) * (1 + var(--typing-progress, 0) * 1.4) * 5px * var(--dir, 1)));
   transition: transform 250ms ease, opacity 200ms ease;
 }
 

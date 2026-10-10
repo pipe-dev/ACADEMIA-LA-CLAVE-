@@ -28,6 +28,7 @@ export type {CuteCharacterFucsiaAnimatedRef};
 export interface CuteCharactersStaticProps {
   className?: string;
   excited?: boolean;
+  nameFocused?: boolean;
   shy?: boolean;
   reveal?: boolean;
   error?: boolean;
@@ -70,6 +71,7 @@ interface CharacterSlot {
 export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   className = '',
   excited = false,
+  nameFocused = false,
   shy = false,
   reveal = false,
   error = false,
@@ -178,7 +180,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   const [forcePeek, setForcePeek] = useState(false);
 
   useEffect(() => {
-    if (reveal && passwordLength >= 5) {
+    if (reveal && passwordLength >= 4) {
       setForcePeek(true);
       const timer = setTimeout(() => {
         setForcePeek(false);
@@ -187,7 +189,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     } else {
       setForcePeek(false);
     }
-  }, [reveal, passwordLength >= 5]);
+  }, [reveal, passwordLength >= 4]);
 
   const effShy = error ? 0 : reveal ? 0 : shy ? 1 : 0;
 
@@ -256,12 +258,11 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
 
   // Progreso de acercamiento a la contrasena:
   // 0 chars: 1.0 (miran de cerca)
-  // 1 char: 0.80
-  // 2 chars: 0.60
-  // 3 chars: 0.40
-  // 4 chars: 0.20
-  // 5+ chars: 0.0 (bien atras, en la posicion de reposo inicial)
-  const retreatRatio = forcePeek ? 1 : Math.max(0, 1 - passwordLength / 5);
+  // 1 char: 0.75
+  // 2 chars: 0.50
+  // 3 chars: 0.25
+  // 4+ chars: 0.0 (bien atras, en la posicion de reposo inicial)
+  const retreatRatio = forcePeek ? 1 : Math.max(0, 1 - passwordLength / 4);
 
   const effExcited = error
     ? 0
@@ -470,20 +471,51 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  const finalLookX = caravanToRight
-    ? (settledGaze ? -0.7 : 0.4)
-    : submitHovered
-    ? 0.35
-    : ready
-    ? look.x
-    : 0;
-  const finalLookY = caravanToRight
-    ? (settledGaze ? 0.05 : 0)
-    : submitHovered
-    ? 0.65
-    : ready
-    ? look.y
-    : 0;
+  let finalLookX = 0;
+  let finalLookY = 0;
+
+  if (caravanToRight) {
+    if (!settledGaze) {
+      // Durante el salto inicial hacia la derecha en la caravana
+      finalLookX = 0.4;
+      finalLookY = 0;
+    } else if (submitHovered) {
+      // Mirando hacia el boton "Crear cuenta" abajo a la izquierda
+      finalLookX = -0.65;
+      finalLookY = 0.65;
+    } else if (reveal) {
+      // Mirando con atencion y curiosidad hacia la contrasena destapada a la izquierda
+      finalLookX = -0.75;
+      finalLookY = 0.15;
+    } else if (nameFocused) {
+      // Mirando hacia el campo Nombre arriba a la izquierda
+      finalLookX = -0.75;
+      finalLookY = -0.2;
+    } else if (excited) {
+      // Mirando hacia el campo Correo al centro a la izquierda
+      finalLookX = -0.75;
+      finalLookY = -0.05;
+    } else {
+      // Reposo atento en modo registro observando el formulario a la izquierda
+      finalLookX = -0.7;
+      finalLookY = 0.05;
+    }
+  } else {
+    // Modo Login
+    if (submitHovered) {
+      finalLookX = 0.35;
+      finalLookY = 0.65;
+    } else if (reveal) {
+      finalLookX = 0.65;
+      finalLookY = 0.15;
+    } else if (excited) {
+      finalLookX = 0.65;
+      finalLookY = -0.1;
+    } else {
+      finalLookX = ready ? look.x : 0;
+      finalLookY = ready ? look.y : 0;
+    }
+  }
 
   return (
     <div
@@ -498,6 +530,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           height: DESIGN_HEIGHT,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
+          ['--dir']: caravanToRight ? -1 : 1,
           ['--look-x']: finalLookX,
           ['--look-y']: finalLookY,
           ['--shy']: effShy,

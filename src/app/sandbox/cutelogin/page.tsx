@@ -24,29 +24,52 @@ export default function CuteLoginPage() {
   // Estados de registro y transicion
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [regName, setRegName] = useState('');
+  const [regNameFocused, setRegNameFocused] = useState(false);
   const [regEmail, setRegEmail] = useState('');
+  const [regEmailFocused, setRegEmailFocused] = useState(false);
   const [regPassword, setRegPassword] = useState('');
+  const [regPasswordFocused, setRegPasswordFocused] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
+  const [regEyeInteracted, setRegEyeInteracted] = useState(false);
+  const [regSubmitHovered, setRegSubmitHovered] = useState(false);
   const { playSlideTransition } = useJellyAsmrAudio();
 
   const handleSwitchToRegister = (e: React.MouseEvent) => {
     e.preventDefault();
     playSlideTransition();
     setIsRegisterMode(true);
+    setEmailFocused(false);
+    setPasswordFocused(false);
+    setSubmitHovered(false);
   };
 
   const handleSwitchToLogin = (e: React.MouseEvent) => {
     e.preventDefault();
     playSlideTransition();
     setIsRegisterMode(false);
+    setRegNameFocused(false);
+    setRegEmailFocused(false);
+    setRegPasswordFocused(false);
+    setRegSubmitHovered(false);
   };
 
-  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isNameActive = isRegisterMode && regNameFocused;
 
-  const isPasswordActive =
-    passwordFocused ||
-    (password.length > 0 && !emailFocused) ||
-    (eyeInteracted && !emailFocused);
+  const isEmailActive = isRegisterMode ? regEmailFocused : emailFocused;
+  const activeEmail = isRegisterMode ? regEmail : email;
+  const isCurrentEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(activeEmail);
+
+  const isPasswordFocusedActive = isRegisterMode ? regPasswordFocused : passwordFocused;
+  const activePassword = isRegisterMode ? regPassword : password;
+  const activeShowPassword = isRegisterMode ? showRegPassword : showPassword;
+  const activeEyeInteracted = isRegisterMode ? regEyeInteracted : eyeInteracted;
+
+  const isCurrentPasswordActive =
+    isPasswordFocusedActive ||
+    (activePassword.length > 0 && !isEmailActive && !isNameActive) ||
+    (activeEyeInteracted && !isEmailActive && !isNameActive);
+
+  const activeSubmitHovered = isRegisterMode ? regSubmitHovered : submitHovered;
 
   // Bloqueo estricto de scroll en movil: mantiene la tarjeta firmemente arriba
   const lockScrollToTop = () => {
@@ -94,6 +117,30 @@ export default function CuteLoginPage() {
     wrongTimer.current = setTimeout(() => setWrong(false), 4000);
   };
 
+  const handleRegInputFocus = (field: 'name' | 'email' | 'password') => {
+    if (field === 'name') setRegNameFocused(true);
+    if (field === 'email') {
+      setRegEmailFocused(true);
+      setRegEyeInteracted(false);
+    }
+    if (field === 'password') setRegPasswordFocused(true);
+    requestAnimationFrame(lockScrollToTop);
+  };
+
+  const handleRegInputBlur = (field: 'name' | 'email' | 'password') => {
+    if (field === 'name') setRegNameFocused(false);
+    if (field === 'email') setRegEmailFocused(false);
+    if (field === 'password') setRegPasswordFocused(false);
+    requestAnimationFrame(lockScrollToTop);
+  };
+
+  const handleRegSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (wrongTimer.current) clearTimeout(wrongTimer.current);
+    setWrong(true);
+    wrongTimer.current = setTimeout(() => setWrong(false), 4000);
+  };
+
   return (
     <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center bg-[#e5e9ee] p-2 sm:p-6 lg:p-8 pt-[max(4px,env(safe-area-inset-top))] select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto">
       {/* Card split: 50%+5px escena / 50%-5px formulario, altura calibrada a 370px en movil */}
@@ -104,15 +151,23 @@ export default function CuteLoginPage() {
         <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-20">
           <div className="w-full flex items-end justify-center pb-2 sm:pb-1 overflow-visible">
             <CuteCharactersStatic
-              excited={emailFocused}
-              shy={isPasswordActive}
-              reveal={showPassword}
-              passwordLength={password.length}
+              excited={isEmailActive || isNameActive}
+              nameFocused={isNameActive}
+              shy={isCurrentPasswordActive}
+              reveal={activeShowPassword}
+              passwordLength={activePassword.length}
               error={wrong}
-              typing={emailFocused && email.length > 0}
-              typingProgress={Math.min(email.length / 7, 1)}
-              emailValid={isEmailValid}
-              submitHovered={submitHovered}
+              typing={
+                (isEmailActive && activeEmail.length > 0) ||
+                (isNameActive && regName.length > 0)
+              }
+              typingProgress={
+                isNameActive
+                  ? Math.min(regName.length / 7, 1)
+                  : Math.min(activeEmail.length / 7, 1)
+              }
+              emailValid={isCurrentEmailValid}
+              submitHovered={activeSubmitHovered}
               caravanToRight={isRegisterMode}
               className="w-full max-w-[560px]"
             />
@@ -281,9 +336,7 @@ export default function CuteLoginPage() {
             </div>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-              }}
+              onSubmit={handleRegSubmit}
               className="space-y-2 sm:space-y-4 pt-0.5 sm:pt-1"
             >
               {/* Campo Nombre */}
@@ -297,6 +350,8 @@ export default function CuteLoginPage() {
                     type="text"
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
+                    onFocus={() => handleRegInputFocus('name')}
+                    onBlur={() => handleRegInputBlur('name')}
                     placeholder=""
                     className="w-full bg-transparent border-b border-slate-700 py-1 sm:py-2 text-[16px] sm:text-base text-white focus:outline-none focus:border-white transition-colors"
                   />
@@ -314,6 +369,8 @@ export default function CuteLoginPage() {
                     type="email"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
+                    onFocus={() => handleRegInputFocus('email')}
+                    onBlur={() => handleRegInputBlur('email')}
                     placeholder=""
                     className="w-full bg-transparent border-b border-slate-700 py-1 sm:py-2 text-[16px] sm:text-base text-white focus:outline-none focus:border-white transition-colors"
                   />
@@ -330,14 +387,28 @@ export default function CuteLoginPage() {
                     id="reg-password"
                     type={showRegPassword ? 'text' : 'password'}
                     value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
+                    onChange={(e) => {
+                      setRegPassword(e.target.value);
+                      if (wrong) {
+                        setWrong(false);
+                        if (wrongTimer.current) {
+                          clearTimeout(wrongTimer.current);
+                          wrongTimer.current = null;
+                        }
+                      }
+                    }}
+                    onFocus={() => handleRegInputFocus('password')}
+                    onBlur={() => handleRegInputBlur('password')}
                     placeholder=""
                     className="w-full bg-transparent border-b border-slate-700 py-1 sm:py-2 pr-8 sm:pr-10 text-[16px] sm:text-base text-white focus:outline-none focus:border-white transition-colors"
                   />
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setShowRegPassword((prev) => !prev)}
+                    onClick={() => {
+                      setRegEyeInteracted(true);
+                      setShowRegPassword((prev) => !prev);
+                    }}
                     aria-label={showRegPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                     className="absolute right-0 text-slate-400 hover:text-white transition-colors p-1.5"
                   >
@@ -353,6 +424,10 @@ export default function CuteLoginPage() {
               {/* Boton Primario: Crear cuenta */}
               <button
                 type="submit"
+                onMouseEnter={() => setRegSubmitHovered(true)}
+                onMouseLeave={() => setRegSubmitHovered(false)}
+                onFocus={() => setRegSubmitHovered(true)}
+                onBlur={() => setRegSubmitHovered(false)}
                 className="w-full h-10 sm:h-12 rounded-full font-bold bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-base shadow-md active:scale-[0.99] transition-all mt-2 sm:mt-3"
               >
                 Crear cuenta
