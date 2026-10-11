@@ -40,8 +40,8 @@ export interface CuteCharactersStaticProps {
   emailValid?: boolean;
   submitHovered?: boolean;
   rememberChecked?: boolean;
-  caravanToRight?: boolean;
   mirrored?: boolean;
+  caravanToRight?: boolean;
 }
 
 const CARAVAN_DELAYS = [1.15, 0.75, 0.55, 0.95];
@@ -65,6 +65,7 @@ interface CharacterSlot {
   scaleY?: number;
   origin: string;
   character: React.ReactNode;
+  caravanShiftX?: number;
 }
 
 export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
@@ -82,8 +83,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   emailValid = false,
   submitHovered = false,
   rememberChecked = false,
-  caravanToRight = false,
   mirrored = false,
+  caravanToRight = false,
 }) => {
   const isMirrored = mirrored || caravanToRight;
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -118,7 +119,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     if (caravanToRight) {
       const timer = setTimeout(() => {
         setSettledGaze(true);
-      }, 1750);
+      }, 2450);
       return () => {
         clearTimeout(timer);
       };
@@ -389,177 +390,145 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     [playSquish, playDroplet, handleTouchPress]
   );
 
-  const characterSlots: CharacterSlot[] = isMirrored
-    ? [
-        {
-          left: 355.625,
-          bottom: 0,
-          zIndex: 10,
-          scale: 1.04534,
-          scaleY: 1.5,
-          origin: 'bottom left',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_MORADO}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleMoradoTouch}
-            >
-              <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
-            </CuteCharacterTactileCage>
-          ),
-        },
-        {
-          left: 206,
-          bottom: 30,
-          zIndex: 20,
-          scale: 1,
-          origin: 'bottom right',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_FUCSIA}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleFucsiaTouch}
-            >
-              <CharacterFucsia
-                error={error}
-                blink={blinkFucsia}
-                animate={animateFucsia && !!fucsiaRef}
-                animatedRef={fucsiaRef}
-                fucsiaRef={fucsiaBlushRef}
-              />
-            </CuteCharacterTactileCage>
-          ),
-        },
-        {
-          left: 60,
-          bottom: 35,
-          zIndex: 30,
-          scale: 1,
-          origin: 'bottom right',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_AMARILLO}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleAmarilloTouch}
-            >
-              <CharacterAmarillo
-                typing={typing}
-                shy={shy && !reveal && !error}
-                error={error}
-                blink={blinkAmarillo}
-                wink={winkAmarillo}
-              />
-            </CuteCharacterTactileCage>
-          ),
-        },
-        {
-          left: 550,
-          bottom: 30.56,
-          zIndex: 40,
-          scale: 1.408,
-          scaleY: 1.472,
-          origin: 'bottom right',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_NARANJA}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleNaranjaTouch}
-            >
-              <CharacterNaranja
-                ref={naranjaRef}
-                typing={typing}
-                error={error}
-                blink={blinkNaranja}
-              />
-            </CuteCharacterTactileCage>
-          ),
-        },
-      ]
-    : [
-        {
-          left: 144.375,
-          bottom: 0,
-          zIndex: 10,
-          scale: 1.04534,
-          scaleY: 1.5,
-          origin: 'bottom right',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_MORADO}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleMoradoTouch}
-            >
-              <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
-            </CuteCharacterTactileCage>
-          ),
-        },
-        {
-          left: 294,
-          bottom: 30,
-          zIndex: 20,
-          scale: 1,
-          origin: 'bottom left',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_FUCSIA}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleFucsiaTouch}
-            >
-              <CharacterFucsia
-                error={error}
-                blink={blinkFucsia}
-                animate={animateFucsia && !!fucsiaRef}
-                animatedRef={fucsiaRef}
-                fucsiaRef={fucsiaBlushRef}
-              />
-            </CuteCharacterTactileCage>
-          ),
-        },
-        {
-          left: 440,
-          bottom: 35,
-          zIndex: 30,
-          scale: 1,
-          origin: 'bottom left',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_AMARILLO}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleAmarilloTouch}
-            >
-              <CharacterAmarillo
-                typing={typing}
-                shy={shy && !reveal && !error}
-                error={error}
-                blink={blinkAmarillo}
-                wink={winkAmarillo}
-              />
-            </CuteCharacterTactileCage>
-          ),
-        },
-        {
-          left: -50,
-          bottom: 30.56,
-          zIndex: 40,
-          scale: 1.408,
-          scaleY: 1.472,
-          origin: 'bottom left',
-          character: (
-            <CuteCharacterTactileCage
-              config={JELLY_PRESET_NARANJA}
-              onRippleTrigger={handleRippleTrigger}
-              onTouchPress={handleNaranjaTouch}
-            >
-              <CharacterNaranja
-                ref={naranjaRef}
-                typing={typing}
-                error={error}
-                blink={blinkNaranja}
-              />
-            </CuteCharacterTactileCage>
-          ),
-        },
-      ];
+  const moradoNode = (
+    <CuteCharacterTactileCage
+      config={JELLY_PRESET_MORADO}
+      onRippleTrigger={handleRippleTrigger}
+      onTouchPress={handleMoradoTouch}
+    >
+      <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
+    </CuteCharacterTactileCage>
+  );
+
+  const fucsiaNode = (
+    <CuteCharacterTactileCage
+      config={JELLY_PRESET_FUCSIA}
+      onRippleTrigger={handleRippleTrigger}
+      onTouchPress={handleFucsiaTouch}
+    >
+      <CharacterFucsia
+        error={error}
+        blink={blinkFucsia}
+        animate={animateFucsia && !!fucsiaRef}
+        animatedRef={fucsiaRef}
+        fucsiaRef={fucsiaBlushRef}
+      />
+    </CuteCharacterTactileCage>
+  );
+
+  const amarilloNode = (
+    <CuteCharacterTactileCage
+      config={JELLY_PRESET_AMARILLO}
+      onRippleTrigger={handleRippleTrigger}
+      onTouchPress={handleAmarilloTouch}
+    >
+      <CharacterAmarillo
+        typing={typing}
+        shy={shy && !reveal && !error}
+        error={error}
+        blink={blinkAmarillo}
+        wink={winkAmarillo}
+      />
+    </CuteCharacterTactileCage>
+  );
+
+  const naranjaNode = (
+    <CuteCharacterTactileCage
+      config={JELLY_PRESET_NARANJA}
+      onRippleTrigger={handleRippleTrigger}
+      onTouchPress={handleNaranjaTouch}
+    >
+      <CharacterNaranja
+        ref={naranjaRef}
+        typing={typing}
+        error={error}
+        blink={blinkNaranja}
+      />
+    </CuteCharacterTactileCage>
+  );
+
+  const loginSlots: CharacterSlot[] = [
+    {
+      left: 144.375,
+      bottom: 0,
+      zIndex: 10,
+      scale: 1.04534,
+      scaleY: 1.5,
+      origin: 'bottom right',
+      caravanShiftX: 540,
+      character: moradoNode,
+    },
+    {
+      left: 294,
+      bottom: 30,
+      zIndex: 20,
+      scale: 1,
+      origin: 'bottom left',
+      caravanShiftX: 680,
+      character: fucsiaNode,
+    },
+    {
+      left: 440,
+      bottom: 35,
+      zIndex: 30,
+      scale: 1.12,
+      origin: 'bottom left',
+      caravanShiftX: 680,
+      character: amarilloNode,
+    },
+    {
+      left: -50,
+      bottom: 30.56,
+      zIndex: 40,
+      scale: 1.408,
+      scaleY: 1.472,
+      origin: 'bottom left',
+      caravanShiftX: 752,
+      character: naranjaNode,
+    },
+  ];
+
+  // Composicion espejo para la card de registro (blobs a la derecha mirando el formulario a la izquierda)
+  // Distribuidos armonica y simetricamente a lo largo del canvas de 640px:
+  // Amarillo en primer plano a la izquierda (cerca al formulario), Fucsia al medio, Morado alto detras, Naranja ancho en la esquina derecha.
+  const mirroredSlots: CharacterSlot[] = [
+    {
+      left: 235,
+      bottom: 0,
+      zIndex: 10,
+      scale: 1.04534,
+      scaleY: 1.5,
+      origin: 'bottom left',
+      character: moradoNode,
+    },
+    {
+      left: 156,
+      bottom: 30,
+      zIndex: 20,
+      scale: 1,
+      origin: 'bottom right',
+      character: fucsiaNode,
+    },
+    {
+      left: 24,
+      bottom: 35,
+      zIndex: 30,
+      scale: 1.12,
+      origin: 'bottom right',
+      character: amarilloNode,
+    },
+    {
+      left: 240,
+      bottom: 30.56,
+      zIndex: 40,
+      scale: 1.408,
+      scaleY: 1.472,
+      origin: 'bottom right',
+      character: naranjaNode,
+    },
+  ];
+
+  const characterSlots: CharacterSlot[] = isMirrored ? mirroredSlots : loginSlots;
 
   useEffect(() => {
     window.addEventListener('mousemove', handleLook);
@@ -587,7 +556,12 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   let finalLookY = 0;
 
   if (isMirrored) {
-    if (submitHovered) {
+    // Modo Registro (blobs a la derecha mirando el formulario a la izquierda)
+    if (caravanToRight && !settledGaze) {
+      // Durante el salto inicial hacia la derecha en la caravana
+      finalLookX = 0.4;
+      finalLookY = 0;
+    } else if (submitHovered) {
       // Mirando hacia el boton "Crear cuenta" abajo a la izquierda
       finalLookX = -0.65;
       finalLookY = 0.65;
@@ -660,14 +634,22 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             } as React.CSSProperties}
           >
             <div
-              className={reveal && jump ? styles.hopCage : ''}
+              className={caravanToRight ? styles.caravanWrapper : ''}
               style={{
-                ['--hop-h']: jump?.[index]?.[0] ? `${jump[index][0]}px` : '-40px',
-                ['--hop-dur']: jump?.[index]?.[1] ? `${jump[index][1]}s` : '0.7s',
-                ['--hop-delay']: jump?.[index]?.[2] ? `${jump[index][2]}s` : '0s',
+                ['--caravan-delay']: `${CARAVAN_DELAYS[index]}s`,
+                ['--caravan-x']: `${slot.caravanShiftX ?? 605}px`,
               } as React.CSSProperties}
             >
-              {slot.character}
+              <div
+                className={reveal && jump ? styles.hopCage : ''}
+                style={{
+                  ['--hop-h']: jump?.[index]?.[0] ? `${jump[index][0]}px` : '-40px',
+                  ['--hop-dur']: jump?.[index]?.[1] ? `${jump[index][1]}s` : '0.7s',
+                  ['--hop-delay']: jump?.[index]?.[2] ? `${jump[index][2]}s` : '0s',
+                } as React.CSSProperties}
+              >
+                {slot.character}
+              </div>
             </div>
           </div>
         ))}
