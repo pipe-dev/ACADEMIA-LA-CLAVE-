@@ -44,7 +44,7 @@ export interface CuteCharactersStaticProps {
   caravanToRight?: boolean;
 }
 
-const CARAVAN_DELAYS = [1.15, 0.75, 0.55, 0.95];
+const CARAVAN_DELAYS = [0.65, 0.45, 0.25, 0.85];
 
 /**
  * CuteCharactersStatic
@@ -86,7 +86,32 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   mirrored = false,
   caravanToRight = false,
 }) => {
-  const isMirrored = mirrored || caravanToRight;
+  const [caravanDir, setCaravanDir] = useState<'right' | 'left' | 'idle'>(
+    caravanToRight ? 'right' : 'idle'
+  );
+  const [settledGaze, setSettledGaze] = useState(caravanToRight);
+  const prevCaravanRef = useRef(caravanToRight);
+
+  useEffect(() => {
+    if (caravanToRight && !prevCaravanRef.current) {
+      setCaravanDir('right');
+      setSettledGaze(false);
+      const timer = setTimeout(() => {
+        setSettledGaze(true);
+      }, 2100);
+      return () => clearTimeout(timer);
+    } else if (!caravanToRight && prevCaravanRef.current) {
+      setCaravanDir('left');
+      setSettledGaze(false);
+      const timer = setTimeout(() => {
+        setCaravanDir('idle');
+      }, 2100);
+      return () => clearTimeout(timer);
+    }
+    prevCaravanRef.current = caravanToRight;
+  }, [caravanToRight]);
+
+  const isMirrored = mirrored || (caravanToRight && settledGaze);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [look, setLook] = useState({x: 0, y: 0});
@@ -112,51 +137,54 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   const [blinkNaranja, setBlinkNaranja] = useState(false);
   const [winkAmarillo, setWinkAmarillo] = useState(false);
 
-  // Mirada atenta hacia la izquierda tras acomodarse en el lado derecho
-  const [settledGaze, setSettledGaze] = useState(false);
-
+  // Coordinacion de audio ASMR para cada aterrizaje de la caravana (ida y vuelta)
   useEffect(() => {
-    if (caravanToRight) {
-      const timer = setTimeout(() => {
-        setSettledGaze(true);
-      }, 2450);
-      return () => {
-        clearTimeout(timer);
-      };
-    } else {
-      setSettledGaze(false);
-    }
-  }, [caravanToRight]);
-
-  // Coordinacion de audio ASMR para cada aterrizaje de la caravana
-  useEffect(() => {
-    if (!caravanToRight) return;
+    if (caravanDir === 'idle') return;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    // Amarillo: primer explorador en cruzar dando saltos agiles
-    timers.push(setTimeout(() => playDroplet('amarillo', 1.1), 870));
-    timers.push(setTimeout(() => playDroplet('amarillo', 1.2), 1240));
-    timers.push(setTimeout(() => playSquish('amarillo', 1.0), 1600));
+    if (caravanDir === 'right') {
+      // Amarillo: primer explorador en cruzar dando saltos agiles (delay 0.25s)
+      timers.push(setTimeout(() => playDroplet('amarillo', 1.1), 450));
+      timers.push(setTimeout(() => playDroplet('amarillo', 1.2), 800));
+      timers.push(setTimeout(() => playSquish('amarillo', 1.0), 1400));
 
-    // Fucsia: segundo personaje en cruzar con rebotes acuosos
-    timers.push(setTimeout(() => playDroplet('fucsia', 1.0), 1070));
-    timers.push(setTimeout(() => playDroplet('fucsia', 1.1), 1440));
-    timers.push(setTimeout(() => playSquish('fucsia', 0.9), 1800));
+      // Fucsia: segundo personaje en cruzar con rebotes acuosos (delay 0.45s)
+      timers.push(setTimeout(() => playDroplet('fucsia', 1.0), 650));
+      timers.push(setTimeout(() => playDroplet('fucsia', 1.1), 1000));
+      timers.push(setTimeout(() => playSquish('fucsia', 0.9), 1600));
 
-    // Naranja: tercer personaje con saltitos ritmicos
-    timers.push(setTimeout(() => playDroplet('naranja', 1.0), 1270));
-    timers.push(setTimeout(() => playDroplet('naranja', 1.1), 1640));
-    timers.push(setTimeout(() => playSquish('naranja', 1.1), 2000));
+      // Morado: tercer personaje con aterrizaje pesado (delay 0.65s)
+      timers.push(setTimeout(() => playDroplet('morado', 1.0), 850));
+      timers.push(setTimeout(() => playDroplet('morado', 1.1), 1200));
+      timers.push(setTimeout(() => playSquish('morado', 1.3), 1800));
 
-    // Morado: ultimo personaje en cruzar con aterrizaje pesado y gomoso
-    timers.push(setTimeout(() => playDroplet('morado', 1.0), 1470));
-    timers.push(setTimeout(() => playDroplet('morado', 1.1), 1840));
-    timers.push(setTimeout(() => playSquish('morado', 1.3), 2200));
+      // Naranja: cuarto personaje con saltitos ritmicos (delay 0.85s)
+      timers.push(setTimeout(() => playDroplet('naranja', 1.0), 1050));
+      timers.push(setTimeout(() => playDroplet('naranja', 1.1), 1400));
+      timers.push(setTimeout(() => playSquish('naranja', 1.1), 2000));
+    } else if (caravanDir === 'left') {
+      // Regreso a la izquierda
+      timers.push(setTimeout(() => playDroplet('amarillo', 1.0), 450));
+      timers.push(setTimeout(() => playDroplet('amarillo', 1.1), 800));
+      timers.push(setTimeout(() => playSquish('amarillo', 1.0), 1400));
+
+      timers.push(setTimeout(() => playDroplet('fucsia', 1.0), 650));
+      timers.push(setTimeout(() => playDroplet('fucsia', 1.1), 1000));
+      timers.push(setTimeout(() => playSquish('fucsia', 0.9), 1600));
+
+      timers.push(setTimeout(() => playDroplet('morado', 1.0), 850));
+      timers.push(setTimeout(() => playDroplet('morado', 1.1), 1200));
+      timers.push(setTimeout(() => playSquish('morado', 1.3), 1800));
+
+      timers.push(setTimeout(() => playDroplet('naranja', 1.0), 1050));
+      timers.push(setTimeout(() => playDroplet('naranja', 1.1), 1400));
+      timers.push(setTimeout(() => playSquish('naranja', 1.1), 2000));
+    }
 
     return () => {
       timers.forEach(clearTimeout);
     };
-  }, [caravanToRight, playDroplet, playSquish]);
+  }, [caravanDir, playDroplet, playSquish]);
 
   // Coreografia del ojo de ver contrasena:
   // 1) abren los ojos 2) saltan 3 veces de alegria en su puesto (rebote aleatorio por personaje)
@@ -455,7 +483,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1.04534,
       scaleY: 1.5,
       origin: 'bottom right',
-      caravanShiftX: 540,
+      caravanShiftX: 730.625,
       character: moradoNode,
     },
     {
@@ -464,7 +492,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       zIndex: 20,
       scale: 1,
       origin: 'bottom left',
-      caravanShiftX: 680,
+      caravanShiftX: 502,
       character: fucsiaNode,
     },
     {
@@ -473,7 +501,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       zIndex: 30,
       scale: 1.12,
       origin: 'bottom left',
-      caravanShiftX: 680,
+      caravanShiftX: 224,
       character: amarilloNode,
     },
     {
@@ -483,7 +511,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1.408,
       scaleY: 1.472,
       origin: 'bottom left',
-      caravanShiftX: 752,
+      caravanShiftX: 930,
       character: naranjaNode,
     },
   ];
@@ -528,7 +556,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     },
   ];
 
-  const characterSlots: CharacterSlot[] = isMirrored ? mirroredSlots : loginSlots;
+  const characterSlots: CharacterSlot[] = mirrored ? mirroredSlots : loginSlots;
 
   useEffect(() => {
     window.addEventListener('mousemove', handleLook);
@@ -599,6 +627,13 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     }
   }
 
+  const caravanClass =
+    caravanDir === 'right'
+      ? styles.caravanWrapper
+      : caravanDir === 'left'
+      ? styles.caravanReturn
+      : '';
+
   return (
     <div
       ref={wrapRef}
@@ -634,7 +669,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
             } as React.CSSProperties}
           >
             <div
-              className={caravanToRight ? styles.caravanWrapper : ''}
+              className={caravanClass}
               style={{
                 ['--caravan-delay']: `${CARAVAN_DELAYS[index]}s`,
                 ['--caravan-x']: `${slot.caravanShiftX ?? 605}px`,
@@ -655,7 +690,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
         ))}
         <CuteTactileCanvas
           ref={tactileCanvasRef}
-          width={DESIGN_WIDTH}
+          width={DESIGN_WIDTH * 2}
           height={DESIGN_HEIGHT}
         />
       </div>
