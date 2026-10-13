@@ -28,89 +28,46 @@
 }
 
 .caravanWrapper {
-  animation: caravanMove 1.15s cubic-bezier(0.25, 0.9, 0.35, 1) var(--caravan-delay, 0s) both;
+  animation: caravanHop 1.15s cubic-bezier(0.25, 0.9, 0.35, 1) var(--caravan-delay, 0s) both;
   transform-origin: 50% 100%;
 }
 
-@keyframes caravanMove {
+@keyframes caravanHop {
   0% {
-    transform: translate(0, 0) scale(1, 1);
+    transform: translateY(0) scale(1, 1);
   }
-  /* Hop 1: primer salto elastico hacia la derecha */
-  8% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.13), 5px) scale(1.12, 0.88);
+  /* Hop 1: salto elastico con anticipacion */
+  10% {
+    transform: translateY(6px) scale(1.15, 0.85);
   }
-  18% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.33), -52px) scale(0.92, 1.12);
+  22% {
+    transform: translateY(-46px) scale(0.92, 1.12);
   }
-  28% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.5), 3px) scale(1.08, 0.92);
+  34% {
+    transform: translateY(3px) scale(1.08, 0.92);
   }
-  /* Hop 2: segundo salto intermedio */
-  36% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.6), 5px) scale(1.12, 0.88);
+  /* Hop 2: segundo salto alegre */
+  44% {
+    transform: translateY(5px) scale(1.12, 0.88);
   }
-  48% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.75), -62px) scale(0.92, 1.12);
+  56% {
+    transform: translateY(-56px) scale(0.9, 1.14);
   }
-  60% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.9), 3px) scale(1.08, 0.92);
-  }
-  /* Hop 3: tercer salto y asentamiento en el lado derecho */
   68% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.95), 4px) scale(1.1, 0.9);
+    transform: translateY(3px) scale(1.08, 0.92);
   }
-  80% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.99), -42px) scale(0.94, 1.08);
+  /* Hop 3: tercer salto y asentamiento suave */
+  76% {
+    transform: translateY(4px) scale(1.1, 0.9);
   }
-  92% {
-    transform: translate(calc(var(--caravan-x, 0px) * 1.02), 2px) scale(1.06, 0.94);
+  88% {
+    transform: translateY(-32px) scale(0.95, 1.06);
+  }
+  96% {
+    transform: translateY(2px) scale(1.04, 0.96);
   }
   100% {
-    transform: translate(var(--caravan-x, 0px), 0) scale(1, 1);
+    transform: translateY(0) scale(1, 1);
   }
 }
 
-.caravanReturn {
-  animation: caravanBack 1.15s cubic-bezier(0.25, 0.9, 0.35, 1) var(--caravan-delay, 0s) both;
-  transform-origin: 50% 100%;
-}
-
-@keyframes caravanBack {
-  0% {
-    transform: translate(var(--caravan-x, 0px), 0) scale(1, 1);
-  }
-  /* Hop 1 de regreso hacia la izquierda */
-  8% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.87), 5px) scale(1.12, 0.88);
-  }
-  18% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.67), -52px) scale(0.92, 1.12);
-  }
-  28% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.5), 3px) scale(1.08, 0.92);
-  }
-  /* Hop 2 intermedio */
-  36% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.4), 5px) scale(1.12, 0.88);
-  }
-  48% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.25), -62px) scale(0.92, 1.12);
-  }
-  60% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.1), 3px) scale(1.08, 0.92);
-  }
-  /* Hop 3 aterrizaje en el lado izquierdo */
-  68% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.05), 4px) scale(1.1, 0.9);
-  }
-  80% {
-    transform: translate(calc(var(--caravan-x, 0px) * 0.01), -42px) scale(0.94, 1.08);
-  }
-  92% {
-    transform: translate(-3px, 2px) scale(1.06, 0.94);
-  }
-  100% {
-    transform: translate(0, 0) scale(1, 1);
-  }
-}
