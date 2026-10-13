@@ -32,7 +32,7 @@ export default function CuteLoginPage() {
     (password.length > 0 && !emailFocused) ||
     (eyeInteracted && !emailFocused);
 
-  // Bloqueo estricto de scroll en móvil: mantiene la tarjeta firmemente arriba
+  // Bloqueo estricto de scroll en movil y escritorio: mantiene la pantalla 100% inmóvil
   const lockScrollToTop = () => {
     if (typeof window !== 'undefined') {
       window.scrollTo(0, 0);
@@ -43,16 +43,93 @@ export default function CuteLoginPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+    const originalHtmlTouchAction = document.documentElement.style.touchAction;
+    const originalHtmlHeight = document.documentElement.style.height;
+
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalBodyPosition = document.body.style.position;
+    const originalBodyWidth = document.body.style.width;
+    const originalBodyHeight = document.body.style.height;
+    const originalBodyOverscroll = document.body.style.overscrollBehavior;
+    const originalBodyTouchAction = document.body.style.touchAction;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+    document.documentElement.style.touchAction = 'none';
+    document.documentElement.style.height = '100%';
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.body.style.overscrollBehavior = 'none';
+    document.body.style.touchAction = 'none';
+
+    const preventTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        return;
+      }
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    const preventWheel = (e: WheelEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    const preventScrollKeys = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+      if (isInput) return;
+      const scrollKeys = ['Space', 'PageUp', 'PageDown', 'End', 'Home', 'ArrowUp', 'ArrowDown'];
+      if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+    };
+
     const handleScroll = () => {
       if (window.scrollY !== 0 || window.scrollX !== 0) {
         lockScrollToTop();
       }
     };
+
+    window.addEventListener('touchmove', preventTouchMove, { passive: false });
+    window.addEventListener('wheel', preventWheel, { passive: false });
+    window.addEventListener('keydown', preventScrollKeys);
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.visualViewport?.addEventListener('scroll', handleScroll);
+    window.visualViewport?.addEventListener('resize', handleScroll);
+
+    lockScrollToTop();
+
     return () => {
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.documentElement.style.overscrollBehavior = originalHtmlOverscroll;
+      document.documentElement.style.touchAction = originalHtmlTouchAction;
+      document.documentElement.style.height = originalHtmlHeight;
+
+      document.body.style.overflow = originalBodyOverflow;
+      document.body.style.position = originalBodyPosition;
+      document.body.style.width = originalBodyWidth;
+      document.body.style.height = originalBodyHeight;
+      document.body.style.overscrollBehavior = originalBodyOverscroll;
+      document.body.style.touchAction = originalBodyTouchAction;
+
+      window.removeEventListener('touchmove', preventTouchMove);
+      window.removeEventListener('wheel', preventWheel);
+      window.removeEventListener('keydown', preventScrollKeys);
       window.removeEventListener('scroll', handleScroll);
       window.visualViewport?.removeEventListener('scroll', handleScroll);
+      window.visualViewport?.removeEventListener('resize', handleScroll);
     };
   }, []);
 
@@ -88,7 +165,10 @@ export default function CuteLoginPage() {
   };
 
   return (
-    <main className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-manipulation sm:touch-auto relative">
+    <main
+      className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-none relative"
+      style={{ touchAction: 'none', overscrollBehavior: 'none' }}
+    >
       {/* Motor de cielo animado de la Unidad 4 */}
       <AnimatedSkyBackground theme="unit4" cloudSpeed={0.8} />
 
@@ -104,7 +184,7 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-10">
+        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-10 touch-none overscroll-none">
           <CuteCharactersStatic
             excited={emailFocused}
             shy={isPasswordActive}
@@ -122,7 +202,7 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO DERECHO: Formulario de Acceso Minimalista      */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-14 bg-white/60 backdrop-blur-xl backdrop-saturate-150 z-20 border-l border-white/40">
+        <div className="min-w-0 relative flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-14 bg-white/60 backdrop-blur-xl backdrop-saturate-150 z-20 border-l border-white/40 overflow-hidden touch-none overscroll-none">
           <div
             className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full ${
               isFieldFocused ? 'space-y-2.5 sm:space-y-6' : 'space-y-4 sm:space-y-6'
@@ -154,6 +234,7 @@ export default function CuteLoginPage() {
                     onFocus={() => handleInputFocus('email')}
                     onBlur={() => handleInputBlur('email')}
                     placeholder=""
+                    style={{ touchAction: 'manipulation' }}
                     className="w-full bg-transparent border-b border-slate-400/80 py-1.5 sm:py-2.5 text-[16px] sm:text-base text-slate-900 focus:outline-none focus:border-slate-900 transition-colors placeholder:text-slate-400"
                   />
                 </div>
@@ -182,6 +263,7 @@ export default function CuteLoginPage() {
                     onFocus={() => handleInputFocus('password')}
                     onBlur={() => handleInputBlur('password')}
                     placeholder=""
+                    style={{ touchAction: 'manipulation' }}
                     className="w-full bg-transparent border-b border-slate-400/80 py-1.5 sm:py-2.5 pr-8 sm:pr-10 text-[16px] sm:text-base text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
                   <button
@@ -222,6 +304,7 @@ export default function CuteLoginPage() {
                 ¿No tienes una cuenta?{' '}
                 <a
                   href="#signup"
+                  onClick={(e) => e.preventDefault()}
                   className="font-semibold text-slate-900 hover:underline cursor-pointer"
                 >
                   Regístrate
