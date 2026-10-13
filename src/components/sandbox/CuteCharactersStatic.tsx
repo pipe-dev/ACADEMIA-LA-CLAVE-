@@ -20,7 +20,7 @@ import {
   JELLY_PRESET_NARANJA,
 } from './useTactileJellyPhysics';
 import {CuteTactileCanvas, CuteTactileCanvasRef} from './CuteTactileCanvas';
-import {useJellyAsmrAudio} from '../../utils/useJellyAsmrAudio';
+import {useJellyAsmrAudio, CharacterId} from '../../utils/useJellyAsmrAudio';
 import styles from './CuteCharactersStatic.module.css';
 
 export type {CuteCharacterFucsiaAnimatedRef};
@@ -28,7 +28,6 @@ export type {CuteCharacterFucsiaAnimatedRef};
 export interface CuteCharactersStaticProps {
   className?: string;
   excited?: boolean;
-  nameFocused?: boolean;
   shy?: boolean;
   reveal?: boolean;
   error?: boolean;
@@ -40,11 +39,7 @@ export interface CuteCharactersStaticProps {
   emailValid?: boolean;
   submitHovered?: boolean;
   rememberChecked?: boolean;
-  mirrored?: boolean;
-  caravanToRight?: boolean;
 }
-
-const CARAVAN_DELAYS = [1.15, 0.75, 0.55, 0.95];
 
 /**
  * CuteCharactersStatic
@@ -65,13 +60,11 @@ interface CharacterSlot {
   scaleY?: number;
   origin: string;
   character: React.ReactNode;
-  caravanShiftX?: number;
 }
 
 export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   className = '',
   excited = false,
-  nameFocused = false,
   shy = false,
   reveal = false,
   error = false,
@@ -83,140 +76,98 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   emailValid = false,
   submitHovered = false,
   rememberChecked = false,
-  mirrored = false,
-  caravanToRight = false,
 }) => {
-  const isMirrored = mirrored || caravanToRight;
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [look, setLook] = useState({x: 0, y: 0});
-  // Seguimiento del cursor activo SOLO despues de que los 4 terminan el saludo
-  // (los asentidos terminan ~5.2s; liberamos un poco despues).
+  const [caravanKey, setCaravanKey] = useState(0);
+  const caravanAudibleRef = useRef(false);
+
+  // Seguimiento del cursor activo tras completar la caravana de entrada (~1.9s)
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setReady(true), 5400);
+    setReady(false);
+    const t = setTimeout(() => setReady(true), 1950);
     return () => clearTimeout(t);
-  }, []);
+  }, [caravanKey]);
 
   const {
+    getAudioContext,
     playSquish,
     playDroplet,
     playWinkPop,
     playValidationChime,
-    playHappyHop,
   } = useJellyAsmrAudio();
+
+  // Sonido de aterrizaje identico al toque táctil (Squish + Droplet / Bloop)
+  const playHopSound = useCallback(
+    (character: CharacterId, hopIndex: number) => {
+      const mult = hopIndex === 1 ? 0.92 : hopIndex === 3 ? 1.12 : 1.0;
+      playSquish(character, 1.0 * mult);
+      playDroplet(character, mult);
+    },
+    [playSquish, playDroplet]
+  );
+
+  // Verificacion de AudioContext y desbloqueo transparente en fase de captura
+  useEffect(() => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'running') {
+      caravanAudibleRef.current = true;
+    }
+
+    const unlockOnGesture = () => {
+      const activeCtx = getAudioContext();
+      if (activeCtx) {
+        activeCtx.resume().then(() => {
+          if (!caravanAudibleRef.current) {
+            caravanAudibleRef.current = true;
+            setCaravanKey((k) => k + 1);
+          }
+        }).catch(() => {});
+      }
+    };
+
+    const events = ['pointerdown', 'touchstart', 'mousedown', 'keydown'];
+    events.forEach((evt) => {
+      window.addEventListener(evt, unlockOnGesture, {capture: true, passive: true});
+    });
+
+    return () => {
+      events.forEach((evt) => {
+        window.removeEventListener(evt, unlockOnGesture, {capture: true});
+      });
+    };
+  }, [getAudioContext]);
+
+  // Sincronizacion de audio ASMR con los 3 aterrizajes agiles de cada personaje
+  useEffect(() => {
+    const soundTimers = [
+      // Morado (delays: 80ms + landings a 235ms, 568ms, 882ms)
+      setTimeout(() => playHopSound('morado', 1), 315),
+      setTimeout(() => playHopSound('morado', 2), 650),
+      setTimeout(() => playHopSound('morado', 3), 960),
+      // Fucsia (delays: 340ms + landings a 235ms, 568ms, 882ms)
+      setTimeout(() => playHopSound('fucsia', 1), 575),
+      setTimeout(() => playHopSound('fucsia', 2), 910),
+      setTimeout(() => playHopSound('fucsia', 3), 1220),
+      // Amarillo (delays: 600ms + landings a 235ms, 568ms, 882ms)
+      setTimeout(() => playHopSound('amarillo', 1), 835),
+      setTimeout(() => playHopSound('amarillo', 2), 1170),
+      setTimeout(() => playHopSound('amarillo', 3), 1480),
+      // Naranja (delays: 860ms + landings a 235ms, 568ms, 882ms)
+      setTimeout(() => playHopSound('naranja', 1), 1095),
+      setTimeout(() => playHopSound('naranja', 2), 1430),
+      setTimeout(() => playHopSound('naranja', 3), 1740),
+    ];
+    return () => soundTimers.forEach(clearTimeout);
+  }, [playHopSound, caravanKey]);
 
   const [blinkMorado, setBlinkMorado] = useState(false);
   const [blinkFucsia, setBlinkFucsia] = useState(false);
   const [blinkAmarillo, setBlinkAmarillo] = useState(false);
   const [blinkNaranja, setBlinkNaranja] = useState(false);
   const [winkAmarillo, setWinkAmarillo] = useState(false);
-
-  // Mirada atenta hacia la izquierda tras acomodarse en el lado derecho
-  const [settledGaze, setSettledGaze] = useState(false);
-
-  useEffect(() => {
-    if (caravanToRight) {
-      const timer = setTimeout(() => {
-        setSettledGaze(true);
-      }, 2450);
-      return () => {
-        clearTimeout(timer);
-      };
-    } else {
-      setSettledGaze(false);
-    }
-  }, [caravanToRight]);
-
-  // Coordinacion de audio ASMR para cada aterrizaje de la caravana
-  useEffect(() => {
-    if (!caravanToRight) return;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    // Amarillo: primer explorador en cruzar dando saltos agiles
-    timers.push(setTimeout(() => playDroplet('amarillo', 1.1), 870));
-    timers.push(setTimeout(() => playDroplet('amarillo', 1.2), 1240));
-    timers.push(setTimeout(() => playSquish('amarillo', 1.0), 1600));
-
-    // Fucsia: segundo personaje en cruzar con rebotes acuosos
-    timers.push(setTimeout(() => playDroplet('fucsia', 1.0), 1070));
-    timers.push(setTimeout(() => playDroplet('fucsia', 1.1), 1440));
-    timers.push(setTimeout(() => playSquish('fucsia', 0.9), 1800));
-
-    // Naranja: tercer personaje con saltitos ritmicos
-    timers.push(setTimeout(() => playDroplet('naranja', 1.0), 1270));
-    timers.push(setTimeout(() => playDroplet('naranja', 1.1), 1640));
-    timers.push(setTimeout(() => playSquish('naranja', 1.1), 2000));
-
-    // Morado: ultimo personaje en cruzar con aterrizaje pesado y gomoso
-    timers.push(setTimeout(() => playDroplet('morado', 1.0), 1470));
-    timers.push(setTimeout(() => playDroplet('morado', 1.1), 1840));
-    timers.push(setTimeout(() => playSquish('morado', 1.3), 2200));
-
-    return () => {
-      timers.forEach(clearTimeout);
-    };
-  }, [caravanToRight, playDroplet, playSquish]);
-
-  // Coreografia del ojo de ver contrasena:
-  // 1) abren los ojos 2) saltan 3 veces de alegria en su puesto (rebote aleatorio por personaje)
-  // 3) luego se estiran con progreso creciente hacia la clave y miran fijamente
-  const [see, setSee] = useState({armed: false, progress: 0});
-  const [jump, setJump] = useState<(number[] | null)[] | null>(null);
-
-  useEffect(() => {
-    if (!reveal) {
-      setSee({armed: false, progress: 0});
-      setJump(null);
-      return;
-    }
-
-    setJump([
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-      [-(24 + Math.random() * 24), 0.6 + Math.random() * 0.4, 0.05 + Math.random() * 0.28],
-    ]);
-    playHappyHop();
-
-    let rafId: number | null = null;
-    const t = setTimeout(() => {
-      setSee({armed: true, progress: 0});
-      let start: number | null = null;
-      const step = (now: number) => {
-        if (start === null) start = now;
-        const p = Math.min(1, (now - start) / 700);
-        setSee((prev) => ({...prev, progress: p}));
-        if (p < 1) {
-          rafId = requestAnimationFrame(step);
-        }
-      };
-      rafId = requestAnimationFrame(step);
-    }, 1150);
-
-    return () => {
-      clearTimeout(t);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
-  }, [reveal, playHappyHop]);
-
-  // Si se destapa el ojo con >=4 caracteres ya escritos, se acercan a mirar por 1.2s tras completar los 3 saltos
-  const [forcePeek, setForcePeek] = useState(false);
-
-  useEffect(() => {
-    if (reveal && passwordLength >= 4) {
-      const timerPeek = setTimeout(() => {
-        setForcePeek(true);
-        const timerBack = setTimeout(() => {
-          setForcePeek(false);
-        }, 1200);
-        return () => clearTimeout(timerBack);
-      }, 1150);
-      return () => clearTimeout(timerPeek);
-    } else {
-      setForcePeek(false);
-    }
-  }, [reveal, passwordLength >= 4]);
 
   const effShy = error ? 0 : reveal ? 0 : shy ? 1 : 0;
 
@@ -283,22 +234,15 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     prevRememberRef.current = rememberChecked;
   }, [rememberChecked, playWinkPop]);
 
-  // Progreso de acercamiento a la contrasena:
-  // 0 chars: 1.0 (miran de cerca)
-  // 1 char: 0.75
-  // 2 chars: 0.50
-  // 3 chars: 0.25
-  // 4+ chars: 0.0 (bien atras, en la posicion de reposo inicial)
-  const retreatRatio = forcePeek ? 1 : Math.max(0, 1 - passwordLength / 4);
-
+  // Al destapar el ojo de la contraseña, se inclinan con curiosidad hacia el campo
   const effExcited = error
     ? 0
     : reveal
-      ? (see.armed && retreatRatio > 0 ? 1 : 0)
+      ? 1
       : excited && !shy ? 1 : 0;
 
   const effProgress = reveal
-    ? (see.armed ? Math.min(see.progress, retreatRatio) : 0)
+    ? 0.75
     : typingProgress;
 
   const handleLook = (e: MouseEvent) => {
@@ -344,11 +288,11 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
 
   const handleMoradoTouch = useCallback(
     (clientX: number, clientY: number, active: boolean) => {
-      if (active) playSquish('morado', 1.1);
+      if (active) playHopSound('morado', 2);
       else playDroplet('morado');
       handleTouchPress(clientX, clientY, active);
     },
-    [playSquish, playDroplet, handleTouchPress]
+    [playHopSound, playDroplet, handleTouchPress]
   );
 
   const naranjaRef = useRef<CuteCharacterNaranjaRef>(null);
@@ -357,13 +301,13 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     (clientX: number, clientY: number, active: boolean) => {
       if (active) {
         naranjaRef.current?.poke();
-        playSquish('naranja', 1.0);
+        playHopSound('naranja', 2);
       } else {
         playDroplet('naranja');
       }
       handleTouchPress(clientX, clientY, active);
     },
-    [playSquish, playDroplet, handleTouchPress]
+    [playHopSound, playDroplet, handleTouchPress]
   );
 
   const fucsiaBlushRef = useRef<CuteCharacterFucsiaRef>(null);
@@ -372,22 +316,22 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     (clientX: number, clientY: number, active: boolean) => {
       if (active) {
         fucsiaBlushRef.current?.blush();
-        playSquish('fucsia', 1.0);
+        playHopSound('fucsia', 2);
       } else {
         playDroplet('fucsia');
       }
       handleTouchPress(clientX, clientY, active);
     },
-    [playSquish, playDroplet, handleTouchPress]
+    [playHopSound, playDroplet, handleTouchPress]
   );
 
   const handleAmarilloTouch = useCallback(
     (clientX: number, clientY: number, active: boolean) => {
-      if (active) playSquish('amarillo', 1.2);
+      if (active) playHopSound('amarillo', 2);
       else playDroplet('amarillo');
       handleTouchPress(clientX, clientY, active);
     },
-    [playSquish, playDroplet, handleTouchPress]
+    [playHopSound, playDroplet, handleTouchPress]
   );
 
   const moradoNode = (
@@ -447,7 +391,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     </CuteCharacterTactileCage>
   );
 
-  const loginSlots: CharacterSlot[] = [
+  const characterSlots: CharacterSlot[] = [
     {
       left: 144.375,
       bottom: 0,
@@ -455,7 +399,6 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1.04534,
       scaleY: 1.5,
       origin: 'bottom right',
-      caravanShiftX: 540,
       character: moradoNode,
     },
     {
@@ -464,16 +407,14 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       zIndex: 20,
       scale: 1,
       origin: 'bottom left',
-      caravanShiftX: 680,
       character: fucsiaNode,
     },
     {
       left: 440,
       bottom: 35,
-      zIndex: 30,
+      zIndex: 50,
       scale: 1.12,
       origin: 'bottom left',
-      caravanShiftX: 680,
       character: amarilloNode,
     },
     {
@@ -483,52 +424,9 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       scale: 1.408,
       scaleY: 1.472,
       origin: 'bottom left',
-      caravanShiftX: 752,
       character: naranjaNode,
     },
   ];
-
-  // Composicion espejo para la card de registro (blobs a la derecha mirando el formulario a la izquierda)
-  // Distribuidos armonica y simetricamente a lo largo del canvas de 640px:
-  // Amarillo en primer plano a la izquierda (cerca al formulario), Fucsia al medio, Morado alto detras, Naranja ancho en la esquina derecha.
-  const mirroredSlots: CharacterSlot[] = [
-    {
-      left: 235,
-      bottom: 0,
-      zIndex: 10,
-      scale: 1.04534,
-      scaleY: 1.5,
-      origin: 'bottom left',
-      character: moradoNode,
-    },
-    {
-      left: 156,
-      bottom: 30,
-      zIndex: 20,
-      scale: 1,
-      origin: 'bottom right',
-      character: fucsiaNode,
-    },
-    {
-      left: 24,
-      bottom: 35,
-      zIndex: 30,
-      scale: 1.12,
-      origin: 'bottom right',
-      character: amarilloNode,
-    },
-    {
-      left: 240,
-      bottom: 30.56,
-      zIndex: 40,
-      scale: 1.408,
-      scaleY: 1.472,
-      origin: 'bottom right',
-      character: naranjaNode,
-    },
-  ];
-
-  const characterSlots: CharacterSlot[] = isMirrored ? mirroredSlots : loginSlots;
 
   useEffect(() => {
     window.addEventListener('mousemove', handleLook);
@@ -552,67 +450,46 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  let finalLookX = 0;
-  let finalLookY = 0;
+  const finalLookX = submitHovered
+    ? 0.35
+    : reveal
+    ? 0.65
+    : excited
+    ? 0.65
+    : ready
+    ? look.x
+    : 0;
 
-  if (isMirrored) {
-    // Modo Registro (blobs a la derecha mirando el formulario a la izquierda)
-    if (caravanToRight && !settledGaze) {
-      // Durante el salto inicial hacia la derecha en la caravana
-      finalLookX = 0.4;
-      finalLookY = 0;
-    } else if (submitHovered) {
-      // Mirando hacia el boton "Crear cuenta" abajo a la izquierda
-      finalLookX = -0.65;
-      finalLookY = 0.65;
-    } else if (reveal && see.armed) {
-      // Mirando con atencion y curiosidad hacia la contrasena destapada a la izquierda
-      finalLookX = -0.75;
-      finalLookY = 0.15;
-    } else if (nameFocused) {
-      // Mirando hacia el campo Nombre arriba a la izquierda
-      finalLookX = -0.75;
-      finalLookY = -0.2;
-    } else if (excited) {
-      // Mirando hacia el campo Correo al centro a la izquierda
-      finalLookX = -0.75;
-      finalLookY = -0.05;
-    } else {
-      // Reposo atento en modo registro observando el formulario a la izquierda
-      finalLookX = -0.7;
-      finalLookY = 0.05;
-    }
-  } else {
-    // Modo Login
-    if (submitHovered) {
-      finalLookX = 0.35;
-      finalLookY = 0.65;
-    } else if (reveal && see.armed) {
-      finalLookX = 0.65;
-      finalLookY = 0.15;
-    } else if (excited) {
-      finalLookX = 0.65;
-      finalLookY = -0.1;
-    } else {
-      finalLookX = ready ? look.x : 0;
-      finalLookY = ready ? look.y : 0;
-    }
-  }
+  const finalLookY = submitHovered
+    ? 0.65
+    : reveal
+    ? 0.15
+    : excited
+    ? -0.1
+    : ready
+    ? look.y
+    : 0;
 
   return (
     <div
       ref={wrapRef}
-      className={`relative w-full select-none overflow-visible ${className}`}
-      style={{height: DESIGN_HEIGHT * scale}}
+      className={`relative w-full select-none pointer-events-none ${className}`}
+      style={{
+        height: DESIGN_HEIGHT * scale,
+        overflow: 'visible',
+        zIndex: 30,
+      }}
     >
       <div
-        className="absolute top-0 left-0 overflow-visible"
+        className="absolute top-0 left-0 pointer-events-none"
         style={{
           width: DESIGN_WIDTH,
           height: DESIGN_HEIGHT,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
-          ['--dir']: isMirrored ? -1 : 1,
+          overflow: 'visible',
+          zIndex: 30,
+          ['--dir']: 1,
           ['--look-x']: finalLookX,
           ['--look-y']: finalLookY,
           ['--shy']: effShy,
@@ -621,38 +498,34 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
           ['--typing-progress']: effProgress,
         } as React.CSSProperties}
       >
-        {characterSlots.map((slot, index) => (
-          <div
-            key={index}
-            className="absolute"
-            style={{
-              left: slot.left,
-              bottom: slot.bottom,
-              zIndex: slot.zIndex,
-              transform: `scale(${slot.scale}, ${slot.scaleY ?? slot.scale})`,
-              transformOrigin: slot.origin,
-            } as React.CSSProperties}
-          >
+        {characterSlots.map((slot, index) => {
+          const caravanClass =
+            index === 0
+              ? styles.hopMorado
+              : index === 1
+              ? styles.hopFucsia
+              : index === 2
+              ? styles.hopAmarillo
+              : styles.hopNaranja;
+
+          return (
             <div
-              className={caravanToRight ? styles.caravanWrapper : ''}
+              key={`${index}-${caravanKey}`}
+              className="absolute pointer-events-auto"
               style={{
-                ['--caravan-delay']: `${CARAVAN_DELAYS[index]}s`,
-                ['--caravan-x']: `${slot.caravanShiftX ?? 605}px`,
+                left: slot.left,
+                bottom: slot.bottom,
+                zIndex: slot.zIndex,
+                transform: `scale(${slot.scale}, ${slot.scaleY ?? slot.scale})`,
+                transformOrigin: slot.origin,
               } as React.CSSProperties}
             >
-              <div
-                className={reveal && jump ? styles.hopCage : ''}
-                style={{
-                  ['--hop-h']: jump?.[index]?.[0] ? `${jump[index][0]}px` : '-40px',
-                  ['--hop-dur']: jump?.[index]?.[1] ? `${jump[index][1]}s` : '0.7s',
-                  ['--hop-delay']: jump?.[index]?.[2] ? `${jump[index][2]}s` : '0s',
-                } as React.CSSProperties}
-              >
+              <div className={caravanClass}>
                 {slot.character}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <CuteTactileCanvas
           ref={tactileCanvasRef}
           width={DESIGN_WIDTH}
@@ -662,3 +535,4 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     </div>
   );
 };
+

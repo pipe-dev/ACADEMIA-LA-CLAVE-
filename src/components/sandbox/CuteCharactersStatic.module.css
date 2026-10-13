@@ -1,73 +1,171 @@
-.hopCage {
-  animation: blobHop var(--hop-dur, 0.7s) ease-in-out var(--hop-delay, 0s);
+/* Caravana de entrada: saltos más cortitos, dinámicos y vivos.
+   3 rebotes ágiles y elásticos con squash & stretch por cada personaje.
+   Valores explícitos en píxeles de diseño para máxima compatibilidad y aceleración GPU. */
+
+.hopMorado {
+  animation: caravanHopMorado 0.98s cubic-bezier(0.25, 0.9, 0.35, 1) 0.08s both;
   transform-origin: 50% 100%;
+  will-change: transform;
 }
 
-@keyframes blobHop {
-  0%, 100% {
-    transform: translate(0, 0);
+@keyframes caravanHopMorado {
+  0% {
+    transform: translateX(570px) translateY(0) scale(1, 1) rotate(0deg);
   }
   12% {
-    transform: translate(0, var(--hop-h, -40px));
+    transform: translateX(468px) translateY(-32px) scale(0.92, 1.1) rotate(-3deg);
   }
   24% {
-    transform: translate(0, 0);
+    transform: translateX(370px) translateY(0) scale(1.14, 0.88) rotate(0deg);
   }
-  40% {
-    transform: translate(0, calc(var(--hop-h, -40px) * 0.85));
+  30% {
+    transform: translateX(353px) translateY(-4px) scale(0.98, 1.03) rotate(0deg);
   }
-  52% {
-    transform: translate(0, 0);
-  }
-  68% {
-    transform: translate(0, calc(var(--hop-h, -40px) * 0.72));
-  }
-  80% {
-    transform: translate(0, 0);
-  }
-}
-
-.caravanWrapper {
-  animation: caravanHop 1.15s cubic-bezier(0.25, 0.9, 0.35, 1) var(--caravan-delay, 0s) both;
-  transform-origin: 50% 100%;
-}
-
-@keyframes caravanHop {
-  0% {
-    transform: translateY(0) scale(1, 1);
-  }
-  /* Hop 1: salto elastico con anticipacion */
-  10% {
-    transform: translateY(6px) scale(1.15, 0.85);
-  }
-  22% {
-    transform: translateY(-46px) scale(0.92, 1.12);
-  }
-  34% {
-    transform: translateY(3px) scale(1.08, 0.92);
-  }
-  /* Hop 2: segundo salto alegre */
   44% {
-    transform: translateY(5px) scale(1.12, 0.88);
+    transform: translateX(250px) translateY(-26px) scale(0.94, 1.08) rotate(-2deg);
   }
-  56% {
-    transform: translateY(-56px) scale(0.9, 1.14);
+  58% {
+    transform: translateX(160px) translateY(0) scale(1.12, 0.9) rotate(0deg);
   }
-  68% {
-    transform: translateY(3px) scale(1.08, 0.92);
+  64% {
+    transform: translateX(148px) translateY(-3px) scale(0.99, 1.02) rotate(0deg);
   }
-  /* Hop 3: tercer salto y asentamiento suave */
-  76% {
-    transform: translateY(4px) scale(1.1, 0.9);
+  78% {
+    transform: translateX(68px) translateY(-18px) scale(0.96, 1.05) rotate(-1deg);
   }
-  88% {
-    transform: translateY(-32px) scale(0.95, 1.06);
+  90% {
+    transform: translateX(0) translateY(0) scale(1.1, 0.92) rotate(0deg);
   }
-  96% {
-    transform: translateY(2px) scale(1.04, 0.96);
+  95% {
+    transform: translateX(0) translateY(-2px) scale(0.99, 1.01) rotate(0deg);
   }
   100% {
-    transform: translateY(0) scale(1, 1);
+    transform: translateX(0) translateY(0) scale(1, 1) rotate(0deg);
   }
 }
 
+.hopFucsia {
+  animation: caravanHopFucsia 0.98s cubic-bezier(0.25, 0.9, 0.35, 1) 0.34s both;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+
+@keyframes caravanHopFucsia {
+  0% {
+    transform: translateX(420px) translateY(0) scale(1, 1) rotate(0deg);
+  }
+  12% {
+    transform: translateX(344px) translateY(-32px) scale(0.92, 1.1) rotate(-3deg);
+  }
+  24% {
+    transform: translateX(273px) translateY(0) scale(1.14, 0.88) rotate(0deg);
+  }
+  30% {
+    transform: translateX(260px) translateY(-4px) scale(0.98, 1.03) rotate(0deg);
+  }
+  44% {
+    transform: translateX(185px) translateY(-26px) scale(0.94, 1.08) rotate(-2deg);
+  }
+  58% {
+    transform: translateX(118px) translateY(0) scale(1.12, 0.9) rotate(0deg);
+  }
+  64% {
+    transform: translateX(109px) translateY(-3px) scale(0.99, 1.02) rotate(0deg);
+  }
+  78% {
+    transform: translateX(50px) translateY(-18px) scale(0.96, 1.05) rotate(-1deg);
+  }
+  90% {
+    transform: translateX(0) translateY(0) scale(1.1, 0.92) rotate(0deg);
+  }
+  95% {
+    transform: translateX(0) translateY(-2px) scale(0.99, 1.01) rotate(0deg);
+  }
+  100% {
+    transform: translateX(0) translateY(0) scale(1, 1) rotate(0deg);
+  }
+}
+
+.hopAmarillo {
+  animation: caravanHopAmarillo 0.98s cubic-bezier(0.25, 0.9, 0.35, 1) 0.60s both;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+
+@keyframes caravanHopAmarillo {
+  0% {
+    transform: translateX(260px) translateY(0) scale(1, 1) rotate(0deg);
+  }
+  12% {
+    transform: translateX(213px) translateY(-32px) scale(0.92, 1.1) rotate(-3deg);
+  }
+  24% {
+    transform: translateX(169px) translateY(0) scale(1.14, 0.88) rotate(0deg);
+  }
+  30% {
+    transform: translateX(161px) translateY(-4px) scale(0.98, 1.03) rotate(0deg);
+  }
+  44% {
+    transform: translateX(114px) translateY(-26px) scale(0.94, 1.08) rotate(-2deg);
+  }
+  58% {
+    transform: translateX(73px) translateY(0) scale(1.12, 0.9) rotate(0deg);
+  }
+  64% {
+    transform: translateX(68px) translateY(-3px) scale(0.99, 1.02) rotate(0deg);
+  }
+  78% {
+    transform: translateX(31px) translateY(-18px) scale(0.96, 1.05) rotate(-1deg);
+  }
+  90% {
+    transform: translateX(0) translateY(0) scale(1.1, 0.92) rotate(0deg);
+  }
+  95% {
+    transform: translateX(0) translateY(-2px) scale(0.99, 1.01) rotate(0deg);
+  }
+  100% {
+    transform: translateX(0) translateY(0) scale(1, 1) rotate(0deg);
+  }
+}
+
+.hopNaranja {
+  animation: caravanHopNaranja 0.98s cubic-bezier(0.25, 0.9, 0.35, 1) 0.86s both;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+
+@keyframes caravanHopNaranja {
+  0% {
+    transform: translateX(730px) translateY(0) scale(1, 1) rotate(0deg);
+  }
+  12% {
+    transform: translateX(598px) translateY(-32px) scale(0.92, 1.1) rotate(-3deg);
+  }
+  24% {
+    transform: translateX(475px) translateY(0) scale(1.14, 0.88) rotate(0deg);
+  }
+  30% {
+    transform: translateX(453px) translateY(-4px) scale(0.98, 1.03) rotate(0deg);
+  }
+  44% {
+    transform: translateX(321px) translateY(-26px) scale(0.94, 1.08) rotate(-2deg);
+  }
+  58% {
+    transform: translateX(204px) translateY(0) scale(1.12, 0.9) rotate(0deg);
+  }
+  64% {
+    transform: translateX(190px) translateY(-3px) scale(0.99, 1.02) rotate(0deg);
+  }
+  78% {
+    transform: translateX(88px) translateY(-18px) scale(0.96, 1.05) rotate(-1deg);
+  }
+  90% {
+    transform: translateX(0) translateY(0) scale(1.1, 0.92) rotate(0deg);
+  }
+  95% {
+    transform: translateX(0) translateY(-2px) scale(0.99, 1.01) rotate(0deg);
+  }
+  100% {
+    transform: translateX(0) translateY(0) scale(1, 1) rotate(0deg);
+  }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useRef} from 'react';
+import {useCallback, useEffect, useRef} from 'react';
 
 export type CharacterId = 'morado' | 'fucsia' | 'amarillo' | 'naranja';
 
@@ -43,13 +43,81 @@ const ACOUSTIC_PROFILES: Record<CharacterId, CharacterAcousticProfile> = {
   },
 };
 
+interface BubbleProfile {
+  startFreq: number;
+  endFreq: number;
+  noiseFilterFreq: number;
+  vol: number;
+}
+
+const BUBBLE_PROFILES: Record<CharacterId, BubbleProfile> = {
+  morado: {
+    startFreq: 260,
+    endFreq: 390,
+    noiseFilterFreq: 750,
+    vol: 0.12,
+  },
+  fucsia: {
+    startFreq: 370,
+    endFreq: 550,
+    noiseFilterFreq: 1100,
+    vol: 0.13,
+  },
+  amarillo: {
+    startFreq: 520,
+    endFreq: 780,
+    noiseFilterFreq: 1500,
+    vol: 0.11,
+  },
+  naranja: {
+    startFreq: 310,
+    endFreq: 470,
+    noiseFilterFreq: 900,
+    vol: 0.13,
+  },
+};
+
 export interface UseJellyAsmrAudioReturn {
+  getAudioContext: () => AudioContext | null;
   playSquish: (character: CharacterId, intensity?: number, stretch?: number) => void;
   playDroplet: (character: CharacterId, pitchMultiplier?: number) => void;
+  playBubbleHop: (character: CharacterId, hopNumber?: number) => void;
   playWinkPop: () => void;
   playValidationChime: () => void;
   playHappyHop: () => void;
   playSlideTransition: () => void;
+}
+
+let globalAudioCtx: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  if (!globalAudioCtx) {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as {webkitAudioContext: typeof AudioContext})
+        .webkitAudioContext;
+    if (!AudioCtx) return null;
+    globalAudioCtx = new AudioCtx();
+  }
+  if (globalAudioCtx.state === 'suspended') {
+    globalAudioCtx.resume().catch(() => {});
+  }
+  return globalAudioCtx;
+}
+
+// Desbloqueo pasivo global inmediato en la fase de captura (antes de cualquier stopPropagation)
+if (typeof window !== 'undefined') {
+  const globalUnlock = () => {
+    if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+      globalAudioCtx.resume().catch(() => {});
+    } else if (!globalAudioCtx) {
+      getSharedAudioContext();
+    }
+  };
+  ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((evt) => {
+    window.addEventListener(evt, globalUnlock, {capture: true, passive: true});
+  });
 }
 
 /**
@@ -59,23 +127,10 @@ export interface UseJellyAsmrAudioReturn {
  * totalmente cualquier sonido electronico o de sintetizador artificial.
  */
 export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const pinkNoiseBufferRef = useRef<AudioBuffer | null>(null);
 
   const getAudioContext = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    if (!audioCtxRef.current) {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as {webkitAudioContext: typeof AudioContext})
-          .webkitAudioContext;
-      if (!AudioCtx) return null;
-      audioCtxRef.current = new AudioCtx();
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-    return audioCtxRef.current;
+    return getSharedAudioContext();
   }, []);
 
   const getPinkNoiseBuffer = useCallback((ctx: AudioContext): AudioBuffer => {
@@ -127,7 +182,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
         noiseFilter.Q.setValueAtTime(2.2, now);
 
         const noiseGain = ctx.createGain();
-        const noisePeak = 0.045 * clampedIntensity;
+        const noisePeak = 0.055 * clampedIntensity;
         noiseGain.gain.setValueAtTime(0.0001, now);
         noiseGain.gain.linearRampToValueAtTime(noisePeak, now + 0.002);
         noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.016);
@@ -151,7 +206,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
           now + 0.065
         );
 
-        const oscPeak = 0.12 * clampedIntensity;
+        const oscPeak = 0.15 * clampedIntensity;
         oscGain.gain.setValueAtTime(0.0001, now);
         oscGain.gain.linearRampToValueAtTime(oscPeak, now + 0.005);
         oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
@@ -193,7 +248,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
         osc.frequency.exponentialRampToValueAtTime(endF, now + 0.015);
 
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.linearRampToValueAtTime(0.11, now + 0.003);
+        gain.gain.linearRampToValueAtTime(0.16, now + 0.003);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
         osc.connect(gain);
@@ -209,7 +264,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
         harmOsc.frequency.exponentialRampToValueAtTime(endF * 2, now + 0.015);
 
         harmGain.gain.setValueAtTime(0.0001, now);
-        harmGain.gain.linearRampToValueAtTime(0.02, now + 0.003);
+        harmGain.gain.linearRampToValueAtTime(0.035, now + 0.003);
         harmGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
 
         harmOsc.connect(harmGain);
@@ -333,6 +388,94 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
   }, [getAudioContext]);
 
   /**
+   * Salto con sonido de burbuja jugosa y pop de gelatina organica (Enfoque 2)
+   * Sintesis procedural Minnaert con chirp ascendente rapido (18ms), amortiguamiento
+   * elastico y micro-transiente de friccion fisica (ruido rosa filtrado).
+   * Micro-afinacion segun el numero de salto:
+   * 1: Tono ligeramente mas profundo (0.92x)
+   * 2: Tono medio jugoso (1.00x)
+   * 3: Pop mas redondo y brillante (1.10x)
+   */
+  const playBubbleHop = useCallback(
+    (character: CharacterId, hopNumber = 1) => {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const profile = BUBBLE_PROFILES[character];
+        if (!profile) return;
+
+        const hopMultiplier =
+          hopNumber === 1 ? 0.92 : hopNumber === 3 ? 1.10 : 1.0;
+
+        const startF = profile.startFreq * hopMultiplier;
+        const endF = profile.endFreq * hopMultiplier;
+        const dur = 0.058;
+
+        // 1. Transiente de impacto jugoso (3ms - 4ms de ruido rosa filtrado por paso bajo)
+        const noiseBuf = getPinkNoiseBuffer(ctx);
+        const noiseSrc = ctx.createBufferSource();
+        noiseSrc.buffer = noiseBuf;
+
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.setValueAtTime(profile.noiseFilterFreq, now);
+
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.0001, now);
+        noiseGain.gain.linearRampToValueAtTime(0.038 * (profile.vol / 0.12), now + 0.0015);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.012);
+
+        noiseSrc.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+
+        noiseSrc.start(now);
+        noiseSrc.stop(now + 0.016);
+
+        // 2. Cavidad de fluido Minnaert: chirp ascendente rapido y curva exponencial amortiguada
+        const osc = ctx.createOscillator();
+        const oscGain = ctx.createGain();
+        osc.type = 'sine';
+
+        osc.frequency.setValueAtTime(startF, now);
+        osc.frequency.exponentialRampToValueAtTime(endF, now + 0.018);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(80, endF * 0.92), now + dur);
+
+        const peakVol = profile.vol;
+        oscGain.gain.setValueAtTime(0.0001, now);
+        oscGain.gain.linearRampToValueAtTime(peakVol, now + 0.003);
+        oscGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        osc.connect(oscGain);
+        oscGain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + dur + 0.01);
+
+        // 3. Armonico superior calido (brillo de gelatina liquida / pop)
+        const harmOsc = ctx.createOscillator();
+        const harmGain = ctx.createGain();
+        harmOsc.type = 'sine';
+
+        harmOsc.frequency.setValueAtTime(startF * 1.88, now);
+        harmOsc.frequency.exponentialRampToValueAtTime(endF * 1.88, now + 0.016);
+
+        harmGain.gain.setValueAtTime(0.0001, now);
+        harmGain.gain.linearRampToValueAtTime(peakVol * 0.22, now + 0.002);
+        harmGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.032);
+
+        harmOsc.connect(harmGain);
+        harmGain.connect(ctx.destination);
+
+        harmOsc.start(now);
+        harmOsc.stop(now + 0.036);
+      } catch {}
+    },
+    [getAudioContext, getPinkNoiseBuffer]
+  );
+
+  /**
    * Micro-deslizamiento acustico suave para la transicion de registro
    */
   const playSlideTransition = useCallback(() => {
@@ -367,8 +510,10 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
   }, [getAudioContext, getPinkNoiseBuffer]);
 
   return {
+    getAudioContext,
     playSquish,
     playDroplet,
+    playBubbleHop,
     playWinkPop,
     playValidationChime,
     playHappyHop,
