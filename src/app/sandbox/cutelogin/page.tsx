@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic';
 import { AnimatedSkyBackground } from '@/components/sandbox/AnimatedSkyBackground';
+import { simulateOnePixelTouch } from '@/utils/useJellyAsmrAudio';
 import styles from './CuteLogin.module.css';
 
 /**
@@ -40,6 +41,21 @@ export default function CuteLoginPage() {
       document.documentElement.scrollTop = 0;
     }
   };
+
+  // Simulación imperativa de toque en píxel microscópico inmediatamente al cargar
+  useEffect(() => {
+    simulateOnePixelTouch();
+    const timers = [
+      setTimeout(simulateOnePixelTouch, 20),
+      setTimeout(simulateOnePixelTouch, 60),
+      setTimeout(simulateOnePixelTouch, 150),
+      setTimeout(simulateOnePixelTouch, 300),
+      setTimeout(simulateOnePixelTouch, 600),
+      setTimeout(simulateOnePixelTouch, 1000),
+      setTimeout(simulateOnePixelTouch, 1600),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -173,6 +189,35 @@ export default function CuteLoginPage() {
       className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-none relative"
       style={{ touchAction: 'none', overscrollBehavior: 'none' }}
     >
+      {/* Pixel microscópico de 1px para activación táctil automática de audio */}
+      <button
+        id="audio-activator-pixel"
+        type="button"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => simulateOnePixelTouch()}
+        onTouchStart={() => simulateOnePixelTouch()}
+        onPointerDown={() => simulateOnePixelTouch()}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: 0,
+          border: 'none',
+          outline: 'none',
+          opacity: 0.001,
+          pointerEvents: 'auto',
+          zIndex: 999999,
+          background: 'transparent',
+          overflow: 'hidden',
+          cursor: 'default',
+          transform: 'translateZ(0)',
+        }}
+      />
+
       {/* Motor de cielo animado con ciclo de dia dinamico aleatorio (~7s por fase) */}
       <AnimatedSkyBackground
         theme="unit4"
