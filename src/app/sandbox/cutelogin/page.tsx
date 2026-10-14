@@ -189,7 +189,7 @@ export default function CuteLoginPage() {
       {splashActive && (
         <div
           onClick={handleDismissSplash}
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0F172A] select-none cursor-pointer p-4 transition-opacity duration-300"
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#4648D4] select-none cursor-pointer p-4 transition-opacity duration-300"
           style={{ touchAction: 'none' }}
         >
           <button
@@ -198,7 +198,7 @@ export default function CuteLoginPage() {
               e.stopPropagation();
               handleDismissSplash();
             }}
-            className="px-8 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-lg sm:text-xl bg-white text-[#0F172A] shadow-[0_10px_35px_rgba(255,255,255,0.25)] hover:scale-105 active:scale-95 transition-all cursor-pointer tracking-wide"
+            className="px-8 py-4 sm:px-10 sm:py-5 rounded-full font-extrabold text-lg sm:text-xl bg-[#6CF8BB] hover:bg-[#5ae6aa] text-[#004D32] shadow-[0_12px_36px_rgba(0,0,0,0.25)] hover:scale-105 active:scale-95 transition-all cursor-pointer tracking-wide"
           >
             Toca aquí
           </button>
