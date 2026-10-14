@@ -643,15 +643,16 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
         const profile = CARTOON_SQUEAK_PROFILES[character];
         if (!profile) return;
 
-        const dur = 0.065;
+        const dur = 0.058;
         const osc = ctx.createOscillator();
         const oscGain = ctx.createGain();
         const filter = ctx.createBiquadFilter();
 
         osc.type = 'triangle';
 
-        // Tono ascendente elástico que sube según cuánto se estira (stretchProgress: 0.2 a 1.5)
-        const mult = 1 + Math.min(1.2, stretchProgress) * 0.6;
+        // Tono ascendente elástico que sube marcadamente a medida que se estira más
+        // stretchProgress crece con la distancia (0.4 -> 3.5+) permitiendo agudos comicos continuos
+        const mult = 1 + Math.pow(Math.max(0.1, stretchProgress), 1.12) * 0.88;
         const startF = profile.startFreq * mult;
         const endF = profile.peakFreq * mult * 1.08;
 
@@ -659,12 +660,14 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
         osc.frequency.exponentialRampToValueAtTime(endF, now + dur);
 
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(Math.min(3500, profile.filterFreq * 1.2), now);
+        // Ampliamos el filtro armónico para que los tonos más agudos brillen con claridad
+        const maxFilter = Math.min(8500, profile.filterFreq * (1 + (mult - 1) * 0.72));
+        filter.frequency.setValueAtTime(maxFilter, now);
 
-        // Volumen suave para que sea un feedback placentero sin saturar
-        const vol = profile.vol * 0.75;
+        // Volumen suave y graduado para mantener el feedback comico sin saturacion
+        const vol = Math.min(0.15, profile.vol * (0.75 + Math.min(1.5, mult - 1) * 0.15));
         oscGain.gain.setValueAtTime(0.0001, now);
-        oscGain.gain.linearRampToValueAtTime(vol, now + 0.006);
+        oscGain.gain.linearRampToValueAtTime(vol, now + 0.005);
         oscGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
         osc.connect(filter);

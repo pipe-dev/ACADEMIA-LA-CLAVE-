@@ -106,17 +106,24 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
         const dy = e.clientY - dragStartRef.current.y;
         updateDrag(dx, dy);
 
-        // Estiramiento vertical hacia arriba (-dy positivo)
-        const upwardDist = Math.max(0, -dy);
-        const stretchProgress = Math.min(1.5, upwardDist / 60);
+        // Estiramiento vertical hacia arriba (-dy positivo) o diagonal elastico
+        const stretchDist = Math.max(
+          Math.max(0, -dy),
+          Math.hypot(Math.abs(dx) * 0.65, Math.max(0, -dy * 1.1))
+        );
+        // Progreso continuo sin limite prematuro para permitir notas cada vez mas agudas
+        const stretchProgress = Math.max(0.2, stretchDist / 45);
 
-        // Deteccion de paso por umbrales de estiramiento (~22px) con throttle de 90ms
-        const bucket = Math.floor(upwardDist / 22);
+        // Deteccion de paso por umbrales de estiramiento (~18px) con throttle
+        const bucket = Math.floor(stretchDist / 18);
         const now = performance.now();
-        if (bucket > 0 && bucket !== lastStretchBucketRef.current && (now - lastStretchTimeRef.current > 90)) {
+        if (bucket > lastStretchBucketRef.current && (now - lastStretchTimeRef.current > 70)) {
           lastStretchBucketRef.current = bucket;
           lastStretchTimeRef.current = now;
           onStretchProgress?.(stretchProgress);
+        } else if (bucket < lastStretchBucketRef.current) {
+          // Permite que al reducir y volver a estirar vuelva a escalar la escala de agudos
+          lastStretchBucketRef.current = bucket;
         }
 
         onPressMove?.(e.clientX, e.clientY);

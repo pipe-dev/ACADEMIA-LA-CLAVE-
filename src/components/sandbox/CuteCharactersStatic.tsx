@@ -102,13 +102,26 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     playValidationChime,
   } = useJellyAsmrAudio();
 
-  // Sonido de aterrizaje caricaturesco y esponjoso con rebote boing
+  // Sonido de entrada: preserva los efectos originales de impacto liquido y gomoso (droplet + squish)
+  // combinados con el nuevo rebote elastico caricaturesco (cartoon boing)
   const playHopSound = useCallback(
     (character: CharacterId, hopIndex: number) => {
-      const mult = hopIndex === 1 ? 0.88 : hopIndex === 3 ? 1.15 : 1.0;
-      playCartoonBoing(character, 0.85 * mult);
+      const mult = hopIndex === 1 ? 0.92 : hopIndex === 3 ? 1.2 : 1.05;
+
+      // Efectos de entrada originales conservados:
+      if (hopIndex === 3) {
+        // Aterrizaje final en el suelo: compresion de gel suave + gota de agua
+        playSquish(character, 1.05);
+        playDroplet(character, 1.15);
+      } else {
+        // Saltos intermedios: gota y burbuja liquida
+        playDroplet(character, mult);
+      }
+
+      // Efecto actual caricaturesco conservado:
+      playCartoonBoing(character, 0.78 * mult);
     },
-    [playCartoonBoing]
+    [playSquish, playDroplet, playCartoonBoing]
   );
 
   // Verificacion de AudioContext y desbloqueo transparente en fase de captura
