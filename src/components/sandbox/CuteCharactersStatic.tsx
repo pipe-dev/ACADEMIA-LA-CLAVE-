@@ -20,7 +20,7 @@ import {
   JELLY_PRESET_NARANJA,
 } from './useTactileJellyPhysics';
 import {CuteTactileCanvas, CuteTactileCanvasRef} from './CuteTactileCanvas';
-import {useJellyAsmrAudio, simulateOnePixelTouch, CharacterId} from '../../utils/useJellyAsmrAudio';
+import {useJellyAsmrAudio, CharacterId} from '../../utils/useJellyAsmrAudio';
 import styles from './CuteCharactersStatic.module.css';
 
 export type {CuteCharacterFucsiaAnimatedRef};
@@ -108,7 +108,6 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   // sumados al sonido caricaturesco actual (Cartoon Boing elástico)
   const playHopSound = useCallback(
     (character: CharacterId, hopIndex: number) => {
-      simulateOnePixelTouch();
       const mult = hopIndex === 1 ? 0.92 : hopIndex === 3 ? 1.12 : 1.0;
 
       // 1. Sonidos exactos de la versión pasada (Squish de gel suave + Droplet de agua Minnaert en cada salto)
@@ -154,7 +153,6 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
 
   // Sincronizacion directa de audio con los 3 aterrizajes agiles de cada personaje al entrar
   useEffect(() => {
-    simulateOnePixelTouch();
     const soundTimers = [
       // Morado (delays: 80ms + landings a 235ms, 568ms, 882ms)
       setTimeout(() => playHopSound('morado', 1), 315),

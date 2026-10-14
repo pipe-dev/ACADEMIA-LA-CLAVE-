@@ -163,13 +163,11 @@ export interface UseJellyAsmrAudioReturn {
   playHappyHop: () => void;
   playSlideTransition: () => void;
   playErrorGlitch: () => void;
-  simulateOnePixelTouch: () => void;
 }
 
 let globalAudioCtx: AudioContext | null = null;
 let silentAudioEl: HTMLAudioElement | null = null;
 let mediaStreamAudioEl: HTMLAudioElement | null = null;
-let pixelActivatorEl: HTMLElement | null = null;
 
 // Audio inaudible de 1 muestra (WAV válido ultra-ligero)
 const SILENT_WAV_BASE64 =
@@ -225,7 +223,7 @@ function unlockWebAudio(ctx: AudioContext) {
   } catch {}
 }
 
-function getSharedAudioContext(): AudioContext | null {
+export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   if (!globalAudioCtx) {
     const AudioCtx =
@@ -261,183 +259,19 @@ export function runWithAudioContext(callback: (ctx: AudioContext) => void) {
   }
 }
 
-/**
- * Simula de forma imperativa e inmediata un toque y clic físico en un píxel
- * microscópico de 1px para desbloquear de forma automática el AudioContext del navegador
- * y la sesión de audio móvil iOS/Android sin requerir acción previa visible del usuario.
- */
-export function simulateOnePixelTouch(): void {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  try {
-    const forceActive = () => {
-      const ctx = getSharedAudioContext();
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
-      activatePlaybackCategory(ctx);
-    };
-
-    // 1. Localizar o inyectar el nodo microscópico de 1px en el DOM
-    if (!pixelActivatorEl) {
-      const existing = document.getElementById('audio-activator-pixel');
-      if (existing) {
-        pixelActivatorEl = existing;
-      } else if (document.body) {
-        const btn = document.createElement('button');
-        btn.id = 'audio-activator-pixel';
-        btn.type = 'button';
-        btn.setAttribute('aria-hidden', 'true');
-        btn.tabIndex = -1;
-        btn.style.position = 'fixed';
-        btn.style.top = '0';
-        btn.style.left = '0';
-        btn.style.width = '1px';
-        btn.style.height = '1px';
-        btn.style.padding = '0';
-        btn.style.margin = '0';
-        btn.style.border = 'none';
-        btn.style.outline = 'none';
-        btn.style.opacity = '0.001';
-        btn.style.pointerEvents = 'auto';
-        btn.style.zIndex = '999999';
-        btn.style.background = 'transparent';
-        btn.style.overflow = 'hidden';
-        btn.style.cursor = 'default';
-        btn.style.transform = 'translateZ(0)';
-
-        ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click'].forEach((evt) => {
-          btn.addEventListener(evt, forceActive, {passive: true});
-        });
-
-        document.body.appendChild(btn);
-        pixelActivatorEl = btn;
-      }
-    }
-
-    // 2. Desbloqueo y activación directa del contexto
-    forceActive();
-
-    // 3. Simulación de eventos táctiles y de puntero en el píxel
-    const targetEl = pixelActivatorEl || document.getElementById('audio-activator-pixel');
-    if (targetEl) {
-      // PointerEvent táctil
-      try {
-        if (typeof PointerEvent !== 'undefined') {
-          targetEl.dispatchEvent(
-            new PointerEvent('pointerdown', {
-              bubbles: true,
-              cancelable: true,
-              pointerId: 1,
-              pointerType: 'touch',
-              isPrimary: true,
-              clientX: 0.5,
-              clientY: 0.5,
-              screenX: 0.5,
-              screenY: 0.5,
-            })
-          );
-          targetEl.dispatchEvent(
-            new PointerEvent('pointerup', {
-              bubbles: true,
-              cancelable: true,
-              pointerId: 1,
-              pointerType: 'touch',
-              isPrimary: true,
-              clientX: 0.5,
-              clientY: 0.5,
-              screenX: 0.5,
-              screenY: 0.5,
-            })
-          );
-        }
-      } catch {}
-
-      // TouchEvent móvil nativo
-      try {
-        if (typeof Touch !== 'undefined' && typeof TouchEvent !== 'undefined') {
-          const touchObj = new Touch({
-            identifier: Date.now(),
-            target: targetEl,
-            clientX: 0.5,
-            clientY: 0.5,
-            screenX: 0.5,
-            screenY: 0.5,
-            pageX: 0.5,
-            pageY: 0.5,
-          });
-          targetEl.dispatchEvent(
-            new TouchEvent('touchstart', {
-              bubbles: true,
-              cancelable: true,
-              touches: [touchObj],
-              targetTouches: [touchObj],
-              changedTouches: [touchObj],
-            })
-          );
-          targetEl.dispatchEvent(
-            new TouchEvent('touchend', {
-              bubbles: true,
-              cancelable: true,
-              touches: [],
-              targetTouches: [],
-              changedTouches: [touchObj],
-            })
-          );
-        }
-      } catch {
-        try {
-          const touchEvt = document.createEvent('UIEvent');
-          touchEvt.initUIEvent('touchstart', true, true, window, 1);
-          targetEl.dispatchEvent(touchEvt);
-        } catch {}
-      }
-
-      // MouseEvent y click nativo del elemento
-      try {
-        targetEl.dispatchEvent(
-          new MouseEvent('mousedown', {
-            bubbles: true,
-            cancelable: true,
-            clientX: 0.5,
-            clientY: 0.5,
-          })
-        );
-        targetEl.dispatchEvent(
-          new MouseEvent('mouseup', {
-            bubbles: true,
-            cancelable: true,
-            clientX: 0.5,
-            clientY: 0.5,
-          })
-        );
-        targetEl.dispatchEvent(
-          new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            clientX: 0.5,
-            clientY: 0.5,
-          })
-        );
-        if (typeof targetEl.click === 'function') {
-          targetEl.click();
-        }
-      } catch {}
-    }
-  } catch {}
-}
-
-// Desbloqueo y activación inmediata en cualquier interacción o carga del documento
+// Desbloqueo y activación inmediata en cualquier interacción física del usuario
 if (typeof window !== 'undefined') {
-  ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click'].forEach((evt) => {
-    window.addEventListener(evt, () => simulateOnePixelTouch(), {capture: true, passive: true});
-  });
+  const forceAudioActive = () => {
+    const ctx = getSharedAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    activatePlaybackCategory(ctx);
+  };
 
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    simulateOnePixelTouch();
-  } else {
-    window.addEventListener('DOMContentLoaded', () => simulateOnePixelTouch());
-    window.addEventListener('load', () => simulateOnePixelTouch());
-  }
+  ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click'].forEach((evt) => {
+    window.addEventListener(evt, forceAudioActive, {capture: true, passive: true});
+  });
 }
 
 /**
@@ -1099,7 +933,6 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
 
   return {
     getAudioContext,
-    simulateOnePixelTouch,
     playCartoonSqueak,
     playCartoonStretch,
     playCartoonBoing,

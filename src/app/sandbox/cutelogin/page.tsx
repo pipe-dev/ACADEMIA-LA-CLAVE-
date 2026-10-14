@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic';
 import { AnimatedSkyBackground } from '@/components/sandbox/AnimatedSkyBackground';
-import { simulateOnePixelTouch } from '@/utils/useJellyAsmrAudio';
+import { getSharedAudioContext } from '@/utils/useJellyAsmrAudio';
 import styles from './CuteLogin.module.css';
 
 /**
@@ -13,6 +13,7 @@ import styles from './CuteLogin.module.css';
  * Derecha: Formulario de inicio de sesión limpio y minimalista
  */
 export default function CuteLoginPage() {
+  const [splashActive, setSplashActive] = useState(true);
   const [email, setEmail] = useState('');
   const [emailFocused, setEmailFocused] = useState(false);
   const [password, setPassword] = useState('');
@@ -33,6 +34,16 @@ export default function CuteLoginPage() {
     (password.length > 0 && !emailFocused) ||
     (eyeInteracted && !emailFocused);
 
+  const handleDismissSplash = () => {
+    try {
+      const ctx = getSharedAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    } catch {}
+    setSplashActive(false);
+  };
+
   // Bloqueo estricto de scroll en movil y escritorio: mantiene la pantalla 100% inmóvil
   const lockScrollToTop = () => {
     if (typeof window !== 'undefined') {
@@ -41,21 +52,6 @@ export default function CuteLoginPage() {
       document.documentElement.scrollTop = 0;
     }
   };
-
-  // Simulación imperativa de toque en píxel microscópico inmediatamente al cargar
-  useEffect(() => {
-    simulateOnePixelTouch();
-    const timers = [
-      setTimeout(simulateOnePixelTouch, 20),
-      setTimeout(simulateOnePixelTouch, 60),
-      setTimeout(simulateOnePixelTouch, 150),
-      setTimeout(simulateOnePixelTouch, 300),
-      setTimeout(simulateOnePixelTouch, 600),
-      setTimeout(simulateOnePixelTouch, 1000),
-      setTimeout(simulateOnePixelTouch, 1600),
-    ];
-    return () => timers.forEach(clearTimeout);
-  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -189,34 +185,25 @@ export default function CuteLoginPage() {
       className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-none relative"
       style={{ touchAction: 'none', overscrollBehavior: 'none' }}
     >
-      {/* Pixel microscópico de 1px para activación táctil automática de audio */}
-      <button
-        id="audio-activator-pixel"
-        type="button"
-        aria-hidden="true"
-        tabIndex={-1}
-        onClick={() => simulateOnePixelTouch()}
-        onTouchStart={() => simulateOnePixelTouch()}
-        onPointerDown={() => simulateOnePixelTouch()}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '1px',
-          height: '1px',
-          padding: 0,
-          margin: 0,
-          border: 'none',
-          outline: 'none',
-          opacity: 0.001,
-          pointerEvents: 'auto',
-          zIndex: 999999,
-          background: 'transparent',
-          overflow: 'hidden',
-          cursor: 'default',
-          transform: 'translateZ(0)',
-        }}
-      />
+      {/* Splash inicial de un solo color plano de la paleta con botón en contraste */}
+      {splashActive && (
+        <div
+          onClick={handleDismissSplash}
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0F172A] select-none cursor-pointer p-4 transition-opacity duration-300"
+          style={{ touchAction: 'none' }}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDismissSplash();
+            }}
+            className="px-8 py-4 sm:px-10 sm:py-5 rounded-full font-bold text-lg sm:text-xl bg-white text-[#0F172A] shadow-[0_10px_35px_rgba(255,255,255,0.25)] hover:scale-105 active:scale-95 transition-all cursor-pointer tracking-wide"
+          >
+            Toca aquí
+          </button>
+        </div>
+      )}
 
       {/* Motor de cielo animado con ciclo de dia dinamico aleatorio (~7s por fase) */}
       <AnimatedSkyBackground
@@ -241,18 +228,20 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-30 touch-none overscroll-none pointer-events-none">
           <div className="w-full max-w-[560px] pointer-events-auto">
-            <CuteCharactersStatic
-              excited={emailFocused}
-              shy={isPasswordActive}
-              reveal={showPassword}
-              passwordLength={password.length}
-              error={wrong}
-              typing={emailFocused && email.length > 0}
-              typingProgress={Math.min(email.length / 7, 1)}
-              emailValid={isEmailValid}
-              submitHovered={submitHovered}
-              className="w-full max-w-[560px]"
-            />
+            {!splashActive && (
+              <CuteCharactersStatic
+                excited={emailFocused}
+                shy={isPasswordActive}
+                reveal={showPassword}
+                passwordLength={password.length}
+                error={wrong}
+                typing={emailFocused && email.length > 0}
+                typingProgress={Math.min(email.length / 7, 1)}
+                emailValid={isEmailValid}
+                submitHovered={submitHovered}
+                className="w-full max-w-[560px]"
+              />
+            )}
           </div>
         </div>
 
