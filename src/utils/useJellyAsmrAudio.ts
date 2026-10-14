@@ -153,6 +153,7 @@ const CARTOON_BOING_PROFILES: Record<CharacterId, CartoonBoingProfile> = {
 export interface UseJellyAsmrAudioReturn {
   getAudioContext: () => AudioContext | null;
   playCartoonSqueak: (character: CharacterId, volumeMultiplier?: number) => void;
+  playCartoonStretch: (character: CharacterId, stretchProgress?: number) => void;
   playCartoonBoing: (character: CharacterId, intensity?: number) => void;
   playSquish: (character: CharacterId, intensity?: number, stretch?: number) => void;
   playDroplet: (character: CharacterId, pitchMultiplier?: number) => void;
@@ -630,6 +631,54 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
   );
 
   /**
+   * Sonido caricaturesco de estiramiento elástico (Mientras se arrastra / estira hacia arriba)
+   * Tensión cómica de goma que sube de tono elásticamente según la distancia
+   */
+  const playCartoonStretch = useCallback(
+    (character: CharacterId, stretchProgress = 0.5) => {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const profile = CARTOON_SQUEAK_PROFILES[character];
+        if (!profile) return;
+
+        const dur = 0.065;
+        const osc = ctx.createOscillator();
+        const oscGain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc.type = 'triangle';
+
+        // Tono ascendente elástico que sube según cuánto se estira (stretchProgress: 0.2 a 1.5)
+        const mult = 1 + Math.min(1.2, stretchProgress) * 0.6;
+        const startF = profile.startFreq * mult;
+        const endF = profile.peakFreq * mult * 1.08;
+
+        osc.frequency.setValueAtTime(startF, now);
+        osc.frequency.exponentialRampToValueAtTime(endF, now + dur);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(Math.min(3500, profile.filterFreq * 1.2), now);
+
+        // Volumen suave para que sea un feedback placentero sin saturar
+        const vol = profile.vol * 0.75;
+        oscGain.gain.setValueAtTime(0.0001, now);
+        oscGain.gain.linearRampToValueAtTime(vol, now + 0.006);
+        oscGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        osc.connect(filter);
+        filter.connect(oscGain);
+        oscGain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + dur + 0.01);
+      } catch {}
+    },
+    [getAudioContext]
+  );
+
+  /**
    * Boing elástico oscilante con vibrato de resorte de gelatina (Al estirar y soltar)
    * Escala dinámicamente con la intensidad y distancia de estiramiento
    */
@@ -711,6 +760,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
   return {
     getAudioContext,
     playCartoonSqueak,
+    playCartoonStretch,
     playCartoonBoing,
     playSquish,
     playDroplet,

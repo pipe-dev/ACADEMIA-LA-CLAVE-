@@ -94,6 +94,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   const {
     getAudioContext,
     playCartoonSqueak,
+    playCartoonStretch,
     playCartoonBoing,
     playSquish,
     playDroplet,
@@ -272,7 +273,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     []
   );
 
-  const handleTouchPress = useCallback(
+  const handleTouchGlow = useCallback(
     (clientX: number, clientY: number, active: boolean) => {
       const el = wrapRef.current;
       if (!el) return;
@@ -286,65 +287,139 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     []
   );
 
-  const handleMoradoTouch = useCallback(
-    (clientX: number, clientY: number, active: boolean, stretchIntensity = 1) => {
-      if (active) {
-        playCartoonSqueak('morado');
-      } else {
-        playCartoonBoing('morado', stretchIntensity);
-      }
-      handleTouchPress(clientX, clientY, active);
+  const handlePressMove = useCallback(
+    (clientX: number, clientY: number) => {
+      handleTouchGlow(clientX, clientY, true);
     },
-    [playCartoonSqueak, playCartoonBoing, handleTouchPress]
+    [handleTouchGlow]
   );
 
+  // Morado
+  const handleMoradoPressStart = useCallback(
+    (clientX: number, clientY: number) => {
+      playCartoonSqueak('morado');
+      handleTouchGlow(clientX, clientY, true);
+    },
+    [playCartoonSqueak, handleTouchGlow]
+  );
+
+  const handleMoradoStretch = useCallback(
+    (progress: number) => {
+      playCartoonStretch('morado', progress);
+    },
+    [playCartoonStretch]
+  );
+
+  const handleMoradoPressEnd = useCallback(
+    (clientX: number, clientY: number, intensity: number, isTap: boolean) => {
+      if (isTap) {
+        playCartoonSqueak('morado', 0.85);
+      } else {
+        playCartoonBoing('morado', intensity);
+      }
+      handleTouchGlow(clientX, clientY, false);
+    },
+    [playCartoonSqueak, playCartoonBoing, handleTouchGlow]
+  );
+
+  // Naranja
   const naranjaRef = useRef<CuteCharacterNaranjaRef>(null);
 
-  const handleNaranjaTouch = useCallback(
-    (clientX: number, clientY: number, active: boolean, stretchIntensity = 1) => {
-      if (active) {
-        naranjaRef.current?.poke();
-        playCartoonSqueak('naranja');
-      } else {
-        playCartoonBoing('naranja', stretchIntensity);
-      }
-      handleTouchPress(clientX, clientY, active);
+  const handleNaranjaPressStart = useCallback(
+    (clientX: number, clientY: number) => {
+      naranjaRef.current?.poke();
+      playCartoonSqueak('naranja');
+      handleTouchGlow(clientX, clientY, true);
     },
-    [playCartoonSqueak, playCartoonBoing, handleTouchPress]
+    [playCartoonSqueak, handleTouchGlow]
   );
 
+  const handleNaranjaStretch = useCallback(
+    (progress: number) => {
+      playCartoonStretch('naranja', progress);
+    },
+    [playCartoonStretch]
+  );
+
+  const handleNaranjaPressEnd = useCallback(
+    (clientX: number, clientY: number, intensity: number, isTap: boolean) => {
+      if (isTap) {
+        playCartoonSqueak('naranja', 0.85);
+      } else {
+        playCartoonBoing('naranja', intensity);
+      }
+      handleTouchGlow(clientX, clientY, false);
+    },
+    [playCartoonSqueak, playCartoonBoing, handleTouchGlow]
+  );
+
+  // Fucsia
   const fucsiaBlushRef = useRef<CuteCharacterFucsiaRef>(null);
 
-  const handleFucsiaTouch = useCallback(
-    (clientX: number, clientY: number, active: boolean, stretchIntensity = 1) => {
-      if (active) {
-        fucsiaBlushRef.current?.blush();
-        playCartoonSqueak('fucsia');
-      } else {
-        playCartoonBoing('fucsia', stretchIntensity);
-      }
-      handleTouchPress(clientX, clientY, active);
+  const handleFucsiaPressStart = useCallback(
+    (clientX: number, clientY: number) => {
+      fucsiaBlushRef.current?.blush();
+      playCartoonSqueak('fucsia');
+      handleTouchGlow(clientX, clientY, true);
     },
-    [playCartoonSqueak, playCartoonBoing, handleTouchPress]
+    [playCartoonSqueak, handleTouchGlow]
   );
 
-  const handleAmarilloTouch = useCallback(
-    (clientX: number, clientY: number, active: boolean, stretchIntensity = 1) => {
-      if (active) {
-        playCartoonSqueak('amarillo');
-      } else {
-        playCartoonBoing('amarillo', stretchIntensity);
-      }
-      handleTouchPress(clientX, clientY, active);
+  const handleFucsiaStretch = useCallback(
+    (progress: number) => {
+      playCartoonStretch('fucsia', progress);
     },
-    [playCartoonSqueak, playCartoonBoing, handleTouchPress]
+    [playCartoonStretch]
+  );
+
+  const handleFucsiaPressEnd = useCallback(
+    (clientX: number, clientY: number, intensity: number, isTap: boolean) => {
+      if (isTap) {
+        playCartoonSqueak('fucsia', 0.85);
+      } else {
+        playCartoonBoing('fucsia', intensity);
+      }
+      handleTouchGlow(clientX, clientY, false);
+    },
+    [playCartoonSqueak, playCartoonBoing, handleTouchGlow]
+  );
+
+  // Amarillo
+  const handleAmarilloPressStart = useCallback(
+    (clientX: number, clientY: number) => {
+      playCartoonSqueak('amarillo');
+      handleTouchGlow(clientX, clientY, true);
+    },
+    [playCartoonSqueak, handleTouchGlow]
+  );
+
+  const handleAmarilloStretch = useCallback(
+    (progress: number) => {
+      playCartoonStretch('amarillo', progress);
+    },
+    [playCartoonStretch]
+  );
+
+  const handleAmarilloPressEnd = useCallback(
+    (clientX: number, clientY: number, intensity: number, isTap: boolean) => {
+      if (isTap) {
+        playCartoonSqueak('amarillo', 0.85);
+      } else {
+        playCartoonBoing('amarillo', intensity);
+      }
+      handleTouchGlow(clientX, clientY, false);
+    },
+    [playCartoonSqueak, playCartoonBoing, handleTouchGlow]
   );
 
   const moradoNode = (
     <CuteCharacterTactileCage
       config={JELLY_PRESET_MORADO}
       onRippleTrigger={handleRippleTrigger}
-      onTouchPress={handleMoradoTouch}
+      onPressStart={handleMoradoPressStart}
+      onPressMove={handlePressMove}
+      onStretchProgress={handleMoradoStretch}
+      onPressEnd={handleMoradoPressEnd}
     >
       <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
     </CuteCharacterTactileCage>
@@ -354,7 +429,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     <CuteCharacterTactileCage
       config={JELLY_PRESET_FUCSIA}
       onRippleTrigger={handleRippleTrigger}
-      onTouchPress={handleFucsiaTouch}
+      onPressStart={handleFucsiaPressStart}
+      onPressMove={handlePressMove}
+      onStretchProgress={handleFucsiaStretch}
+      onPressEnd={handleFucsiaPressEnd}
     >
       <CharacterFucsia
         error={error}
@@ -370,7 +448,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     <CuteCharacterTactileCage
       config={JELLY_PRESET_AMARILLO}
       onRippleTrigger={handleRippleTrigger}
-      onTouchPress={handleAmarilloTouch}
+      onPressStart={handleAmarilloPressStart}
+      onPressMove={handlePressMove}
+      onStretchProgress={handleAmarilloStretch}
+      onPressEnd={handleAmarilloPressEnd}
     >
       <CharacterAmarillo
         typing={typing}
@@ -386,7 +467,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     <CuteCharacterTactileCage
       config={JELLY_PRESET_NARANJA}
       onRippleTrigger={handleRippleTrigger}
-      onTouchPress={handleNaranjaTouch}
+      onPressStart={handleNaranjaPressStart}
+      onPressMove={handlePressMove}
+      onStretchProgress={handleNaranjaStretch}
+      onPressEnd={handleNaranjaPressEnd}
     >
       <CharacterNaranja
         ref={naranjaRef}

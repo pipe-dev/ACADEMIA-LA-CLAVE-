@@ -27,7 +27,10 @@ export interface CuteCharacterTactileCageProps {
   children: React.ReactNode;
   config: JellyPhysicsConfig;
   onRippleTrigger?: (originX: number, originY: number, intensity: number) => void;
-  onTouchPress?: (x: number, y: number, active: boolean, stretchIntensity?: number) => void;
+  onPressStart?: (clientX: number, clientY: number) => void;
+  onPressMove?: (clientX: number, clientY: number) => void;
+  onStretchProgress?: (stretchProgress: number) => void;
+  onPressEnd?: (clientX: number, clientY: number, stretchIntensity: number, isTap: boolean) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -36,12 +39,17 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
   children,
   config,
   onRippleTrigger,
-  onTouchPress,
+  onPressStart,
+  onPressMove,
+  onStretchProgress,
+  onPressEnd,
   className = '',
   style = {},
 }) => {
   const cageRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{x: number; y: number; time: number} | null>(null);
+  const lastStretchBucketRef = useRef<number>(0);
+  const lastStretchTimeRef = useRef<number>(0);
 
   const {
     state,
@@ -80,11 +88,13 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
         y: e.clientY,
         time: performance.now(),
       };
+      lastStretchBucketRef.current = 0;
+      lastStretchTimeRef.current = performance.now();
 
       startDrag(e.clientX, e.clientY);
-      onTouchPress?.(e.clientX, e.clientY, true);
+      onPressStart?.(e.clientX, e.clientY);
     },
-    [startDrag, onTouchPress]
+    [startDrag, onPressStart]
   );
 
   const handlePointerMove = useCallback(
@@ -95,14 +105,28 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
         const dx = e.clientX - dragStartRef.current.x;
         const dy = e.clientY - dragStartRef.current.y;
         updateDrag(dx, dy);
-        onTouchPress?.(e.clientX, e.clientY, true);
+
+        // Estiramiento vertical hacia arriba (-dy positivo)
+        const upwardDist = Math.max(0, -dy);
+        const stretchProgress = Math.min(1.5, upwardDist / 60);
+
+        // Deteccion de paso por umbrales de estiramiento (~22px) con throttle de 90ms
+        const bucket = Math.floor(upwardDist / 22);
+        const now = performance.now();
+        if (bucket > 0 && bucket !== lastStretchBucketRef.current && (now - lastStretchTimeRef.current > 90)) {
+          lastStretchBucketRef.current = bucket;
+          lastStretchTimeRef.current = now;
+          onStretchProgress?.(stretchProgress);
+        }
+
+        onPressMove?.(e.clientX, e.clientY);
       } else if (coords.width > 0) {
         // Hover: direccion normalizada de -1 (izq) a 1 (der)
         const dir = (coords.x - coords.width / 2) / (coords.width / 2);
         triggerHover(dir);
       }
     },
-    [getLocalCoords, updateDrag, triggerHover, onTouchPress]
+    [getLocalCoords, updateDrag, triggerHover, onPressMove, onStretchProgress]
   );
 
   const handlePointerUp = useCallback(
@@ -125,35 +149,34 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
         if (duration < 240 && dist < 14) {
           // Tap / Poke directo
           triggerPoke(0.24);
-          onTouchPress?.(e.clientX, e.clientY, false, 0.5);
+          onPressEnd?.(e.clientX, e.clientY, 0.5, true);
           onRippleTrigger?.(e.clientX, e.clientY, 1.0);
         } else {
           // Suelta de arrastre elastico
           releaseDrag();
-          const intensity = Math.min(1.5, Math.max(0.4, dist / 80));
-          onTouchPress?.(e.clientX, e.clientY, false, intensity);
+          const intensity = Math.min(1.6, Math.max(0.4, dist / 75));
+          onPressEnd?.(e.clientX, e.clientY, intensity, false);
           if (dist > 18) {
             onRippleTrigger?.(e.clientX, e.clientY, intensity);
           }
         }
       } else {
-        onTouchPress?.(e.clientX, e.clientY, false, 0.5);
+        onPressEnd?.(e.clientX, e.clientY, 0.5, false);
         releaseDrag();
       }
 
       dragStartRef.current = null;
     },
-    [onTouchPress, triggerPoke, releaseDrag, onRippleTrigger]
+    [onPressEnd, triggerPoke, releaseDrag, onRippleTrigger]
   );
 
   const handlePointerCancel = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       dragStartRef.current = null;
-      const coords = getLocalCoords(e.clientX, e.clientY);
-      onTouchPress?.(coords.x, coords.y, false);
+      onPressEnd?.(e.clientX, e.clientY, 0.5, false);
       releaseDrag();
     },
-    [getLocalCoords, onTouchPress, releaseDrag]
+    [onPressEnd, releaseDrag]
   );
 
   const handlePointerLeave = useCallback(() => {
