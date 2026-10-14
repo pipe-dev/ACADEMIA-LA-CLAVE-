@@ -31,19 +31,19 @@
   - `stopVocalTension(character: CharacterId): void`
   - `playVocalComplainBurst(character: CharacterId, intensity?: number): void`
 
-- [ ] **Step 1: Define vocal formant acoustic profiles**
+- [x] **Step 1: Define vocal formant acoustic profiles**
 Add `VOCAL_FORMANT_PROFILES` with F0 base, F0 max, F1 base/max, F2 base/max, Q factors, and shiver rate for `morado`, `fucsia`, `amarillo`, and `naranja`.
 
-- [ ] **Step 2: Implement continuous vocal tension synth (`startVocalTension`, `updateVocalTension`, `stopVocalTension`)**
+- [x] **Step 2: Implement continuous vocal tension synth (`startVocalTension`, `updateVocalTension`, `stopVocalTension`)**
 Create persistent voice nodes tracking each character so active dragging dynamically bends the pitch, formants, and LFO shiver without creating new audio nodes on every mousemove.
 
-- [ ] **Step 3: Implement cartoon complaint burst (`playVocalComplainBurst`)**
+- [x] **Step 3: Implement cartoon complaint burst (`playVocalComplainBurst`)**
 Build short (180ms) expressive vocal burst with rapid formant glide and cooldown tracking (450ms).
 
-- [ ] **Step 4: Typecheck changes**
+- [x] **Step 4: Typecheck changes**
 Run `npx tsc --noEmit` to verify type safety.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 `git add src/utils/useJellyAsmrAudio.ts; git commit -m "feat(audio): add procedural vocal formant engine for character complaints"`
 
 ---
@@ -57,19 +57,19 @@ Run `npx tsc --noEmit` to verify type safety.
 - Consumes: `onVocalTensionStart?: (character: CharacterId) => void`, `onVocalTensionUpdate?: (character: CharacterId, dy: number, dx: number) => void`, `onVocalTensionStop?: (character: CharacterId) => void`
 - Produces: callbacks triggered on `pointerdown`, `pointermove`, and `pointerup`
 
-- [ ] **Step 1: Add vocal interaction callbacks to `CuteCharacterTactileCageProps`**
+- [x] **Step 1: Add vocal interaction callbacks to `CuteCharacterTactileCageProps`**
 Extend interface with `onDragTension?: (dy: number, dx: number, isInitial?: boolean) => void` and `onDragRelease?: () => void`.
 
-- [ ] **Step 2: Connect callbacks into `handlePointerDown`, `handlePointerMove`, and `handlePointerUp`**
+- [x] **Step 2: Connect callbacks into `handlePointerDown`, `handlePointerMove`, and `handlePointerUp`**
 Notify parent of `dy` and `dx` during active drag, passing 0 on release.
 
-- [ ] **Step 3: Verify no regression in physical jelly response**
+- [x] **Step 3: Verify no regression in physical jelly response**
 Ensure spring simulation, tilt, skew, and ripples work identically.
 
-- [ ] **Step 4: Typecheck changes**
+- [x] **Step 4: Typecheck changes**
 Run `npx tsc --noEmit` to verify type safety.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 `git add src/components/sandbox/CuteCharacterTactileCage.tsx; git commit -m "feat(sandbox): integrate drag tension callbacks in CuteCharacterTactileCage"`
 
 ---
@@ -83,16 +83,16 @@ Run `npx tsc --noEmit` to verify type safety.
 - Consumes: `startVocalTension`, `updateVocalTension`, `stopVocalTension`, `playVocalComplainBurst` from `useJellyAsmrAudio`
 - Produces: Character-specific vocal bindings for Morado, Fucsia, Amarillo, and Naranja
 
-- [ ] **Step 1: Connect vocal hooks to each character's `CuteCharacterTactileCage`**
+- [x] **Step 1: Connect vocal hooks to each character's `CuteCharacterTactileCage`**
 Wire `onDragTension` and `onDragRelease` for `moradoNode`, `fucsiaNode`, `amarilloNode`, and `naranjaNode`.
 
-- [ ] **Step 2: Add burst complaint threshold logic**
+- [x] **Step 2: Add burst complaint threshold logic**
 Detect when `|dy| > 70px` or rapid velocity occurs to trigger `playVocalComplainBurst(character)`.
 
-- [ ] **Step 3: Typecheck changes**
+- [x] **Step 3: Typecheck changes**
 Run `npx tsc --noEmit` to verify type safety.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 `git add src/components/sandbox/CuteCharactersStatic.tsx; git commit -m "feat(sandbox): wire character vocal complaints to tactile drag states"`
 
 ---
@@ -102,11 +102,11 @@ Run `npx tsc --noEmit` to verify type safety.
 **Files:**
 - Check: All modified files and live endpoints
 
-- [ ] **Step 1: Run full TypeScript compilation**
+- [x] **Step 1: Run full TypeScript compilation**
 Execute `npx tsc --noEmit` and confirm 0 errors.
 
-- [ ] **Step 2: Test local and tunnel HTTP endpoints**
+- [x] **Step 2: Test local and tunnel HTTP endpoints**
 Confirm HTTP 200 on port 9005 and Cloudflare tunnel.
 
-- [ ] **Step 3: Document completion and summary**
+- [x] **Step 3: Document completion and summary**
 Provide clean, concise confirmation to user with zero emojis.
