@@ -166,6 +166,52 @@ export interface UseJellyAsmrAudioReturn {
 }
 
 let globalAudioCtx: AudioContext | null = null;
+let silentAudioEl: HTMLAudioElement | null = null;
+let mediaStreamAudioEl: HTMLAudioElement | null = null;
+
+// Audio inaudible de 1 muestra (WAV válido ultra-ligero)
+const SILENT_WAV_BASE64 =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+/**
+ * Activa la categoría 'Playback' a nivel de sistema operativo en iOS Safari y Android.
+ * Esto anula el interruptor físico de silencio / Focus Mode / No Molestar en celulares,
+ * garantizando que los sonidos se reproduzcan siempre a través de los altavoces multimedia.
+ */
+function activatePlaybackCategory(ctx?: AudioContext | null) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (!silentAudioEl) {
+      silentAudioEl = document.createElement('audio');
+      silentAudioEl.src = SILENT_WAV_BASE64;
+      silentAudioEl.loop = true;
+      silentAudioEl.volume = 0.01;
+      silentAudioEl.setAttribute('playsinline', 'true');
+      silentAudioEl.setAttribute('webkit-playsinline', 'true');
+      silentAudioEl.style.position = 'fixed';
+      silentAudioEl.style.pointerEvents = 'none';
+      silentAudioEl.style.opacity = '0';
+      silentAudioEl.style.width = '1px';
+      silentAudioEl.style.height = '1px';
+      silentAudioEl.style.bottom = '0';
+      document.body?.appendChild(silentAudioEl);
+    }
+    silentAudioEl.play().catch(() => {});
+
+    // En iOS Safari, conectar un MediaStream asegura la categoría Playback en WebKit
+    if (ctx && !mediaStreamAudioEl && typeof ctx.createMediaStreamDestination === 'function') {
+      try {
+        const dest = ctx.createMediaStreamDestination();
+        mediaStreamAudioEl = document.createElement('audio');
+        mediaStreamAudioEl.srcObject = dest.stream;
+        mediaStreamAudioEl.setAttribute('playsinline', 'true');
+        mediaStreamAudioEl.setAttribute('webkit-playsinline', 'true');
+        mediaStreamAudioEl.volume = 0.01;
+        mediaStreamAudioEl.play().catch(() => {});
+      } catch {}
+    }
+  } catch {}
+}
 
 function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -180,21 +226,29 @@ function getSharedAudioContext(): AudioContext | null {
   if (globalAudioCtx.state === 'suspended') {
     globalAudioCtx.resume().catch(() => {});
   }
+  activatePlaybackCategory(globalAudioCtx);
   return globalAudioCtx;
 }
 
-// Desbloqueo pasivo global inmediato en la fase de captura (antes de cualquier stopPropagation)
+// Desbloqueo y activación inmediata en cualquier interacción o carga del documento
 if (typeof window !== 'undefined') {
-  const globalUnlock = () => {
-    if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
-      globalAudioCtx.resume().catch(() => {});
-    } else if (!globalAudioCtx) {
-      getSharedAudioContext();
+  const forceAudioActive = () => {
+    const ctx = getSharedAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
+    activatePlaybackCategory(ctx);
   };
-  ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((evt) => {
-    window.addEventListener(evt, globalUnlock, {capture: true, passive: true});
+
+  ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click'].forEach((evt) => {
+    window.addEventListener(evt, forceAudioActive, {capture: true, passive: true});
   });
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    forceAudioActive();
+  } else {
+    window.addEventListener('DOMContentLoaded', forceAudioActive);
+  }
 }
 
 /**
