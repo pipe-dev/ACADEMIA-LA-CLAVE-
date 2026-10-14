@@ -97,6 +97,10 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     playDroplet,
     playWinkPop,
     playValidationChime,
+    startVocalTension,
+    updateVocalTension,
+    stopVocalTension,
+    playVocalComplainBurst,
   } = useJellyAsmrAudio();
 
   // Sonido de aterrizaje identico al toque táctil (Squish + Droplet / Bloop)
@@ -334,11 +338,43 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     [playHopSound, playDroplet, handleTouchPress]
   );
 
+  // Control vocal de tension y quejidos procedurales al estirar/comprimir
+  const handleDragTension = useCallback(
+    (character: CharacterId, dy: number, dx: number, isInitial = false) => {
+      if (isInitial) {
+        startVocalTension(character, dy);
+        return;
+      }
+      updateVocalTension(character, dy, dx);
+
+      // Si el estiramiento es muy pronunciado o rápido, disparar quejido expresivo (burst)
+      const absDy = Math.abs(dy);
+      if (absDy > 75) {
+        const intensity = Math.min(1.8, Math.max(1.0, absDy / 80));
+        playVocalComplainBurst(character, intensity);
+      }
+    },
+    [startVocalTension, updateVocalTension, playVocalComplainBurst]
+  );
+
+  const handleDragRelease = useCallback(
+    (character: CharacterId, dist: number, _duration: number) => {
+      stopVocalTension(character);
+      // Si se soltó tras una tensión considerable, pequeño quejido/suspiro de rebote
+      if (dist > 90) {
+        playVocalComplainBurst(character, 0.85);
+      }
+    },
+    [stopVocalTension, playVocalComplainBurst]
+  );
+
   const moradoNode = (
     <CuteCharacterTactileCage
       config={JELLY_PRESET_MORADO}
       onRippleTrigger={handleRippleTrigger}
       onTouchPress={handleMoradoTouch}
+      onDragTension={(dy, dx, isInitial) => handleDragTension('morado', dy, dx, isInitial)}
+      onDragRelease={(dist, duration) => handleDragRelease('morado', dist, duration)}
     >
       <CharacterMorado typing={typing} error={error} blink={blinkMorado} />
     </CuteCharacterTactileCage>
@@ -349,6 +385,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       config={JELLY_PRESET_FUCSIA}
       onRippleTrigger={handleRippleTrigger}
       onTouchPress={handleFucsiaTouch}
+      onDragTension={(dy, dx, isInitial) => handleDragTension('fucsia', dy, dx, isInitial)}
+      onDragRelease={(dist, duration) => handleDragRelease('fucsia', dist, duration)}
     >
       <CharacterFucsia
         error={error}
@@ -365,6 +403,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       config={JELLY_PRESET_AMARILLO}
       onRippleTrigger={handleRippleTrigger}
       onTouchPress={handleAmarilloTouch}
+      onDragTension={(dy, dx, isInitial) => handleDragTension('amarillo', dy, dx, isInitial)}
+      onDragRelease={(dist, duration) => handleDragRelease('amarillo', dist, duration)}
     >
       <CharacterAmarillo
         typing={typing}
@@ -381,6 +421,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       config={JELLY_PRESET_NARANJA}
       onRippleTrigger={handleRippleTrigger}
       onTouchPress={handleNaranjaTouch}
+      onDragTension={(dy, dx, isInitial) => handleDragTension('naranja', dy, dx, isInitial)}
+      onDragRelease={(dist, duration) => handleDragRelease('naranja', dist, duration)}
     >
       <CharacterNaranja
         ref={naranjaRef}
