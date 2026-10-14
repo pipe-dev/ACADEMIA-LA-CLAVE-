@@ -9,7 +9,8 @@ interface AnimatedSkyBackgroundProps {
   cloudSpeed?: number;
   className?: string;
   dynamicDayCycle?: boolean;
-  cycleDuration?: number; // Duracion por fase en segundos (default: 5.0)
+  cycleDuration?: number; // Duracion base por fase en segundos (default: 7.0)
+  randomizeDuration?: boolean; // Variacion aleatoria en cada fase (default: true)
 }
 
 type RGB = [number, number, number];
@@ -147,12 +148,19 @@ function rgbToString(c: RGB): string {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
+function getPhaseDuration(base: number, randomize: boolean): number {
+  if (!randomize) return base;
+  // Variación aleatoria orgánica (+- 1.4s alrededor de la base)
+  return Math.max(4.5, base + (Math.random() * 2.8 - 1.4));
+}
+
 export const AnimatedSkyBackground: React.FC<AnimatedSkyBackgroundProps> = ({
   theme = 'unit4',
   cloudSpeed = 1.0,
   className = '',
   dynamicDayCycle = true,
-  cycleDuration = 5.0,
+  cycleDuration = 7.0,
+  randomizeDuration = true,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -239,6 +247,7 @@ export const AnimatedSkyBackground: React.FC<AnimatedSkyBackgroundProps> = ({
     let currentPhase = 0; // 0: Día, 1: Atardecer, 2: Noche, 3: Amanecer
     let currentFrom: SkyPalette = getRandomDayPalette();
     let currentTo: SkyPalette = getRandomSunsetPalette();
+    let currentPhaseDuration = getPhaseDuration(cycleDuration, randomizeDuration);
     let cycleTimer = 0;
 
     const handleResize = () => {
@@ -380,7 +389,7 @@ export const AnimatedSkyBackground: React.FC<AnimatedSkyBackgroundProps> = ({
       // Degradado del cielo
       if (dynamicDayCycle) {
         cycleTimer += dtSec;
-        const progress = Math.min(1, cycleTimer / cycleDuration);
+        const progress = Math.min(1, cycleTimer / currentPhaseDuration);
         // Suavizado cosenoidal (ease-in-out)
         const smoothT = (1 - Math.cos(progress * Math.PI)) / 2;
 
@@ -407,12 +416,13 @@ export const AnimatedSkyBackground: React.FC<AnimatedSkyBackgroundProps> = ({
         ctx.fillStyle = sg;
         ctx.fillRect(0, 0, width, height);
 
-        if (cycleTimer >= cycleDuration) {
+        if (cycleTimer >= currentPhaseDuration) {
           cycleTimer = 0;
           currentFrom = currentTo;
           currentPhase = (currentPhase + 1) % 4;
           const nextPhase = (currentPhase + 1) % 4;
           currentTo = getPhasePalette(nextPhase);
+          currentPhaseDuration = getPhaseDuration(cycleDuration, randomizeDuration);
         }
       } else {
         if (!skyGradCache) {
@@ -525,7 +535,7 @@ export const AnimatedSkyBackground: React.FC<AnimatedSkyBackgroundProps> = ({
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animFrameId);
     };
-  }, [theme, cloudSpeed, dynamicDayCycle, cycleDuration]);
+  }, [theme, cloudSpeed, dynamicDayCycle, cycleDuration, randomizeDuration]);
 
   return (
     <div className={`fixed inset-0 z-0 w-screen h-screen overflow-hidden select-none pointer-events-none ${className}`}>
