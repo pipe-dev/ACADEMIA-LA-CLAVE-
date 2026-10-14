@@ -169,8 +169,13 @@ export default function CuteLoginPage() {
       className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-none relative"
       style={{ touchAction: 'none', overscrollBehavior: 'none' }}
     >
-      {/* Motor de cielo animado de la Unidad 4 */}
-      <AnimatedSkyBackground theme="unit4" cloudSpeed={0.8} />
+      {/* Motor de cielo animado con ciclo de dia dinamico cada 5s */}
+      <AnimatedSkyBackground
+        theme="unit4"
+        cloudSpeed={0.8}
+        dynamicDayCycle={true}
+        cycleDuration={5.0}
+      />
 
       {/* Velo atmosférico sutil (Enfoque 2) */}
       <div className="fixed inset-0 z-[1] bg-slate-950/15 backdrop-blur-[1px] pointer-events-none" />
