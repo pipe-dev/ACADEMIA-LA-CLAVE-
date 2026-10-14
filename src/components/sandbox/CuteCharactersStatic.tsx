@@ -101,24 +101,19 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     playErrorGlitch,
   } = useJellyAsmrAudio();
 
-  // Sonido de entrada: preserva los efectos originales de impacto liquido y gomoso (droplet + squish)
-  // combinados con el nuevo rebote elastico caricaturesco (cartoon boing)
+  // Sonido de entrada de cada salto:
+  // Combina exactamente los sonidos de la versión pasada (Squish físico 1.0*mult + Droplet/Bloop Minnaert)
+  // sumados al sonido caricaturesco actual (Cartoon Boing elástico)
   const playHopSound = useCallback(
     (character: CharacterId, hopIndex: number) => {
-      const mult = hopIndex === 1 ? 0.92 : hopIndex === 3 ? 1.2 : 1.05;
+      const mult = hopIndex === 1 ? 0.92 : hopIndex === 3 ? 1.12 : 1.0;
 
-      // Efectos de entrada originales conservados:
-      if (hopIndex === 3) {
-        // Aterrizaje final en el suelo: compresion de gel suave + gota de agua
-        playSquish(character, 1.05);
-        playDroplet(character, 1.15);
-      } else {
-        // Saltos intermedios: gota y burbuja liquida
-        playDroplet(character, mult);
-      }
+      // 1. Sonidos exactos de la versión pasada (Squish de gel suave + Droplet de agua Minnaert en cada salto)
+      playSquish(character, 1.0 * mult);
+      playDroplet(character, mult);
 
-      // Efecto actual caricaturesco conservado:
-      playCartoonBoing(character, 0.78 * mult);
+      // 2. Sonido actual caricaturesco sumado (Rebote Cartoon Boing elástico)
+      playCartoonBoing(character, 0.85 * mult);
     },
     [playSquish, playDroplet, playCartoonBoing]
   );
