@@ -100,6 +100,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     playDroplet,
     playWinkPop,
     playValidationChime,
+    playErrorGlitch,
   } = useJellyAsmrAudio();
 
   // Sonido de entrada: preserva los efectos originales de impacto liquido y gomoso (droplet + squish)
@@ -248,6 +249,15 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     }
     prevRememberRef.current = rememberChecked;
   }, [rememberChecked, playWinkPop]);
+
+  // Reaccion al error de clave: sonido de error / glitch caricaturesco
+  const prevErrorRef = useRef(false);
+  useEffect(() => {
+    if (error && !prevErrorRef.current) {
+      playErrorGlitch();
+    }
+    prevErrorRef.current = !!error;
+  }, [error, playErrorGlitch]);
 
   // Al destapar el ojo de la contraseña, se inclinan con curiosidad hacia el campo
   const effExcited = error
@@ -515,7 +525,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     {
       left: 440,
       bottom: 35,
-      zIndex: 50,
+      zIndex: 60,
       scale: 1.12,
       origin: 'bottom left',
       character: amarilloNode,

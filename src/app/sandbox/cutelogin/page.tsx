@@ -160,8 +160,12 @@ export default function CuteLoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (wrongTimer.current) clearTimeout(wrongTimer.current);
-    setWrong(true);
-    wrongTimer.current = setTimeout(() => setWrong(false), 4000);
+    // Reiniciar temporalmente para asegurar que el trigger de error/glitch se dispare en cada intento
+    setWrong(false);
+    requestAnimationFrame(() => {
+      setWrong(true);
+      wrongTimer.current = setTimeout(() => setWrong(false), 4000);
+    });
   };
 
   return (
@@ -190,25 +194,27 @@ export default function CuteLoginPage() {
         {/* ================================================== */}
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-10 touch-none overscroll-none">
-          <CuteCharactersStatic
-            excited={emailFocused}
-            shy={isPasswordActive}
-            reveal={showPassword}
-            passwordLength={password.length}
-            error={wrong}
-            typing={emailFocused && email.length > 0}
-            typingProgress={Math.min(email.length / 7, 1)}
-            emailValid={isEmailValid}
-            submitHovered={submitHovered}
-            className="w-full max-w-[560px]"
-          />
+        <div className="min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible z-30 touch-none overscroll-none pointer-events-none">
+          <div className="w-full max-w-[560px] pointer-events-auto">
+            <CuteCharactersStatic
+              excited={emailFocused}
+              shy={isPasswordActive}
+              reveal={showPassword}
+              passwordLength={password.length}
+              error={wrong}
+              typing={emailFocused && email.length > 0}
+              typingProgress={Math.min(email.length / 7, 1)}
+              emailValid={isEmailValid}
+              submitHovered={submitHovered}
+              className="w-full max-w-[560px]"
+            />
+          </div>
         </div>
 
         {/* ================================================== */}
         {/* LADO DERECHO: Formulario de Acceso Minimalista      */}
         {/* ================================================== */}
-        <div className="min-w-0 relative flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-14 bg-white/60 backdrop-blur-xl backdrop-saturate-150 z-20 border-l border-white/40 overflow-hidden touch-none overscroll-none">
+        <div className="min-w-0 relative flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-14 bg-white/60 backdrop-blur-xl backdrop-saturate-150 z-10 border-l border-white/40 overflow-hidden touch-none overscroll-none">
           <div
             className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full ${
               isFieldFocused ? 'space-y-2.5 sm:space-y-6' : 'space-y-4 sm:space-y-6'

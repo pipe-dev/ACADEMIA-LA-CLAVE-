@@ -162,6 +162,7 @@ export interface UseJellyAsmrAudioReturn {
   playValidationChime: () => void;
   playHappyHop: () => void;
   playSlideTransition: () => void;
+  playErrorGlitch: () => void;
 }
 
 let globalAudioCtx: AudioContext | null = null;
@@ -760,6 +761,111 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
     [getAudioContext]
   );
 
+  /**
+   * Sonido caricaturesco de Error / Glitch (Al introducir contraseña errónea)
+   * Combina un micro-glitch digital/analógico tartamudo (3 pulsos rápidos con textura de estática)
+   * seguido de un zumbido disonante caricaturesco descendente ("bzz-zk / uh-oh").
+   */
+  const playErrorGlitch = useCallback(() => {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // 1. Micro-glitch digital inicial: 3 pulsos rápidos de frecuencias disonantes
+      const glitchSteps = [
+        { freq: 440, dur: 0.026, time: now, type: 'sawtooth' as OscillatorType, vol: 0.09 },
+        { freq: 580, dur: 0.024, time: now + 0.028, type: 'square' as OscillatorType, vol: 0.07 },
+        { freq: 290, dur: 0.035, time: now + 0.054, type: 'sawtooth' as OscillatorType, vol: 0.10 },
+      ];
+
+      glitchSteps.forEach(({ freq, dur, time, type, vol }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, time);
+
+        // Filtro de banda para efecto de bitcrush / altavoz de radio retro
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1600, time);
+        filter.Q.setValueAtTime(3.0, time);
+
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.003);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(time);
+        osc.stop(time + dur + 0.01);
+      });
+
+      // 2. Transiente sutil de estática / glitch bitcrush (ruido rosa filtrado a alta frecuencia)
+      const noiseBuf = getPinkNoiseBuffer(ctx);
+      const noiseSrc = ctx.createBufferSource();
+      noiseSrc.buffer = noiseBuf;
+
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(2600, now);
+      noiseFilter.Q.setValueAtTime(4.5, now);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.0001, now);
+      noiseGain.gain.linearRampToValueAtTime(0.045, now + 0.004);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+
+      noiseSrc.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+
+      noiseSrc.start(now);
+      noiseSrc.stop(now + 0.075);
+
+      // 3. Tono disonante cómico de error ("uh-oh" / descenso elástico gomoso)
+      const buzzTime = now + 0.065;
+      const buzzDur = 0.22;
+
+      // Dos osciladores con intervalo de segunda menor produciendo batimiento caricaturesco
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const buzzGain = ctx.createGain();
+      const buzzFilter = ctx.createBiquadFilter();
+
+      osc1.type = 'triangle';
+      osc2.type = 'sine';
+
+      // Caída cómica de tono (glissando descendente de decepción)
+      osc1.frequency.setValueAtTime(195, buzzTime);
+      osc1.frequency.exponentialRampToValueAtTime(115, buzzTime + buzzDur);
+
+      osc2.frequency.setValueAtTime(208, buzzTime);
+      osc2.frequency.exponentialRampToValueAtTime(122, buzzTime + buzzDur);
+
+      buzzFilter.type = 'lowpass';
+      buzzFilter.frequency.setValueAtTime(950, buzzTime);
+      buzzFilter.frequency.exponentialRampToValueAtTime(450, buzzTime + buzzDur);
+
+      buzzGain.gain.setValueAtTime(0.0001, buzzTime);
+      buzzGain.gain.linearRampToValueAtTime(0.12, buzzTime + 0.008);
+      buzzGain.gain.exponentialRampToValueAtTime(0.0001, buzzTime + buzzDur);
+
+      osc1.connect(buzzFilter);
+      osc2.connect(buzzFilter);
+      buzzFilter.connect(buzzGain);
+      buzzGain.connect(ctx.destination);
+
+      osc1.start(buzzTime);
+      osc2.start(buzzTime);
+      osc1.stop(buzzTime + buzzDur + 0.02);
+      osc2.stop(buzzTime + buzzDur + 0.02);
+    } catch {}
+  }, [getAudioContext, getPinkNoiseBuffer]);
+
   return {
     getAudioContext,
     playCartoonSqueak,
@@ -772,5 +878,6 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
     playValidationChime,
     playHappyHop,
     playSlideTransition,
+    playErrorGlitch,
   };
 }
