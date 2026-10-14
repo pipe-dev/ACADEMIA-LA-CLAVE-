@@ -80,6 +80,8 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [look, setLook] = useState({x: 0, y: 0});
+  const [caravanKey, setCaravanKey] = useState(0);
+  const caravanAudibleRef = useRef(false);
 
   // Seguimiento del cursor activo tras completar la caravana de entrada (~1.9s)
   const [ready, setReady] = useState(false);
@@ -87,7 +89,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     setReady(false);
     const t = setTimeout(() => setReady(true), 1950);
     return () => clearTimeout(t);
-  }, []);
+  }, [caravanKey]);
 
   const {
     getAudioContext,
@@ -119,6 +121,37 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     [playSquish, playDroplet, playCartoonBoing]
   );
 
+  // Desbloqueo transparente en la primera interacción física si el navegador suspendió el audio inicial
+  useEffect(() => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'running') {
+      caravanAudibleRef.current = true;
+    }
+
+    const unlockOnGesture = () => {
+      const activeCtx = getAudioContext();
+      if (activeCtx) {
+        activeCtx.resume().then(() => {
+          if (!caravanAudibleRef.current) {
+            caravanAudibleRef.current = true;
+            setCaravanKey((k) => k + 1);
+          }
+        }).catch(() => {});
+      }
+    };
+
+    const events = ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click'];
+    events.forEach((evt) => {
+      window.addEventListener(evt, unlockOnGesture, {capture: true, passive: true});
+    });
+
+    return () => {
+      events.forEach((evt) => {
+        window.removeEventListener(evt, unlockOnGesture, {capture: true});
+      });
+    };
+  }, [getAudioContext]);
+
   // Sincronizacion directa de audio con los 3 aterrizajes agiles de cada personaje al entrar
   useEffect(() => {
     simulateOnePixelTouch();
@@ -141,7 +174,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       setTimeout(() => playHopSound('naranja', 3), 1740),
     ];
     return () => soundTimers.forEach(clearTimeout);
-  }, [playHopSound]);
+  }, [playHopSound, caravanKey]);
 
   const [blinkMorado, setBlinkMorado] = useState(false);
   const [blinkFucsia, setBlinkFucsia] = useState(false);
@@ -587,7 +620,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
 
           return (
             <div
-              key={index}
+              key={`${index}-${caravanKey}`}
               className="absolute pointer-events-auto"
               style={{
                 left: slot.left,

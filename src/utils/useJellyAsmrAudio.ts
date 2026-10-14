@@ -215,6 +215,16 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
   } catch {}
 }
 
+function unlockWebAudio(ctx: AudioContext) {
+  try {
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+  } catch {}
+}
+
 function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   if (!globalAudioCtx) {
@@ -229,7 +239,26 @@ function getSharedAudioContext(): AudioContext | null {
     globalAudioCtx.resume().catch(() => {});
   }
   activatePlaybackCategory(globalAudioCtx);
+  unlockWebAudio(globalAudioCtx);
   return globalAudioCtx;
+}
+
+export function runWithAudioContext(callback: (ctx: AudioContext) => void) {
+  const ctx = getSharedAudioContext();
+  if (!ctx) return;
+  if (ctx.state === 'running') {
+    try {
+      callback(ctx);
+    } catch {}
+  } else {
+    ctx.resume().then(() => {
+      try {
+        if (ctx.state === 'running') {
+          callback(ctx);
+        }
+      } catch {}
+    }).catch(() => {});
+  }
 }
 
 /**
@@ -451,9 +480,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
    */
   const playSquish = useCallback(
     (character: CharacterId, intensity = 1, stretch = 0) => {
-      try {
-        const ctx = getAudioContext();
-        if (!ctx) return;
+      runWithAudioContext((ctx) => {
         const now = ctx.currentTime;
         const profile = ACOUSTIC_PROFILES[character];
         const clampedIntensity = Math.max(0.4, Math.min(intensity, 2));
@@ -507,9 +534,9 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
 
         osc.start(now);
         osc.stop(now + 0.085);
-      } catch {}
+      });
     },
-    [getAudioContext, getPinkNoiseBuffer]
+    [getPinkNoiseBuffer]
   );
 
   /**
@@ -519,9 +546,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
    */
   const playDroplet = useCallback(
     (character: CharacterId, pitchMultiplier = 1) => {
-      try {
-        const ctx = getAudioContext();
-        if (!ctx) return;
+      runWithAudioContext((ctx) => {
         const now = ctx.currentTime;
         const profile = ACOUSTIC_PROFILES[character];
         const mult = Math.max(0.75, Math.min(pitchMultiplier, 1.4));
@@ -562,9 +587,9 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
         harmGain.connect(ctx.destination);
         harmOsc.start(now);
         harmOsc.stop(now + 0.036);
-      } catch {}
+      });
     },
-    [getAudioContext]
+    []
   );
 
   /**
@@ -805,9 +830,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
    */
   const playCartoonSqueak = useCallback(
     (character: CharacterId, volumeMultiplier = 1) => {
-      try {
-        const ctx = getAudioContext();
-        if (!ctx) return;
+      runWithAudioContext((ctx) => {
         const now = ctx.currentTime;
         const profile = CARTOON_SQUEAK_PROFILES[character];
         if (!profile) return;
@@ -840,9 +863,9 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
 
         osc.start(now);
         osc.stop(now + dur + 0.01);
-      } catch {}
+      });
     },
-    [getAudioContext]
+    []
   );
 
   /**
@@ -851,9 +874,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
    */
   const playCartoonStretch = useCallback(
     (character: CharacterId, stretchProgress = 0.5) => {
-      try {
-        const ctx = getAudioContext();
-        if (!ctx) return;
+      runWithAudioContext((ctx) => {
         const now = ctx.currentTime;
         const profile = CARTOON_SQUEAK_PROFILES[character];
         if (!profile) return;
@@ -891,9 +912,9 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
 
         osc.start(now);
         osc.stop(now + dur + 0.01);
-      } catch {}
+      });
     },
-    [getAudioContext]
+    []
   );
 
   /**
@@ -902,9 +923,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
    */
   const playCartoonBoing = useCallback(
     (character: CharacterId, intensity = 1) => {
-      try {
-        const ctx = getAudioContext();
-        if (!ctx) return;
+      runWithAudioContext((ctx) => {
         const now = ctx.currentTime;
         const profile = CARTOON_BOING_PROFILES[character];
         if (!profile) return;
@@ -970,9 +989,9 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
         lfo.stop(stopTime);
         carrier.stop(stopTime);
         plop.stop(now + 0.035);
-      } catch {}
+      });
     },
-    [getAudioContext]
+    []
   );
 
   /**
@@ -981,9 +1000,7 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
    * seguido de un zumbido disonante caricaturesco descendente ("bzz-zk / uh-oh").
    */
   const playErrorGlitch = useCallback(() => {
-    try {
-      const ctx = getAudioContext();
-      if (!ctx) return;
+    runWithAudioContext((ctx) => {
       const now = ctx.currentTime;
 
       // 1. Micro-glitch digital inicial: 3 pulsos rápidos de frecuencias disonantes
@@ -1077,8 +1094,8 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
       osc2.start(buzzTime);
       osc1.stop(buzzTime + buzzDur + 0.02);
       osc2.stop(buzzTime + buzzDur + 0.02);
-    } catch {}
-  }, [getAudioContext, getPinkNoiseBuffer]);
+    });
+  }, [getPinkNoiseBuffer]);
 
   return {
     getAudioContext,
