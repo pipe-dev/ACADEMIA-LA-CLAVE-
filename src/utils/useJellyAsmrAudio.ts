@@ -77,6 +77,75 @@ const BUBBLE_PROFILES: Record<CharacterId, BubbleProfile> = {
   },
 };
 
+interface VocalFormantProfile {
+  baseF0: number;
+  maxF0: number;
+  baseF1: number;
+  maxF1: number;
+  baseF2: number;
+  maxF2: number;
+  q1: number;
+  q2: number;
+  shiverRate: number;
+  shiverDepth: number;
+  vol: number;
+}
+
+const VOCAL_FORMANT_PROFILES: Record<CharacterId, VocalFormantProfile> = {
+  morado: {
+    baseF0: 85,
+    maxF0: 125,
+    baseF1: 320,
+    maxF1: 420,
+    baseF2: 780,
+    maxF2: 920,
+    q1: 3.5,
+    q2: 3.0,
+    shiverRate: 15,
+    shiverDepth: 3.5,
+    vol: 0.08,
+  },
+  fucsia: {
+    baseF0: 240,
+    maxF0: 370,
+    baseF1: 440,
+    maxF1: 590,
+    baseF2: 1850,
+    maxF2: 2200,
+    q1: 4.0,
+    q2: 4.5,
+    shiverRate: 18,
+    shiverDepth: 4.0,
+    vol: 0.07,
+  },
+  amarillo: {
+    baseF0: 480,
+    maxF0: 760,
+    baseF1: 580,
+    maxF1: 840,
+    baseF2: 2450,
+    maxF2: 2950,
+    q1: 5.0,
+    q2: 5.5,
+    shiverRate: 22,
+    shiverDepth: 6.5,
+    vol: 0.065,
+  },
+  naranja: {
+    baseF0: 130,
+    maxF0: 260,
+    baseF1: 400,
+    maxF1: 620,
+    baseF2: 1200,
+    maxF2: 1550,
+    q1: 3.8,
+    q2: 3.8,
+    shiverRate: 17,
+    shiverDepth: 5.0,
+    vol: 0.08,
+  },
+};
+
 export interface UseJellyAsmrAudioReturn {
   getAudioContext: () => AudioContext | null;
   playSquish: (character: CharacterId, intensity?: number, stretch?: number) => void;
@@ -86,6 +155,10 @@ export interface UseJellyAsmrAudioReturn {
   playValidationChime: () => void;
   playHappyHop: () => void;
   playSlideTransition: () => void;
+  startVocalTension: (character: CharacterId, initialDy?: number) => void;
+  updateVocalTension: (character: CharacterId, dy: number, dx?: number) => void;
+  stopVocalTension: (character: CharacterId) => void;
+  playVocalComplainBurst: (character: CharacterId, intensity?: number) => void;
 }
 
 let globalAudioCtx: AudioContext | null = null;
@@ -126,8 +199,37 @@ if (typeof window !== 'undefined') {
  * resonancia de cavidad de agua Minnaert, campana acustica armonica), eliminando
  * totalmente cualquier sonido electronico o de sintetizador artificial.
  */
+interface ActiveVoice {
+  osc: OscillatorNode;
+  preFilter: BiquadFilterNode;
+  f1: BiquadFilterNode;
+  f2: BiquadFilterNode;
+  shiverOsc: OscillatorNode;
+  shiverGain: GainNode;
+  gain: GainNode;
+  stopTimer: ReturnType<typeof setTimeout> | null;
+}
+
 export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
   const pinkNoiseBufferRef = useRef<AudioBuffer | null>(null);
+  const activeVoicesRef = useRef<Partial<Record<CharacterId, ActiveVoice>>>({});
+  const burstCooldownRef = useRef<Partial<Record<CharacterId, number>>>({});
+
+  // Limpieza al desmontar para evitar cualquier fuga de nodos de audio
+  useEffect(() => {
+    const voices = activeVoicesRef.current;
+    return () => {
+      Object.values(voices).forEach((v) => {
+        try {
+          if (v?.stopTimer) clearTimeout(v.stopTimer);
+          v?.osc.stop();
+          v?.shiverOsc.stop();
+          v?.gain.disconnect();
+        } catch {}
+      });
+      activeVoicesRef.current = {};
+    };
+  }, []);
 
   const getAudioContext = useCallback(() => {
     return getSharedAudioContext();
@@ -509,6 +611,261 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
     } catch {}
   }, [getAudioContext, getPinkNoiseBuffer]);
 
+  /**
+   * Inicio de tension vocal continua (sintesis por formantes del tracto vocal)
+   */
+  const startVocalTension = useCallback(
+    (character: CharacterId, initialDy = 0) => {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+        const now = ctx.currentTime;
+        const profile = VOCAL_FORMANT_PROFILES[character];
+
+        // Si ya existe una voz activa, cancelar cualquier apagado pendiente
+        const existing = activeVoicesRef.current[character];
+        if (existing) {
+          if (existing.stopTimer) {
+            clearTimeout(existing.stopTimer);
+            existing.stopTimer = null;
+          }
+          return;
+        }
+
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+
+        const preFilter = ctx.createBiquadFilter();
+        preFilter.type = 'lowpass';
+        preFilter.frequency.setValueAtTime(3200, now);
+        preFilter.Q.setValueAtTime(0.7, now);
+
+        const f1 = ctx.createBiquadFilter();
+        f1.type = 'bandpass';
+        f1.frequency.setValueAtTime(profile.baseF1, now);
+        f1.Q.setValueAtTime(profile.q1, now);
+
+        const f2 = ctx.createBiquadFilter();
+        f2.type = 'bandpass';
+        f2.frequency.setValueAtTime(profile.baseF2, now);
+        f2.Q.setValueAtTime(profile.q2, now);
+
+        // LFO de temblor muscular involuntario (shiver)
+        const shiverOsc = ctx.createOscillator();
+        shiverOsc.type = 'sine';
+        shiverOsc.frequency.setValueAtTime(profile.shiverRate, now);
+
+        const shiverGain = ctx.createGain();
+        shiverGain.gain.setValueAtTime(profile.shiverDepth, now);
+
+        shiverOsc.connect(shiverGain);
+        shiverGain.connect(osc.frequency);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+
+        // Enrutamiento paralelo de formantes
+        osc.connect(preFilter);
+        preFilter.connect(f1);
+        preFilter.connect(f2);
+        f1.connect(gain);
+        f2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.frequency.setValueAtTime(profile.baseF0, now);
+
+        osc.start(now);
+        shiverOsc.start(now);
+
+        const voice: ActiveVoice = {
+          osc,
+          preFilter,
+          f1,
+          f2,
+          shiverOsc,
+          shiverGain,
+          gain,
+          stopTimer: null,
+        };
+
+        activeVoicesRef.current[character] = voice;
+
+        if (Math.abs(initialDy) > 15) {
+          const factor = Math.min(1, (Math.abs(initialDy) - 15) / 110);
+          const targetVol = profile.vol * (0.25 + factor * 0.75);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.linearRampToValueAtTime(targetVol, now + 0.025);
+        }
+      } catch {}
+    },
+    [getAudioContext]
+  );
+
+  /**
+   * Modulacion en tiempo real del tono (pitch) y formantes segun el arrastre elastico dy
+   */
+  const updateVocalTension = useCallback(
+    (character: CharacterId, dy: number, _dx = 0) => {
+      try {
+        let voice = activeVoicesRef.current[character];
+        if (!voice) {
+          if (Math.abs(dy) > 15) {
+            startVocalTension(character, dy);
+            voice = activeVoicesRef.current[character];
+          }
+          if (!voice) return;
+        }
+
+        if (voice.stopTimer) {
+          clearTimeout(voice.stopTimer);
+          voice.stopTimer = null;
+        }
+
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const profile = VOCAL_FORMANT_PROFILES[character];
+
+        const absDy = Math.abs(dy);
+        if (absDy < 14) {
+          voice.gain.gain.setTargetAtTime(0.0001, now, 0.03);
+          return;
+        }
+
+        const factor = Math.min(1, (absDy - 14) / 110);
+
+        let targetF0 = profile.baseF0;
+        if (dy < 0) {
+          targetF0 = profile.baseF0 + (profile.maxF0 - profile.baseF0) * factor;
+        } else {
+          targetF0 = profile.baseF0 * (1 - factor * 0.18);
+        }
+
+        const targetF1 = profile.baseF1 + (profile.maxF1 - profile.baseF1) * factor;
+        const targetF2 = profile.baseF2 + (profile.maxF2 - profile.baseF2) * factor;
+        const targetVol = profile.vol * (0.25 + factor * 0.75);
+
+        voice.osc.frequency.setTargetAtTime(targetF0, now, 0.025);
+        voice.f1.frequency.setTargetAtTime(targetF1, now, 0.03);
+        voice.f2.frequency.setTargetAtTime(targetF2, now, 0.03);
+        voice.shiverGain.gain.setTargetAtTime(
+          profile.shiverDepth * (0.6 + factor * 1.2),
+          now,
+          0.03
+        );
+        voice.gain.gain.setTargetAtTime(targetVol, now, 0.02);
+      } catch {}
+    },
+    [getAudioContext, startVocalTension]
+  );
+
+  /**
+   * Detencion y desvanecimiento suave de la tension vocal sostenida
+   */
+  const stopVocalTension = useCallback(
+    (character: CharacterId) => {
+      try {
+        const voice = activeVoicesRef.current[character];
+        if (!voice) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        voice.gain.gain.cancelScheduledValues(now);
+        const currentGain = Math.max(0.0001, voice.gain.gain.value);
+        voice.gain.gain.setValueAtTime(currentGain, now);
+        voice.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.018);
+
+        voice.stopTimer = setTimeout(() => {
+          try {
+            voice.osc.stop();
+            voice.shiverOsc.stop();
+            voice.gain.disconnect();
+          } catch {}
+          delete activeVoicesRef.current[character];
+        }, 30);
+      } catch {}
+    },
+    [getAudioContext]
+  );
+
+  /**
+   * Quejido caricaturesco expresivo (burst puntual de incomodidad)
+   */
+  const playVocalComplainBurst = useCallback(
+    (character: CharacterId, intensity = 1) => {
+      try {
+        const last = burstCooldownRef.current[character] || 0;
+        const nowMs = performance.now();
+        if (nowMs - last < 450) return;
+        burstCooldownRef.current[character] = nowMs;
+
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+        const now = ctx.currentTime;
+        const profile = VOCAL_FORMANT_PROFILES[character];
+        const mult = Math.max(0.6, Math.min(intensity, 1.8));
+
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+
+        const preFilter = ctx.createBiquadFilter();
+        preFilter.type = 'lowpass';
+        preFilter.frequency.setValueAtTime(3200, now);
+
+        const f1 = ctx.createBiquadFilter();
+        f1.type = 'bandpass';
+        f1.frequency.setValueAtTime(profile.baseF1, now);
+        f1.frequency.exponentialRampToValueAtTime(profile.maxF1 * 1.15, now + 0.05);
+        f1.frequency.exponentialRampToValueAtTime(profile.baseF1 * 0.9, now + 0.18);
+        f1.Q.setValueAtTime(profile.q1, now);
+
+        const f2 = ctx.createBiquadFilter();
+        f2.type = 'bandpass';
+        f2.frequency.setValueAtTime(profile.baseF2, now);
+        f2.frequency.exponentialRampToValueAtTime(profile.maxF2 * 1.1, now + 0.05);
+        f2.frequency.exponentialRampToValueAtTime(profile.baseF2 * 0.9, now + 0.18);
+        f2.Q.setValueAtTime(profile.q2, now);
+
+        const gain = ctx.createGain();
+        const peakVol = profile.vol * 1.8 * mult;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(peakVol, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+        osc.frequency.setValueAtTime(profile.baseF0 * 1.1, now);
+        osc.frequency.exponentialRampToValueAtTime(profile.maxF0 * 1.25, now + 0.045);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(40, profile.baseF0 * 0.85), now + 0.18);
+
+        const shiver = ctx.createOscillator();
+        shiver.frequency.setValueAtTime(profile.shiverRate * 1.2, now);
+        const shiverGain = ctx.createGain();
+        shiverGain.gain.setValueAtTime(profile.shiverDepth * 1.8, now);
+        shiver.connect(shiverGain);
+        shiverGain.connect(osc.frequency);
+
+        osc.connect(preFilter);
+        preFilter.connect(f1);
+        preFilter.connect(f2);
+        f1.connect(gain);
+        f2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        shiver.start(now);
+        osc.stop(now + 0.19);
+        shiver.stop(now + 0.19);
+      } catch {}
+    },
+    [getAudioContext]
+  );
+
   return {
     getAudioContext,
     playSquish,
@@ -518,5 +875,9 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
     playValidationChime,
     playHappyHop,
     playSlideTransition,
+    startVocalTension,
+    updateVocalTension,
+    stopVocalTension,
+    playVocalComplainBurst,
   };
 }
