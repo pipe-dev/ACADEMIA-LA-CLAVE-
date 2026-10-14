@@ -28,6 +28,8 @@ export interface CuteCharacterTactileCageProps {
   config: JellyPhysicsConfig;
   onRippleTrigger?: (originX: number, originY: number, intensity: number) => void;
   onTouchPress?: (x: number, y: number, active: boolean) => void;
+  onDragTension?: (dy: number, dx: number, isInitial?: boolean) => void;
+  onDragRelease?: (dist: number, duration: number) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -37,6 +39,8 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
   config,
   onRippleTrigger,
   onTouchPress,
+  onDragTension,
+  onDragRelease,
   className = '',
   style = {},
 }) => {
@@ -83,8 +87,9 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
 
       startDrag(e.clientX, e.clientY);
       onTouchPress?.(e.clientX, e.clientY, true);
+      onDragTension?.(0, 0, true);
     },
-    [startDrag, onTouchPress]
+    [startDrag, onTouchPress, onDragTension]
   );
 
   const handlePointerMove = useCallback(
@@ -96,13 +101,14 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
         const dy = e.clientY - dragStartRef.current.y;
         updateDrag(dx, dy);
         onTouchPress?.(e.clientX, e.clientY, true);
+        onDragTension?.(dy, dx, false);
       } else if (coords.width > 0) {
         // Hover: direccion normalizada de -1 (izq) a 1 (der)
         const dir = (coords.x - coords.width / 2) / (coords.width / 2);
         triggerHover(dir);
       }
     },
-    [getLocalCoords, updateDrag, triggerHover, onTouchPress]
+    [getLocalCoords, updateDrag, triggerHover, onTouchPress, onDragTension]
   );
 
   const handlePointerUp = useCallback(
@@ -124,6 +130,8 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
           e.clientY - dragStartRef.current.y
         );
 
+        onDragRelease?.(dist, duration);
+
         if (duration < 240 && dist < 14) {
           // Tap / Poke directo
           triggerPoke(0.24);
@@ -137,12 +145,13 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
           }
         }
       } else {
+        onDragRelease?.(0, 0);
         releaseDrag();
       }
 
       dragStartRef.current = null;
     },
-    [onTouchPress, triggerPoke, releaseDrag, onRippleTrigger]
+    [onTouchPress, onDragRelease, triggerPoke, releaseDrag, onRippleTrigger]
   );
 
   const handlePointerCancel = useCallback(
@@ -150,9 +159,10 @@ export const CuteCharacterTactileCage: React.FC<CuteCharacterTactileCageProps> =
       dragStartRef.current = null;
       const coords = getLocalCoords(e.clientX, e.clientY);
       onTouchPress?.(coords.x, coords.y, false);
+      onDragRelease?.(0, 0);
       releaseDrag();
     },
-    [getLocalCoords, onTouchPress, releaseDrag]
+    [getLocalCoords, onTouchPress, onDragRelease, releaseDrag]
   );
 
   const handlePointerLeave = useCallback(() => {
