@@ -24,7 +24,14 @@ export async function POST(request: NextRequest) {
     const key = body.adminKey || request.headers.get('x-admin-key');
     const secret = getAdminSecret();
 
-    if (!secret || !key || key.trim() !== secret) {
+    if (!secret) {
+      return NextResponse.json(
+        { error: 'ADMIN_SECRET no esta configurado en las variables de entorno del servidor.' },
+        { status: 500, headers: getCorsHeaders() }
+      );
+    }
+
+    if (!key || key.trim() !== secret) {
       return NextResponse.json(
         { error: 'Clave maestra de administrador invalida.' },
         { status: 401, headers: getCorsHeaders() }

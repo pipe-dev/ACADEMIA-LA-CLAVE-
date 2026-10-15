@@ -1,7 +1,27 @@
 import { NextRequest } from 'next/server';
 
 export function getAdminSecret(): string {
-  return (process.env.ADMIN_SECRET || '').trim();
+  let secret = process.env.ADMIN_SECRET;
+
+  if (!secret) {
+    try {
+      // @ts-ignore
+      const { getCloudflareContext } = require('@opennextjs/cloudflare');
+      const ctx = getCloudflareContext();
+      if (ctx?.env?.ADMIN_SECRET) {
+        secret = ctx.env.ADMIN_SECRET;
+      }
+    } catch {}
+  }
+
+  if (!secret) {
+    const g = globalThis as any;
+    if (g?.ADMIN_SECRET) {
+      secret = g.ADMIN_SECRET;
+    }
+  }
+
+  return (secret || '').trim();
 }
 
 export function verifyAdminRequest(request: NextRequest): boolean {
