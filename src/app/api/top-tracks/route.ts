@@ -249,17 +249,23 @@ export async function GET(req: Request) {
     cachedBundle = bundle;
     lastCacheTime = now;
 
+    const cacheHeaders = {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400'
+    };
+
     if (genreParam === 'christian' || genreParam === 'cristiana' || genreParam === '22') {
-      return NextResponse.json(christian100);
+      return NextResponse.json(christian100, { headers: cacheHeaders });
     }
     if (genreParam === 'secular' || genreParam === 'del_momento') {
-      return NextResponse.json(secular100);
+      return NextResponse.json(secular100, { headers: cacheHeaders });
     }
-    return NextResponse.json(bundle);
+    return NextResponse.json(bundle, { headers: cacheHeaders });
   } catch (err: any) {
     console.error('Error fetching catalog bundle:', err);
     if (cachedBundle) {
-      return NextResponse.json(cachedBundle);
+      return NextResponse.json(cachedBundle, {
+        headers: { 'Cache-Control': 'public, s-maxage=300' }
+      });
     }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

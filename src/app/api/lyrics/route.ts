@@ -11,6 +11,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing query or track_name" }, { status: 400 });
   }
 
+  const cacheHeaders = {
+    'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800'
+  };
+
   // Función auxiliar para petición con https.get
   const fetchHttps = (url: string): Promise<any> => {
     return new Promise((resolve) => {
@@ -42,7 +46,7 @@ export async function GET(request: Request) {
         try {
           const exactTrack = JSON.parse(getRes.data);
           if (exactTrack && (exactTrack.syncedLyrics || exactTrack.plainLyrics)) {
-            return NextResponse.json([exactTrack]);
+            return NextResponse.json([exactTrack], { headers: cacheHeaders });
           }
         } catch (e) {
           console.error("LRCLIB /api/get parse error", e);
@@ -57,7 +61,7 @@ export async function GET(request: Request) {
         try {
           const json = JSON.parse(specificRes.data);
           if (Array.isArray(json) && json.length > 0) {
-            return NextResponse.json(json);
+            return NextResponse.json(json, { headers: cacheHeaders });
           }
         } catch (e) {
           console.error("LRCLIB specific search error", e);
@@ -74,7 +78,7 @@ export async function GET(request: Request) {
       try {
         const json = JSON.parse(lrcRes.data);
         if (Array.isArray(json) && json.length > 0) {
-          return NextResponse.json(json);
+          return NextResponse.json(json, { headers: cacheHeaders });
         }
       } catch (e) {
         console.error("LRCLIB JSON Parse error", e);
@@ -131,7 +135,7 @@ export async function GET(request: Request) {
             instrumental: false,
             plainLyrics: json.lyrics,
             syncedLyrics: null
-          }]);
+          }], { headers: cacheHeaders });
         }
       } catch (e) {
         console.error("OVH JSON Parse error", e);
@@ -193,7 +197,7 @@ export async function GET(request: Request) {
                   instrumental: false,
                   plainLyrics: text,
                   syncedLyrics: null
-                }]);
+                }], { headers: cacheHeaders });
               }
             }
           }

@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
         email: user.email,
       },
       progress: progress || null,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

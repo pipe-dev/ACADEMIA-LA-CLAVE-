@@ -1,6 +1,5 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
 import { motion } from 'motion/react';
 import { Unit, LessonNode, UserStats } from '../types';
 import { audioService, playSuccessBellSound } from '../utils/audioService';
@@ -266,7 +265,8 @@ const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
       const y = (rect.top + rect.height / 2) / window.innerHeight;
       const colors = ['#4648d4', '#818cf8', '#6366f1', '#6cf8bb', '#38bdf8', '#ffffff'];
 
-      try {
+      import('canvas-confetti').then((m) => {
+        const confetti = m.default;
         confetti({
           particleCount: 50,
           spread: 80,
@@ -277,22 +277,22 @@ const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
           origin: { x, y },
           colors
         });
-      } catch (e) {}
 
-      setTimeout(() => {
-        try {
-          confetti({
-            particleCount: 20,
-            spread: 120,
-            startVelocity: 45,
-            ticks: 200,
-            gravity: 1.2,
-            scalar: 0.8,
-            origin: { x, y },
-            colors
-          });
-        } catch (e) {}
-      }, 150);
+        setTimeout(() => {
+          try {
+            confetti({
+              particleCount: 20,
+              spread: 120,
+              startVelocity: 45,
+              ticks: 200,
+              gravity: 1.2,
+              scalar: 0.8,
+              origin: { x, y },
+              colors
+            });
+          } catch {}
+        }, 150);
+      }).catch(() => {});
     }
 
     onSelectNode(node);

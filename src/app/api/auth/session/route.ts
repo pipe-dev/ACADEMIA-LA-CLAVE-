@@ -59,6 +59,10 @@ export async function GET(request: NextRequest) {
         daysRemaining: statusInfo.daysRemaining,
         role: user.role,
       },
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      }
     });
   } catch (err: any) {
     console.error('Session check error:', err);

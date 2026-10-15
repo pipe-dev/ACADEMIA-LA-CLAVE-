@@ -39,7 +39,11 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json(tracks);
+    return NextResponse.json(tracks, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=86400'
+      }
+    });
   } catch (error: any) {
     console.error("iTunes search error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import type { YouTubeProps } from 'react-youtube';
 import { motion } from 'motion/react';
-import YouTube from 'react-youtube';
+const YouTube = dynamic<YouTubeProps>(() => import('react-youtube').then((mod) => mod.default as any), { ssr: false });
 import { ArrowLeft, Zap } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import { fetchLyrics, TrackLyrics, LyricLine } from '../lib/fetch-lyrics';

@@ -333,9 +333,11 @@ export const usePitchDetection = () => {
      }
   }, [audioBlobUrl]);
 
+  const updatePitchRef = useRef<(timestamp: number) => void>(() => {});
+
   const updatePitch = useCallback((timestamp: number) => {
     if (!analyserRef.current || !audioContextRef.current) {
-      animationFrameId.current = requestAnimationFrame(updatePitch);
+      animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));
       return;
     }
 
@@ -393,8 +395,10 @@ export const usePitchDetection = () => {
       }
     }
   
-    animationFrameId.current = requestAnimationFrame(updatePitch);
+    animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));
   }, []);
+
+  updatePitchRef.current = updatePitch;
   
   useEffect(() => {
     if (isDetecting) {
