@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion, useSpring } from 'framer-motion';
+import { motion, useSpring } from 'motion/react';
 
 export interface OrangeBlobProps {
   cursorPos?: { x: number; y: number }; // Coordenadas normalizadas entre -1 y 1

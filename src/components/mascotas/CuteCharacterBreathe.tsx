@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import gsap from 'gsap';
+import { animate } from 'motion/react';
 
 export interface CuteCharacterBreatheProps {
   children: React.ReactNode;
@@ -18,10 +18,9 @@ export interface CuteCharacterBreatheProps {
 
 /**
  * CuteCharacterBreathe
- * Componente envoltorio de animacion de respiracion organica.
+ * Componente envoltorio de animacion de respiracion organica para mascotas.
  * Aplica deformaciones sinusoidales suaves (Lissajous) en scaleX, scaleY y skewX
- * ancladas estrictamente a 'bottom center' para que los personajes se sientan
- * vivos y suaves sin despegarse del suelo.
+ * ancladas a 'bottom center' con motion/react nativo.
  */
 export const CuteCharacterBreathe: React.FC<CuteCharacterBreatheProps> = ({
   children,
@@ -41,34 +40,44 @@ export const CuteCharacterBreathe: React.FC<CuteCharacterBreatheProps> = ({
     const el = containerRef.current;
     if (!el) return;
 
-    const ctx = gsap.context(() => {
-      // 1. Ciclo de respiracion sinusoidal (Inhalar / Exhalar)
-      gsap.to(el, {
-        scaleY: 1 + scaleYDelta,
-        scaleX: 1 - scaleXDelta,
-        y: yDelta,
+    const anim1 = animate(
+      el,
+      {
+        scaleY: [1, 1 + scaleYDelta],
+        scaleX: [1, 1 - scaleXDelta],
+        y: [0, yDelta],
+      },
+      {
         duration: breathDuration,
-        ease: 'sine.inOut',
-        yoyo: true,
-        repeat: -1,
+        ease: 'easeInOut',
+        repeat: Infinity,
+        repeatType: 'reverse',
         delay,
-      });
-
-      // 2. Ciclo de inclinacion lateral asincrono y ondulacion de gelatina (Lissajous)
-      if (skewDelta !== 0) {
-        gsap.to(el, {
-          skewX: skewDelta,
-          rotate: skewDelta * 0.32,
-          duration: swayDuration,
-          ease: 'sine.inOut',
-          yoyo: true,
-          repeat: -1,
-          delay: delay + 0.3,
-        });
       }
-    }, containerRef);
+    );
 
-    return () => ctx.revert();
+    let anim2: { stop: () => void } | null = null;
+    if (skewDelta !== 0) {
+      anim2 = animate(
+        el,
+        {
+          skewX: [0, skewDelta],
+          rotate: [0, skewDelta * 0.32],
+        },
+        {
+          duration: swayDuration,
+          ease: 'easeInOut',
+          repeat: Infinity,
+          repeatType: 'reverse',
+          delay: delay + 0.3,
+        }
+      );
+    }
+
+    return () => {
+      anim1.stop();
+      anim2?.stop();
+    };
   }, [breathDuration, swayDuration, delay, scaleYDelta, scaleXDelta, skewDelta, yDelta]);
 
   return (
