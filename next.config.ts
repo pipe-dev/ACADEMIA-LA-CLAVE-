@@ -21,10 +21,9 @@ const nextConfig: NextConfig = {
   },
   // @ts-ignore
   allowedDevOrigins: [
-    'specifically-voice-feature-thousand.trycloudflare.com',
     '*.trycloudflare.com',
-    'localhost:9002',
-    '127.0.0.1:9002'
+    'localhost:9005',
+    '127.0.0.1:9005'
   ],
   async headers() {
     return [
