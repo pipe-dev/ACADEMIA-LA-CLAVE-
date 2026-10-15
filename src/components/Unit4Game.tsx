@@ -4,26 +4,34 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic } from 'lucide-react';
 import { unit4World } from '../utils/unit4WorldState';
 
 import {
-  BirdState, Bush, FloorCaches, Obstacle, Phase, WinState,
+  BirdState, Bush, FloorCaches, Meteor, Obstacle, Phase, WinState,
 } from './unit4-flappy/unit4Types';
 import {
   BIRD_R, BIRD_X, BASE_INTERVAL, FLAP, FLAP_HOLD, FLAP_ROT, FLOAT_AMP,
-  G, MAX_FALL, MILESTONE_SCORE, PEDESTAL_H, PIPE_CAP_H, PIPE_CAP_W, RECORD_KEY, floorY,
+  G, MAX_FALL, RECORD_KEY, floorY,
 } from './unit4-flappy/unit4Config';
 import {
   interval, moveSpeed, spawnBush, spawnMilestone, spawnObstacles, speedMult, updateWin,
 } from './unit4-flappy/unit4Physics';
 import {
-  buildCaches, drawBird, drawBush, drawFloor, drawObstacle, drawScore, drawTrophyOutOfPipe,
+  buildCaches, drawBird, drawBush, drawFloor, drawMeteor, drawObstacle,
+  drawScore, drawTrophyOutOfPipe,
 } from './unit4-flappy/unit4Renderers';
+import {
+  updatePlayingObstacles, updateWinningWorld,
+} from './unit4-flappy/unit4WorldSim';
 import { useVoiceGate } from './unit4-flappy/useVoiceGate';
-import { Unit4CreditsModal } from './unit4-flappy/Unit4CreditsModal';
+import { unit4Audio } from './unit4-flappy/unit4Audio';
+import { Unit4Hud } from './unit4-flappy/Unit4Hud';
 
-export const Unit4Game: React.FC = () => {
+interface Unit4GameProps {
+  onExit?: () => void;
+}
+
+export const Unit4Game: React.FC<Unit4GameProps> = ({ onExit }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [phase, setPhase] = useState<Phase>('ready');
@@ -31,6 +39,8 @@ export const Unit4Game: React.FC = () => {
   const [finalRecord, setFinalRecord] = useState(0);
   const [showCredits, setShowCredits] = useState(false);
   const showCreditsRef = useRef(false);
+  const [showTapHint, setShowTapHint] = useState(false);
+  const deathsRef = useRef(0);
 
   const phaseRef = useRef<Phase>('ready');
   const setPhaseBoth = (p: Phase) => {
@@ -51,6 +61,9 @@ export const Unit4Game: React.FC = () => {
   const scoreRef = useRef(0);
   const spawnTimerRef = useRef(BASE_INTERVAL);
   const milestoneReachedRef = useRef(false);
+  const goldPipeRef = useRef<Obstacle | null>(null);
+  const meteorRef = useRef<Meteor | null>(null);
+  const meteorAtRef = useRef(0);
   const groundScrollRef = useRef(0);
   const winRef = useRef<WinState | null>(null);
   const recordRef = useRef(0);
@@ -63,6 +76,7 @@ export const Unit4Game: React.FC = () => {
     birdRef.current.vy = FLAP(h);
     birdRef.current.lastFlap = performance.now() / 1000;
     birdRef.current.rot = FLAP_ROT;
+    unit4Audio.flap(scoreRef.current);
   };
 
   const reset = () => {
@@ -78,7 +92,11 @@ export const Unit4Game: React.FC = () => {
     scoreRef.current = 0;
     spawnTimerRef.current = BASE_INTERVAL;
     milestoneReachedRef.current = false;
+    goldPipeRef.current = null;
+    meteorRef.current = null;
+    meteorAtRef.current = 0;
     winRef.current = null;
+    unit4Audio.reset();
     showCreditsRef.current = false;
     setShowCredits(false);
   };
@@ -86,29 +104,36 @@ export const Unit4Game: React.FC = () => {
   const startGame = () => {
     reset();
     setPhaseBoth('playing');
+    unit4Audio.start();
     flap();
   };
 
-  const die = () => {
+  const die = (cause: 'pipe' | 'floor' = 'pipe') => {
     const curScore = scoreRef.current;
-    if (curScore > recordRef.current) {
+    const newRecord = curScore > recordRef.current;
+    if (newRecord) {
       recordRef.current = curScore;
       localStorage.setItem(RECORD_KEY, String(curScore));
     }
     setFinalScore(curScore);
     setFinalRecord(recordRef.current);
     setPhaseBoth('dead');
+    unit4Audio.die(cause, newRecord && curScore > 0);
+    // Tras 2 derrotas, sugiere el control táctil por si la voz se dificulta.
+    deathsRef.current += 1;
+    if (deathsRef.current >= 2) setShowTapHint(true);
   };
 
-  const winReached = (p: Obstacle) => {
+  const winReached = (p: Obstacle, viaMeteor = false) => {
     const canvas = canvasRef.current;
     const w = canvas ? canvas.width : window.innerWidth;
     const h = canvas ? canvas.height : window.innerHeight;
     setPhaseBoth('winning');
+    unit4Audio.startWin();
     const holeX = p.x + p.w / 2;
     const holeY = floorY(h) - h * 0.1;
     winRef.current = {
-      stage: 'shake',
+      stage: viaMeteor ? 'down' : 'shake',
       t0: performance.now(),
       sx: BIRD_X(w),
       sy: birdRef.current.birdY,
@@ -120,6 +145,7 @@ export const Unit4Game: React.FC = () => {
       trophy: 0,
       tx: 0,
       tScale: 1,
+      facing: viaMeteor ? -1 : 1,
     };
   };
 
@@ -131,14 +157,12 @@ export const Unit4Game: React.FC = () => {
   });
 
   const handleTap = () => {
+    unit4Audio.unlock();
     if (phaseRef.current === 'ready') {
       startGame();
     } else if (phaseRef.current === 'playing') {
       flap();
-    } else if (phaseRef.current === 'winning') {
-      setPhaseBoth('ready');
-      reset();
-    } else {
+    } else if (phaseRef.current === 'dead') {
       setPhaseBoth('ready');
       reset();
     }
@@ -175,8 +199,11 @@ export const Unit4Game: React.FC = () => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
+        unit4Audio.unlock();
         ensureMic();
         handleTap();
+      } else if (e.code === 'KeyW' && phaseRef.current !== 'winning') {
+        winReached(spawnMilestone(width, height));
       }
     };
     window.addEventListener('keydown', handleKey);
@@ -184,6 +211,7 @@ export const Unit4Game: React.FC = () => {
     const container = containerRef.current;
     const handlePointer = (e: PointerEvent) => {
       e.preventDefault();
+      unit4Audio.unlock();
       ensureMic();
       handleTap();
     };
@@ -191,19 +219,18 @@ export const Unit4Game: React.FC = () => {
 
     let raf = 0;
     let last = performance.now();
-    let frameEMA = 16;
-    let frameCount = 0;
-    let drawEvery = 1;
+    // Cap a ~60fps estable: en 120Hz (iPhone ProMotion) evita duplicar carga
+    const MIN_FRAME_MS = 14;
 
     const loop = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
+      raf = requestAnimationFrame(loop);
+      const elapsed = now - last;
+      if (elapsed < MIN_FRAME_MS) return;
+      // Clamped dt evita saltos o traspaso de geometrías en caídas de fps
+      const dt = Math.min(0.033, elapsed / 1000);
       last = now;
-      frameCount++;
-      frameEMA = frameEMA * 0.9 + dt * 1000 * 0.1;
-      if (frameEMA > 28 && drawEvery === 1) drawEvery = 2;
-      else if (frameEMA < 15 && drawEvery === 2) drawEvery = 1;
-      const shouldDraw = frameCount % drawEvery === 0;
-      if (shouldDraw) ctx.clearRect(0, 0, width, height);
+
+      ctx.clearRect(0, 0, width, height);
 
       unit4World.phase = phaseRef.current;
       unit4World.score = scoreRef.current;
@@ -259,7 +286,7 @@ export const Unit4Game: React.FC = () => {
         if (bird.birdY + BIRD_R(height) >= fy) {
           bird.birdY = fy - BIRD_R(height);
           bird.vy = Math.min(bird.vy, 0);
-          die();
+          die('floor');
         }
 
         if (!milestoneReachedRef.current) {
@@ -271,102 +298,43 @@ export const Unit4Game: React.FC = () => {
           }
         }
 
-        const bx = BIRD_X(width);
-        const br = BIRD_R(height);
-        const capW = PIPE_CAP_W(height);
-        const capH = PIPE_CAP_H(height);
-
-        for (let i = obstacles.length - 1; i >= 0; i--) {
-          const ob = obstacles[i];
-          ob.x -= sp * dt;
-
-          let boxX = ob.x;
-          let boxW = capW;
-          let boxTop = ob.type === 'bottom' ? ob.gapY - capH : 0;
-          let boxBottom = ob.type === 'bottom' ? fy : ob.gapY + capH;
-          if (ob.trophy) {
-            boxX = ob.x;
-            boxW = ob.w;
-            boxTop = fy - PEDESTAL_H(height);
-            boxBottom = fy;
-          }
-
-          if (
-            !ob.scored &&
-            ob.scores &&
-            ob.x + capW < bx - br
-          ) {
-            ob.scored = true;
-            scoreRef.current += 1;
-            if (
-              scoreRef.current >= MILESTONE_SCORE &&
-              !milestoneReachedRef.current
-            ) {
-              milestoneReachedRef.current = true;
-              obstacles.length = 0;
-              obstacles.push(spawnMilestone(width, height));
-              break;
-            }
-          }
-
-          if (
-            bx + br > boxX &&
-            bx - br < boxX + boxW &&
-            bird.birdY + br > boxTop &&
-            bird.birdY - br < boxBottom
-          ) {
-            if (ob.trophy) {
-              winReached(ob);
-            } else {
-              die();
-            }
-            break;
-          }
-
-          if (ob.x + boxW < -boxW) {
-            obstacles.splice(i, 1);
-          }
-        }
+        updatePlayingObstacles({
+          width,
+          height,
+          sp,
+          dt,
+          now,
+          bird,
+          obstacles,
+          scoreRef,
+          milestoneReachedRef,
+          goldPipeRef,
+          meteorRef,
+          meteorAtRef,
+          onDie: die,
+          onWinReached: winReached,
+        });
       } else if (phaseRef.current === 'winning' && winRef.current) {
         updateWin(winRef.current, bird, dt, now, height);
+        unit4Audio.winStage(winRef.current.stage);
 
-        // Fase 'pan': el mundo se corre hacia la izquierda hasta que la
-        // tubería dorada desaparece y sólo queda el trofeo en el centro.
-        if (winRef.current.stage === 'pan') {
-          if (obstacles.some((ob) => ob.trophy && ob.x + ob.w > -20)) {
-            const panSp = moveSpeed(width, height, scoreRef.current);
-            groundScrollRef.current += panSp * dt;
-            for (const ob of obstacles) ob.x -= panSp * dt;
-            for (const b of bushes) {
-              b.x -= panSp * 0.6 * (b.dark ? 0.5 : 1) * dt;
-              if (b.x < -250) {
-                const nb = spawnBush(width + 60 + Math.random() * 320);
-                b.x = nb.x;
-                b.scale = nb.scale;
-                b.sx = nb.sx;
-                b.seed = nb.seed;
-                b.tone = nb.tone;
-                b.dark = nb.dark;
-                b.front = Math.random() < 0.4 ? b.front : nb.front;
-                b.blobs = nb.blobs;
-              }
-            }
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-              if (obstacles[i].x + obstacles[i].w < -20) {
-                obstacles.splice(i, 1);
-              }
-            }
-          } else {
-            // El pedestal ya salió y la copa flota estática en el centro: lanzar créditos
-            if (!showCreditsRef.current) {
-              showCreditsRef.current = true;
-              setShowCredits(true);
-            }
-          }
-        }
+        updateWinningWorld({
+          width,
+          height,
+          dt,
+          now,
+          obstacles,
+          bushes,
+          groundScrollRef,
+          scoreRef,
+          goldPipeRef,
+          winRef,
+          showCreditsRef,
+          onShowCredits: () => setShowCredits(true),
+        });
       }
 
-      if (shouldDraw && cachesRef.current) {
+      if (cachesRef.current) {
         for (const b of bushes) if (!b.front) drawBush(ctx, b, height);
         for (const ob of obstacles) drawObstacle(ctx, ob, height);
         for (const b of bushes) if (b.front) drawBush(ctx, b, height);
@@ -387,6 +355,9 @@ export const Unit4Game: React.FC = () => {
           width,
           height
         );
+        if (phaseRef.current === 'playing' && meteorRef.current) {
+          drawMeteor(ctx, meteorRef.current, now, height);
+        }
         if (
           phaseRef.current === 'winning' &&
           winRef.current &&
@@ -398,8 +369,6 @@ export const Unit4Game: React.FC = () => {
           drawScore(ctx, scoreRef.current, width, height);
         }
       }
-
-      raf = requestAnimationFrame(loop);
     };
 
     raf = requestAnimationFrame(loop);
@@ -409,6 +378,7 @@ export const Unit4Game: React.FC = () => {
       window.removeEventListener('keydown', handleKey);
       container?.removeEventListener('pointerdown', handlePointer);
       cancelAnimationFrame(raf);
+      unit4Audio.stop();
     };
   }, []);
 
@@ -419,62 +389,19 @@ export const Unit4Game: React.FC = () => {
     >
       <canvas ref={canvasRef} className="w-full h-full" />
 
-      {phase === 'ready' && (
-        <div className="absolute top-[30%] left-1/2 -translate-x-1/2 z-[200] pointer-events-none select-none text-center text-white">
-          <div className="text-2xl font-black tracking-wide drop-shadow-[0_2px_0_rgba(69,26,3,0.45)] whitespace-nowrap">
-            Grítale al pato
-          </div>
-          <div className="text-xl font-bold tracking-wide drop-shadow-[0_2px_0_rgba(69,26,3,0.45)] opacity-90 whitespace-nowrap">
-            para hacerlo volar
-          </div>
-        </div>
-      )}
-
-      {phase === 'dead' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none bg-amber-950/40">
-          <div className="text-6xl font-black text-white drop-shadow-[0_3px_0_rgba(69,26,3,0.85)]">
-            ¡Chocaste!
-          </div>
-          <div className="flex items-center gap-6 px-6 py-4 rounded-3xl bg-amber-900/80 text-amber-50 shadow-xl">
-            <div className="text-center">
-              <div className="text-xs uppercase tracking-wider opacity-70">
-                Puntos
-              </div>
-              <div className="text-4xl font-black text-amber-300">
-                {finalScore}
-              </div>
-            </div>
-            <div className="w-px h-12 bg-white/25" />
-            <div className="text-center">
-              <div className="text-xs uppercase tracking-wider opacity-70">
-                Récord
-              </div>
-              <div className="text-4xl font-black text-amber-300">
-                {finalRecord}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {micActive && phase !== 'ready' && (
-        <div className="absolute top-4 right-4 pointer-events-none flex items-center gap-2 rounded-full bg-amber-950/60 px-3 py-1.5 text-amber-100 shadow-lg">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-          </span>
-          <Mic className="w-4 h-4" />
-        </div>
-      )}
-
-      {showCredits && (
-        <Unit4CreditsModal
-          onRestart={() => {
-            setPhaseBoth('ready');
-            reset();
-          }}
-        />
-      )}
+      <Unit4Hud
+        phase={phase}
+        finalScore={finalScore}
+        finalRecord={finalRecord}
+        micActive={micActive}
+        showCredits={showCredits}
+        showTapHint={showTapHint}
+        onExit={onExit}
+        onRestart={() => {
+          setPhaseBoth('ready');
+          reset();
+        }}
+      />
     </div>
   );
 };

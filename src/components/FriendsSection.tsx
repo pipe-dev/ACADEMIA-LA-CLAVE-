@@ -150,9 +150,19 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
         id: `friend_${Date.now()}`
       };
     } else {
-      const codeSuffix = formattedCode.replace(/[^0-9]/g, '').slice(0, 3) || '555';
+      const sampleAvatars = [
+        '/avatars/avatar-soprano.svg',
+        '/avatars/avatar-tenor.svg',
+        '/avatars/avatar-mezzosoprano.svg',
+        '/avatars/avatar-baritono.svg',
+        '/avatars/avatar-contralto.svg',
+        '/avatars/avatar-bajo.svg',
+        '/avatars/avatar-armonia.svg',
+        '/avatars/avatar-acustico.svg',
+      ];
       const sampleNames = ['Valentina Sol', 'Diego Vocal', 'Lucía Armonía', 'Gabriel Canto', 'Andrés Tenor'];
       const pickedName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
+      const pickedAvatar = sampleAvatars[Math.floor(Math.random() * sampleAvatars.length)];
 
       const randLevel = Math.floor(Math.random() * 6) + 2;
       const randXp = Math.floor(Math.random() * 800) + 500;
@@ -160,7 +170,7 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
         id: `friend_${Date.now()}`,
         code: formattedCode,
         name: pickedName,
-        avatar: `https://images.unsplash.com/photo-${1500000000000 + (parseInt(codeSuffix) * 1000)}?w=150&auto=format&fit=crop&q=80`,
+        avatar: pickedAvatar,
         level: randLevel,
         levelTitle: 'Cantante Entusiasmado',
         streak: Math.floor(Math.random() * 10) + 1,

@@ -8,7 +8,7 @@
      (no pisa el transform de reacciones que vive en .purple-char y .face).
      Optimizada: solo transform/opacity (compositor) con capa propia. */
   will-change: transform;
-  animation: morado-enter 1.5s 0.2s both;
+  /* animation: morado-enter 1.5s 0.2s both; (reemplazada por caravana unificada) */
 }
 
 @keyframes morado-enter {

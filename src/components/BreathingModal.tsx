@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { BreathingGameCard } from './BreathingGameCard';
-import { Wind, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 
 interface BreathingModalProps {
@@ -25,12 +25,12 @@ export const BreathingModal: React.FC<BreathingModalProps> = ({ isOpen = true, o
           }}
           className="py-1.5 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-xs shrink-0"
         >
-          <ArrowLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+          <ArrowLeft className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           <span className="hidden sm:inline">Volver a Gimnasio Vocal</span>
           <span className="sm:hidden">Volver</span>
         </button>
 
-        <span className="text-[10px] font-extrabold bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
+        <span className="text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
           Aparato Pulmonar
         </span>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Activity, ShieldCheck, TrendingUp, Sparkles } from 'lucide-react';
+import { calculateCentsOff } from '../utils/pitchUtils';
 
 interface PitchStabilityChartProps {
   isTuningActive: boolean;
@@ -57,7 +58,7 @@ export const PitchStabilityChart: React.FC<PitchStabilityChartProps> = React.mem
       return;
     }
 
-    const cents = 1200 * Math.log2(detectedPitch / targetFrequency);
+    const cents = calculateCentsOff(detectedPitch, targetFrequency);
     targetDiffHzRef.current = cents;
     isCurrentlyTunedRef.current = Math.abs(cents) <= effectiveToleranceCents;
   }, [detectedPitch, targetFrequency, effectiveToleranceCents, isTuningActive]);

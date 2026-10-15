@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg-bajo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312e81" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+    <linearGradient id="cap-bajo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg-bajo)" stroke="#818cf8" stroke-width="2" />
+
+  <!-- Shoulders & Hoodie -->
+  <path d="M 28 116 C 30 92, 45 84, 60 84 C 75 84, 90 92, 92 116 Z" fill="#334155" />
+  <path d="M 46 84 C 46 96, 74 96, 74 84 Z" fill="#64748b" />
+
+  <!-- Headphones around neck -->
+  <path d="M 40 76 C 40 92, 80 92, 80 76" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" fill="none" />
+  <rect x="36" y="70" width="8" height="14" rx="4" fill="#fbbf24" />
+  <rect x="76" y="70" width="8" height="14" rx="4" fill="#fbbf24" />
+
+  <!-- Neck -->
+  <rect x="54" y="68" width="12" height="18" rx="6" fill="#fcd34d" />
+
+  <!-- Head / Face -->
+  <ellipse cx="60" cy="54" rx="21" ry="22" fill="#fde68a" />
+
+  <!-- Ears -->
+  <circle cx="39" cy="54" r="4.5" fill="#fde68a" />
+  <circle cx="81" cy="54" r="4.5" fill="#fde68a" />
+
+  <!-- Backwards baseball cap -->
+  <ellipse cx="60" cy="38" rx="23" ry="16" fill="url(#cap-bajo)" />
+  <!-- Cap backwards visor strap -->
+  <path d="M 48 40 L 72 40 L 68 45 L 52 45 Z" fill="#0f172a" />
+  <circle cx="60" cy="24" r="3" fill="#0f172a" />
+
+  <!-- Short hair peek -->
+  <path d="M 39 46 L 41 54 L 43 48 Z" fill="#0f172a" />
+  <path d="M 81 46 L 79 54 L 77 48 Z" fill="#0f172a" />
+
+  <!-- Deep expressive eyes -->
+  <circle cx="49" cy="52" r="3" fill="#0f172a" />
+  <circle cx="50" cy="51" r="1" fill="#fff" />
+  <circle cx="71" cy="52" r="3" fill="#0f172a" />
+  <circle cx="72" cy="51" r="1" fill="#fff" />
+
+  <!-- Strong eyebrows -->
+  <path d="M 44 46 Q 50 44 55 47" stroke="#0f172a" stroke-width="3" stroke-linecap="round" fill="none" />
+  <path d="M 65 47 Q 70 44 76 46" stroke="#0f172a" stroke-width="3" stroke-linecap="round" fill="none" />
+
+  <!-- Relaxed confident smile -->
+  <path d="M 52 64 Q 60 70 68 64" stroke="#78350f" stroke-width="2.5" stroke-linecap="round" fill="none" />
+</svg>

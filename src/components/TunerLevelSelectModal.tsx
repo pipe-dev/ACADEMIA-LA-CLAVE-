@@ -36,9 +36,9 @@ export const TunerLevelSelectModal: React.FC<TunerLevelSelectModalProps> = ({
   const difficulties: { key: Difficulty; label: string; desc: string; badge?: string }[] = [
     { key: 'Calentamiento', label: 'Calentamiento', desc: '12 ejercicios variados sin límite de vidas' },
     { key: 'Fácil', label: 'Fácil', desc: '12 niveles (Afinación y Ritmo 80-130 BPM)' },
-    { key: 'Medio', label: 'Medio', desc: '16 niveles (Arpegios, Melodías y Ritmo)' },
-    { key: 'Difícil', label: 'Difícil', desc: '20 niveles (Simon Says y Alta Velocidad)' },
-    { key: 'Maestro', label: 'Maestro', desc: '10 niveles (Afinación ±10¢ y Ritmo 250 BPM)', badge: 'Racha 60d' }
+    { key: 'Medio', label: 'Medio', desc: '20 niveles (Arpegios, Melodías y Ritmo)' },
+    { key: 'Difícil', label: 'Difícil', desc: '24 niveles (Simon Says y Alta Velocidad)' },
+    { key: 'Maestro', label: 'Maestro', desc: '14 niveles (Afinación ±10¢ y Ritmo 220-290 BPM)', badge: 'Racha 60d' }
   ];
 
   const currentLevelCount = difficultySettings[selectedDifficulty]?.levelCount || 12;

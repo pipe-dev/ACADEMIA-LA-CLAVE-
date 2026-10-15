@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg-soprano" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#6d28d9" />
+    </linearGradient>
+    <linearGradient id="hair-soprano" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4c1d95" />
+      <stop offset="100%" stop-color="#2e1065" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg-soprano)" stroke="#c4b5fd" stroke-width="2" />
+  
+  <!-- Back Hair bun -->
+  <circle cx="60" cy="30" r="18" fill="url(#hair-soprano)" />
+  <circle cx="60" cy="22" r="7" fill="#a78bfa" opacity="0.6" />
+
+  <!-- Shoulders & Outfit -->
+  <path d="M 28 116 C 30 92, 45 84, 60 84 C 75 84, 90 92, 92 116 Z" fill="#ec4899" />
+  <path d="M 52 84 L 60 94 L 68 84 Z" fill="#fbcfe8" />
+
+  <!-- Neck -->
+  <rect x="54" y="72" width="12" height="16" rx="6" fill="#fbcfe8" />
+
+  <!-- Head / Face -->
+  <ellipse cx="60" cy="58" rx="22" ry="24" fill="#fde047" opacity="0.15" />
+  <ellipse cx="60" cy="58" rx="21" ry="23" fill="#fed7aa" />
+
+  <!-- Cheeks / Blush -->
+  <circle cx="46" cy="64" r="4.5" fill="#f43f5e" opacity="0.4" />
+  <circle cx="74" cy="64" r="4.5" fill="#f43f5e" opacity="0.4" />
+
+  <!-- Eyes - happy singing arcs -->
+  <path d="M 46 54 Q 50 49 54 54" stroke="#431407" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 66 54 Q 70 49 74 54" stroke="#431407" stroke-width="2.5" stroke-linecap="round" fill="none" />
+
+  <!-- Eyebrows -->
+  <path d="M 45 48 Q 50 45 55 49" stroke="#581c87" stroke-width="2" stroke-linecap="round" fill="none" />
+  <path d="M 65 49 Q 70 45 75 48" stroke="#581c87" stroke-width="2" stroke-linecap="round" fill="none" />
+
+  <!-- Singing open mouth -->
+  <path d="M 54 66 Q 60 76 66 66 Z" fill="#be123c" />
+  <path d="M 57 66 Q 60 69 63 66 Z" fill="#fff" />
+
+  <!-- Front Hair bangs -->
+  <path d="M 39 52 C 39 34, 81 34, 81 52 C 75 40, 65 44, 60 42 C 55 44, 45 40, 39 52 Z" fill="url(#hair-soprano)" />
+
+  <!-- Headphones -->
+  <path d="M 37 54 C 37 36, 83 36, 83 54" stroke="#10b981" stroke-width="4.5" stroke-linecap="round" fill="none" />
+  <rect x="34" y="50" width="7" height="15" rx="3.5" fill="#34d399" />
+  <rect x="79" y="50" width="7" height="15" rx="3.5" fill="#34d399" />
+</svg>

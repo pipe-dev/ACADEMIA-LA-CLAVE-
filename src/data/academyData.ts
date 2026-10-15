@@ -3,14 +3,17 @@ import { Unit, SolfegeNote, Song, DailyQuest, UserStats } from '../types';
 export interface QuickScale {
   id: string;
   name: string;
+  category?: 'fundamental' | 'modal';
   description: string;
   notes: { name: string; frequency: number; color: string }[];
 }
 
 export const QUICK_SCALES: QuickScale[] = [
+  // ─── BLOQUE A: ESCALAS FUNDAMENTALES (4) ───
   {
     id: 'c-major',
     name: 'Mayor (Do)',
+    category: 'fundamental',
     description: 'Escala diatónica fundamental de solfeo',
     notes: [
       { name: 'DO', frequency: 261.63, color: '#ef4444' },
@@ -24,21 +27,9 @@ export const QUICK_SCALES: QuickScale[] = [
     ]
   },
   {
-    id: 'pentatonic',
-    name: 'Pentatónica',
-    description: 'Ideal para improvisación y agilidad vocal',
-    notes: [
-      { name: 'DO', frequency: 261.63, color: '#ef4444' },
-      { name: 'RE', frequency: 293.66, color: '#f97316' },
-      { name: 'MI', frequency: 329.63, color: '#eab308' },
-      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
-      { name: 'LA', frequency: 440.00, color: '#4338ca' },
-      { name: 'DO', frequency: 523.25, color: '#ec4899' },
-    ]
-  },
-  {
     id: 'c-minor',
     name: 'Menor Natural',
+    category: 'fundamental',
     description: 'Sonoridad melancólica para expresión vocal',
     notes: [
       { name: 'DO', frequency: 261.63, color: '#ef4444' },
@@ -52,8 +43,23 @@ export const QUICK_SCALES: QuickScale[] = [
     ]
   },
   {
+    id: 'pentatonic',
+    name: 'Pentatónica',
+    category: 'fundamental',
+    description: 'Ideal para improvisación y agilidad vocal',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'RE', frequency: 293.66, color: '#f97316' },
+      { name: 'MI', frequency: 329.63, color: '#eab308' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'LA', frequency: 440.00, color: '#4338ca' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
     id: 'arpeggio',
     name: 'Arpegio Mayor',
+    category: 'fundamental',
     description: 'Saltos interválicos para entonación limpia',
     notes: [
       { name: 'DO', frequency: 261.63, color: '#ef4444' },
@@ -64,16 +70,145 @@ export const QUICK_SCALES: QuickScale[] = [
       { name: 'MI', frequency: 329.63, color: '#eab308' },
       { name: 'DO', frequency: 261.63, color: '#ef4444' },
     ]
+  },
+
+  // ─── BLOQUE B: MODOS GRIEGOS & BLUES (8) ───
+  {
+    id: 'ionian',
+    name: 'Modo Jónico',
+    category: 'modal',
+    description: '1er modo griego; brillante, afirmativo y heroico',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'RE', frequency: 293.66, color: '#f97316' },
+      { name: 'MI', frequency: 329.63, color: '#eab308' },
+      { name: 'FA', frequency: 349.23, color: '#22c55e' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'LA', frequency: 440.00, color: '#4338ca' },
+      { name: 'SI', frequency: 493.88, color: '#8b5cf6' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
+    id: 'dorian',
+    name: 'Modo Dórico',
+    category: 'modal',
+    description: '2do modo griego; menor con 6ª mayor luminosa',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'RE', frequency: 293.66, color: '#f97316' },
+      { name: 'MIB', frequency: 311.13, color: '#a855f7' },
+      { name: 'FA', frequency: 349.23, color: '#22c55e' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'LA', frequency: 440.00, color: '#4338ca' },
+      { name: 'SIB', frequency: 466.16, color: '#06b6d4' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
+    id: 'phrygian',
+    name: 'Modo Frigio',
+    category: 'modal',
+    description: '3er modo griego; menor con 2ª menor, sabor flamenco',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'REB', frequency: 277.18, color: '#f43f5e' },
+      { name: 'MIB', frequency: 311.13, color: '#a855f7' },
+      { name: 'FA', frequency: 349.23, color: '#22c55e' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'LAB', frequency: 415.30, color: '#6366f1' },
+      { name: 'SIB', frequency: 466.16, color: '#06b6d4' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
+    id: 'lydian',
+    name: 'Modo Lidio',
+    category: 'modal',
+    description: '4to modo griego; mayor con 4ª aumentada (#4) espacial',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'RE', frequency: 293.66, color: '#f97316' },
+      { name: 'MI', frequency: 329.63, color: '#eab308' },
+      { name: 'FA#', frequency: 369.99, color: '#10b981' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'LA', frequency: 440.00, color: '#4338ca' },
+      { name: 'SI', frequency: 493.88, color: '#8b5cf6' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
+    id: 'mixolydian',
+    name: 'Modo Mixolidio',
+    category: 'modal',
+    description: '5to modo griego; mayor con 7ª menor, base del rock y blues',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'RE', frequency: 293.66, color: '#f97316' },
+      { name: 'MI', frequency: 329.63, color: '#eab308' },
+      { name: 'FA', frequency: 349.23, color: '#22c55e' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'LA', frequency: 440.00, color: '#4338ca' },
+      { name: 'SIB', frequency: 466.16, color: '#06b6d4' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
+    id: 'aeolian',
+    name: 'Modo Eolio',
+    category: 'modal',
+    description: '6to modo griego; escala menor natural pura y solemne',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'RE', frequency: 293.66, color: '#f97316' },
+      { name: 'MIB', frequency: 311.13, color: '#a855f7' },
+      { name: 'FA', frequency: 349.23, color: '#22c55e' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'LAB', frequency: 415.30, color: '#6366f1' },
+      { name: 'SIB', frequency: 466.16, color: '#06b6d4' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
+    id: 'locrian',
+    name: 'Modo Locrio',
+    category: 'modal',
+    description: '7mo modo griego; menor con 5ª disminuida, oscuro y tenso',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'REB', frequency: 277.18, color: '#f43f5e' },
+      { name: 'MIB', frequency: 311.13, color: '#a855f7' },
+      { name: 'FA', frequency: 349.23, color: '#22c55e' },
+      { name: 'SOLB', frequency: 369.99, color: '#14b8a6' },
+      { name: 'LAB', frequency: 415.30, color: '#6366f1' },
+      { name: 'SIB', frequency: 466.16, color: '#06b6d4' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
+  },
+  {
+    id: 'blues',
+    name: 'Escala de Blues',
+    category: 'modal',
+    description: 'Hexatónica con nota blues (b5); visceral para soul y rock',
+    notes: [
+      { name: 'DO', frequency: 261.63, color: '#ef4444' },
+      { name: 'MIB', frequency: 311.13, color: '#a855f7' },
+      { name: 'FA', frequency: 349.23, color: '#22c55e' },
+      { name: 'FA#', frequency: 369.99, color: '#10b981' },
+      { name: 'SOL', frequency: 392.00, color: '#3b82f6' },
+      { name: 'SIB', frequency: 466.16, color: '#06b6d4' },
+      { name: 'DO', frequency: 523.25, color: '#ec4899' },
+    ]
   }
 ];
 
-import { ALL_200_SINGING_BADGES } from './badgesData';
+import { ALL_50_SINGING_BADGES } from './badgesData';
 
-export const DEFAULT_BADGES = ALL_200_SINGING_BADGES;
+export const DEFAULT_BADGES = ALL_50_SINGING_BADGES;
 
 export const INITIAL_USER_STATS: UserStats = {
   name: 'Alex',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+  avatarUrl: '/avatars/avatar-soprano.svg',
   streak: 0,
   lives: 5,
   maxLives: 5,
@@ -86,7 +221,10 @@ export const INITIAL_USER_STATS: UserStats = {
   maxXP: 100,
   lessonsCompleted: 0,
   practiceMinutes: 0,
-  badges: ALL_200_SINGING_BADGES,
+  todayPracticeMinutes: 0,
+  lastPracticeDate: '',
+  dailyGoalMinutes: 15,
+  badges: ALL_50_SINGING_BADGES,
   xpHistory: [
     { day: 'Lun', xp: 0 },
     { day: 'Mar', xp: 0 },
@@ -94,7 +232,7 @@ export const INITIAL_USER_STATS: UserStats = {
     { day: 'Jue', xp: 0 },
     { day: 'Vie', xp: 0 },
     { day: 'Sáb', xp: 0 },
-    { day: 'Hoy', xp: 0 }
+    { day: 'Dom', xp: 0 }
   ],
   recentLessons: []
 };
@@ -644,14 +782,14 @@ export const INITIAL_UNITS: Unit[] = [
       {
         'id': 'u4-node33.5',
         'unitId': 4,
-        'title': 'Evaluación Final (Módulo 4)',
-        'subTitle': 'Evaluación Final (Módulo 4)',
+        'title': 'Evaluación del Módulo 4 (Expresión y Estilo)',
+        'subTitle': 'Evaluación del Módulo 4 (Expresión y Estilo)',
         'type': 'exam',
         'status': 'locked',
         'iconName': 'Trophy',
         'offsetPercentage': -15,
         'xpReward': 100,
-        'instructions': 'Examen final del curso. Pon a prueba toda tu agilidad, dicción y resonancia.',
+        'instructions': 'Evaluación práctica del Módulo 4. Pon a prueba tu agilidad, vibrato, dicción, resonancia e identidad vocal.',
         'youtubeId': '',
         'duration': '15:00'
       }

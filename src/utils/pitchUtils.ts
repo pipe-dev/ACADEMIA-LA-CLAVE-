@@ -13,7 +13,16 @@
  * - Maestro: ±8 cents (professional studio/concert pitch)
  */
 
-export function calculateCentsOff(detectedHz: number, targetHz: number): number {
+export function calculateCentsOff(detectedHz: number, targetHz: number, allowOctaveEquivalence: boolean = true): number {
+  if (!detectedHz || !targetHz || detectedHz <= 0 || targetHz <= 0) return 0;
+  const rawCents = 1200 * Math.log2(detectedHz / targetHz);
+  if (!allowOctaveEquivalence) return rawCents;
+  // Folds into [-600, +600] cents so that singing the note in an octave equivalent
+  // or autocorrelation octave doubling/halving evaluates intonation accurately.
+  return ((rawCents + 600) % 1200 + 1200) % 1200 - 600;
+}
+
+export function calculateRawCentsOff(detectedHz: number, targetHz: number): number {
   if (!detectedHz || !targetHz || detectedHz <= 0 || targetHz <= 0) return 0;
   return 1200 * Math.log2(detectedHz / targetHz);
 }

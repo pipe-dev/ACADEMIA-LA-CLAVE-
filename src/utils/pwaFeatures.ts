@@ -139,249 +139,42 @@ export async function shareUserAchievement(title: string, text: string, url?: st
  * 5. Web Notifications API
  * Requests permission and sends daily practice reminders
  */
-export const PRACTICE_NOTIFICATION_MESSAGES = [
-  // Motivacionales / Variados
-  (streak: number) => ({
-    title: 'Salva tu racha en La Clave',
-    body: `¡Llevas ${streak} días seguidos! Solo 5 minutos de vocalización hoy para mantener tu racha viva.`
-  }),
-  (streak: number) => ({
-    title: 'La constancia hace al artista',
-    body: 'Los grandes cantantes no nacen, se entrenan. ¡Tu afinador y ejercicios te esperan hoy!'
-  }),
-  (streak: number) => ({
-    title: 'Ejercicio vocal del día',
-    body: 'Tu voz es un músculo. ¡No la dejes enfriar hoy! Entra a hacer tu práctica diaria.'
-  }),
-  (streak: number) => ({
-    title: 'Desbloquea tu voz',
-    body: 'Tu próximo gran agudo empieza con 5 minutos de práctica. ¡Entra ya a ensayar!'
-  }),
-  (streak: number) => ({
-    title: 'Afinación perfecta',
-    body: '¿Listo para afinar como un profesional? Solo te tomará unos minutos de ejercicio.'
-  }),
-  (streak: number) => ({
-    title: 'Tu racha brilla',
-    body: `¡Tu racha de ${streak} días se ve espectacular! Haz que dure un día más cantando hoy.`
-  }),
-  (streak: number) => ({
-    title: 'Hora de calentar',
-    body: `Tu cuerda vocal favorita pregunta por ti. ¡Es hora de calentar con tus lecciones!`
-  }),
-  (streak: number) => ({
-    title: 'Solo 5 minutos',
-    body: `Solo 5 minutos hoy separan tu voz de su mejor versión. ¡Abre La Clave y practica!`
-  }),
-  (streak: number) => ({
-    title: 'El escenario te espera',
-    body: `El escenario te llama. Ven a calentar con tus ejercicios de respiración y afinación.`
-  }),
-  (streak: number) => ({
-    title: 'Mantén el ritmo',
-    body: `¡No rompas la cadena! Calienta ahora y protege tu medalla de constancia.`
-  }),
-  // Comedia / Divertidos
-  (streak: number) => ({
-    title: 'Alerta de vecinos',
-    body: `Tus vecinos extrañan escucharte hacer "MmMmMm" en Do Mayor. ¡Entra a ensayar!`
-  }),
-  (streak: number) => ({
-    title: 'El gallo interno acecha...',
-    body: `Tu gallo interno se está preparando... ¡Entra a afinar antes de que cante!`
-  }),
-  (streak: number) => ({
-    title: 'La ducha no cuenta',
-    body: `Cantar en la ducha no suma a tu racha de ${streak} días... ¡Abre la app y hazlo oficial!`
-  }),
-  (streak: number) => ({
-    title: 'Micrófono nostálgico',
-    body: `Tu micrófono virtual está llorando en una esquina. Dale un poco de amor hoy.`
-  }),
-  (streak: number) => ({
-    title: 'Alerta de telarañas',
-    body: `Alerta roja: tus cuerdas vocales están acumulando telarañas. ¡A vocalizar!`
-  }),
-  (streak: number) => ({
-    title: 'Mejor que el café',
-    body: `Olvida el café: un buen ejercicio de respiración te va a despertar mucho mejor.`
-  }),
-  (streak: number) => ({
-    title: 'Fantasma de racha',
-    body: `Tu racha de ${streak} días se convertirá en fantasma si no entras hoy...`
-  }),
-  (streak: number) => ({
-    title: '¿Modo nocturno?',
-    body: `Los búhos cantan de noche, pero tú puedes practicar tu solfeo ahora mismo.`
-  }),
-  (streak: number) => ({
-    title: 'El profe mira el reloj',
-    body: `Tu profesor de canto virtual está mirando fijamente el reloj... ¡Hora de la lección!`
-  }),
-  (streak: number) => ({
-    title: 'Promesa seria',
-    body: `Prometemos que calentar hoy es más divertido que ver memes por 5 minutos.`
-  }),
-  (streak: number) => ({
-    title: 'El gato de la vecina',
-    body: `El gato de la vecina acaba de desafiar tu nota agudo. ¿Vas a dejar que te gane en tono?`
-  }),
-  (streak: number) => ({
-    title: 'La pizza puede esperar',
-    body: `La pizza puede esperar 5 minutos, pero tu calentamiento vocal de hoy no. ¡Entra a afinar!`
-  }),
-  (streak: number) => ({
-    title: 'Ahuyenta el desafine',
-    body: `El fantasma del desafine anda suelto. Calienta tus notas 5 minutos para mantener tu tono impecable.`
-  }),
-  (streak: number) => ({
-    title: 'Karaoke en luz roja',
-    body: `Practica en La Clave ahora para no desafinar cuando cantes en el auto en el tráfico.`
-  }),
-  (streak: number) => ({
-    title: 'Abducción de racha',
-    body: `¡Alerta! Alienígenas quieren abducir tu racha de ${streak} días. ¡Defiéndela cantando!`
-  }),
-  (streak: number) => ({
-    title: 'Barre el desafine',
-    body: `Pasa la escoba por tus cuerdas vocales antes de que el polvo tape tus agudos.`
-  }),
-  (streak: number) => ({
-    title: 'Karaoke sorpresa',
-    body: `¿Y si hoy te invitan a un karaoke sorpresa? No te arriesgues a fallar tu tema estrella.`
-  }),
-  (streak: number) => ({
-    title: 'Alma vs Algoritmo',
-    body: `Los robots pueden generar audio, pero solo tú tienes el sentimiento. ¡Entra a cantar!`
-  }),
-  (streak: number) => ({
-    title: 'Tu diafragma pide acción',
-    body: `Tu diafragma exige 5 minutos de respiración antes de volverse un limón agrio.`
-  }),
-  // Desafío y Juego Vocal
-  (streak: number) => ({
-    title: '¡Desafío de Pitch del día!',
-    body: `¿Puedes dar una nota perfecta en el primer intento? Ponte a prueba en La Clave.`
-  }),
-  (streak: number) => ({
-    title: 'Rompe tu récord de precisión',
-    body: `Pon a prueba tus oídos y cuerdas vocales con el juego de afinación instantánea.`
-  }),
-  (streak: number) => ({
-    title: 'Reto de resistencia de diafragma',
-    body: `¿Cuántos segundos puedes mantener el aire con el juego del globo inflable?`
-  }),
-  (streak: number) => ({
-    title: 'Desafío Maestro del Tono',
-    body: `Encuentra la nota oculta en el teclado antes de que se acabe el tiempo. ¡A cantar!`
-  }),
-  (streak: number) => ({
-    title: 'Micro-Desafío de 2 Minutos',
-    body: `Tienes 120 segundos para hacer un calentamiento express. ¿Aceptas el reto?`
-  }),
-  (streak: number) => ({
-    title: 'Desafío de Sirenas Vocales',
-    body: `Conecta tus graves con tus agudos sin romper la voz. Demuéstralo hoy.`
-  }),
-  (streak: number) => ({
-    title: 'Defiende tu puesto en la tabla',
-    body: `¡Otros cantantes están subiendo su puntuación! Entra a asegurar tus XP de hoy.`
-  }),
-  (streak: number) => ({
-    title: 'Rueda de notas vocales',
-    body: `¡Hoy te toca afinar en una escala nueva! Entra a descubrir cuál es tu reto.`
-  }),
-  (streak: number) => ({
-    title: 'Reto de agudos limpios',
-    body: `Hoy trabajamos la ligereza y resonancia superior. ¡Entra a desbloquear tus notas altas!`
-  }),
-  (streak: number) => ({
-    title: 'Contra el reloj',
-    body: `3 ejercicios rápidos de dicción y tono. ¿Podrás hacerlos todos perfectos hoy?`
-  }),
-  // Cuidado de la Voz y Bienestar
-  (streak: number) => ({
-    title: 'Hidrata tus cuerdas vocales',
-    body: `Bebe un vaso de agua y entra a hacer un calentamiento suave para cuidar tu salud vocal.`
-  }),
-  (streak: number) => ({
-    title: 'Relax y Respiración Diafragmática',
-    body: `Un día ajetreado merece 3 minutos de respiración guiada para liberar la tensión del cuello.`
-  }),
-  (streak: number) => ({
-    title: 'Cuidado vocal preventivo',
-    body: `Previene la fatiga vocal calentando antes de hablar o cantar mucho. ¡Tu voz te lo agradecerá!`
-  }),
-  (streak: number) => ({
-    title: 'Masaje y vibración de labios',
-    body: `Los lip-trills son el mejor remedio para cuerdas cansadas. Entra a relajarlas hoy.`
-  }),
-  (streak: number) => ({
-    title: 'Mima tu garganta',
-    body: `Tu voz es un instrumento delicado. Regálate una sesión de relajación y resonancia.`
-  }),
-  (streak: number) => ({
-    title: 'Desconexión y tono corporal',
-    body: `Libera la tensión acumulada en hombros y mandíbula con nuestros ejercicios de postura.`
-  }),
-  (streak: number) => ({
-    title: 'Respiración de ola serena',
-    body: `Calma tu mente y abre tus pulmones con el ciclo de respiración rítmica en La Clave.`
-  }),
-  (streak: number) => ({
-    title: '¿Voz cansada hoy?',
-    body: `Tenemos ejercicios de enfriamiento vocal ultra suaves para recuperar el brillo sin esfuerzo.`
-  }),
-  (streak: number) => ({
-    title: 'Buenos días para tu voz',
-    body: `Despierta tu resonancia nasal con un zumbido suave ("Humming"). ¡Empieza bien el día!`
-  }),
-  (streak: number) => ({
-    title: 'Postura y libertad vocal',
-    body: `Alinea tu columna y abre tu diafragma. ¡Ven a estirar y cantar sin presión!`
-  }),
-  // Logros y Progreso
-  (streak: number) => ({
-    title: '¡Estás cerca de una nueva medalla!',
-    body: `Te faltan muy pocos XP para desbloquear tu siguiente insignia vocal. ¡Consíguela hoy!`
-  }),
-  (streak: number) => ({
-    title: 'Tu progreso semanal está despegando',
-    body: `Has mejorado tu afinación este mes. ¡Sigue construyendo tu legado cantando hoy!`
-  }),
-  (streak: number) => ({
-    title: 'Desbloquea el nivel Maestro de Afinación',
-    body: `Tu constancia rinde frutos. Entra a completar la lección que te acerca al siguiente rango.`
-  }),
-  (streak: number) => ({
-    title: `¡${streak} días de victoria consecutiva!`,
-    body: `¡Esa cifra de racha es impresionante! Reclama tus puntos de hoy antes de medianoche.`
-  }),
-  (streak: number) => ({
-    title: 'Insignia de Constancia en juego',
-    body: `Mantener la racha activa hoy te asegura la medalla de hierro en tu perfil.`
-  }),
-  (streak: number) => ({
-    title: 'Gráfica de afinación impecable',
-    body: `Tu precisión en centésimas de semitono sigue subiendo. ¡Revisa tus estadísticas!`
-  }),
-  (streak: number) => ({
-    title: 'Tu tono está ganando brillo',
-    body: `La memoria muscular de tu diafragma está mejorando cada día. ¡Suma la sesión de hoy!`
-  }),
-  (streak: number) => ({
-    title: 'Recompensa de sesión diaria',
-    body: `Tu bono de XP diario te está esperando. Entra a reclamarlo practicando 5 minutos.`
-  }),
-  (streak: number) => ({
-    title: 'Historial de vocalizaciones activo',
-    body: `Tu diario de canto está registrando grandes avances. ¡Añade tu práctica de hoy!`
-  }),
-  (streak: number) => ({
-    title: 'Orgullo vocal',
-    body: `Mira hacia atrás y observa cuánto has avanzado desde el día 1. ¡A por un triunfo más hoy!`
-  })
+const NOTIF_TEMPLATES: [string, (s: number) => string][] = [
+  ['Salva tu racha en La Clave', (s) => '¡Llevas ' + s + ' días seguidos! Solo 5 minutos de vocalización hoy para mantener tu racha viva.'],
+  ['La constancia hace al artista', () => 'Los grandes cantantes no nacen, se entrenan. ¡Tu afinador y ejercicios te esperan hoy!'],
+  ['Ejercicio vocal del día', () => 'Tu voz es un músculo. ¡No la dejes enfriar hoy! Entra a hacer tu práctica diaria.'],
+  ['Desbloquea tu voz', () => 'Tu próximo gran agudo empieza con 5 minutos de práctica. ¡Entra ya a ensayar!'],
+  ['Afinación perfecta', () => '¿Listo para afinar como un profesional? Solo te tomará unos minutos de ejercicio.'],
+  ['Tu racha brilla', (s) => '¡Tu racha de ' + s + ' días se ve espectacular! Haz que dure un día más cantando hoy.'],
+  ['Hora de calentar', () => 'Tu cuerda vocal favorita pregunta por ti. ¡Es hora de calentar con tus lecciones!'],
+  ['Solo 5 minutos', () => 'Solo 5 minutos hoy separan tu voz de su mejor versión. ¡Abre La Clave y practica!'],
+  ['El escenario te espera', () => 'El escenario te llama. Ven a calentar con tus ejercicios de respiración y afinación.'],
+  ['Mantén el ritmo', () => '¡No rompas la cadena! Calienta ahora y protege tu medalla de constancia.'],
+  ['Alerta de vecinos', () => 'Tus vecinos extrañan escucharte hacer "MmMmMm" en Do Mayor. ¡Entra a ensayar!'],
+  ['El gallo interno acecha...', () => 'Tu gallo interno se está preparando... ¡Entra a afinar antes de que cante!'],
+  ['La ducha no cuenta', (s) => 'Cantar en la ducha no suma a tu racha de ' + s + ' días... ¡Abre la app y hazlo oficial!'],
+  ['Micrófono nostálgico', () => 'Tu micrófono virtual está llorando en una esquina. Dale un poco de amor hoy.'],
+  ['Alerta de telarañas', () => 'Alerta roja: tus cuerdas vocales están acumulando telarañas. ¡A vocalizar!'],
+  ['Mejor que el café', () => 'Olvida el café: un buen ejercicio de respiración te va a despertar mucho mejor.'],
+  ['Fantasma de racha', (s) => 'Tu racha de ' + s + ' días se convertirá en fantasma si no entras hoy...'],
+  ['¿Modo nocturno?', () => 'Los búhos cantan de noche, pero tú puedes practicar tu solfeo ahora mismo.'],
+  ['El profe mira el reloj', () => 'Tu profesor de canto virtual está mirando fijamente el reloj... ¡Hora de la lección!'],
+  ['¿Afinador o desafinador?', () => 'Ven a demostrarle al afinador que hoy sí estás afinado en el centro perfecto.'],
+  ['Récord de Racha a la vista', (s) => 'Día ' + s + ' alcanzado. ¡Un entrenamiento más y desbloqueas un nuevo récord!'],
+  ['Tu registro vocal se expande', () => 'Has mejorado tu afinación este mes. ¡Sigue construyendo tu legado cantando hoy!'],
+  ['Desbloquea el nivel Maestro de Afinación', () => 'Tu constancia rinde frutos. Entra a completar la lección que te acerca al siguiente rango.'],
+  ['¡Días de victoria consecutiva!', (s) => '¡Esa cifra de racha de ' + s + ' días es impresionante! Reclama tus puntos antes de medianoche.'],
+  ['Insignia de Constancia en juego', () => 'Mantener la racha activa hoy te asegura la medalla de hierro en tu perfil.'],
+  ['Gráfica de afinación impecable', () => 'Tu precisión en centésimas de semitono sigue subiendo. ¡Revisa tus estadísticas!'],
+  ['Tu tono está ganando brillo', () => 'La memoria muscular de tu diafragma está mejorando cada día. ¡Suma la sesión de hoy!'],
+  ['Recompensa de sesión diaria', () => 'Tu bono de XP diario te está esperando. Entra a reclamarlo practicando 5 minutos.'],
+  ['Historial de vocalizaciones activo', () => 'Tu diario de canto está registrando grandes avances. ¡Añade tu práctica de hoy!'],
+  ['Orgullo vocal', () => 'Mira hacia atrás y observa cuánto has avanzado desde el día 1. ¡A por un triunfo más hoy!']
 ];
+
+export const PRACTICE_NOTIFICATION_MESSAGES = NOTIF_TEMPLATES.map(
+  ([title, bodyFn]) => (streak: number) => ({ title, body: bodyFn(streak) })
+);
 
 export function getRandomPracticeNotificationMessage(streakDays: number = 1): { title: string; body: string } {
   const randomIndex = Math.floor(Math.random() * PRACTICE_NOTIFICATION_MESSAGES.length);
@@ -415,8 +208,8 @@ export async function sendPracticeReminderNotification(streakDays: number): Prom
   const msg = getRandomPracticeNotificationMessage(streakDays);
   const options: NotificationOptions = {
     body: msg.body,
-    icon: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=192&q=80',
-    badge: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=192&q=80',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
     tag: 'practice-reminder'
   };
 
@@ -491,7 +284,7 @@ export async function syncUserProgressBackgroundFetch(): Promise<boolean> {
     if ('backgroundFetch' in reg) {
       const bgFetch = await (reg as any).backgroundFetch.fetch(fetchId, urls, {
         title: 'Sincronizando Progreso y Desafíos de Canto',
-        icons: [{ src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=192&q=80', sizes: '192x192', type: 'image/jpeg' }],
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
         downloadTotal: 100 * 1024
       });
       logger.info('PWA', 'Background Fetch de progreso registrado con éxito:', bgFetch.id);
@@ -523,7 +316,7 @@ export async function startBackgroundFetchDownload(
     if ('backgroundFetch' in reg) {
       const bgFetch = await (reg as any).backgroundFetch.fetch(id, urls, {
         title: title,
-        icons: [{ src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=192&q=80', sizes: '192x192', type: 'image/jpeg' }],
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
         downloadTotal: 2 * 1024 * 1024 // 2MB estimated
       });
 

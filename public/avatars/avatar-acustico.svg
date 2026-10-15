@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg-acus" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eab308" />
+      <stop offset="100%" stop-color="#ca8a04" />
+    </linearGradient>
+    <linearGradient id="hair-acus" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3f2e18" />
+      <stop offset="100%" stop-color="#1c1306" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg-acus)" stroke="#fef08a" stroke-width="2" />
+
+  <!-- Voluminous Curly Afro clouds -->
+  <circle cx="60" cy="38" r="28" fill="url(#hair-acus)" />
+  <circle cx="42" cy="42" r="18" fill="url(#hair-acus)" />
+  <circle cx="78" cy="42" r="18" fill="url(#hair-acus)" />
+  <circle cx="36" cy="56" r="14" fill="url(#hair-acus)" />
+  <circle cx="84" cy="56" r="14" fill="url(#hair-acus)" />
+
+  <!-- Shoulders & Knit Sweater -->
+  <path d="M 28 116 C 30 92, 45 84, 60 84 C 75 84, 90 92, 92 116 Z" fill="#047857" />
+  <circle cx="60" cy="94" r="5" fill="#10b981" />
+
+  <!-- Neck -->
+  <rect x="54" y="70" width="12" height="18" rx="6" fill="#fed7aa" />
+
+  <!-- Head / Face -->
+  <ellipse cx="60" cy="58" rx="20" ry="22" fill="#fed7aa" />
+
+  <!-- Round Glasses -->
+  <circle cx="49" cy="55" r="7" fill="none" stroke="#78350f" stroke-width="2.5" />
+  <circle cx="71" cy="55" r="7" fill="none" stroke="#78350f" stroke-width="2.5" />
+  <line x1="56" y1="55" x2="64" y2="55" stroke="#78350f" stroke-width="2.5" />
+
+  <!-- Eyes behind round glasses -->
+  <circle cx="49" cy="55" r="2.5" fill="#1c1306" />
+  <circle cx="50" cy="54" r="0.8" fill="#fff" />
+  <circle cx="71" cy="55" r="2.5" fill="#1c1306" />
+  <circle cx="72" cy="54" r="0.8" fill="#fff" />
+
+  <!-- Warm smile -->
+  <path d="M 52 68 Q 60 76 68 68" stroke="#78350f" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 54 68 Q 60 74 66 68 Z" fill="#fff" />
+
+  <!-- Yellow studio headphones -->
+  <path d="M 33 54 C 33 32, 87 32, 87 54" stroke="#6366f1" stroke-width="4.5" stroke-linecap="round" fill="none" />
+  <rect x="30" y="50" width="7" height="15" rx="3.5" fill="#4f46e5" />
+  <rect x="83" y="50" width="7" height="15" rx="3.5" fill="#4f46e5" />
+</svg>

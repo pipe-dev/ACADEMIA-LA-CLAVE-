@@ -149,7 +149,6 @@ export const usePitchDetection = () => {
         // a la vez que habilita el acceso de captura de micrófono sin restricciones.
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
           try {
-            (navigator as any).audioSession.type = 'playback';
             (navigator as any).audioSession.type = 'play-and-record';
           } catch {}
         }
@@ -300,11 +299,15 @@ export const usePitchDetection = () => {
     audioContextRef.current = null;
     isSharedContextRef.current = false;
     
-    // Restaurar sesión de audio a reproducción estéreo de alta fidelidad por altavoz
+    // Restaurar sesión de audio a modo playback para mantener sonido con interruptor de silencio o modos de enfoque
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
         (navigator as any).audioSession.type = 'playback';
-        (navigator as any).audioSession.type = 'auto';
+      } catch {}
+    }
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
       } catch {}
     }
 

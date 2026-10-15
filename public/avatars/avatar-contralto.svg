@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg-contra" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#be185d" />
+    </linearGradient>
+    <linearGradient id="hair-contra" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#0e7490" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg-contra)" stroke="#fbcfe8" stroke-width="2" />
+
+  <!-- Back Hair Bob Cut -->
+  <path d="M 34 50 C 34 30, 86 30, 86 50 C 88 74, 82 82, 80 84 C 76 72, 74 60, 60 60 C 46 60, 44 72, 40 84 C 38 82, 32 74, 34 50 Z" fill="url(#hair-contra)" />
+
+  <!-- Shoulders & Leather jacket style -->
+  <path d="M 28 116 C 30 92, 45 84, 60 84 C 75 84, 90 92, 92 116 Z" fill="#18181b" />
+  <path d="M 52 84 L 60 96 L 68 84 Z" fill="#f43f5e" />
+
+  <!-- Neck -->
+  <rect x="54" y="72" width="12" height="16" rx="6" fill="#fed7aa" />
+
+  <!-- Head / Face -->
+  <ellipse cx="60" cy="58" rx="21" ry="23" fill="#fed7aa" />
+
+  <!-- Cheeks -->
+  <circle cx="46" cy="64" r="4.5" fill="#f43f5e" opacity="0.3" />
+  <circle cx="74" cy="64" r="4.5" fill="#f43f5e" opacity="0.3" />
+
+  <!-- Hoop Earrings -->
+  <circle cx="38" cy="64" r="5.5" fill="none" stroke="#fbbf24" stroke-width="2" />
+  <circle cx="82" cy="64" r="5.5" fill="none" stroke="#fbbf24" stroke-width="2" />
+
+  <!-- Sassy eyes with slight cat eye eyeliner -->
+  <path d="M 45 54 Q 50 48 55 54" stroke="#09090b" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <line x1="55" y1="54" x2="57" y2="52" stroke="#09090b" stroke-width="2" stroke-linecap="round" />
+  <path d="M 65 54 Q 70 48 75 54" stroke="#09090b" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <line x1="75" y1="54" x2="77" y2="52" stroke="#09090b" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Confident smile with berry lipstick -->
+  <path d="M 53 66 Q 60 74 67 66" stroke="#9d174d" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <ellipse cx="60" cy="68" rx="6" ry="3" fill="#be123c" />
+
+  <!-- Front Hair bangs -->
+  <path d="M 36 50 C 36 32, 84 32, 84 50 C 76 38, 64 36, 58 36 C 50 36, 42 38, 36 50 Z" fill="url(#hair-contra)" />
+</svg>

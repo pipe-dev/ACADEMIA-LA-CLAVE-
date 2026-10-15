@@ -52,3 +52,10 @@ firestore-debug.log
 public/admin.html
 admin.html
 
+# temporary logs and scratch
+*.log
+dev.log
+tunnel.js
+.git-rewrite/
+scratch/
+test_svg.png

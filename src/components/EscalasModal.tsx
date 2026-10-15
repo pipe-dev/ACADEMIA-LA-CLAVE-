@@ -6,6 +6,8 @@ import { QUICK_SCALES } from '../data/academyData';
 import { SolfegeNote } from '../types';
 import { SOLFEGE_NOTES } from '../data/academyData';
 import { Music2, Play, Pause, ArrowLeft } from 'lucide-react';
+import { emitQuestEvent } from '../utils/dailyQuestsEngine';
+import { emitStreakEligibleAction } from '../utils/streakPrompt';
 
 interface EscalasModalProps {
   isOpen?: boolean;
@@ -65,11 +67,20 @@ export const EscalasModal: React.FC<EscalasModalProps> = ({
         setIsPlayingScale(false);
         setActiveScaleStepIndex(null);
         cancelScaleRef.current = null;
+        emitStreakEligibleAction();
+        emitQuestEvent('SCALE_TRAINED', 1);
       }
     );
 
     cancelScaleRef.current = cancelFn;
   };
+
+  const fundamentalScales = QUICK_SCALES.filter(
+    s => s.category === 'fundamental' || ['c-major', 'c-minor', 'pentatonic', 'arpeggio'].includes(s.id)
+  );
+  const modalScales = QUICK_SCALES.filter(
+    s => s.category === 'modal' || !['c-major', 'c-minor', 'pentatonic', 'arpeggio'].includes(s.id)
+  );
 
   const innerContent = (
     <div className="bg-white dark:bg-[#102034] w-full rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-[#1b2b3f] shadow-md space-y-5 relative">
@@ -102,130 +113,189 @@ export const EscalasModal: React.FC<EscalasModalProps> = ({
             Escalas Rápidas Vocales
           </h3>
           <p className="text-xs text-slate-400 font-medium">
-            Referencia auditiva y afinación guiada por notas de solfeo
+            Referencia auditiva de escalas y modos
           </p>
         </div>
       </div>
 
-        {/* Play Action Header */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-[#0b1828] border border-slate-200/80 dark:border-slate-800">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase text-slate-400 block">
-              Escala Seleccionada
-            </span>
-            <span className="font-heading font-bold text-sm text-slate-800 dark:text-slate-200">
-              {activeScale.name}
-            </span>
-          </div>
-
-          <button
-            onClick={() => handlePlayScaleSequence(activeScale)}
-            className={`px-4 py-2 rounded-full text-xs font-heading font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
-              isPlayingScale
-                ? 'bg-amber-500 text-white animate-pulse shadow-amber-500/40'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/30'
-            }`}
-          >
-            {isPlayingScale ? (
-              <>
-                <Pause className="w-4 h-4 fill-white" />
-                <span>Pausar Escala</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                <span>Escuchar Escala</span>
-              </>
-            )}
-          </button>
+      {/* Play Action Header */}
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-[#0b1828] border border-slate-200/80 dark:border-slate-800">
+        <div>
+          <span className="text-[10px] font-extrabold uppercase text-slate-400 block">
+            Escala Seleccionada
+          </span>
+          <span className="font-heading font-bold text-sm text-slate-800 dark:text-slate-200">
+            {activeScale.name}
+          </span>
         </div>
 
-        {/* Scale Selector Presets */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-300 block">
-            Selecciona el Patrón o Tipo de Escala:
+        <button
+          onClick={() => {
+            audioService.unlockForMobileSilentMode();
+            handlePlayScaleSequence(activeScale);
+          }}
+          className={`px-4 py-2 rounded-full text-xs font-heading font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
+            isPlayingScale
+              ? 'bg-amber-500 text-white animate-pulse shadow-amber-500/40'
+              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/30'
+          }`}
+        >
+          {isPlayingScale ? (
+            <>
+              <Pause className="w-4 h-4 fill-white" />
+              <span>Pausar Escala</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4 fill-white" />
+              <span>Escuchar Escala</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Interactive Note Keys - Prominent at the top for immediate access */}
+      <div className="bg-[#f8fafc] dark:bg-[#0b1828] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+            Notas: {activeScale.name}
+          </span>
+          <span className="text-[10px] font-semibold text-indigo-500">
+            Toca para emitir tono
+          </span>
+        </div>
+
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+          {activeScale.notes.map((note, idx) => {
+            const isCurrentPlaying = isPlayingScale && activeScaleStepIndex === idx;
+
+            return (
+              <button
+                key={`${note.name}-${idx}`}
+                onClick={() => {
+                  audioService.unlockForMobileSilentMode();
+                  audioService.playClickSound();
+                  audioService.playFrequency(note.frequency, 0.85);
+                  if (onSelectNote) {
+                    const foundSolfege = SOLFEGE_NOTES.find(sn => sn.name === note.name) || {
+                      name: note.name,
+                      letter: note.name.charAt(0),
+                      frequency: note.frequency,
+                      bgColor: note.color,
+                      shadowColor: note.color
+                    };
+                    onSelectNote(foundSolfege);
+                  }
+                }}
+                className={`p-2.5 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center border ${
+                  isCurrentPlaying
+                    ? 'bg-[#4648d4] text-white border-[#4648d4] shadow-md scale-105 ring-2 ring-amber-400'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+                }`}
+                title={`Cantar ${note.name}`}
+              >
+                <span className="text-xs font-black">{note.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bloque 1: Escalas Fundamentales (4) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+            Escalas y Patrones Fundamentales
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {QUICK_SCALES.map((scale) => {
-              const isSelected = scale.id === selectedScaleId;
-              return (
-                <button
-                  key={scale.id}
-                  onClick={() => {
-                    if (isPlayingScale && cancelScaleRef.current) {
-                      cancelScaleRef.current();
-                      cancelScaleRef.current = null;
-                      setIsPlayingScale(false);
-                      setActiveScaleStepIndex(null);
-                    }
-                    audioService.playClickSound();
-                    setSelectedScaleId(scale.id);
-                  }}
-                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-indigo-50/90 dark:bg-indigo-950/70 border-indigo-400 dark:border-indigo-600 shadow-xs ring-2 ring-indigo-400/30'
-                      : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
-                  }`}
-                >
-                  <span className={`font-heading font-bold text-xs block ${
-                    isSelected ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-800 dark:text-slate-200'
-                  }`}>
-                    {scale.name}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium line-clamp-2 block mt-0.5">
-                    {scale.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <span className="text-[10px] font-extrabold bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+            4 Básicas
+          </span>
         </div>
-
-        {/* Interactive Note Keys */}
-        <div className="bg-[#f8fafc] dark:bg-[#0b1828] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Notas de la Escala: {activeScale.name}
-            </span>
-            <span className="text-[10px] font-semibold text-indigo-500">
-              Toca para emitir tono
-            </span>
-          </div>
-
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-            {activeScale.notes.map((note, idx) => {
-              const isCurrentPlaying = isPlayingScale && activeScaleStepIndex === idx;
-
-              return (
-                <button
-                  key={`${note.name}-${idx}`}
-                  onClick={() => {
-                    audioService.playClickSound();
-                    audioService.playFrequency(note.frequency, 0.8);
-                    if (onSelectNote) {
-                      const foundSolfege = SOLFEGE_NOTES.find(sn => sn.name === note.name) || {
-                        name: note.name,
-                        letter: note.name.charAt(0),
-                        frequency: note.frequency,
-                        bgColor: note.color,
-                        shadowColor: note.color
-                      };
-                      onSelectNote(foundSolfege);
-                    }
-                  }}
-                  className={`p-2 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center border ${
-                    isCurrentPlaying
-                      ? 'bg-[#4648d4] text-white border-[#4648d4] shadow-md scale-105 ring-2 ring-amber-400'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-indigo-300'
-                  }`}
-                  title={`Cantar ${note.name}`}
-                >
-                  <span className="text-xs font-black">{note.name}</span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          {fundamentalScales.map((scale) => {
+            const isSelected = scale.id === selectedScaleId;
+            return (
+              <button
+                key={scale.id}
+                onClick={() => {
+                  audioService.unlockForMobileSilentMode();
+                  if (isPlayingScale && cancelScaleRef.current) {
+                    cancelScaleRef.current();
+                    cancelScaleRef.current = null;
+                    setIsPlayingScale(false);
+                    setActiveScaleStepIndex(null);
+                  }
+                  audioService.playClickSound();
+                  audioService.playFrequency(scale.notes[0].frequency, 0.6);
+                  setSelectedScaleId(scale.id);
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-indigo-50/90 dark:bg-indigo-950/70 border-indigo-400 dark:border-indigo-600 shadow-xs ring-2 ring-indigo-400/30'
+                    : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                }`}
+              >
+                <span className={`font-heading font-bold text-xs block ${
+                  isSelected ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-800 dark:text-slate-200'
+                }`}>
+                  {scale.name}
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium line-clamp-2 block mt-0.5">
+                  {scale.description}
+                </span>
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Bloque 2: Modos Griegos & Blues (8) */}
+      <div className="space-y-2 pt-1">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+            Modos Griegos & Blues
+          </label>
+          <span className="text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full">
+            8 Modos
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {modalScales.map((scale) => {
+            const isSelected = scale.id === selectedScaleId;
+            return (
+              <button
+                key={scale.id}
+                onClick={() => {
+                  audioService.unlockForMobileSilentMode();
+                  if (isPlayingScale && cancelScaleRef.current) {
+                    cancelScaleRef.current();
+                    cancelScaleRef.current = null;
+                    setIsPlayingScale(false);
+                    setActiveScaleStepIndex(null);
+                  }
+                  audioService.playClickSound();
+                  audioService.playFrequency(scale.notes[0].frequency, 0.6);
+                  setSelectedScaleId(scale.id);
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-purple-50/90 dark:bg-purple-950/70 border-purple-400 dark:border-purple-600 shadow-xs ring-2 ring-purple-400/30'
+                    : 'bg-[#f8fafc] dark:bg-[#0b1828] border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                }`}
+              >
+                <span className={`font-heading font-bold text-xs block ${
+                  isSelected ? 'text-purple-900 dark:text-purple-200' : 'text-slate-800 dark:text-slate-200'
+                }`}>
+                  {scale.name}
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium line-clamp-2 block mt-0.5">
+                  {scale.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 

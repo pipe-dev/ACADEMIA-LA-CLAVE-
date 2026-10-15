@@ -1,10 +1,13 @@
-// src/components/unit3-rhythm/rhythmAudio.ts
+import { audioService } from '../../utils/audioService';
 
 let audioCtx: AudioContext | null = null;
 let isMuted = false;
 
 function getContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
+  audioService.unlockForMobileSilentMode();
+  const shared = audioService.getAudioContext();
+  if (shared) return shared;
   if (!audioCtx) {
     const AudioContextClass =
       window.AudioContext ||

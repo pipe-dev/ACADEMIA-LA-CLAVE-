@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg-tenor" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="hair-tenor" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg-tenor)" stroke="#93c5fd" stroke-width="2" />
+
+  <!-- Shoulders & Jacket -->
+  <path d="M 28 116 C 30 92, 45 84, 60 84 C 75 84, 90 92, 92 116 Z" fill="#0f172a" />
+  <path d="M 50 84 L 60 98 L 70 84 Z" fill="#f8fafc" />
+
+  <!-- Neck -->
+  <rect x="54" y="72" width="12" height="16" rx="6" fill="#fcd34d" opacity="0.3" />
+  <rect x="54" y="72" width="12" height="16" rx="6" fill="#fde68a" />
+
+  <!-- Head / Face -->
+  <ellipse cx="60" cy="58" rx="21" ry="23" fill="#fef08a" />
+
+  <!-- Ears -->
+  <circle cx="39" cy="58" r="4.5" fill="#fef08a" />
+  <circle cx="81" cy="58" r="4.5" fill="#fef08a" />
+
+  <!-- Stylized Hair -->
+  <path d="M 38 48 C 38 30, 82 28, 84 46 C 78 34, 68 32, 60 30 C 50 32, 42 38, 38 48 Z" fill="url(#hair-tenor)" />
+  <path d="M 44 32 C 54 22, 70 24, 76 34 C 70 28, 56 26, 44 32 Z" fill="#d97706" />
+
+  <!-- Glasses -->
+  <rect x="44" y="50" width="12" height="9" rx="3" fill="none" stroke="#0284c7" stroke-width="2" />
+  <rect x="64" y="50" width="12" height="9" rx="3" fill="none" stroke="#0284c7" stroke-width="2" />
+  <line x1="56" y1="54" x2="64" y2="54" stroke="#0284c7" stroke-width="2" />
+
+  <!-- Eyes behind glasses -->
+  <circle cx="50" cy="54" r="2" fill="#0f172a" />
+  <circle cx="70" cy="54" r="2" fill="#0f172a" />
+
+  <!-- Smile -->
+  <path d="M 52 68 Q 60 76 68 68" stroke="#78350f" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 54 68 Q 60 74 66 68 Z" fill="#fff" />
+
+  <!-- Studio Headphones -->
+  <path d="M 36 54 C 36 34, 84 34, 84 54" stroke="#06b6d4" stroke-width="4.5" stroke-linecap="round" fill="none" />
+  <rect x="33" y="50" width="7" height="15" rx="3.5" fill="#22d3ee" />
+  <rect x="80" y="50" width="7" height="15" rx="3.5" fill="#22d3ee" />
+</svg>

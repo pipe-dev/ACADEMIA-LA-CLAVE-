@@ -14,7 +14,16 @@
     --color-primary: #4648d4;
     --color-primary-container: #6063ee;
     --color-on-primary-container: #fffbff;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
     color-scheme: light;
+  }
+
+  @media all and (display-mode: standalone) {
+    :root {
+      --safe-top: max(env(safe-area-inset-top, 0px), 32px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
   }
 
   :root.dark,

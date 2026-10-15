@@ -181,11 +181,21 @@ const SILENT_WAV_BASE64 =
 function activatePlaybackCategory(ctx?: AudioContext | null) {
   if (typeof window === 'undefined') return;
   try {
+    if ('audioSession' in navigator) {
+      try {
+        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
+      } catch {}
+    }
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+      } catch {}
+    }
     if (!silentAudioEl) {
       silentAudioEl = document.createElement('audio');
       silentAudioEl.src = SILENT_WAV_BASE64;
       silentAudioEl.loop = true;
-      silentAudioEl.volume = 0.01;
+      silentAudioEl.volume = 0.001;
       silentAudioEl.setAttribute('playsinline', 'true');
       silentAudioEl.setAttribute('webkit-playsinline', 'true');
       silentAudioEl.style.position = 'fixed';
@@ -206,7 +216,7 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
         mediaStreamAudioEl.srcObject = dest.stream;
         mediaStreamAudioEl.setAttribute('playsinline', 'true');
         mediaStreamAudioEl.setAttribute('webkit-playsinline', 'true');
-        mediaStreamAudioEl.volume = 0.01;
+        mediaStreamAudioEl.volume = 0.001;
         mediaStreamAudioEl.play().catch(() => {});
       } catch {}
     }
@@ -271,6 +281,12 @@ if (typeof window !== 'undefined') {
 
   ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click'].forEach((evt) => {
     window.addEventListener(evt, forceAudioActive, {capture: true, passive: true});
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      forceAudioActive();
+    }
   });
 }
 
@@ -478,38 +494,55 @@ export function useJellyAsmrAudio(): UseJellyAsmrAudioReturn {
 
   /**
    * Secuencia acustica de saltar de felicidad
-   * Tres rebotes fluidos y alegres de burbujas en escala ascendente.
+   * Tres saltitos de alegria (3 rebotes fluidos y alegres de burbujas en escala ascendente).
    */
   const playHappyHop = useCallback(() => {
-    try {
-      const ctx = getAudioContext();
-      if (!ctx) return;
+    runWithAudioContext((ctx) => {
       const now = ctx.currentTime;
 
+      // 3 saltitos de alegria coordinados con cada rebote fisico
       const hops = [
-        {startF: 390, endF: 640, time: now, vol: 0.09},
-        {startF: 480, endF: 800, time: now + 0.08, vol: 0.11},
-        {startF: 340, endF: 560, time: now + 0.16, vol: 0.08},
+        { startF: 390, endF: 680, time: now, vol: 0.11, dur: 0.065 },
+        { startF: 490, endF: 820, time: now + 0.23, vol: 0.13, dur: 0.065 },
+        { startF: 590, endF: 960, time: now + 0.46, vol: 0.12, dur: 0.070 },
       ];
 
-      hops.forEach(({startF, endF, time, vol}) => {
+      hops.forEach(({ startF, endF, time, vol, dur }) => {
+        // 1. Oscilador principal de burbuja alegre Minnaert
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(startF, time);
         osc.frequency.exponentialRampToValueAtTime(endF, time + 0.018);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(80, endF * 0.94), time + dur);
 
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.linearRampToValueAtTime(vol, time + 0.004);
-        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.055);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.003);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(time);
-        osc.stop(time + 0.065);
+        osc.stop(time + dur + 0.01);
+
+        // 2. Micro-armonico superior calido para dar textura jugosa de pop
+        const harmOsc = ctx.createOscillator();
+        const harmGain = ctx.createGain();
+        harmOsc.type = 'sine';
+        harmOsc.frequency.setValueAtTime(startF * 1.85, time);
+        harmOsc.frequency.exponentialRampToValueAtTime(endF * 1.85, time + 0.016);
+
+        harmGain.gain.setValueAtTime(0.0001, time);
+        harmGain.gain.linearRampToValueAtTime(vol * 0.28, time + 0.002);
+        harmGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.035);
+
+        harmOsc.connect(harmGain);
+        harmGain.connect(ctx.destination);
+        harmOsc.start(time);
+        harmOsc.stop(time + 0.04);
       });
-    } catch {}
-  }, [getAudioContext]);
+    });
+  }, []);
 
   /**
    * Pop sutil de burbuja de jabon

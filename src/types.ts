@@ -24,6 +24,7 @@ export interface Badge {
   unlockedAt?: string;
   progress: number;
   maxProgress: number;
+  difficulty?: 'Fácil' | 'Medio' | 'Difícil';
 }
 
 export interface UserStats {
@@ -41,6 +42,8 @@ export interface UserStats {
   maxXP: number;
   lessonsCompleted?: number;
   practiceMinutes?: number;
+  todayPracticeMinutes?: number;
+  lastPracticeDate?: string;
   dailyGoalMinutes?: number;
   badges?: Badge[];
   xpHistory?: XpHistoryEntry[];
@@ -117,8 +120,11 @@ export interface DailyQuest {
   progress: number;
   max: number;
   completed: boolean;
+  claimed?: boolean;
   xpReward: number;
-  iconType: 'note' | 'clock' | 'book';
+  iconType: 'note' | 'clock' | 'book' | 'zap' | 'mic' | 'activity' | 'wind' | 'music' | 'play';
+  category?: 'tuner' | 'academy' | 'practice';
+  eventType?: string;
 }
 
 export interface VoiceEvaluationResult {
@@ -139,4 +145,5 @@ export interface VoiceEvaluationResult {
     mostPracticedNote?: string;
   };
   improvementPoints?: string[];
+  insufficientAudio?: boolean;
 }

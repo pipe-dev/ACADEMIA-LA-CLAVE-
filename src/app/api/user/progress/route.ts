@@ -10,6 +10,20 @@ async function getAuthUser(request: NextRequest) {
   if (!cookie) return null;
   const payload = await verifyJwt(cookie, JWT_SECRET);
   if (!payload || !payload.sub) return null;
+
+  // Stateless validation using cryptographically signed JWT payload
+  if (payload.userId && payload.expiresAt) {
+    const expiresTimestamp = new Date(payload.expiresAt as string).getTime();
+    if (Date.now() > expiresTimestamp) {
+      return null;
+    }
+    return {
+      id: payload.userId as string,
+      email: payload.sub as string,
+      name: (payload.name as string) || (payload.sub as string),
+    };
+  }
+
   return userDb.getUserByEmail(payload.sub);
 }
 

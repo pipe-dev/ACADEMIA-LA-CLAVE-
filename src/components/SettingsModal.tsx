@@ -44,6 +44,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   sessionUser,
 }) => {
   const [name, setName] = useState<string>(userStats.name);
+  const [avatarUrl, setAvatarUrl] = useState<string>(userStats.avatarUrl || '');
   const [savedVocalRangeData] = useState<SavedVocalRangeData | null>(() => {
     if (userStats.vocalRangeData) return userStats.vocalRangeData;
     try {
@@ -157,10 +158,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onUpdateStats({
       name,
       vocalRange,
+      avatarUrl,
       vocalRangeData: savedVocalRangeData ? { ...savedVocalRangeData, classification: vocalRange } : undefined,
     });
     try {
       localStorage.setItem('laclave_vocal_range_classification', vocalRange);
+      const statsStr = localStorage.getItem('laclave_user_stats_v6');
+      if (statsStr) {
+        const parsed = JSON.parse(statsStr);
+        parsed.name = name;
+        parsed.avatarUrl = avatarUrl;
+        parsed.vocalRange = vocalRange;
+        localStorage.setItem('laclave_user_stats_v6', JSON.stringify(parsed));
+      }
     } catch (e) {
       console.warn('Could not save classification to localStorage', e);
     }
@@ -208,6 +218,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onNameChange={setName}
             vocalRange={vocalRange}
             onVocalRangeChange={setVocalRange}
+            avatarUrl={avatarUrl}
+            onAvatarChange={setAvatarUrl}
             sessionUser={sessionUser}
           />
 

@@ -163,8 +163,16 @@ export function useVocalRemover(initialVideoId?: string) {
       const audio = new Audio();
       audio.crossOrigin = "anonymous";
       audio.preload = "auto";
+      audio.setAttribute('playsinline', 'true');
+      audio.setAttribute('webkit-playsinline', 'true');
       audio.src = audioUrl;
       audioRef.current = audio;
+
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'playback';
+        } catch {}
+      }
 
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContextClass();

@@ -5,6 +5,7 @@ import { Mic, ArrowLeft } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import { voicePlayback } from '../utils/voicePlaybackService';
 import { emitStreakEligibleAction } from '../utils/streakPrompt';
+import { emitQuestEvent } from '../utils/dailyQuestsEngine';
 import { VocalRangeModalProps, VocalRangeStep } from './vocal-range/vocalRangeTypes';
 import { hzToNoteName, classifyVoice } from './vocal-range/vocalRangeUtils';
 import { getEvaluationComparison, recordVocalRangeEvaluation } from '../utils/vocalRangeHelper';
@@ -200,6 +201,7 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
     setIsSavedSuccess(true);
     emitStreakEligibleAction();
+    emitQuestEvent('VOCAL_RANGE_TESTED', 1);
 
     setTimeout(() => {
       handleClose();

@@ -1,43 +1,234 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, User, Loader2, Play } from 'lucide-react';
+import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic';
+import { AnimatedSkyBackground } from '@/components/sandbox/AnimatedSkyBackground';
+import { getSharedAudioContext } from '@/utils/useJellyAsmrAudio';
+import styles from './CuteLogin.module.css';
 
+/**
+ * Login Oficial de AfinApp - Escenario Interactivo y Formulario
+ * Izquierda: Escenario de los 4 personajes interactivos (Morado, Fucsia, Amarillo, Naranja)
+ * Derecha: Formulario de inicio de sesión real conectado con /api/auth/login
+ */
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [key, setKey] = useState('');
+  const [splashActive, setSplashActive] = useState(true);
+  const [blobsReady, setBlobsReady] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [eyeInteracted, setEyeInteracted] = useState(false);
+  const [submitHovered, setSubmitHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+  const [wrong, setWrong] = useState(false);
+  const wrongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const reason = params.get('reason');
-      if (reason === 'expired') {
-        setSessionNotice('Tu suscripcion mensual ha finalizado. Renueva tu membresia para continuar.');
-      } else if (reason === 'blocked') {
-        setSessionNotice('Tu cuenta ha sido suspendida. Por favor contacta a la academia.');
-      } else if (reason === 'ended') {
-        setSessionNotice('Tu sesion ha expirado. Por favor ingresa nuevamente.');
-      }
-    }
-  }, []);
+  const REGISTRATION_WHATSAPP_URL = `https://wa.me/573006269056?text=${encodeURIComponent(
+    'Hola, quiero registrarme en AfinApp.'
+  )}`;
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Control dinámico para encoger la tarjeta solo al interactuar con campos
+  const [isFieldFocused, setIsFieldFocused] = useState(false);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isPasswordActive =
+    passwordFocused ||
+    (password.length > 0 && !emailFocused) ||
+    (eyeInteracted && !emailFocused);
+
+  const handleDismissSplash = () => {
+    try {
+      const ctx = getSharedAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    } catch {}
+    setSplashActive(false);
+  };
+
+  // Bloqueo estricto de scroll en móvil y escritorio: mantiene la pantalla 100% inmóvil
+  const lockScrollToTop = () => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Cargar credencial recordada
+    try {
+      const savedUser = localStorage.getItem('afinapp_remembered_username');
+      if (savedUser) {
+        setEmail(savedUser);
+        setRememberMe(true);
+      }
+    } catch {}
+
+    // Notificaciones contextuales de sesión expirada o bloqueada
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get('reason');
+    if (reason === 'expired') {
+      toast({
+        variant: 'destructive',
+        title: 'Suscripción finalizada',
+        description: 'Tu suscripción mensual ha finalizado. Renueva tu membresía para continuar.',
+      });
+    } else if (reason === 'blocked') {
+      toast({
+        variant: 'destructive',
+        title: 'Cuenta suspendida',
+        description: 'Tu cuenta ha sido suspendida. Por favor contacta a la academia.',
+      });
+    } else if (reason === 'ended') {
+      toast({
+        variant: 'destructive',
+        title: 'Sesión expirada',
+        description: 'Tu sesión ha expirado. Por favor ingresa nuevamente.',
+      });
+    }
+
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+    const originalHtmlTouchAction = document.documentElement.style.touchAction;
+    const originalHtmlHeight = document.documentElement.style.height;
+
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalBodyPosition = document.body.style.position;
+    const originalBodyWidth = document.body.style.width;
+    const originalBodyHeight = document.body.style.height;
+    const originalBodyOverscroll = document.body.style.overscrollBehavior;
+    const originalBodyTouchAction = document.body.style.touchAction;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+    document.documentElement.style.touchAction = 'none';
+    document.documentElement.style.height = '100%';
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.body.style.overscrollBehavior = 'none';
+    document.body.style.touchAction = 'none';
+
+    const preventTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        return;
+      }
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    const preventWheel = (e: WheelEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    const preventScrollKeys = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+      if (isInput) return;
+      const scrollKeys = ['Space', 'PageUp', 'PageDown', 'End', 'Home', 'ArrowUp', 'ArrowDown'];
+      if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    const handleScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        lockScrollToTop();
+      }
+    };
+
+    window.addEventListener('touchmove', preventTouchMove, { passive: false });
+    window.addEventListener('wheel', preventWheel, { passive: false });
+    window.addEventListener('keydown', preventScrollKeys);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.visualViewport?.addEventListener('scroll', handleScroll);
+    window.visualViewport?.addEventListener('resize', handleScroll);
+
+    lockScrollToTop();
+
+    return () => {
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.documentElement.style.overscrollBehavior = originalHtmlOverscroll;
+      document.documentElement.style.touchAction = originalHtmlTouchAction;
+      document.documentElement.style.height = originalHtmlHeight;
+
+      document.body.style.overflow = originalBodyOverflow;
+      document.body.style.position = originalBodyPosition;
+      document.body.style.width = originalBodyWidth;
+      document.body.style.height = originalBodyHeight;
+      document.body.style.overscrollBehavior = originalBodyOverscroll;
+      document.body.style.touchAction = originalBodyTouchAction;
+
+      window.removeEventListener('touchmove', preventTouchMove);
+      window.removeEventListener('wheel', preventWheel);
+      window.removeEventListener('keydown', preventScrollKeys);
+      window.removeEventListener('scroll', handleScroll);
+      window.visualViewport?.removeEventListener('scroll', handleScroll);
+      window.visualViewport?.removeEventListener('resize', handleScroll);
+    };
+  }, [toast]);
+
+  const handleInputFocus = (field: 'email' | 'password') => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+    setIsFieldFocused(true);
+    if (field === 'email') {
+      setEmailFocused(true);
+      setEyeInteracted(false);
+    }
+    if (field === 'password') setPasswordFocused(true);
+    requestAnimationFrame(lockScrollToTop);
+  };
+
+  const handleInputBlur = (field: 'email' | 'password') => {
+    if (field === 'email') setEmailFocused(false);
+    if (field === 'password') setPasswordFocused(false);
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    blurTimeoutRef.current = setTimeout(() => {
+      setIsFieldFocused(false);
+    }, 120);
+    requestAnimationFrame(lockScrollToTop);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !key.trim()) {
+    const cleanUsername = email.trim();
+    const cleanKey = password.trim();
+
+    if (!cleanUsername || !cleanKey) {
+      if (wrongTimer.current) clearTimeout(wrongTimer.current);
+      setWrong(false);
+      requestAnimationFrame(() => {
+        setWrong(true);
+        wrongTimer.current = setTimeout(() => setWrong(false), 4000);
+      });
       toast({
         variant: 'destructive',
         title: 'Campos incompletos',
-        description: 'Por favor, ingresa tu usuario y código de acceso.',
+        description: 'Por favor, ingresa tu correo y contraseña.',
       });
       return;
     }
@@ -48,18 +239,26 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, key }),
+        body: JSON.stringify({ username: cleanUsername, key: cleanKey }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error al iniciar sesión');
+        throw new Error(data.error || 'Credenciales incorrectas');
       }
+
+      try {
+        if (rememberMe) {
+          localStorage.setItem('afinapp_remembered_username', cleanUsername);
+        } else {
+          localStorage.removeItem('afinapp_remembered_username');
+        }
+      } catch {}
 
       toast({
         variant: 'accent',
-        title: '¡Acceso Concedido!',
+        title: 'Acceso Concedido',
         description: 'Iniciando sesión en la academia...',
         duration: 3000,
       });
@@ -67,6 +266,12 @@ export default function LoginPage() {
       router.push('/');
       router.refresh();
     } catch (err: any) {
+      if (wrongTimer.current) clearTimeout(wrongTimer.current);
+      setWrong(false);
+      requestAnimationFrame(() => {
+        setWrong(true);
+        wrongTimer.current = setTimeout(() => setWrong(false), 4000);
+      });
       toast({
         variant: 'destructive',
         title: 'Error de Acceso',
@@ -77,91 +282,208 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950 p-4">
-      {/* Background glow effects */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-emerald-500/10 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-80 h-80 rounded-full bg-yellow-500/5 blur-[100px] pointer-events-none" />
+    <main
+      className="fixed inset-0 w-full h-[100dvh] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-6 lg:p-8 select-none overflow-hidden overscroll-none touch-none relative"
+      style={{ touchAction: 'none', overscrollBehavior: 'none' }}
+    >
+      {/* Splash inicial de un solo color plano de la paleta con botón en contraste */}
+      {splashActive && (
+        <div
+          onClick={handleDismissSplash}
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#4648D4] select-none cursor-pointer p-4 transition-opacity duration-300"
+          style={{ touchAction: 'none' }}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDismissSplash();
+            }}
+            className="px-8 py-4 sm:px-10 sm:py-5 rounded-full font-extrabold text-lg sm:text-xl bg-[#6CF8BB] hover:bg-[#5ae6aa] text-[#004D32] shadow-[0_12px_36px_rgba(0,0,0,0.25)] hover:scale-105 active:scale-95 transition-all cursor-pointer tracking-wide"
+          >
+            Toca aquí
+          </button>
+        </div>
+      )}
 
-      <div className="w-full max-w-md space-y-6 z-10 animate-in fade-in-50 slide-in-from-bottom duration-500">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-200 to-yellow-300">
-            AfinApp
-          </h1>
-          <p className="text-sm sm:text-base text-emerald-200/60 font-medium max-w-xs mx-auto">
-            Desbloquea tu potencial vocal y afina tu voz con precisión clínica.
-          </p>
+      {/* Motor de cielo animado con ciclo de día dinámico aleatorio (~7s por fase) */}
+      <AnimatedSkyBackground
+        theme="unit4"
+        cloudSpeed={0.8}
+        dynamicDayCycle={true}
+        cycleDuration={7.0}
+        randomizeDuration={true}
+      />
+
+      {/* Velo atmosférico sutil */}
+      <div className="fixed inset-0 z-[1] bg-slate-950/15 backdrop-blur-[1px] pointer-events-none" />
+
+      {/* Contenedor principal de la tarjeta flotante */}
+      <div
+        className={`w-full max-w-[960px] sm:h-[620px] rounded-[24px] sm:rounded-[36px] bg-white/20 backdrop-blur-md shadow-[0_25px_60px_rgba(15,23,42,0.25)] overflow-hidden grid grid-cols-2 border border-white/50 shrink-0 relative z-10 ${styles.card} ${
+          isFieldFocused ? styles.cardFocused : styles.cardIdle
+        }`}
+      >
+        {/* ================================================== */}
+        {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
+        {/* ================================================== */}
+        <div
+          className={`min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible touch-none overscroll-none pointer-events-none transition-[z-index] duration-0 ${
+            blobsReady ? 'z-30' : 'z-10'
+          }`}
+        >
+          <div className="w-full max-w-[560px] pointer-events-auto">
+            {!splashActive && (
+              <CuteCharactersStatic
+                excited={emailFocused}
+                shy={isPasswordActive}
+                reveal={showPassword}
+                passwordLength={password.length}
+                error={wrong}
+                typing={emailFocused && email.length > 0}
+                typingProgress={Math.min(email.length / 7, 1)}
+                emailValid={isEmailValid}
+                submitHovered={submitHovered}
+                rememberChecked={rememberMe}
+                onReady={setBlobsReady}
+                className="w-full max-w-[560px]"
+              />
+            )}
+          </div>
         </div>
 
-        <Card className="bg-slate-950/40 backdrop-blur-xl border border-white/10 shadow-[0_0_50px_rgba(16,185,129,0.1)] rounded-3xl overflow-hidden">
-          <CardHeader className="space-y-1.5 pb-6">
-            <CardTitle className="text-2xl font-black text-center text-white">Ingreso a la Academia</CardTitle>
-            <CardDescription className="text-center text-xs text-muted-foreground">
-              Ingresa tus datos para verificar tu suscripción mensual.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {sessionNotice && (
-              <div className="p-3 mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold text-center animate-in fade-in">
-                {sessionNotice}
-              </div>
-            )}
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Usuario (Estudiante)
-                </Label>
+        {/* ================================================== */}
+        {/* LADO DERECHO: Formulario de Acceso con Glassmorfismo */}
+        {/* ================================================== */}
+        <div className="min-w-0 relative flex flex-col justify-center px-4 py-4 sm:py-14 sm:px-14 bg-white/40 backdrop-blur-2xl backdrop-saturate-[80%] z-20 border-l border-white/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] overflow-hidden touch-none overscroll-none">
+          <div
+            className={`max-w-[340px] sm:max-w-[360px] mx-auto w-full ${
+              isFieldFocused ? 'space-y-2.5 sm:space-y-5' : 'space-y-4 sm:space-y-5'
+            }`}
+          >
+            {/* Titulares principales */}
+            <div className="space-y-0.5 sm:space-y-1.5 text-left">
+              <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight text-[#111827] leading-tight truncate sm:whitespace-normal">
+                ¡Bienvenido!
+              </h1>
+              <p className="text-xs sm:text-base text-slate-500 font-normal leading-tight truncate sm:whitespace-normal">
+                Ingresa tus datos
+              </p>
+            </div>
+
+            {/* Formulario */}
+            <form onSubmit={handleSubmit} className={`${isFieldFocused ? 'space-y-2 sm:space-y-5 pt-0.5 sm:pt-1' : 'space-y-3 sm:space-y-5 pt-1 sm:pt-2'}`}>
+              {/* Campo Email */}
+              <div className="space-y-0.5 sm:space-y-1">
+                <label htmlFor="static-email" className="block text-xs sm:text-sm font-semibold text-slate-800">
+                  Correo
+                </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="username"
+                  <input
+                    id="static-email"
                     type="text"
-                    placeholder="ejemplo@correo.com"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={() => handleInputFocus('email')}
+                    onBlur={() => handleInputBlur('email')}
                     disabled={isLoading}
-                    className="pl-10 bg-slate-950/60 border-white/10 rounded-2xl h-12 focus-visible:ring-emerald-500 text-white placeholder:text-muted-foreground/50"
+                    placeholder=""
+                    style={{ touchAction: 'manipulation' }}
+                    className="w-full bg-transparent border-b border-slate-400/80 py-1.5 sm:py-2.5 text-[16px] sm:text-base text-slate-900 focus:outline-none focus:border-slate-900 transition-colors placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="key" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Código de Acceso
-                </Label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="key"
-                    type="password"
-                    placeholder="Ingresa tu clave de acceso"
-                    value={key}
-                    onChange={(e) => setKey(e.target.value)}
+              {/* Campo Password */}
+              <div className="space-y-0.5 sm:space-y-1">
+                <label htmlFor="static-password" className="block text-xs sm:text-sm font-semibold text-slate-800">
+                  Contraseña
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    id="static-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (wrong) {
+                        setWrong(false);
+                        if (wrongTimer.current) {
+                          clearTimeout(wrongTimer.current);
+                          wrongTimer.current = null;
+                        }
+                      }
+                    }}
+                    onFocus={() => handleInputFocus('password')}
+                    onBlur={() => handleInputBlur('password')}
                     disabled={isLoading}
-                    className="pl-10 bg-slate-950/60 border-white/10 rounded-2xl h-12 focus-visible:ring-emerald-500 text-white placeholder:text-muted-foreground/50"
+                    placeholder=""
+                    style={{ touchAction: 'manipulation' }}
+                    className="w-full bg-transparent border-b border-slate-400/80 py-1.5 sm:py-2.5 pr-8 sm:pr-10 text-[16px] sm:text-base text-slate-900 focus:outline-none focus:border-slate-900 transition-colors"
                   />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setEyeInteracted(true);
+                      setShowPassword((prev) => !prev);
+                    }}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    className="absolute right-0 text-slate-600 hover:text-slate-900 transition-colors p-1.5"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : (
+                      <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
-              <Button
+              {/* Opción de recordar sesión */}
+              <div className="flex items-center justify-between pt-0.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={isLoading}
+                    className="rounded border-slate-400 bg-transparent text-slate-900 focus:ring-slate-900 h-3.5 w-3.5 sm:h-4 sm:w-4 accent-slate-900 cursor-pointer"
+                  />
+                  <span className="text-[11px] sm:text-xs text-slate-600 font-medium">Recordarme</span>
+                </label>
+              </div>
+
+              {/* Botón Primario: Iniciar sesión */}
+              <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 rounded-2xl font-black bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all gap-2 mt-2"
+                onMouseEnter={() => setSubmitHovered(true)}
+                onMouseLeave={() => setSubmitHovered(false)}
+                onFocus={() => setSubmitHovered(true)}
+                onBlur={() => setSubmitHovered(false)}
+                className="w-full h-10 sm:h-12 rounded-full font-bold bg-[#111827] hover:bg-black text-white text-xs sm:text-base shadow-sm active:scale-[0.99] transition-all mt-2 sm:mt-3 whitespace-nowrap px-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Validando licencia...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-current" />
-                    Ingresar
-                  </>
-                )}
-              </Button>
+                {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+              </button>
             </form>
-          </CardContent>
-        </Card>
+
+            {/* Pie de registro */}
+            <div className="text-center pt-1 sm:pt-3">
+              <p className="text-[11px] sm:text-sm text-slate-500 font-normal leading-snug">
+                ¿No tienes una cuenta?{' '}
+                <a
+                  href={REGISTRATION_WHATSAPP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-slate-900 hover:underline cursor-pointer"
+                >
+                  Regístrate
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );

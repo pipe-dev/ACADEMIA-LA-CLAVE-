@@ -7,7 +7,7 @@
   padding-bottom: 30px;
   /* Entrada: sube bruscamente desde abajo y termina temblando. Optimizada (compositor). */
   will-change: transform;
-  animation: fucsia-enter 1.3s 2.5s both;
+  /* animation: fucsia-enter 1.3s 2.5s both; (reemplazada por caravana unificada) */
 }
 
 @keyframes fucsia-enter {
@@ -56,6 +56,7 @@
 
 /* Sombras en el suelo (oclusión ambiental suave) */
 .shadow-ambient {
+  pointer-events: none;
   position: absolute;
   bottom: 22px;
   width: 190px;
@@ -69,6 +70,7 @@
 }
 
 .shadow-contact {
+  pointer-events: none;
   position: absolute;
   bottom: 29px;
   width: 175px;

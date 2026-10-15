@@ -6,13 +6,135 @@ import { emitMicActive } from './micEvents';
  * and microphone pitch detection using autocorrelation.
  */
 
+function createSilentWav(sampleRate: number = 44100): string {
+  try {
+    const arrayBuffer = new ArrayBuffer(10);
+    const dataView = new DataView(arrayBuffer);
+    dataView.setUint32(0, sampleRate, true);
+    dataView.setUint32(4, sampleRate, true);
+    dataView.setUint16(8, 1, true);
+    const missing = window.btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))).slice(0, 13);
+    return `data:audio/wav;base64,UklGRisAAABXQVZFZm10IBAAAAABAAEA${missing}AgAZGF0YQcAAACAgICAgICAAAA=`;
+  } catch {
+    return 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+  }
+}
+
 class AudioService {
   private ctx: AudioContext | null = null;
   private micStream: MediaStream | null = null;
+  private micSourceNode: MediaStreamAudioSourceNode | null = null;
   private analyser: AnalyserNode | null = null;
   private isListening: boolean = false;
+  private isPausedForPlayback: boolean = false;
+  private lastPitchCallback: ((pitchHz: number, volume: number) => void) | null = null;
+  private micSessionId: number = 0;
+  private micPauseResumeTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private isPitchLoopRunning: boolean = false;
+  private unlockAudioEl: HTMLAudioElement | null = null;
+  private isSilentUnlocked: boolean = false;
+  public onMicPauseChange?: (isPaused: boolean) => void;
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      // Audio Session Category: Playback (permite sonido con interruptor de silencio y modos de enfoque en iOS/Android)
+      if ('audioSession' in navigator) {
+        try {
+          (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
+        } catch {}
+      }
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.playbackState = 'none';
+        } catch {}
+      }
+
+      const USER_EVENTS = ['touchstart', 'touchend', 'click', 'mousedown', 'keydown', 'pointerdown'];
+      const unlockHandler = () => {
+        this.unlockForMobileSilentMode();
+      };
+
+      USER_EVENTS.forEach(ev => {
+        window.addEventListener(ev, unlockHandler, { capture: true, passive: true });
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this.unlockForMobileSilentMode();
+        }
+      });
+    }
+  }
+
+  /**
+   * Desbloquea Web Audio API para sonar a traves de altavoces multimedia aun cuando
+   * el dispositivo este en modo silencio fisico (mute switch en iPhone) o modo enfoque/no molestar (Android e iOS).
+   */
+  public unlockForMobileSilentMode() {
+    if (typeof window === 'undefined') return;
+
+    // 1. Audio Session: Playback
+    if ('audioSession' in navigator) {
+      try {
+        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
+      } catch {}
+    }
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+      } catch {}
+    }
+
+    // 2. Elemento HTML5 de audio inaudible en bucle continuo:
+    // Mantiene la sesion de iOS y Android en Playback / STREAM_MUSIC
+    if (!this.unlockAudioEl) {
+      try {
+        this.unlockAudioEl = document.createElement('audio');
+        this.unlockAudioEl.src = createSilentWav(44100);
+        this.unlockAudioEl.loop = true;
+        this.unlockAudioEl.volume = 0.001;
+        this.unlockAudioEl.setAttribute('playsinline', 'true');
+        this.unlockAudioEl.setAttribute('webkit-playsinline', 'true');
+        this.unlockAudioEl.style.position = 'fixed';
+        this.unlockAudioEl.style.pointerEvents = 'none';
+        this.unlockAudioEl.style.opacity = '0';
+        this.unlockAudioEl.style.width = '1px';
+        this.unlockAudioEl.style.height = '1px';
+        this.unlockAudioEl.style.bottom = '0';
+        document.body?.appendChild(this.unlockAudioEl);
+      } catch {}
+    }
+    if (this.unlockAudioEl) {
+      this.unlockAudioEl.play().catch(() => {});
+    }
+
+    // 3. Web Audio Context initialization & buffer trigger
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+        logger.info('Audio', 'AudioContext creado correctamente');
+      }
+    }
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      try {
+        const buffer = this.ctx.createBuffer(1, 1, 22050);
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.ctx.destination);
+        source.start(0);
+      } catch {}
+    }
+    this.isSilentUnlocked = true;
+  }
 
   private initCtx() {
+    if (!this.isSilentUnlocked) {
+      this.unlockForMobileSilentMode();
+    }
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
@@ -33,30 +155,55 @@ class AudioService {
   }
 
   /**
-   * Play a musical frequency note with pleasant harmonic synthesizer envelope
+   * Play a musical frequency note with pleasant harmonic synthesizer envelope.
+   * Includes harmonic mix (fundamental sine + warm triangle overtone) so small mobile speakers
+   * reproduce the note loudly and clearly even on low-frequency notes.
    */
   public playFrequency(freq: number, duration: number = 1.0) {
     try {
+      this.unlockForMobileSilentMode();
       this.initCtx();
       if (!this.ctx) return;
 
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      if (this.isListening && !this.isPausedForPlayback) {
+        this.pauseMicrophoneForPlayback(Math.round(duration * 1000 + 200));
+      }
 
-      // Warm tone mix (sine + triangle harmonic)
+      const osc = this.ctx.createOscillator();
+      const oscHarmonic = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const harmGain = this.ctx.createGain();
+
+      // Fundamental sine
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
 
+      // Warm 2nd harmonic for phone speakers
+      oscHarmonic.type = 'triangle';
+      oscHarmonic.frequency.setValueAtTime(freq * 2, this.ctx.currentTime);
+
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+
       const now = this.ctx.currentTime;
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.85, now + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.85, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      harmGain.gain.setValueAtTime(0.0001, now);
+      harmGain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+      harmGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       osc.connect(gain);
+      oscHarmonic.connect(harmGain);
       gain.connect(this.ctx.destination);
+      harmGain.connect(this.ctx.destination);
 
       osc.start(now);
+      oscHarmonic.start(now);
       osc.stop(now + duration);
+      oscHarmonic.stop(now + duration);
     } catch (e) {
       console.warn('Audio playback not allowed yet or failed', e);
     }
@@ -108,6 +255,7 @@ class AudioService {
     onStep?: (index: number) => void,
     onComplete?: () => void
   ): () => void {
+    this.unlockForMobileSilentMode();
     this.initCtx();
     let isCancelled = false;
     const timeoutIds: number[] = [];
@@ -926,54 +1074,99 @@ class AudioService {
     try {
       this.initCtx();
       if (!this.ctx) return false;
+      if (this.ctx.state === 'suspended') {
+        try { await this.ctx.resume(); } catch {}
+      }
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.warn('Microphone access is not supported or restricted in this environment.');
         return false;
       }
 
-      // 1. AudioSession Preparation (WebKit/iOS):
-      // Primero señalizar 'playback' y luego 'play-and-record' fuerza la salida
-      // al ALTAVOZ PRINCIPAL (evitando el auricular telefónico de llamadas)
-      // a la vez que habilita el acceso de captura de micrófono sin restricciones.
+      // Track session and store callback for seamless resumption
+      const sessionId = ++this.micSessionId;
+      this.lastPitchCallback = onPitchDetected;
+      this.isListening = true;
+      this.isPausedForPlayback = false;
+
+      if (this.micPauseResumeTimeoutId) {
+        clearTimeout(this.micPauseResumeTimeoutId);
+        this.micPauseResumeTimeoutId = null;
+      }
+
+      // Clean up any lingering previous source nodes or streams before acquiring new one
+      if (this.micSourceNode) {
+        try { this.micSourceNode.disconnect(); } catch {}
+        this.micSourceNode = null;
+      }
+      if (this.micStream) {
+        this.micStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+        this.micStream = null;
+      }
+
+      // 1. Modern iOS 17+ / iOS 18 Web Audio Session Category: Play-and-Record
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
-          (navigator as any).audioSession.type = 'playback';
           (navigator as any).audioSession.type = 'play-and-record';
         } catch {}
       }
 
-      // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
+      // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO (evita filtros de llamada que degradan notas)
+      let stream: MediaStream;
       try {
-        this.micStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          },
+        const audioConstraints: MediaTrackConstraints = {
+          echoCancellation: { ideal: false },
+          noiseSuppression: { ideal: false },
+          autoGainControl: { ideal: false }
+        };
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
           video: false
         });
       } catch {
-        this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       }
 
-      // 3. Confirmar sesión activa de captura
+      // 3. CRITICAL RACE CONDITION GUARD:
+      // Si el usuario presionó detener micrófono o inició otra sesión mientras getUserMedia estaba en vuelo:
+      if (this.micSessionId !== sessionId || !this.isListening) {
+        if (stream) {
+          stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+        }
+        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'playback';
+          } catch {}
+        }
+        if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+          try {
+            navigator.mediaSession.playbackState = 'none';
+          } catch {}
+        }
+        return false;
+      }
+
+      this.micStream = stream;
+
+      // Confirmar sesión play-and-record
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
           (navigator as any).audioSession.type = 'play-and-record';
         } catch {}
       }
 
-      const source = this.ctx.createMediaStreamSource(this.micStream);
-      this.analyser = this.ctx.createAnalyser();
-      this.analyser.fftSize = 2048;
-      source.connect(this.analyser);
+      this.micSourceNode = this.ctx.createMediaStreamSource(this.micStream);
+      if (!this.analyser) {
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 2048;
+      }
+      this.micSourceNode.connect(this.analyser);
 
-      this.isListening = true;
       emitMicActive(true);
       this.detectPitchLoop(onPitchDetected);
       return true;
     } catch (err: any) {
+      this.isListening = false;
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         console.warn('Microphone permission denied by user or browser policy.');
       } else {
@@ -983,22 +1176,135 @@ class AudioService {
     }
   }
 
-  public stopMicrophone() {
-    if (this.isListening) {
-      this.isListening = false;
-      emitMicActive(false);
+  public isMicListening(): boolean {
+    return this.isListening;
+  }
+
+  public isMicPausedForPlayback(): boolean {
+    return this.isPausedForPlayback;
+  }
+
+  public isMicTemporarilyMuted(): boolean {
+    return this.isPausedForPlayback;
+  }
+
+  /**
+   * Temporarily releases the microphone hardware so that reference notes
+   * (synthesized piano or real human vocal samples) play through the bottom stereo loudspeaker
+   * at 100% full volume with ZERO ducking or earpiece telephony routing.
+   * When the note finishes, the microphone automatically resumes listening seamlessly.
+   */
+  public pauseMicrophoneForPlayback(durationMs: number = 2300): void {
+    if (!this.isListening) {
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'playback';
+        } catch {}
+      }
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.playbackState = 'none';
+        } catch {}
+      }
+      return;
+    }
+
+    this.isPausedForPlayback = true;
+    if (this.onMicPauseChange) {
+      try { this.onMicPauseChange(true); } catch {}
+    }
+
+    if (this.micPauseResumeTimeoutId) {
+      clearTimeout(this.micPauseResumeTimeoutId);
+      this.micPauseResumeTimeoutId = null;
+    }
+
+    // 1. Liberar físicamente la captura de hardware para que iOS salga de play-and-record
+    if (this.micSourceNode) {
+      try { this.micSourceNode.disconnect(); } catch {}
+      this.micSourceNode = null;
     }
     if (this.micStream) {
-      this.micStream.getTracks().forEach(track => track.stop());
+      this.micStream.getTracks().forEach(track => {
+        try { track.stop(); } catch {}
+      });
       this.micStream = null;
     }
-    // Restaurar sesión de audio a modo reproducción estéreo por altavoz
+
+    // 2. Restaurar audio a modo playback para permitir sonido en silencio/enfoque
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
         (navigator as any).audioSession.type = 'playback';
-        (navigator as any).audioSession.type = 'auto';
       } catch {}
     }
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+      } catch {}
+    }
+
+    const currentSessionId = this.micSessionId;
+
+    // 3. Reanudar micrófono de forma completamente automática y silenciosa al terminar la nota
+    this.micPauseResumeTimeoutId = setTimeout(async () => {
+      this.micPauseResumeTimeoutId = null;
+      if (this.isListening && this.isPausedForPlayback && this.micSessionId === currentSessionId) {
+        this.isPausedForPlayback = false;
+        if (this.onMicPauseChange) {
+          try { this.onMicPauseChange(false); } catch {}
+        }
+        if (this.lastPitchCallback) {
+          await this.startMicrophone(this.lastPitchCallback);
+        }
+      }
+    }, durationMs);
+  }
+
+  /**
+   * Alias de compatibilidad hacia atrás
+   */
+  public muteMicTemporarily(durationMs: number = 2200): void {
+    this.pauseMicrophoneForPlayback(durationMs);
+  }
+
+  public stopMicrophone() {
+    this.micSessionId++;
+    this.isListening = false;
+    this.isPausedForPlayback = false;
+
+    if (this.micPauseResumeTimeoutId) {
+      clearTimeout(this.micPauseResumeTimeoutId);
+      this.micPauseResumeTimeoutId = null;
+    }
+
+    if (this.onMicPauseChange) {
+      try { this.onMicPauseChange(false); } catch {}
+    }
+
+    if (this.micSourceNode) {
+      try { this.micSourceNode.disconnect(); } catch {}
+      this.micSourceNode = null;
+    }
+    if (this.micStream) {
+      this.micStream.getTracks().forEach(track => {
+        try { track.stop(); } catch {}
+      });
+      this.micStream = null;
+    }
+
+    // Restaurar sesión de audio a playback para mantener sonido en silencio/enfoque
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'playback';
+      } catch {}
+    }
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+      } catch {}
+    }
+
+    emitMicActive(false);
   }
 
   public getAnalyser(): AnalyserNode | null {
@@ -1010,34 +1316,44 @@ class AudioService {
   private autoCorrelateBuf: Float32Array = new Float32Array(2048);
 
   private detectPitchLoop(callback: (pitchHz: number, volume: number) => void) {
-    if (!this.isListening || !this.analyser || !this.ctx) return;
+    if (this.isPitchLoopRunning) return;
+    this.isPitchLoopRunning = true;
 
-    const now = performance.now();
-    // Throttle pitch analysis loop to ~30 FPS (every 33ms) on high-refresh 120Hz displays (like iPhone Pro)
-    if (now - this.lastPitchDetectTime >= 33) {
-      this.lastPitchDetectTime = now;
-
-      if (this.timeDomainBuffer.length !== this.analyser.fftSize) {
-        this.timeDomainBuffer = new Float32Array(this.analyser.fftSize);
+    const loop = () => {
+      if (!this.isListening || this.isPausedForPlayback || !this.analyser || !this.ctx) {
+        this.isPitchLoopRunning = false;
+        return;
       }
-      this.analyser.getFloatTimeDomainData(this.timeDomainBuffer);
 
-      // Calculate RMS volume
-      let sum = 0;
-      const len = this.timeDomainBuffer.length;
-      for (let i = 0; i < len; i++) {
-        const val = this.timeDomainBuffer[i];
-        sum += val * val;
+      const now = performance.now();
+      // Throttle pitch analysis loop to ~30 FPS (every 33ms) on high-refresh 120Hz displays (like iPhone Pro)
+      if (now - this.lastPitchDetectTime >= 33) {
+        this.lastPitchDetectTime = now;
+
+        if (this.timeDomainBuffer.length !== this.analyser.fftSize) {
+          this.timeDomainBuffer = new Float32Array(this.analyser.fftSize);
+        }
+        this.analyser.getFloatTimeDomainData(this.timeDomainBuffer);
+
+        // Calculate RMS volume
+        let sum = 0;
+        const len = this.timeDomainBuffer.length;
+        for (let i = 0; i < len; i++) {
+          const val = this.timeDomainBuffer[i];
+          sum += val * val;
+        }
+        const rms = Math.sqrt(sum / len);
+
+        // Autocorrelation pitch detection
+        const pitch = this.autoCorrelate(this.timeDomainBuffer, this.ctx.sampleRate);
+
+        callback(pitch, rms);
       }
-      const rms = Math.sqrt(sum / len);
 
-      // Autocorrelation pitch detection
-      const pitch = this.autoCorrelate(this.timeDomainBuffer, this.ctx.sampleRate);
+      requestAnimationFrame(loop);
+    };
 
-      callback(pitch, rms);
-    }
-
-    requestAnimationFrame(() => this.detectPitchLoop(callback));
+    requestAnimationFrame(loop);
   }
 
   private autoCorrelate(buf: Float32Array, sampleRate: number): number {
@@ -1874,6 +2190,9 @@ class AudioService {
 }
 
 export const audioService = new AudioService();
+if (typeof window !== 'undefined') {
+  (window as any).audioService = audioService;
+}
 
 // Standalone function export for guaranteed Turbopack HMR binding and resilient execution
 export const playSuccessBellSound = () => {

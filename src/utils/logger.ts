@@ -23,8 +23,22 @@ class LoggerService {
     if (this.initialized || typeof window === 'undefined') return;
     this.initialized = true;
 
+    // Ignore errors originating from external browser extensions
+    const isExtensionError = (source?: string | null) => {
+      if (!source) return false;
+      return (
+        source.includes('chrome-extension://') ||
+        source.includes('moz-extension://') ||
+        source.includes('safari-web-extension://') ||
+        source.includes('extension://')
+      );
+    };
+
     // Capture unhandled window runtime errors
     window.addEventListener('error', (event) => {
+      if (isExtensionError(event.filename) || isExtensionError(event.error?.stack)) {
+        return;
+      }
       this.error('GlobalWindow', event.message || 'Error de ventana no capturado', {
         filename: event.filename,
         lineno: event.lineno,
@@ -35,8 +49,12 @@ class LoggerService {
 
     // Capture unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
+      const reasonStr = event.reason ? (event.reason.stack || event.reason.toString()) : '';
+      if (isExtensionError(reasonStr)) {
+        return;
+      }
       this.warn('UnhandledPromise', 'Promesa no gestionada rechazada', {
-        reason: event.reason ? (event.reason.stack || event.reason.toString()) : 'Desconocido',
+        reason: reasonStr || 'Desconocido',
       });
     });
   }

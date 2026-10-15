@@ -169,3 +169,49 @@
     transform: translateX(0) translateY(0) scale(1, 1) rotate(0deg);
   }
 }
+
+/* Secuencia donde los personajes dan 3 saltitos de alegría al destapar la contraseña */
+.happyJump {
+  animation: blobHappyHop 0.85s cubic-bezier(0.25, 0.9, 0.35, 1) var(--jump-delay, 0s) both;
+  transform-origin: 50% 100%;
+}
+
+@keyframes blobHappyHop {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  /* --- Saltito 1 (inicio 0%, cumbre 14%, aterrizaje 25%) --- */
+  5% {
+    transform: translateY(4px) scale(1.12, 0.88);
+  }
+  14% {
+    transform: translateY(var(--jump-height, -38px)) scale(0.92, 1.12);
+  }
+  25% {
+    transform: translateY(3px) scale(1.08, 0.92);
+  }
+  /* --- Saltito 2 (inicio 28%, cumbre 42%, aterrizaje 54%) --- */
+  30% {
+    transform: translateY(2px) scale(1.09, 0.91);
+  }
+  42% {
+    transform: translateY(calc(var(--jump-height, -38px) * 0.82)) scale(0.93, 1.10);
+  }
+  54% {
+    transform: translateY(2px) scale(1.06, 0.94);
+  }
+  /* --- Saltito 3 (inicio 58%, cumbre 72%, aterrizaje 84%) --- */
+  60% {
+    transform: translateY(1px) scale(1.06, 0.95);
+  }
+  72% {
+    transform: translateY(calc(var(--jump-height, -38px) * 0.65)) scale(0.95, 1.07);
+  }
+  84% {
+    transform: translateY(0) scale(1.03, 0.98);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+

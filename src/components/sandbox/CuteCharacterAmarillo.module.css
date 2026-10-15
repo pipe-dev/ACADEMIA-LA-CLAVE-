@@ -5,6 +5,33 @@
   flex-direction: column;
   align-items: center;
   padding-bottom: 25px;
+  /* Entrada: brota como un circulo pequeño que se expande con rebote elastico
+     hasta quedar en su pose normal. Optimizada: solo transform/opacity (compositor). */
+  will-change: transform;
+  /* animation: amarillo-enter 3.5s cubic-bezier(0.18, 1.2, 0.32, 1) 0.9s both; (reemplazada por caravana unificada) */
+}
+
+@keyframes amarillo-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.1) translateY(8px);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.16) translateY(-6px);
+  }
+  55% {
+    transform: scale(0.93, 1.1) translateY(0);
+  }
+  76% {
+    transform: scale(1.06, 0.96) translateY(0);
+  }
+  92% {
+    transform: scale(0.99, 1.02) translateY(0);
+  }
+  100% {
+    transform: scale(1, 1) translateY(0);
+  }
 }
 
 @keyframes amarillo-greet {
@@ -24,6 +51,7 @@
 
 /* 1. SOMBRAS DE APOYO EN EL SUELO */
 .shadow-ambient {
+  pointer-events: none;
   position: absolute;
   bottom: 18px;
   width: 210px;
@@ -37,6 +65,7 @@
 }
 
 .shadow-contact {
+  pointer-events: none;
   position: absolute;
   bottom: 23px;
   width: 176px;

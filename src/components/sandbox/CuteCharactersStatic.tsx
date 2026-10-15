@@ -39,6 +39,7 @@ export interface CuteCharactersStaticProps {
   emailValid?: boolean;
   submitHovered?: boolean;
   rememberChecked?: boolean;
+  onReady?: (ready: boolean) => void;
 }
 
 /**
@@ -51,6 +52,8 @@ const DESIGN_WIDTH = 640;
 const DESIGN_HEIGHT = 705;
 const DEFAULT_SCALE = 420 / DESIGN_WIDTH;
 
+const SLOT_JUMP_DELAYS = [0.04, 0.0, 0.08, 0.05];
+const SLOT_JUMP_HEIGHTS = [-32, -42, -46, -34];
 
 interface CharacterSlot {
   left: number;
@@ -76,20 +79,23 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
   emailValid = false,
   submitHovered = false,
   rememberChecked = false,
+  onReady,
 }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [look, setLook] = useState({x: 0, y: 0});
-  const [caravanKey, setCaravanKey] = useState(0);
-  const caravanAudibleRef = useRef(false);
 
   // Seguimiento del cursor activo tras completar la caravana de entrada (~1.9s)
   const [ready, setReady] = useState(false);
   useEffect(() => {
     setReady(false);
-    const t = setTimeout(() => setReady(true), 1950);
+    onReady?.(false);
+    const t = setTimeout(() => {
+      setReady(true);
+      onReady?.(true);
+    }, 1950);
     return () => clearTimeout(t);
-  }, [caravanKey]);
+  }, [onReady]);
 
   const {
     getAudioContext,
@@ -100,6 +106,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     playDroplet,
     playWinkPop,
     playValidationChime,
+    playHappyHop,
     playErrorGlitch,
   } = useJellyAsmrAudio();
 
@@ -119,37 +126,6 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     },
     [playSquish, playDroplet, playCartoonBoing]
   );
-
-  // Desbloqueo transparente en la primera interacción física si el navegador suspendió el audio inicial
-  useEffect(() => {
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === 'running') {
-      caravanAudibleRef.current = true;
-    }
-
-    const unlockOnGesture = () => {
-      const activeCtx = getAudioContext();
-      if (activeCtx) {
-        activeCtx.resume().then(() => {
-          if (!caravanAudibleRef.current) {
-            caravanAudibleRef.current = true;
-            setCaravanKey((k) => k + 1);
-          }
-        }).catch(() => {});
-      }
-    };
-
-    const events = ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click'];
-    events.forEach((evt) => {
-      window.addEventListener(evt, unlockOnGesture, {capture: true, passive: true});
-    });
-
-    return () => {
-      events.forEach((evt) => {
-        window.removeEventListener(evt, unlockOnGesture, {capture: true});
-      });
-    };
-  }, [getAudioContext]);
 
   // Sincronizacion directa de audio con los 3 aterrizajes agiles de cada personaje al entrar
   useEffect(() => {
@@ -172,7 +148,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
       setTimeout(() => playHopSound('naranja', 3), 1740),
     ];
     return () => soundTimers.forEach(clearTimeout);
-  }, [playHopSound, caravanKey]);
+  }, [playHopSound]);
 
   const [blinkMorado, setBlinkMorado] = useState(false);
   const [blinkFucsia, setBlinkFucsia] = useState(false);
@@ -254,12 +230,32 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
     prevErrorRef.current = !!error;
   }, [error, playErrorGlitch]);
 
-  // Al destapar el ojo de la contraseña, se inclinan con curiosidad hacia el campo
+  // Secuencia donde los personajes saltan de alegría al destapar el ojo
+  const [isHappyJumping, setIsHappyJumping] = useState(false);
+  const prevRevealRef = useRef(reveal);
+
+  useEffect(() => {
+    if (reveal && !prevRevealRef.current) {
+      setIsHappyJumping(true);
+      playHappyHop();
+      const timer = setTimeout(() => {
+        setIsHappyJumping(false);
+      }, 940);
+      return () => clearTimeout(timer);
+    }
+    prevRevealRef.current = reveal;
+  }, [reveal, playHappyHop]);
+
+  // Al destapar el ojo de la contraseña, primero saltan de alegria y luego ya se acercaban
   const effExcited = error
     ? 0
+    : isHappyJumping
+    ? 0
     : reveal
-      ? 1
-      : excited && !shy ? 1 : 0;
+    ? 1
+    : excited && !shy
+    ? 1
+    : 0;
 
   const effProgress = reveal
     ? 0.75
@@ -618,7 +614,7 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
 
           return (
             <div
-              key={`${index}-${caravanKey}`}
+              key={index}
               className="absolute pointer-events-auto"
               style={{
                 left: slot.left,
@@ -629,7 +625,15 @@ export const CuteCharactersStatic: React.FC<CuteCharactersStaticProps> = ({
               } as React.CSSProperties}
             >
               <div className={caravanClass}>
-                {slot.character}
+                <div
+                  className={isHappyJumping ? styles.happyJump : ''}
+                  style={{
+                    ['--jump-delay']: `${SLOT_JUMP_DELAYS[index]}s`,
+                    ['--jump-height']: `${SLOT_JUMP_HEIGHTS[index]}px`,
+                  } as React.CSSProperties}
+                >
+                  {slot.character}
+                </div>
               </div>
             </div>
           );

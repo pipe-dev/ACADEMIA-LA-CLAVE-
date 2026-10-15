@@ -1,4 +1,5 @@
-// Helper para carga de avatares a ImgBB y resolucion de avatares vocales predeterminados
+// Helper para carga de avatares a ImgBB con sanitizacion binaria y fallback local
+import { sanitizeImageInBrowser } from './imageSecurity';
 
 export interface ImgBBUploadResponse {
   success: boolean;
@@ -8,19 +9,33 @@ export interface ImgBBUploadResponse {
 }
 
 export async function uploadAvatarToImgBB(file: File | string): Promise<ImgBBUploadResponse> {
-  // Intentar subida a través de nuestro endpoint seguro del backend
+  let processedFile = file;
+  let fallbackDataUrl = typeof file === 'string' ? file : '';
+
+  // 1. Sanitizar en el navegador: decodifica píxeles en Canvas para neutralizar scripts o metadatos inyectados
+  if (typeof file !== 'string' && typeof window !== 'undefined') {
+    try {
+      const sanitized = await sanitizeImageInBrowser(file);
+      processedFile = sanitized.file;
+      fallbackDataUrl = sanitized.dataUrl;
+    } catch (e: any) {
+      console.warn('[Avatar Security] Sanitización previa:', e.message);
+    }
+  }
+
+  // 2. Transmitir archivo sanitizado al endpoint del backend
   try {
     let response: Response;
 
-    if (typeof file === 'string') {
+    if (typeof processedFile === 'string') {
       response = await fetch('/api/upload/avatar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: file }),
+        body: JSON.stringify({ image: processedFile }),
       });
     } else {
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', processedFile);
       response = await fetch('/api/upload/avatar', {
         method: 'POST',
         body: formData,
@@ -38,10 +53,18 @@ export async function uploadAvatarToImgBB(file: File | string): Promise<ImgBBUpl
       }
     }
   } catch (err) {
-    console.warn('[ImgBB] Fallo menor al subir vía servidor, aplicando fallback local:', err);
+    console.warn('[Avatar] Subida remota no disponible en este momento, usando respaldo local.');
   }
 
-  // Fallback offline / local: procesar con FileReader
+  // 3. Fallback local seguro si no hay conexión o falla la red
+  if (fallbackDataUrl) {
+    return {
+      success: true,
+      url: fallbackDataUrl,
+      isRemote: false,
+    };
+  }
+
   if (typeof file !== 'string') {
     const localDataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -66,11 +89,14 @@ export async function uploadAvatarToImgBB(file: File | string): Promise<ImgBBUpl
 
 export function getVocalAvatarUrl(type: string): string {
   const map: Record<string, string> = {
-    soprano: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    tenor: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-    mezzosoprano: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
-    baritono: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-    contralto: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&auto=format&fit=crop&q=80',
+    soprano: '/avatars/avatar-soprano.svg',
+    tenor: '/avatars/avatar-tenor.svg',
+    mezzosoprano: '/avatars/avatar-mezzosoprano.svg',
+    baritono: '/avatars/avatar-baritono.svg',
+    contralto: '/avatars/avatar-contralto.svg',
+    bajo: '/avatars/avatar-bajo.svg',
+    armonia: '/avatars/avatar-armonia.svg',
+    acustico: '/avatars/avatar-acustico.svg',
   };
   return map[type.toLowerCase()] || map.soprano;
 }

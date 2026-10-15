@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { Star, Trophy, ArrowRight, RotateCcw, Sparkles } from 'lucide-react';
+import { Star, Trophy, ArrowRight, RotateCcw } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { audioService } from '../utils/audioService';
 
@@ -121,7 +121,6 @@ export const TunerWinModal: React.FC<TunerWinModalProps> = ({
 
         {/* XP Badge */}
         <div className="inline-flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/80 px-4 py-1.5 rounded-full text-emerald-700 dark:text-emerald-300 text-sm font-heading font-extrabold shadow-xs">
-          <Sparkles className="w-4 h-4 text-emerald-500" />
           <span>+{xpEarned} XP Ganados</span>
         </div>
 

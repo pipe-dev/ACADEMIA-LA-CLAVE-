@@ -9,17 +9,17 @@ export type ProgressState = Record<ChallengeDifficulty, Record<number, number>>;
 export const difficultySettings: Record<Difficulty, { levelCount: number }> = {
   Calentamiento: { levelCount: 12 },
   Fácil: { levelCount: 12 },
-  Medio: { levelCount: 16 },
-  Difícil: { levelCount: 20 },
-  Maestro: { levelCount: 10 }
+  Medio: { levelCount: 20 },
+  Difícil: { levelCount: 24 },
+  Maestro: { levelCount: 14 }
 };
 
 // 0 indicates a rhythm level
 export const difficultyLevels: Record<ChallengeDifficulty, number[]> = {
   Fácil: [3, 4, 4, 5, 5, 6, 0, 0, 0, 0, 0, 0], // 6 tuning/melody, 6 rhythm (7-12)
-  Medio: [4, 5, 5, 6, 6, 6, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0], // 12 tuning/interval/melody, 4 rhythm (13-16)
-  Difícil: [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0], // 12 tuning, 8 rhythm
-  Maestro: [6, 7, 8, 9, 10, 10, 0, 0, 0, 0] // 6 ultra-precise tuning (±10 cents), 4 high-BPM rhythm
+  Medio: [4, 5, 5, 6, 6, 6, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0], // 12 tuning/interval/melody, 8 rhythm (13-20)
+  Difícil: [5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 12 tuning, 12 rhythm
+  Maestro: [6, 7, 8, 9, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0] // 6 ultra-precise tuning (±10 cents), 8 hardest rhythm (220-290 BPM)
 };
 
 export const mediumDifficultyChords = [
@@ -208,6 +208,51 @@ export const rhythmPatterns: Record<number, { time: number; instrument: 'clap' |
     { time: 1200, instrument: 'kick' },
     { time: 1680, instrument: 'kick' },
     { time: 1920, instrument: 'clap' }
+  ],
+  // Maestro (Levels 25-28) - 260 to 290 BPM
+  25: [ // 260 BPM
+    { time: 0, instrument: 'kick' },
+    { time: 231, instrument: 'kick' },
+    { time: 462, instrument: 'clap' },
+    { time: 692, instrument: 'kick' },
+    { time: 923, instrument: 'clap' },
+    { time: 1154, instrument: 'kick' },
+    { time: 1385, instrument: 'kick' },
+    { time: 1615, instrument: 'clap' }
+  ],
+  26: [ // 270 BPM
+    { time: 0, instrument: 'kick' },
+    { time: 222, instrument: 'kick' },
+    { time: 444, instrument: 'clap' },
+    { time: 667, instrument: 'kick' },
+    { time: 889, instrument: 'clap' },
+    { time: 1111, instrument: 'kick' },
+    { time: 1333, instrument: 'clap' },
+    { time: 1556, instrument: 'kick' },
+    { time: 1778, instrument: 'clap' }
+  ],
+  27: [ // 280 BPM
+    { time: 0, instrument: 'kick' },
+    { time: 214, instrument: 'kick' },
+    { time: 429, instrument: 'clap' },
+    { time: 643, instrument: 'kick' },
+    { time: 857, instrument: 'clap' },
+    { time: 1071, instrument: 'kick' },
+    { time: 1286, instrument: 'kick' },
+    { time: 1500, instrument: 'clap' },
+    { time: 1714, instrument: 'kick' }
+  ],
+  28: [ // 290 BPM
+    { time: 0, instrument: 'kick' },
+    { time: 207, instrument: 'kick' },
+    { time: 414, instrument: 'clap' },
+    { time: 621, instrument: 'kick' },
+    { time: 828, instrument: 'clap' },
+    { time: 1034, instrument: 'kick' },
+    { time: 1241, instrument: 'clap' },
+    { time: 1448, instrument: 'kick' },
+    { time: 1655, instrument: 'clap' },
+    { time: 1862, instrument: 'kick' }
   ]
 };
 

@@ -26,14 +26,14 @@ export interface FriendItem {
 }
 
 export const DEFAULT_VOCAL_AVATARS: { id: string; name: string; url: string }[] = [
-  { id: 'soprano', name: 'Soprano', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80' },
-  { id: 'tenor', name: 'Tenor', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80' },
-  { id: 'mezzosoprano', name: 'Mezzosoprano', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80' },
-  { id: 'baritono', name: 'Barítono', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80' },
-  { id: 'contralto', name: 'Contralto', url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&auto=format&fit=crop&q=80' },
-  { id: 'bajo', name: 'Bajo', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80' },
-  { id: 'armonia', name: 'Armonía', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80' },
-  { id: 'acustico', name: 'Acústico', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80' }
+  { id: 'soprano', name: 'Soprano', url: '/avatars/avatar-soprano.svg' },
+  { id: 'tenor', name: 'Tenor', url: '/avatars/avatar-tenor.svg' },
+  { id: 'mezzosoprano', name: 'Mezzosoprano', url: '/avatars/avatar-mezzosoprano.svg' },
+  { id: 'baritono', name: 'Barítono', url: '/avatars/avatar-baritono.svg' },
+  { id: 'contralto', name: 'Contralto', url: '/avatars/avatar-contralto.svg' },
+  { id: 'bajo', name: 'Bajo', url: '/avatars/avatar-bajo.svg' },
+  { id: 'armonia', name: 'Armonía', url: '/avatars/avatar-armonia.svg' },
+  { id: 'acustico', name: 'Acústico', url: '/avatars/avatar-acustico.svg' }
 ];
 
 export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
@@ -41,7 +41,7 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     id: 'f1',
     code: 'VOCAL-9821',
     name: 'Camila Ríos',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+    avatar: '/avatars/avatar-soprano.svg',
     level: 5,
     levelTitle: 'Soprano Aficionada',
     streak: 8,
@@ -66,7 +66,7 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     id: 'f2',
     code: 'CANTO-4102',
     name: 'Mateo Fernández',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+    avatar: '/avatars/avatar-tenor.svg',
     level: 4,
     levelTitle: 'Tenor Lírico',
     streak: 5,
@@ -91,7 +91,7 @@ export const INITIAL_DEMO_FRIENDS: FriendItem[] = [
     id: 'f3',
     code: 'SOLFEO-8830',
     name: 'Sofía Mendoza',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
+    avatar: '/avatars/avatar-mezzosoprano.svg',
     level: 6,
     levelTitle: 'Mezzosoprano Vocal',
     streak: 12,
@@ -118,7 +118,7 @@ export const DEMO_FRIEND_DIRECTORY: Record<string, Omit<FriendItem, 'id'>> = {
   'VOCAL-2026': {
     code: 'VOCAL-2026',
     name: 'Lucas Barítono',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
+    avatar: '/avatars/avatar-baritono.svg',
     level: 3,
     levelTitle: 'Barítono Resonante',
     streak: 4,
@@ -140,7 +140,7 @@ export const DEMO_FRIEND_DIRECTORY: Record<string, Omit<FriendItem, 'id'>> = {
   'CANTO-9941': {
     code: 'CANTO-9941',
     name: 'Elena Canto',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&auto=format&fit=crop&q=80',
+    avatar: '/avatars/avatar-contralto.svg',
     level: 7,
     levelTitle: 'Maestra de Solfeo',
     streak: 15,

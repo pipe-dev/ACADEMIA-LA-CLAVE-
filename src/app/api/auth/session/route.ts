@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       authenticated: true,
+      serverTime: new Date().toISOString(),
       user: {
         id: user.id,
         name: user.name,

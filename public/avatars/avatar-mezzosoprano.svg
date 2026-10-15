@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg-mezzo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="hair-mezzo" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#582f0e" />
+      <stop offset="100%" stop-color="#331800" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg-mezzo)" stroke="#a7f3d0" stroke-width="2" />
+
+  <!-- Back Hair wavy curls -->
+  <circle cx="42" cy="74" r="16" fill="url(#hair-mezzo)" />
+  <circle cx="78" cy="74" r="16" fill="url(#hair-mezzo)" />
+
+  <!-- Shoulders & Blouse -->
+  <path d="M 28 116 C 30 92, 45 84, 60 84 C 75 84, 90 92, 92 116 Z" fill="#f59e0b" />
+  <circle cx="60" cy="98" r="4" fill="#fbbf24" />
+
+  <!-- Neck -->
+  <rect x="54" y="72" width="12" height="16" rx="6" fill="#fed7aa" />
+
+  <!-- Head / Face -->
+  <ellipse cx="60" cy="58" rx="21" ry="23" fill="#fed7aa" />
+
+  <!-- Cheeks -->
+  <circle cx="45" cy="64" r="4.5" fill="#f43f5e" opacity="0.35" />
+  <circle cx="75" cy="64" r="4.5" fill="#f43f5e" opacity="0.35" />
+
+  <!-- Big joyful cartoon eyes -->
+  <circle cx="49" cy="54" r="3.5" fill="#331800" />
+  <circle cx="50" cy="53" r="1.2" fill="#fff" />
+  <circle cx="71" cy="54" r="3.5" fill="#331800" />
+  <circle cx="72" cy="53" r="1.2" fill="#fff" />
+
+  <!-- Eyebrows -->
+  <path d="M 45 47 Q 50 44 54 47" stroke="#331800" stroke-width="2" stroke-linecap="round" fill="none" />
+  <path d="M 66 47 Q 70 44 75 47" stroke="#331800" stroke-width="2" stroke-linecap="round" fill="none" />
+
+  <!-- Sweet smiling mouth -->
+  <path d="M 53 66 Q 60 74 67 66" stroke="#be123c" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 54 66 Q 60 72 66 66 Z" fill="#e11d48" />
+
+  <!-- Front Hair waves & Flower pin -->
+  <path d="M 38 52 C 38 32, 82 32, 82 52 C 78 40, 68 36, 60 38 C 52 36, 42 40, 38 52 Z" fill="url(#hair-mezzo)" />
+  <circle cx="40" cy="38" r="6" fill="#ec4899" />
+  <circle cx="40" cy="38" r="2.5" fill="#fef08a" />
+</svg>

@@ -12,15 +12,6 @@ import styles from './CuteTactileCanvas.module.css';
 export interface CuteTactileCanvasRef {
   spawnRipple: (x: number, y: number, intensity?: number) => void;
   setTouchGlow: (x: number, y: number, active: boolean) => void;
-  setPinchPull: (
-    originX: number,
-    originY: number,
-    targetX: number,
-    targetY: number,
-    active: boolean,
-    color?: string,
-    highlightColor?: string
-  ) => void;
 }
 
 export interface CuteTactileCanvasProps {
@@ -41,19 +32,6 @@ interface Ripple {
   thickness: number;
 }
 
-interface PinchState {
-  originX: number;
-  originY: number;
-  targetX: number;
-  targetY: number;
-  active: boolean;
-  color: string;
-  highlightColor: string;
-  snapProgress: number;
-  snapTargetX: number;
-  snapTargetY: number;
-}
-
 export const CuteTactileCanvas = forwardRef<
   CuteTactileCanvasRef,
   CuteTactileCanvasProps
@@ -64,19 +42,6 @@ export const CuteTactileCanvas = forwardRef<
     x: 0,
     y: 0,
     active: false,
-  });
-
-  const pinchRef = useRef<PinchState>({
-    originX: 0,
-    originY: 0,
-    targetX: 0,
-    targetY: 0,
-    active: false,
-    color: 'rgba(255, 255, 255, 0.45)',
-    highlightColor: 'rgba(255, 255, 255, 0.85)',
-    snapProgress: 0,
-    snapTargetX: 0,
-    snapTargetY: 0,
   });
 
   const animFrameRef = useRef<number | null>(null);
@@ -121,107 +86,7 @@ export const CuteTactileCanvas = forwardRef<
         ctx.restore();
       }
 
-      // 2. Dibujar cono de piel elástica / pellizco (Pinch Tent)
-      const pinch = pinchRef.current;
-      if (pinch.active || pinch.snapProgress > 0.01) {
-        let currentTx = pinch.targetX;
-        let currentTy = pinch.targetY;
-
-        if (!pinch.active && pinch.snapProgress > 0) {
-          // Retroceso rapido amortiguado (snap-back)
-          pinch.snapProgress *= Math.exp(-dt * 26);
-          currentTx = pinch.originX + (pinch.snapTargetX - pinch.originX) * pinch.snapProgress;
-          currentTy = pinch.originY + (pinch.snapTargetY - pinch.originY) * pinch.snapProgress;
-          if (pinch.snapProgress <= 0.01) {
-            pinch.snapProgress = 0;
-          }
-        }
-
-        const dx = currentTx - pinch.originX;
-        const dy = currentTy - pinch.originY;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist > 3) {
-          ctx.save();
-          const angle = Math.atan2(dy, dx);
-          const perpAngle = angle + Math.PI / 2;
-
-          const baseWidth = Math.min(54, 16 + dist * 0.3);
-          const p1x = pinch.originX + Math.cos(perpAngle) * baseWidth;
-          const p1y = pinch.originY + Math.sin(perpAngle) * baseWidth;
-          const p2x = pinch.originX - Math.cos(perpAngle) * baseWidth;
-          const p2y = pinch.originY - Math.sin(perpAngle) * baseWidth;
-
-          // Puntos de control concavos (silueta hiperbolica de tenting de piel)
-          const midX = (pinch.originX + currentTx) * 0.5;
-          const midY = (pinch.originY + currentTy) * 0.5;
-          const waistWidth = baseWidth * 0.34;
-          const cp1x = midX + Math.cos(perpAngle) * waistWidth;
-          const cp1y = midY + Math.sin(perpAngle) * waistWidth;
-          const cp2x = midX - Math.cos(perpAngle) * waistWidth;
-          const cp2y = midY - Math.sin(perpAngle) * waistWidth;
-
-          // Gradiente de piel elastica estirada con tonos del personaje
-          const tentGrad = ctx.createLinearGradient(
-            pinch.originX,
-            pinch.originY,
-            currentTx,
-            currentTy
-          );
-          tentGrad.addColorStop(0, pinch.color);
-          tentGrad.addColorStop(0.72, pinch.highlightColor);
-          tentGrad.addColorStop(1, 'rgba(255, 255, 255, 0.95)');
-
-          // Relleno de la membrana conica
-          ctx.beginPath();
-          ctx.moveTo(p1x, p1y);
-          ctx.quadraticCurveTo(cp1x, cp1y, currentTx, currentTy);
-          ctx.quadraticCurveTo(cp2x, cp2y, p2x, p2y);
-          ctx.closePath();
-          ctx.fillStyle = tentGrad;
-          ctx.fill();
-
-          // Bordes de tension elastica
-          ctx.strokeStyle = pinch.highlightColor;
-          ctx.lineWidth = 1.6;
-          ctx.stroke();
-
-          // Lineas de estrias de tension superficial internas
-          if (dist > 15) {
-            ctx.beginPath();
-            ctx.moveTo(pinch.originX, pinch.originY);
-            ctx.lineTo(currentTx, currentTy);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(p1x * 0.65 + pinch.originX * 0.35, p1y * 0.65 + pinch.originY * 0.35);
-            ctx.quadraticCurveTo(cp1x * 0.7 + midX * 0.3, cp1y * 0.7 + midY * 0.3, currentTx, currentTy);
-            ctx.moveTo(p2x * 0.65 + pinch.originX * 0.35, p2y * 0.65 + pinch.originY * 0.35);
-            ctx.quadraticCurveTo(cp2x * 0.7 + midX * 0.3, cp2y * 0.7 + midY * 0.3, currentTx, currentTy);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-            ctx.lineWidth = 0.9;
-            ctx.stroke();
-          }
-
-          // Cuspide del pellizco (pliegue de piel concentrada en la punta de los dedos)
-          ctx.save();
-          ctx.translate(currentTx, currentTy);
-          ctx.rotate(angle);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, 5.8, 4.2, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
-          ctx.shadowBlur = 4;
-          ctx.fill();
-          ctx.restore();
-
-          ctx.restore();
-        }
-      }
-
-      // 3. Dibujar y actualizar ondas de choque (Shockwave Ripples)
+      // 2. Dibujar y actualizar ondas de choque (Shockwave Ripples)
       const ripples = ripplesRef.current;
       for (let i = ripples.length - 1; i >= 0; i--) {
         const r = ripples[i];
@@ -254,9 +119,8 @@ export const CuteTactileCanvas = forwardRef<
         ctx.restore();
       }
 
-      // 4. Condicion de reposo (suspender bucle para 0% uso de CPU)
-      const isPinchActive = pinch.active || pinch.snapProgress > 0.01;
-      if (ripples.length === 0 && !glow.active && !isPinchActive) {
+      // 3. Condicion de reposo (suspender bucle para 0% uso de CPU)
+      if (ripples.length === 0 && !glow.active) {
         ctx.clearRect(0, 0, width, height);
         animFrameRef.current = null;
         lastTimeRef.current = null;
@@ -298,47 +162,13 @@ export const CuteTactileCanvas = forwardRef<
     [startLoop]
   );
 
-  const setPinchPull = useCallback(
-    (
-      originX: number,
-      originY: number,
-      targetX: number,
-      targetY: number,
-      active: boolean,
-      color = 'rgba(255, 255, 255, 0.45)',
-      highlightColor = 'rgba(255, 255, 255, 0.85)'
-    ) => {
-      const p = pinchRef.current;
-      if (active) {
-        p.originX = originX;
-        p.originY = originY;
-        p.targetX = targetX;
-        p.targetY = targetY;
-        p.active = true;
-        p.color = color;
-        p.highlightColor = highlightColor;
-        p.snapProgress = 0;
-      } else {
-        if (p.active) {
-          p.active = false;
-          p.snapProgress = 1;
-          p.snapTargetX = targetX;
-          p.snapTargetY = targetY;
-        }
-      }
-      startLoop();
-    },
-    [startLoop]
-  );
-
   useImperativeHandle(
     ref,
     () => ({
       spawnRipple,
       setTouchGlow,
-      setPinchPull,
     }),
-    [spawnRipple, setTouchGlow, setPinchPull]
+    [spawnRipple, setTouchGlow]
   );
 
   useEffect(() => {

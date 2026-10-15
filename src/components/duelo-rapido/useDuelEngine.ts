@@ -44,7 +44,7 @@ export function useDuelEngine({
   const [p2TimeLeft, setP2TimeLeft] = useState<number>(10);
   const [p2InTuneSeconds, setP2InTuneSeconds] = useState<number>(0);
   const [p2CurrentPitch, setP2CurrentPitch] = useState<number | null>(null);
-  const [p2PitchDiff, setP2PitchDiff] = useState<number | null>(null);
+  const [_p2PitchDiff, setP2PitchDiff] = useState<number | null>(null);
   const [p2Score, setP2Score] = useState<number>(0);
 
   // P2P State
@@ -164,12 +164,7 @@ export function useDuelEngine({
       remaining -= 1;
       setP2TimeLeft(remaining);
 
-      const isInTune = Math.random() < targetAccuracy;
-      const simCents = isInTune ? Math.round(Math.random() * 24 - 12) : Math.round(Math.random() < 0.5 ? -35 : 35);
-      setP2PitchDiff(simCents);
-      setP2CurrentPitch(selectedNote.frequency * Math.pow(2, simCents / 1200));
-
-      if (isInTune) {
+      if (Math.random() < targetAccuracy) {
         p2Ticks += 0.8;
       } else {
         p2Ticks += 0.2;
@@ -404,7 +399,6 @@ export function useDuelEngine({
       if (pitchHz > 0) {
         setP2CurrentPitch(pitchHz);
         const cents = calculateCentsOff(pitchHz, targetFreq);
-        setP2PitchDiff(cents);
         if (Math.abs(cents) <= 25) {
           inTuneTicks += 0.1;
           setP2InTuneSeconds(Number(inTuneTicks.toFixed(1)));
@@ -458,7 +452,6 @@ export function useDuelEngine({
     p2TimeLeft,
     p2InTuneSeconds,
     p2CurrentPitch,
-    p2PitchDiff,
     p2Score,
     p1Won,
     p2pRoomId,

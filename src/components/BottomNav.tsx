@@ -37,7 +37,7 @@ const BottomNavComponent: React.FC<BottomNavProps> = ({
   return (
     <nav 
       id="tour-bottom-nav" 
-      className={`fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl rounded-t-3xl flex justify-around items-center px-4 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-x select-none max-w-lg mx-auto ${
+      className={`fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl rounded-t-3xl flex justify-around items-center px-4 pt-2 pb-[max(0.4rem,var(--safe-bottom,env(safe-area-inset-bottom,0px)))] border-t border-x select-none max-w-lg mx-auto ${
         zenMode
           ? 'bg-[#191b1f]/95 border-[#2e3138] shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.6)]'
           : 'bg-white/85 dark:bg-[#0b1c30]/90 border-white/50 dark:border-white/10 shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.08)]'
@@ -52,7 +52,7 @@ const BottomNavComponent: React.FC<BottomNavProps> = ({
             key={item.id}
             id={`tour-nav-${item.id}`}
             onClick={(e) => handleSelect(e, item.id)}
-            className={`relative flex flex-1 max-w-[88px] flex-col items-center justify-center min-w-[52px] min-h-[48px] px-2 py-1 rounded-full transition-colors cursor-pointer select-none touch-manipulation focus:outline-hidden ${
+            className={`relative flex flex-1 max-w-[88px] flex-col items-center justify-center min-w-[50px] min-h-[44px] px-1.5 py-1 rounded-full transition-colors cursor-pointer select-none touch-manipulation focus:outline-hidden ${
               zenMode
                 ? isActive
                   ? 'text-[#161719] font-black'
