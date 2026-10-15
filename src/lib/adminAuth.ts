@@ -1,17 +1,24 @@
 import { NextRequest } from 'next/server';
 
-const MASTER_ADMIN_SECRET = process.env.ADMIN_SECRET || '1234';
+export function getAdminSecret(): string {
+  return (process.env.ADMIN_SECRET || '').trim();
+}
 
 export function verifyAdminRequest(request: NextRequest): boolean {
+  const secret = getAdminSecret();
+  if (!secret) {
+    return false;
+  }
+
   const headerKey = request.headers.get('x-admin-key');
-  if (headerKey && (headerKey.trim() === MASTER_ADMIN_SECRET.trim() || headerKey.trim() === '1234')) {
+  if (headerKey && headerKey.trim() === secret) {
     return true;
   }
 
   const authHeader = request.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.replace('Bearer ', '').trim();
-    if (token === MASTER_ADMIN_SECRET.trim() || token === '1234') {
+    if (token === secret) {
       return true;
     }
   }

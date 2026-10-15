@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp } from '@/lib/securityService';
-import { getCorsHeaders } from '@/lib/adminAuth';
-
-const MASTER_ADMIN_SECRET = process.env.ADMIN_SECRET || '1234';
+import { getCorsHeaders, getAdminSecret } from '@/lib/adminAuth';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -24,8 +22,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const key = body.adminKey || request.headers.get('x-admin-key');
+    const secret = getAdminSecret();
 
-    if (!key || (key.trim() !== MASTER_ADMIN_SECRET.trim() && key.trim() !== '1234')) {
+    if (!secret || !key || key.trim() !== secret) {
       return NextResponse.json(
         { error: 'Clave maestra de administrador invalida.' },
         { status: 401, headers: getCorsHeaders() }
