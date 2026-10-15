@@ -38,9 +38,13 @@ export async function POST(request: NextRequest) {
       user = await userDb.getUserByKey('grupoiglesia');
     }
 
-    // 2. If user exists in DB, verify key and subscription status
+    // 2. If user exists in DB, verify key and subscription status (case-insensitive for convenience)
     if (user) {
-      if (user.access_key !== cleanKey && cleanKey !== 'grupoiglesia') {
+      const userKeyNormalized = (user.access_key || '').trim().toUpperCase();
+      const inputKeyNormalized = cleanKey.trim().toUpperCase();
+      const isMasterGroup = cleanKey.trim().toLowerCase() === 'grupoiglesia';
+
+      if (userKeyNormalized !== inputKeyNormalized && !isMasterGroup) {
         return NextResponse.json(
           { error: 'Clave de acceso incorrecta para este usuario.' },
           { status: 401 }
