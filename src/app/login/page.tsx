@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { CuteCharactersStatic } from '@/components/sandbox/CuteCharactersStatic';
-import { AnimatedSkyBackground } from '@/components/sandbox/AnimatedSkyBackground';
+import { CuteCharactersStatic } from '@/components/mascotas/CuteCharactersStatic';
+import { AnimatedSkyBackground } from '@/components/login/AnimatedSkyBackground';
 import { getSharedAudioContext } from '@/utils/useJellyAsmrAudio';
 import styles from './CuteLogin.module.css';
 

@@ -10,10 +10,21 @@ import {
   generateUserNotePool,
   getComfortableChromaticNotes,
   getChromaticNoteByMidi,
-  getComfortableSolfegeNotes
+  getComfortableSolfegeNotes,
 } from './vocalNotePool';
-
-// Re-export all vocal pool utilities for 100% backward compatibility
+export {
+  generateUserNotePool,
+  getComfortableChromaticNotes,
+  getChromaticNoteByMidi,
+  getComfortableSolfegeNotes,
+  noteStrings,
+  americanNoteStrings,
+};
+export type {
+  NoteInfo,
+  ChromaticNoteButtonInfo,
+  SolfegeButtonInfo,
+};
 export * from './vocalNotePool';
 
 export class VoicePlaybackService {
