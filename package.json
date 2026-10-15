@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev --turbopack -p 9005",
     "tunnel": "node tunnel.js",
-    "build": "opennextjs-cloudflare build",
-    "build:next": "next build",
+    "build": "next build",
+    "build:worker": "opennextjs-cloudflare build",
+    "cloudflare:build": "opennextjs-cloudflare build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
@@ -38,6 +39,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.0",
     "postcss": "^8",

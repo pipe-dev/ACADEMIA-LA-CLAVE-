@@ -61,3 +61,5 @@ scratch/
 test_svg.png
 .open-next/
 .wrangler/
+cloudflared.exe
+.*.log
