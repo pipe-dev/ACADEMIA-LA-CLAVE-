@@ -8,6 +8,7 @@
     "build": "next build",
     "build:worker": "opennextjs-cloudflare build",
     "cloudflare:build": "opennextjs-cloudflare build",
+    "deploy:worker": "wrangler deploy --no-upload-source-maps --keep-vars",
     "start": "next start",
     "test": "node scratch/test_suite.mjs",
     "test:unit": "npx tsx src/utils/__tests__/pitchUtils.test.ts && npx tsx src/utils/__tests__/livesEngine.test.ts && npx tsx src/components/__tests__/AuraShieldRing.test.ts",

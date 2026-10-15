@@ -3,6 +3,10 @@ import type {NextConfig} from 'next';
 const nextConfig: NextConfig = {
   /* config options here */
   devIndicators: false,
+  productionBrowserSourceMaps: false,
+  outputFileTracingExcludes: {
+    '*': ['**/*.js.map', '**/*.mjs.map'],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
