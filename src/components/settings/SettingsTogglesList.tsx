@@ -13,8 +13,6 @@ import {
   Compass,
 } from 'lucide-react';
 
-import { SettingsNotificationsCard } from './SettingsNotificationsCard';
-
 interface SettingsTogglesListProps {
   ambientSound?: boolean;
   onToggleAmbientSound?: () => void;
@@ -26,11 +24,10 @@ interface SettingsTogglesListProps {
   isInstalled?: boolean;
   wakeLockActive: boolean;
   onToggleWakeLock: () => void;
-  onTestNotification?: () => void;
+  onTestNotification: () => void;
   onShareApp: () => void;
   onStartTour?: () => void;
   onClose: () => void;
-  streak?: number;
 }
 
 export const SettingsTogglesList: React.FC<SettingsTogglesListProps> = ({
@@ -48,7 +45,6 @@ export const SettingsTogglesList: React.FC<SettingsTogglesListProps> = ({
   onShareApp,
   onStartTour,
   onClose,
-  streak = 1,
 }) => {
   return (
     <>
@@ -213,8 +209,29 @@ export const SettingsTogglesList: React.FC<SettingsTogglesListProps> = ({
         </button>
       </div>
 
-      {/* Feature 2: Duolingo-style Daily Practice Notifications */}
-      <SettingsNotificationsCard streak={streak} />
+      {/* Feature 2: Daily Notifications */}
+      <div className="flex items-center justify-between gap-3 bg-[#f8f9ff] dark:bg-[#0b1828] p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Bell className="w-5 h-5 text-[#4648d4] dark:text-[#c0c1ff] shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#d3e4fe] flex items-center gap-1.5">
+              <span>Recordatorio Diario de Ensayo</span>
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+              Recibe un aviso diario para mantener tu racha activa.
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onTestNotification}
+          className="text-xs font-black text-[#4648d4] dark:text-[#c0c1ff] px-3 py-1.5 bg-white dark:bg-[#102034] border border-indigo-100 dark:border-indigo-900 rounded-xl shadow-2xs cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shrink-0 flex items-center gap-1.5"
+        >
+          <Bell className="w-3.5 h-3.5 text-[#4648d4] dark:text-[#c0c1ff]" />
+          <span>Probar</span>
+        </button>
+      </div>
 
       {/* Feature 3: Share Progress */}
       <div className="flex items-center justify-between gap-3 bg-[#f8f9ff] dark:bg-[#0b1828] p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">

@@ -410,7 +410,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
     <div
       className={
         step === 'video'
-          ? 'fixed inset-0 z-50 w-screen h-screen bg-black flex flex-col justify-center items-center overflow-hidden select-none animate-fadeIn'
+          ? 'fixed inset-0 z-50 w-full h-[100dvh] max-h-[100dvh] bg-black flex flex-col justify-center items-center overflow-hidden select-none animate-fadeIn'
           : 'fixed -left-[9999px] -top-[9999px] w-[320px] h-[240px] opacity-0 pointer-events-none overflow-hidden z-[-1]'
       }
     >

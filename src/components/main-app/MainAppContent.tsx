@@ -93,7 +93,13 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({
 }) => {
   return (
     <>
-      <main className="flex-1 w-full max-w-lg mx-auto overflow-x-hidden relative px-4 pb-[calc(5rem+max(0.4rem,var(--safe-bottom,env(safe-area-inset-bottom,0px))))] pt-[calc(4.75rem+var(--safe-top,env(safe-area-inset-top,0px)))]">
+      <main 
+        style={{
+          paddingBottom: 'calc(5.25rem + max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px)))',
+          paddingTop: 'calc(4.75rem + max(var(--safe-top, 0px), env(safe-area-inset-top, 0px)))',
+        }}
+        className="flex-1 w-full max-w-lg mx-auto overflow-x-hidden relative px-4"
+      >
         <AnimatePresence mode="wait" custom={tabDirection}>
           <motion.div
             key={activeTab}

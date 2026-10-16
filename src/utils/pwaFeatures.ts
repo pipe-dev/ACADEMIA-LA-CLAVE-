@@ -210,39 +210,6 @@ export function getNotificationSupportStatus(): NotificationSupportStatus {
   };
 }
 
-export function getDailyReminderConfig(): { enabled: boolean; time: string } {
-  if (typeof window === 'undefined') return { enabled: true, time: '20:00' };
-  try {
-    const enabled = localStorage.getItem('laclave_practice_reminder_enabled') !== 'false';
-    const time = localStorage.getItem('laclave_practice_reminder_time') || '20:00';
-    return { enabled, time };
-  } catch {
-    return { enabled: true, time: '20:00' };
-  }
-}
-
-export function setDailyReminderConfig(enabled: boolean, time: string, streak = 1) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem('laclave_practice_reminder_enabled', enabled ? 'true' : 'false');
-    localStorage.setItem('laclave_practice_reminder_time', time);
-    if (enabled) {
-      const [h, m] = time.split(':').map(Number);
-      scheduleLocalPracticeAlarm(h || 20, m || 0, streak, true);
-    } else {
-      cancelLocalPracticeAlarm();
-    }
-  } catch {}
-}
-
-export function cancelLocalPracticeAlarm() {
-  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then((reg) => {
-      const activeSw = reg.active || navigator.serviceWorker.controller;
-      activeSw?.postMessage({ type: 'CANCEL_PRACTICE_REMINDER' });
-    }).catch(() => {});
-  }
-}
 
 export async function requestNotificationPermission(silent: boolean = false): Promise<boolean> {
   const status = getNotificationSupportStatus();

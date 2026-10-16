@@ -212,7 +212,12 @@ export default function MainApp() {
       {/* Floating Action Button (FAB): Evaluar mi voz (Academia Tab Only - Pinned to Viewport) */}
       <AnimatePresence>
         {activeTab === 'academia' && (
-          <div className="fixed bottom-[calc(4.5rem+max(0.4rem,var(--safe-bottom,env(safe-area-inset-bottom,0px))))] left-0 right-0 z-40 max-w-lg mx-auto pointer-events-none px-4 flex justify-end">
+          <div 
+            style={{
+              bottom: 'calc(4.75rem + max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px)))',
+            }}
+            className="fixed left-0 right-0 z-40 max-w-lg mx-auto pointer-events-none px-4 flex justify-end"
+          >
             <motion.div
               initial={{ scale: 0.8, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}

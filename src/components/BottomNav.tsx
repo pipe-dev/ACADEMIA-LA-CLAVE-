@@ -37,7 +37,10 @@ const BottomNavComponent: React.FC<BottomNavProps> = ({
   return (
     <nav 
       id="tour-bottom-nav" 
-      className={`fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl rounded-t-3xl flex justify-around items-center px-4 pt-2 pb-[max(0.4rem,var(--safe-bottom,env(safe-area-inset-bottom,0px)))] border-t border-x select-none max-w-lg mx-auto ${
+      style={{
+        paddingBottom: 'calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 0.5rem)',
+      }}
+      className={`fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl rounded-t-3xl flex justify-around items-center px-4 pt-2 border-t border-x select-none max-w-lg mx-auto ${
         zenMode
           ? 'bg-[#191b1f]/95 border-[#2e3138] shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.6)]'
           : 'bg-white/85 dark:bg-[#0b1c30]/90 border-white/50 dark:border-white/10 shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.08)]'

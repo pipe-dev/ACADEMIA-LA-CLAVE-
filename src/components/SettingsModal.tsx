@@ -14,7 +14,6 @@ import {
   sendPracticeReminderNotification,
   triggerHapticFeedback,
   shareUserAchievement,
-  scheduleLocalPracticeAlarm,
   isScreenWakeLockActive,
 } from '../utils/pwaFeatures';
 import { logger, LogEntry } from '../utils/logger';
@@ -128,7 +127,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleTestNotification = async () => {
-    await scheduleLocalPracticeAlarm(20, 0, userStats.streak || 1);
     await sendPracticeReminderNotification(userStats.streak || 1);
     triggerHapticFeedback('success');
   };
@@ -265,7 +263,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onShareApp={handleShareApp}
             onStartTour={onStartTour}
             onClose={handleClose}
-            streak={userStats.streak || 1}
           />
 
           <SettingsDiagnosticLogs
