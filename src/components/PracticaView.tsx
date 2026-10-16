@@ -13,6 +13,8 @@ import { getTimeToNextLife, MAX_LIVES } from '../utils/livesEngine';
 import { CatalogTrack, PracticaViewProps } from './practica/practicaTypes';
 import {
   RECOMMENDED_TRACKS,
+  DEFAULT_SECULAR_TRACKS,
+  DEFAULT_CHRISTIAN_TRACKS,
   FALLBACK_LYRICS,
   LOADING_TIPS
 } from './practica/practicaCatalogData';
@@ -57,9 +59,9 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [top100Tracks, setTop100Tracks] = useState<CatalogTrack[]>(RECOMMENDED_TRACKS);
-  const [secularTracks, setSecularTracks] = useState<CatalogTrack[]>([]);
-  const [christianTracks, setChristianTracks] = useState<CatalogTrack[]>([]);
-  const [allTracks, setAllTracks] = useState<CatalogTrack[]>(RECOMMENDED_TRACKS);
+  const [secularTracks, setSecularTracks] = useState<CatalogTrack[]>(DEFAULT_SECULAR_TRACKS);
+  const [christianTracks, setChristianTracks] = useState<CatalogTrack[]>(DEFAULT_CHRISTIAN_TRACKS);
+  const [allTracks, setAllTracks] = useState<CatalogTrack[]>(() => [...DEFAULT_SECULAR_TRACKS, ...DEFAULT_CHRISTIAN_TRACKS]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(false);
 
   // ─── Estado de Carga y Selección de Pista ───
@@ -105,12 +107,18 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) {
-          if (data.top100 && Array.isArray(data.top100)) {
+          if (data.top100 && Array.isArray(data.top100) && data.top100.length > 0) {
             setTop100Tracks(data.top100);
-            setSecularTracks(data.secular100 || []);
-            setChristianTracks(data.christian100 || []);
-            setAllTracks(data.allTracks || data.top100);
-          } else if (Array.isArray(data)) {
+            if (Array.isArray(data.secular100) && data.secular100.length > 0) {
+              setSecularTracks(data.secular100);
+            }
+            if (Array.isArray(data.christian100) && data.christian100.length > 0) {
+              setChristianTracks(data.christian100);
+            }
+            if (Array.isArray(data.allTracks) && data.allTracks.length > 0) {
+              setAllTracks(data.allTracks);
+            }
+          } else if (Array.isArray(data) && data.length > 0) {
             setTop100Tracks(data);
             setAllTracks(data);
           }

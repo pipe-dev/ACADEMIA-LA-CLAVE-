@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
-import https from 'https';
 import fs from 'fs';
-import { Readable } from 'stream';
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+if (typeof process !== 'undefined' && process.env) {
+  try {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  } catch {}
+}
 
 // Caché en memoria para enlaces de streaming directos (evita re-extracción en seek o replay)
 const audioUrlCache = new Map<string, { url: string; expire: number }>();
@@ -15,49 +17,55 @@ function getAudioUrl(videoId: string): Promise<string> {
     return Promise.resolve(cached.url);
   }
 
-  return new Promise((resolve, reject) => {
-    const pythonExe = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python';
-    const args = [
-      '-m', 'yt_dlp',
-      '--js-runtimes', 'node:node',
-      '-g',
-      '-f', '140/ba[ext=m4a]/ba[acodec^=mp4a]/ba/b',
-      '--no-warnings',
-      `https://www.youtube.com/watch?v=${videoId}`
-    ];
+  // 1. Soporte para microservicio / proxy extractor externo si está configurado en env
+  const proxyBase = (typeof process !== 'undefined' && process.env ? (process.env.YT_AUDIO_PROXY_URL || process.env.NEXT_PUBLIC_YT_AUDIO_PROXY_URL) : undefined);
+  if (proxyBase) {
+    return fetch(`${proxyBase.replace(/\/$/, '')}/api/yt-audio-url?videoId=${encodeURIComponent(videoId)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error('Proxy returned ' + r.status);
+        const data = await r.json();
+        if (data.url) {
+          audioUrlCache.set(videoId, { url: data.url, expire: Date.now() + 2 * 3600 * 1000 });
+          return data.url;
+        }
+        throw new Error('No URL in proxy response');
+      });
+  }
 
-    execFile(pythonExe, args, { timeout: 25000 }, (error, stdout) => {
-      if (error) {
-        // Intento de respaldo sin el flag de js-runtimes por si acaso
-        const fallbackArgs = [
-          '-m', 'yt_dlp',
-          '-g',
-          '-f', '140/ba[ext=m4a]/ba[acodec^=mp4a]/ba/b',
-          '--no-warnings',
-          `https://www.youtube.com/watch?v=${videoId}`
-        ];
-        execFile(pythonExe, fallbackArgs, { timeout: 25000 }, (fbErr, fbStdout) => {
-          if (fbErr) return reject(fbErr);
-          const lines = fbStdout.trim().split('\n');
-          const url = lines[lines.length - 1]?.trim();
-          if (!url || !url.startsWith('http')) {
-            return reject(new Error('No valid direct audio URL extracted in fallback'));
-          }
-          audioUrlCache.set(videoId, { url, expire: Date.now() + 2 * 3600 * 1000 });
-          resolve(url);
-        });
-        return;
-      }
-      const lines = stdout.trim().split('\n');
-      const url = lines[lines.length - 1]?.trim();
-      if (!url || !url.startsWith('http')) {
-        return reject(new Error('No valid direct audio URL extracted'));
-      }
-      // Cachear por 2 horas (los tokens de googlevideo suelen durar ~6 horas)
-      audioUrlCache.set(videoId, { url, expire: Date.now() + 2 * 3600 * 1000 });
-      resolve(url);
+  // 2. Si estamos en un entorno con child_process (Node.js en local o VPS)
+  if (typeof execFile === 'function') {
+    return new Promise((resolve, reject) => {
+      let pythonExe = 'python';
+      try {
+        if (typeof fs !== 'undefined' && fs.existsSync && fs.existsSync('C:\\Python314\\python.exe')) {
+          pythonExe = 'C:\\Python314\\python.exe';
+        }
+      } catch {}
+
+      const args = [
+        '-m', 'yt_dlp',
+        '-g',
+        '-f', '140/ba[ext=m4a]/ba[acodec^=mp4a]/ba/b',
+        '--no-warnings',
+        `https://www.youtube.com/watch?v=${videoId}`
+      ];
+
+      execFile(pythonExe, args, { timeout: 25000 }, (error, stdout) => {
+        if (error) {
+          return reject(error);
+        }
+        const lines = (stdout || '').trim().split('\n');
+        const url = lines[lines.length - 1]?.trim();
+        if (!url || !url.startsWith('http')) {
+          return reject(new Error('No valid direct audio URL extracted'));
+        }
+        audioUrlCache.set(videoId, { url, expire: Date.now() + 2 * 3600 * 1000 });
+        resolve(url);
+      });
     });
-  });
+  }
+
+  return Promise.reject(new Error('Audio extraction requires local companion or proxy'));
 }
 
 export async function OPTIONS() {
@@ -84,67 +92,65 @@ export async function GET(req: Request) {
       return new NextResponse("Missing videoId", { status: 400 });
     }
 
-    const audioUrl = await getAudioUrl(videoId);
-    const rangeHeader = req.headers.get('range');
-
-    return new Promise<NextResponse>((resolve) => {
-      const headers: Record<string, string> = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      };
-      if (rangeHeader) {
-        headers['Range'] = rangeHeader;
-      }
-
-      const clientReq = https.get(audioUrl, {
-        headers,
-        rejectUnauthorized: false
-      }, (upstreamRes) => {
-        // Si el enlace de GoogleVideo expiró (403), purgamos la caché
-        if (upstreamRes.statusCode === 403) {
-          audioUrlCache.delete(videoId);
-        }
-
-        const responseHeaders = new Headers();
-        responseHeaders.set('Access-Control-Allow-Origin', '*');
-        responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
-        responseHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
-        responseHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
-        responseHeaders.set('Accept-Ranges', 'bytes');
-
-        const ct = upstreamRes.headers['content-type'] || 'audio/mp4';
-        responseHeaders.set('Content-Type', ct);
-
-        const cl = upstreamRes.headers['content-length'];
-        if (cl) responseHeaders.set('Content-Length', cl);
-
-        const cr = upstreamRes.headers['content-range'];
-        if (cr) responseHeaders.set('Content-Range', cr);
-
-        if (req.method === 'HEAD') {
-          resolve(new NextResponse(null, {
-            status: upstreamRes.statusCode || 200,
-            headers: responseHeaders
-          }));
-          return;
-        }
-
-        const webStream = Readable.toWeb(upstreamRes) as ReadableStream;
-        resolve(new NextResponse(webStream, {
-          status: upstreamRes.statusCode || 200,
-          headers: responseHeaders
-        }));
-      });
-
-      clientReq.on('error', (err) => {
-        resolve(new NextResponse(err.message || 'Stream error', { 
-          status: 502, 
+    let audioUrl: string;
+    try {
+      audioUrl = await getAudioUrl(videoId);
+    } catch (extractErr: any) {
+      return NextResponse.json(
+        { error: extractErr.message || "Extraction unavailable", fallback: true },
+        { 
+          status: 503, 
           headers: { 
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS, HEAD',
-            'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS, HEAD'
           } 
-        }));
+        }
+      );
+    }
+
+    const rangeHeader = req.headers.get('range');
+    const fetchHeaders: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    };
+    if (rangeHeader) {
+      fetchHeaders['Range'] = rangeHeader;
+    }
+
+    const upstreamRes = await fetch(audioUrl, {
+      headers: fetchHeaders,
+      redirect: 'follow'
+    });
+
+    if (upstreamRes.status === 403) {
+      audioUrlCache.delete(videoId);
+    }
+
+    const responseHeaders = new Headers();
+    responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+    responseHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+    responseHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+    responseHeaders.set('Accept-Ranges', 'bytes');
+
+    const ct = upstreamRes.headers.get('content-type') || 'audio/mp4';
+    responseHeaders.set('Content-Type', ct);
+
+    const cl = upstreamRes.headers.get('content-length');
+    if (cl) responseHeaders.set('Content-Length', cl);
+
+    const cr = upstreamRes.headers.get('content-range');
+    if (cr) responseHeaders.set('Content-Range', cr);
+
+    if (req.method === 'HEAD') {
+      return new NextResponse(null, {
+        status: upstreamRes.status,
+        headers: responseHeaders
       });
+    }
+
+    return new NextResponse(upstreamRes.body, {
+      status: upstreamRes.status,
+      headers: responseHeaders
     });
   } catch (error: any) {
     console.error("Error in /api/yt-audio:", error);

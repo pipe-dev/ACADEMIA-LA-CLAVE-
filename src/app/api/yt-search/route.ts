@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 
-// Bypass local SSL issues on some Windows machines/antiviruses
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+if (typeof process !== 'undefined' && process.env) {
+  try {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  } catch {}
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

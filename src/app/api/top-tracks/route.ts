@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
+import { DEFAULT_SECULAR_TRACKS, DEFAULT_CHRISTIAN_TRACKS, RECOMMENDED_TRACKS } from '@/components/practica/practicaCatalogData';
 
-// Bypass local SSL issues on some Windows machines/antiviruses
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-
-export interface CatalogTrack {
-  id: string;
-  rank: number;
-  title: string;
-  artist: string;
-  category: string;
-  genre: string;
-  thumbnail: string;
+if (typeof process !== 'undefined' && process.env) {
+  try {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  } catch {}
 }
+
+import { CatalogTrack } from '@/components/practica/practicaTypes';
+export type { CatalogTrack };
 
 export interface TopTracksResponse {
   top100: CatalogTrack[];
@@ -52,7 +49,6 @@ function classifyGenre(rawCategory: string): string {
 }
 
 function buildBalancedTop100(secularTracks: CatalogTrack[], christianTracks: CatalogTrack[]): CatalogTrack[] {
-  // Patrón alterno de 4 a 6 seculares por 1 o 2 cristianas (el Top 100 original que ya teníamos para "Todos")
   const pattern = [5, 1, 4, 1, 5, 2, 6, 1, 4, 1, 5, 2, 6, 1, 4, 1, 5, 2, 6, 1, 5, 1, 4, 2, 5, 1, 6, 1, 5, 2];
   const top100: CatalogTrack[] = [];
   const seen = new Set<string>();
@@ -114,13 +110,21 @@ function buildBalancedTop100(secularTracks: CatalogTrack[], christianTracks: Cat
   return top100;
 }
 
+function getFallbackBundle(): TopTracksResponse {
+  const secular100 = [...DEFAULT_SECULAR_TRACKS];
+  const christian100 = [...DEFAULT_CHRISTIAN_TRACKS];
+  const top100 = buildBalancedTop100(secular100, christian100);
+  const allTracks = [...secular100, ...christian100];
+  return { top100, secular100, christian100, allTracks };
+}
+
 export async function GET(req: Request) {
   const now = Date.now();
   const { searchParams } = new URL(req.url);
   const genreParam = (searchParams.get('genre') || searchParams.get('category') || '').toLowerCase();
 
-  // Si la caché está vigente, responder de inmediato
-  if (cachedBundle && (now - lastCacheTime < CACHE_TTL_MS)) {
+  // Si la caché está vigente y contiene canciones, responder de inmediato
+  if (cachedBundle && cachedBundle.top100.length > 0 && (now - lastCacheTime < CACHE_TTL_MS)) {
     if (genreParam === 'christian' || genreParam === 'cristiana' || genreParam === '22') {
       return NextResponse.json(cachedBundle.christian100);
     }
@@ -131,26 +135,28 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Consultar en paralelo los feeds de Apple Music:
-    // 1. Top Canciones México
-    // 2. Top Canciones Latinas (para completar exactamente a 100 seculares)
-    // 3. Top Canciones Cristianas (100 canciones)
+    const browserHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*'
+    };
+
+    // Consultar en paralelo los feeds de Apple Music con timeout seguro
     const [secularRes, usLatinRes, christianRes] = await Promise.all([
       fetch('https://itunes.apple.com/mx/rss/topsongs/limit=100/json', {
-        headers: { 'User-Agent': 'AfinApp-Karaoke/1.0' },
-        next: { revalidate: 3600 }
+        headers: browserHeaders,
+        signal: AbortSignal.timeout(6000)
       }).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('https://itunes.apple.com/us/rss/topsongs/limit=50/genre=1119/json', {
-        headers: { 'User-Agent': 'AfinApp-Karaoke/1.0' },
-        next: { revalidate: 3600 }
+        headers: browserHeaders,
+        signal: AbortSignal.timeout(6000)
       }).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('https://itunes.apple.com/mx/rss/topsongs/limit=100/genre=22/json', {
-        headers: { 'User-Agent': 'AfinApp-Karaoke/1.0' },
-        next: { revalidate: 3600 }
+        headers: browserHeaders,
+        signal: AbortSignal.timeout(6000)
       }).then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
 
-    // 1. Procesar exactamente 100 canciones seculares
+    // 1. Procesar canciones seculares
     const secularRaw: any[] = [
       ...(secularRes?.feed?.entry || []),
       ...(usLatinRes?.feed?.entry || [])
@@ -188,7 +194,19 @@ export async function GET(req: Request) {
       }
     }
 
-    // 2. Procesar 100 cristianas
+    // Si falló el feed secular o trajo muy pocas, complementar con el catálogo curado
+    if (secular100.length < 20) {
+      for (const defTrack of DEFAULT_SECULAR_TRACKS) {
+        const key = `${defTrack.artist.toLowerCase()} - ${defTrack.title.toLowerCase()}`;
+        if (!seenSec.has(key)) {
+          seenSec.add(key);
+          const rank = secular100.length + 1;
+          secular100.push({ ...defTrack, id: `sec_${rank}`, rank });
+        }
+      }
+    }
+
+    // 2. Procesar canciones cristianas
     const christianRaw: any[] = christianRes?.feed?.entry || [];
     const christian100: CatalogTrack[] = [];
     const seenChr = new Set<string>();
@@ -218,10 +236,22 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. Construir el Top 100 que ya teníamos (el equilibrado para "Todos")
+    // Si falló el feed cristiano o trajo muy pocas, complementar con el catálogo curado
+    if (christian100.length < 20) {
+      for (const defTrack of DEFAULT_CHRISTIAN_TRACKS) {
+        const key = `${defTrack.artist.toLowerCase()} - ${defTrack.title.toLowerCase()}`;
+        if (!seenChr.has(key)) {
+          seenChr.add(key);
+          const rank = christian100.length + 1;
+          christian100.push({ ...defTrack, id: `c_${rank}`, rank });
+        }
+      }
+    }
+
+    // 3. Construir el Top 100 equilibrado para "Todos"
     const top100 = buildBalancedTop100(secular100, christian100);
 
-    // 4. Construir la lista total de ~200 canciones para los filtros genéricos
+    // 4. Construir la lista total para los filtros genéricos
     const allTracks: CatalogTrack[] = [];
     const seenAll = new Set<string>();
     for (const t of secular100) {
@@ -240,33 +270,38 @@ export async function GET(req: Request) {
     }
 
     const bundle: TopTracksResponse = {
-      top100,
+      top100: top100.length > 0 ? top100 : (RECOMMENDED_TRACKS as CatalogTrack[]),
       secular100,
       christian100,
       allTracks
     };
 
-    cachedBundle = bundle;
-    lastCacheTime = now;
+    if (bundle.top100.length > 0) {
+      cachedBundle = bundle;
+      lastCacheTime = now;
+    }
 
     const cacheHeaders = {
       'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400'
     };
 
     if (genreParam === 'christian' || genreParam === 'cristiana' || genreParam === '22') {
-      return NextResponse.json(christian100, { headers: cacheHeaders });
+      return NextResponse.json(bundle.christian100, { headers: cacheHeaders });
     }
     if (genreParam === 'secular' || genreParam === 'del_momento') {
-      return NextResponse.json(secular100, { headers: cacheHeaders });
+      return NextResponse.json(bundle.secular100, { headers: cacheHeaders });
     }
     return NextResponse.json(bundle, { headers: cacheHeaders });
   } catch (err: any) {
-    console.error('Error fetching catalog bundle:', err);
-    if (cachedBundle) {
+    console.error('Error fetching catalog bundle, returning fallback:', err);
+    const fallback = getFallbackBundle();
+    if (cachedBundle && cachedBundle.top100.length > 0) {
       return NextResponse.json(cachedBundle, {
         headers: { 'Cache-Control': 'public, s-maxage=300' }
       });
     }
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(fallback, {
+      headers: { 'Cache-Control': 'public, s-maxage=300' }
+    });
   }
 }

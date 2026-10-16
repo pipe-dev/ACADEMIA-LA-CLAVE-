@@ -103,10 +103,50 @@ export async function fetchLyrics(titleOrQuery: string, artist?: string): Promis
       url = `${baseUrl}/api/lyrics?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}&q=${encodeURIComponent(`${artist} ${title}`)}`;
     }
 
-    const response = await fetch(url);
-    if (!response.ok) return null;
+    let data: any[] | null = null;
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        data = await response.json();
+      }
+    } catch (e) {
+      console.warn('[fetchLyrics] Error consultando /api/lyrics, intentando fallback directo a LRCLIB:', e);
+    }
 
-    const data = await response.json();
+    // Respaldo directo en el navegador hacia LRCLIB (CORS abierto)
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      try {
+        if (artist) {
+          const directGet = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
+          if (directGet.ok) {
+            const single = await directGet.json();
+            if (single && (single.syncedLyrics || single.plainLyrics)) {
+              data = [single];
+            }
+          }
+          if (!data) {
+            const directSearch = await fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
+            if (directSearch.ok) {
+              const list = await directSearch.json();
+              if (Array.isArray(list) && list.length > 0) {
+                data = list;
+              }
+            }
+          }
+        } else {
+          const directSearch = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(titleOrQuery)}`);
+          if (directSearch.ok) {
+            const list = await directSearch.json();
+            if (Array.isArray(list) && list.length > 0) {
+              data = list;
+            }
+          }
+        }
+      } catch (directErr) {
+        console.warn('[fetchLyrics] Error en fallback directo a LRCLIB:', directErr);
+      }
+    }
+
     if (!data || !Array.isArray(data) || data.length === 0) return null;
 
     // Evaluar y ordenar los candidatos según similitud real con el título y artista
