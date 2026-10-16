@@ -2,6 +2,7 @@ name = "afinapp"
 main = ".open-next/worker.js"
 compatibility_date = "2024-12-30"
 compatibility_flags = ["nodejs_compat"]
+account_id = "1cb88b11f13a487d9be7a58955467571"
 upload_source_maps = false
 
 [assets]
@@ -19,3 +20,9 @@ database_id = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"
 binding = "AFINAPP_DB"
 database_name = "afinapp-db"
 database_id = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"
+
+[vars]
+ADMIN_SECRET = "5214562Dan"
+CLOUDFLARE_D1_ACCOUNT_ID = "1cb88b11f13a487d9be7a58955467571"
+CLOUDFLARE_D1_DATABASE_ID = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"
+

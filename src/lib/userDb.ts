@@ -27,19 +27,19 @@ export interface UserProgressRecord {
   updated_at: string;
 }
 
-import { executeD1Query, getNativeD1 } from './d1Binding';
+import { executeD1Query, getNativeD1, getD1EnvVar } from './d1Binding';
 
 interface LocalDatabaseState {
   users: UserRecord[];
   progress: UserProgressRecord[];
 }
 
-const D1_ACCOUNT_ID = process.env.CLOUDFLARE_D1_ACCOUNT_ID;
-const D1_DATABASE_ID = process.env.CLOUDFLARE_D1_DATABASE_ID;
-const D1_API_TOKEN = process.env.CLOUDFLARE_D1_API_TOKEN;
-
 const isCloudflareConfigured = () => Boolean(
-  getNativeD1() || (D1_ACCOUNT_ID && D1_DATABASE_ID && D1_API_TOKEN)
+  getNativeD1() || (
+    getD1EnvVar('CLOUDFLARE_D1_ACCOUNT_ID') &&
+    getD1EnvVar('CLOUDFLARE_D1_DATABASE_ID') &&
+    getD1EnvVar('CLOUDFLARE_D1_API_TOKEN')
+  )
 );
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -157,9 +157,9 @@ export function computeUserEffectiveStatus(user: UserRecord): {
 
 async function executeCloudflareQuery(sql: string, params: any[] = []): Promise<any> {
   return executeD1Query(sql, params, {
-    accountId: D1_ACCOUNT_ID,
-    databaseId: D1_DATABASE_ID,
-    apiToken: D1_API_TOKEN,
+    accountId: getD1EnvVar('CLOUDFLARE_D1_ACCOUNT_ID'),
+    databaseId: getD1EnvVar('CLOUDFLARE_D1_DATABASE_ID'),
+    apiToken: getD1EnvVar('CLOUDFLARE_D1_API_TOKEN'),
   });
 }
 
@@ -173,8 +173,11 @@ export const userDb = {
           [normalized]
         );
         return rows[0] || null;
-      } catch (e) {
-        console.error('Cloudflare getUserByEmail fallback to local:', e);
+      } catch (e: any) {
+        console.error('Cloudflare getUserByEmail error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error en D1 al buscar usuario por correo: ${e.message || e}`);
+        }
       }
     }
 
@@ -191,8 +194,11 @@ export const userDb = {
           [cleanKey]
         );
         return rows[0] || null;
-      } catch (e) {
-        console.error('Cloudflare getUserByKey fallback to local:', e);
+      } catch (e: any) {
+        console.error('Cloudflare getUserByKey error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error en D1 al buscar usuario por clave: ${e.message || e}`);
+        }
       }
     }
 
@@ -208,8 +214,11 @@ export const userDb = {
           [id]
         );
         return rows[0] || null;
-      } catch (e) {
-        console.error('Cloudflare getUserById fallback to local:', e);
+      } catch (e: any) {
+        console.error('Cloudflare getUserById error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error en D1 al buscar usuario por ID: ${e.message || e}`);
+        }
       }
     }
 
@@ -224,8 +233,11 @@ export const userDb = {
         list = await executeCloudflareQuery(
           'SELECT * FROM users ORDER BY created_at DESC'
         );
-      } catch (e) {
-        console.error('Cloudflare listUsers fallback to local:', e);
+      } catch (e: any) {
+        console.error('Cloudflare listUsers error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error en D1 al listar usuarios: ${e.message || e}`);
+        }
         list = loadLocalState().users;
       }
     } else {
@@ -292,8 +304,11 @@ export const userDb = {
           ]
         );
         return newUser;
-      } catch (e) {
-        console.error('Cloudflare createUser fallback to local:', e);
+      } catch (e: any) {
+        console.error('Cloudflare createUser error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error al registrar alumno en D1: ${e.message || e}`);
+        }
       }
     }
 
@@ -325,8 +340,13 @@ export const userDb = {
           `UPDATE users SET ${setClause} WHERE id = ?`,
           [...values, id]
         );
-      } catch (e) {
-        console.error('Cloudflare updateUser fallback to local:', e);
+        const updated = await this.getUserById(id);
+        if (updated) return updated;
+      } catch (e: any) {
+        console.error('Cloudflare updateUser error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error al actualizar alumno en D1: ${e.message || e}`);
+        }
       }
     }
 
@@ -368,8 +388,12 @@ export const userDb = {
     if (isCloudflareConfigured()) {
       try {
         await executeCloudflareQuery('DELETE FROM users WHERE id = ?', [id]);
-      } catch (e) {
-        console.error('Cloudflare deleteUser fallback to local:', e);
+        return true;
+      } catch (e: any) {
+        console.error('Cloudflare deleteUser error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error al eliminar alumno en D1: ${e.message || e}`);
+        }
       }
     }
 
@@ -388,8 +412,12 @@ export const userDb = {
           [needle, needle]
         );
         if (rows[0]) return rows[0];
-      } catch (e) {
-        console.error('Cloudflare getUserProgress fallback to local:', e);
+        return null;
+      } catch (e: any) {
+        console.error('Cloudflare getUserProgress error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error en D1 al consultar progreso: ${e.message || e}`);
+        }
       }
     }
 
@@ -442,8 +470,12 @@ export const userDb = {
             record.updated_at,
           ]
         );
-      } catch (e) {
-        console.error('Cloudflare saveUserProgress fallback to local:', e);
+        return record;
+      } catch (e: any) {
+        console.error('Cloudflare saveUserProgress error:', e);
+        if (typeof process === 'undefined' || process.env?.NODE_ENV === 'production') {
+          throw new Error(`Error en D1 al guardar progreso: ${e.message || e}`);
+        }
       }
     }
 
