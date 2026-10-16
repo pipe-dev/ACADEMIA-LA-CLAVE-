@@ -15,6 +15,14 @@ export interface D1DatabaseLike {
 
 export function getD1EnvVar(key: string): string | undefined {
   try {
+    const sym = Symbol.for('__cloudflare-context__');
+    const ctx = (globalThis as any)[sym];
+    if (ctx?.env && ctx.env[key]) {
+      return ctx.env[key];
+    }
+  } catch {}
+
+  try {
     // @ts-ignore
     const { getCloudflareContext } = require('@opennextjs/cloudflare');
     const ctx = getCloudflareContext();
@@ -41,6 +49,17 @@ export function getD1EnvVar(key: string): string | undefined {
  * la API REST HTTP administrativa, eliminando cuellos de botella de red y limites de tasa.
  */
 export function getNativeD1(): D1DatabaseLike | null {
+  try {
+    const sym = Symbol.for('__cloudflare-context__');
+    const ctx = (globalThis as any)[sym];
+    if (ctx?.env?.DB && typeof ctx.env.DB.prepare === 'function') {
+      return ctx.env.DB;
+    }
+    if (ctx?.env?.AFINAPP_DB && typeof ctx.env.AFINAPP_DB.prepare === 'function') {
+      return ctx.env.AFINAPP_DB;
+    }
+  } catch {}
+
   try {
     // @ts-ignore
     const { getCloudflareContext } = require('@opennextjs/cloudflare');
