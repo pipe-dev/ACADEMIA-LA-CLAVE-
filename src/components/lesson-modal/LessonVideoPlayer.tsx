@@ -79,11 +79,12 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
   }, [step]);
 
   useEffect(() => {
-    if (step !== 'video' && !userRequestedPlayRef.current) {
+    if (step !== 'video') {
       if (autoPlayWatcherRef.current) {
         clearInterval(autoPlayWatcherRef.current);
         autoPlayWatcherRef.current = null;
       }
+      userRequestedPlayRef.current = false;
       return;
     }
 
@@ -193,12 +194,23 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
       }
     } catch {}
 
-    if (step === 'video' || userRequestedPlayRef.current) {
+    if (step === 'video' && userRequestedPlayRef.current) {
       attemptAutoPlay(event.target);
     }
   };
 
   const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
+    if (step !== 'video') {
+      if (event.data === 1) {
+        try {
+          event.target.pauseVideo?.();
+          event.target.mute?.();
+        } catch {}
+      }
+      setIsPlaying(false);
+      return;
+    }
+
     if (event.data === 1) {
       setIsPlaying(true);
       autoPlayFiredRef.current = true;
@@ -208,7 +220,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
       }
     } else if (event.data === 2) {
       setIsPlaying(false);
-      if (!autoPlayFiredRef.current && (step === 'video' || userRequestedPlayRef.current)) {
+      if (!autoPlayFiredRef.current && step === 'video' && userRequestedPlayRef.current) {
         try {
           event.target.unMute?.();
           event.target.setVolume?.(100);
@@ -216,7 +228,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
         } catch {}
       }
     } else if (event.data === 5 || event.data === -1) {
-      if (step === 'video' || userRequestedPlayRef.current) {
+      if (step === 'video' && userRequestedPlayRef.current) {
         attemptAutoPlay(event.target);
       }
     }
@@ -259,11 +271,13 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
         }
 
         if (node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')) {
+          userRequestedPlayRef.current = false;
           setTimeout(() => {
             unlockOrientation();
             onTransitionToVocalDiagnostic();
           }, 1200);
         } else if (node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')) {
+          userRequestedPlayRef.current = false;
           setTimeout(() => {
             unlockOrientation();
             if (!quizResolved) {
@@ -273,6 +287,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
             }
           }, 1200);
         } else {
+          userRequestedPlayRef.current = false;
           setTimeout(() => {
             unlockOrientation();
             onCompleteNode(node.id, node.xpReward);
@@ -337,6 +352,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
     e.stopPropagation();
     audioService.playClickSound();
     unlockOrientation();
+    userRequestedPlayRef.current = false;
     if (playerRef.current) {
       try {
         const t = playerRef.current.getCurrentTime?.();
@@ -344,6 +360,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
           nodeVideoPlaybackTimes.set(node.id, t);
         }
         playerRef.current.pauseVideo?.();
+        playerRef.current.mute?.();
         playerRef.current.stopVideo?.();
       } catch {}
     }
@@ -358,6 +375,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
   // Pause on non-video steps
   useEffect(() => {
     if (step !== 'video') {
+      userRequestedPlayRef.current = false;
       if (playerRef.current) {
         try {
           const t = playerRef.current.getCurrentTime?.();
@@ -365,11 +383,12 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
             nodeVideoPlaybackTimes.set(node.id, t);
           }
           playerRef.current.pauseVideo?.();
+          playerRef.current.mute?.();
         } catch {}
       }
       setIsPlaying(false);
     }
-  }, [step, node.id]);
+  }, [step, node.id, userRequestedPlayRef]);
 
   // Pause on tab hidden and on unmount
   useEffect(() => {

@@ -113,7 +113,7 @@ function buildBalancedTop100(secularTracks: CatalogTrack[], christianTracks: Cat
 function getFallbackBundle(): TopTracksResponse {
   const secular100 = [...DEFAULT_SECULAR_TRACKS];
   const christian100 = [...DEFAULT_CHRISTIAN_TRACKS];
-  const top100 = buildBalancedTop100(secular100, christian100);
+  const top100 = [...RECOMMENDED_TRACKS];
   const allTracks = [...secular100, ...christian100];
   return { top100, secular100, christian100, allTracks };
 }
@@ -124,7 +124,7 @@ export async function GET(req: Request) {
   const genreParam = (searchParams.get('genre') || searchParams.get('category') || '').toLowerCase();
 
   // Si la caché está vigente y contiene canciones, responder de inmediato
-  if (cachedBundle && cachedBundle.top100.length > 0 && (now - lastCacheTime < CACHE_TTL_MS)) {
+  if (cachedBundle && cachedBundle.top100.length >= 100 && (now - lastCacheTime < CACHE_TTL_MS)) {
     if (genreParam === 'christian' || genreParam === 'cristiana' || genreParam === '22') {
       return NextResponse.json(cachedBundle.christian100);
     }
@@ -194,15 +194,14 @@ export async function GET(req: Request) {
       }
     }
 
-    // Si falló el feed secular o trajo muy pocas, complementar con el catálogo curado
-    if (secular100.length < 20) {
-      for (const defTrack of DEFAULT_SECULAR_TRACKS) {
-        const key = `${defTrack.artist.toLowerCase()} - ${defTrack.title.toLowerCase()}`;
-        if (!seenSec.has(key)) {
-          seenSec.add(key);
-          const rank = secular100.length + 1;
-          secular100.push({ ...defTrack, id: `sec_${rank}`, rank });
-        }
+    // Asegurar SIEMPRE 100 canciones seculares exactas
+    for (const defTrack of DEFAULT_SECULAR_TRACKS) {
+      if (secular100.length >= 100) break;
+      const key = `${defTrack.artist.toLowerCase()} - ${defTrack.title.toLowerCase()}`;
+      if (!seenSec.has(key)) {
+        seenSec.add(key);
+        const rank = secular100.length + 1;
+        secular100.push({ ...defTrack, id: `sec_${rank}`, rank });
       }
     }
 
@@ -211,7 +210,7 @@ export async function GET(req: Request) {
     const christian100: CatalogTrack[] = [];
     const seenChr = new Set<string>();
 
-    for (let i = 0; i < christianRaw.length; i++) {
+    for (let i = 0; i < christianRaw.length && christian100.length < 100; i++) {
       const e = christianRaw[i];
       const rawTitle = e['im:name']?.label || '';
       const title = cleanTrackTitle(rawTitle);
@@ -236,20 +235,29 @@ export async function GET(req: Request) {
       }
     }
 
-    // Si falló el feed cristiano o trajo muy pocas, complementar con el catálogo curado
-    if (christian100.length < 20) {
-      for (const defTrack of DEFAULT_CHRISTIAN_TRACKS) {
-        const key = `${defTrack.artist.toLowerCase()} - ${defTrack.title.toLowerCase()}`;
-        if (!seenChr.has(key)) {
-          seenChr.add(key);
-          const rank = christian100.length + 1;
-          christian100.push({ ...defTrack, id: `c_${rank}`, rank });
-        }
+    // Asegurar SIEMPRE 100 canciones cristianas exactas
+    for (const defTrack of DEFAULT_CHRISTIAN_TRACKS) {
+      if (christian100.length >= 100) break;
+      const key = `${defTrack.artist.toLowerCase()} - ${defTrack.title.toLowerCase()}`;
+      if (!seenChr.has(key)) {
+        seenChr.add(key);
+        const rank = christian100.length + 1;
+        christian100.push({ ...defTrack, id: `c_${rank}`, rank });
       }
     }
 
-    // 3. Construir el Top 100 equilibrado para "Todos"
-    const top100 = buildBalancedTop100(secular100, christian100);
+    // 3. Construir el Top 100 equilibrado para "Todos" (exactamente 100 canciones)
+    let top100 = buildBalancedTop100(secular100, christian100);
+    if (top100.length < 100) {
+      for (const rec of RECOMMENDED_TRACKS) {
+        if (top100.length >= 100) break;
+        const key = `${rec.artist.toLowerCase()} - ${rec.title.toLowerCase()}`;
+        if (!top100.some(t => `${t.artist.toLowerCase()} - ${t.title.toLowerCase()}` === key)) {
+          const rank = top100.length + 1;
+          top100.push({ ...rec, id: `top_${rank}`, rank });
+        }
+      }
+    }
 
     // 4. Construir la lista total para los filtros genéricos
     const allTracks: CatalogTrack[] = [];

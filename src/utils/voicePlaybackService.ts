@@ -225,22 +225,31 @@ export class VoicePlaybackService {
       }
     }
 
-    // 3. Play audio buffer with smooth gain envelope
+    // 3. Play audio buffer with dynamics compressor and powerful gain envelope
     if (buffer) {
       try {
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.playbackRate.setValueAtTime(playbackRate, ctx.currentTime);
 
+        // Compresor dinámico para evitar saturación y mantener presencia y potencia sonora
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-14, ctx.currentTime);
+        compressor.knee.setValueAtTime(10, ctx.currentTime);
+        compressor.ratio.setValueAtTime(5, ctx.currentTime);
+        compressor.attack.setValueAtTime(0.003, ctx.currentTime);
+        compressor.release.setValueAtTime(0.20, ctx.currentTime);
+
         const gainNode = ctx.createGain();
-        gainNode.gain.setValueAtTime(1.40, ctx.currentTime);
+        gainNode.gain.setValueAtTime(2.25, ctx.currentTime);
 
         const playDur = Math.min(buffer.duration / playbackRate, duration);
-        gainNode.gain.setValueAtTime(1.40, ctx.currentTime + Math.max(0, playDur - 0.15));
+        gainNode.gain.setValueAtTime(2.25, ctx.currentTime + Math.max(0, playDur - 0.15));
         gainNode.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + playDur);
 
         source.connect(gainNode);
-        gainNode.connect(ctx.destination);
+        gainNode.connect(compressor);
+        compressor.connect(ctx.destination);
 
         this.currentBufferSource = source;
         this.currentGainNode = gainNode;

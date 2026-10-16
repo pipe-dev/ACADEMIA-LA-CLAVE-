@@ -191,11 +191,11 @@ class AudioService {
 
       const now = this.ctx.currentTime;
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(0.85, now + 0.04);
+      gain.gain.linearRampToValueAtTime(1.65, now + 0.04);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       harmGain.gain.setValueAtTime(0.0001, now);
-      harmGain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+      harmGain.gain.linearRampToValueAtTime(0.40, now + 0.04);
       harmGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       osc.connect(gain);
@@ -1107,18 +1107,20 @@ class AudioService {
         this.micStream = null;
       }
 
-      // 1. Modern iOS 17+ / iOS 18 Web Audio Session Category: Play-and-Record
+      // 1. Mantener Web Audio Session en 'playback' para que la salida de audio
+      // suene por los altavoces estéreo a máximo volumen sin degradarse ni pasar a auricular de llamada
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
-          (navigator as any).audioSession.type = 'play-and-record';
+          (navigator as any).audioSession.type = 'playback';
         } catch {}
       }
 
-      // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO (evita filtros de llamada que degradan notas)
+      // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO
+      // Con echoCancellation ideal: true, el sistema no fuerza ducking ni atenúa el altavoz
       let stream: MediaStream;
       try {
         const audioConstraints: MediaTrackConstraints = {
-          echoCancellation: { ideal: false },
+          echoCancellation: { ideal: true },
           noiseSuppression: { ideal: false },
           autoGainControl: { ideal: false }
         };
@@ -1151,10 +1153,10 @@ class AudioService {
 
       this.micStream = stream;
 
-      // Confirmar sesión play-and-record
+      // Asegurar sesión playback
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
-          (navigator as any).audioSession.type = 'play-and-record';
+          (navigator as any).audioSession.type = 'playback';
         } catch {}
       }
 
