@@ -1,6 +1,11 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  env: {
+    ADMIN_SECRET: process.env.ADMIN_SECRET || '',
+    JWT_SECRET: process.env.JWT_SECRET || '',
+    IMGBB_API_KEY: process.env.IMGBB_API_KEY || '',
+  },
   /* config options here */
   devIndicators: false,
   productionBrowserSourceMaps: false,
