@@ -124,6 +124,15 @@ export function useVocalRemover(initialVideoId?: string) {
     compressorRef.current = null;
     masterGainRef.current = null;
 
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+        if (navigator.mediaSession.metadata) {
+          navigator.mediaSession.metadata = null;
+        }
+      } catch {}
+    }
+
     setIsPlaying(false);
     setIsReady(false);
     setCurrentTime(0);

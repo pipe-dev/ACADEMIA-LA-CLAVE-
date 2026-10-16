@@ -166,21 +166,23 @@ export interface UseJellyAsmrAudioReturn {
 }
 
 let globalAudioCtx: AudioContext | null = null;
-let silentAudioEl: HTMLAudioElement | null = null;
-let mediaStreamAudioEl: HTMLAudioElement | null = null;
-
-// Audio inaudible de 1 muestra (WAV válido ultra-ligero)
-const SILENT_WAV_BASE64 =
-  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-
 let isAsmrSilentUnlocked = false;
 
+function unlockWebAudio(ctx: AudioContext) {
+  try {
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+  } catch {}
+}
+
 /**
- * Activa la categoría 'Playback' a nivel de sistema operativo en iOS Safari y Android.
- * Esto anula el interruptor físico de silencio / Focus Mode / No Molestar en celulares,
- * garantizando que los sonidos se reproduzcan siempre a través de los altavoces multimedia.
- * Solo emite un pulso único al inicio y no mantiene elementos de audio en reproducción
- * para no activar la Dynamic Island en iOS ni la notificación multimedia en Android.
+ * Activa la categoria 'Playback' a nivel de sistema operativo en iOS Safari y Android.
+ * Esto anula el interruptor fisico de silencio / Focus Mode / No Molestar en celulares,
+ * garantizando que los sonidos se reproduzcan siempre a traves de los altavoces multimedia.
+ * Utiliza Web Audio API puro para NO activar la Dynamic Island en iOS ni la barra multimedia en Android.
  */
 function activatePlaybackCategory(ctx?: AudioContext | null) {
   if (typeof window === 'undefined') return;
@@ -193,6 +195,9 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
     if ('mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';
+        if (navigator.mediaSession.metadata) {
+          navigator.mediaSession.metadata = null;
+        }
       } catch {}
     }
 
@@ -204,60 +209,15 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
     }
     isAsmrSilentUnlocked = true;
 
-    if (!silentAudioEl) {
-      silentAudioEl = document.createElement('audio');
-      silentAudioEl.src = SILENT_WAV_BASE64;
-      silentAudioEl.loop = false;
-      silentAudioEl.volume = 0.001;
-      silentAudioEl.setAttribute('playsinline', 'true');
-      silentAudioEl.setAttribute('webkit-playsinline', 'true');
-      silentAudioEl.style.position = 'fixed';
-      silentAudioEl.style.pointerEvents = 'none';
-      silentAudioEl.style.opacity = '0';
-      silentAudioEl.style.width = '1px';
-      silentAudioEl.style.height = '1px';
-      silentAudioEl.style.bottom = '0';
-      document.body?.appendChild(silentAudioEl);
-    }
-    silentAudioEl.play()
-      .then(() => {
-        setTimeout(() => {
-          try {
-            if (silentAudioEl) {
-              silentAudioEl.pause();
-              silentAudioEl.currentTime = 0;
-              silentAudioEl.remove();
-              silentAudioEl = null;
-            }
-            if ('mediaSession' in navigator) {
-              navigator.mediaSession.playbackState = 'none';
-            }
-          } catch {}
-        }, 80);
-      })
-      .catch(() => {});
-
-    // Detener cualquier mediaStreamAudio previo para evitar que el sistema muestre reproductor activo
-    if (mediaStreamAudioEl) {
-      try {
-        mediaStreamAudioEl.pause();
-        mediaStreamAudioEl.srcObject = null;
-        mediaStreamAudioEl.remove();
-        mediaStreamAudioEl = null;
-      } catch {}
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      unlockWebAudio(ctx);
     }
   } catch {}
 }
 
-function unlockWebAudio(ctx: AudioContext) {
-  try {
-    const buffer = ctx.createBuffer(1, 1, 22050);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    source.start(0);
-  } catch {}
-}
 
 export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;

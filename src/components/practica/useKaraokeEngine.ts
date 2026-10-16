@@ -111,6 +111,15 @@ export function useKaraokeEngine({
       } catch {}
     }
 
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+        if (navigator.mediaSession.metadata) {
+          navigator.mediaSession.metadata = null;
+        }
+      } catch {}
+    }
+
     const finalScore = scoring.scoreRef.current;
     const stars = scoring.calculateStars(finalScore);
 
@@ -417,6 +426,21 @@ export function useKaraokeEngine({
     if (playerRef.current) {
       try {
         playerRef.current.stopVideo();
+      } catch {}
+    }
+    if (audioPlaybackRef.current) {
+      try {
+        audioPlaybackRef.current.pause();
+        audioPlaybackRef.current.removeAttribute('src');
+        audioPlaybackRef.current.load();
+      } catch {}
+    }
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+        if (navigator.mediaSession.metadata) {
+          navigator.mediaSession.metadata = null;
+        }
       } catch {}
     }
     stopPitchDetection();

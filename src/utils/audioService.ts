@@ -77,7 +77,6 @@ class AudioService {
   public unlockForMobileSilentMode() {
     if (typeof window === 'undefined') return;
 
-    // Si ya fue desbloqueado, solo reanudar contexto si estuviera suspendido
     if (this.isSilentUnlocked) {
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
@@ -86,57 +85,33 @@ class AudioService {
     }
     this.isSilentUnlocked = true;
 
-    // 1. Audio Session: Playback
+    // 1. Audio Session: Playback para permitir sonido con altavoz sin activar la Dynamic Island
     if ('audioSession' in navigator) {
       try {
         (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
       } catch {}
     }
+
+    // 2. Bloquear cualquier registro en la Dynamic Island o pantalla de bloqueo de iOS/Android
     if ('mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';
+        if (navigator.mediaSession.metadata) {
+          navigator.mediaSession.metadata = null;
+        }
       } catch {}
     }
 
-    // 2. Elemento HTML5 de audio inaudible de un unico pulso para iniciar el subsistema multimedia
-    if (!this.unlockAudioEl) {
-      try {
-        this.unlockAudioEl = document.createElement('audio');
-        this.unlockAudioEl.src = createSilentWav(44100);
-        this.unlockAudioEl.loop = false;
-        this.unlockAudioEl.volume = 0.001;
-        this.unlockAudioEl.setAttribute('playsinline', 'true');
-        this.unlockAudioEl.setAttribute('webkit-playsinline', 'true');
-        this.unlockAudioEl.style.position = 'fixed';
-        this.unlockAudioEl.style.pointerEvents = 'none';
-        this.unlockAudioEl.style.opacity = '0';
-        this.unlockAudioEl.style.width = '1px';
-        this.unlockAudioEl.style.height = '1px';
-        this.unlockAudioEl.style.bottom = '0';
-        document.body?.appendChild(this.unlockAudioEl);
-      } catch {}
-    }
+    // 3. Destruir cualquier elemento HTML <audio> residual si existiera
     if (this.unlockAudioEl) {
-      this.unlockAudioEl.play()
-        .then(() => {
-          setTimeout(() => {
-            try {
-              if (this.unlockAudioEl) {
-                this.unlockAudioEl.pause();
-                this.unlockAudioEl.currentTime = 0;
-                this.unlockAudioEl.remove();
-                this.unlockAudioEl = null;
-              }
-              if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = 'none';
-              }
-            } catch {}
-          }, 80);
-        })
-        .catch(() => {});
+      try {
+        this.unlockAudioEl.pause();
+        this.unlockAudioEl.remove();
+      } catch {}
+      this.unlockAudioEl = null;
     }
 
-    // 3. Web Audio Context initialization & buffer trigger
+    // 4. Inicializar y desbloquear Web Audio Context mediante un buffer nativo inaudible de 1 muestra (CERO etiquetas <audio>)
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
@@ -144,6 +119,7 @@ class AudioService {
         logger.info('Audio', 'AudioContext creado correctamente');
       }
     }
+
     if (this.ctx) {
       if (this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
@@ -156,7 +132,6 @@ class AudioService {
         source.start(0);
       } catch {}
     }
-    this.isSilentUnlocked = true;
   }
 
   private initCtx() {
