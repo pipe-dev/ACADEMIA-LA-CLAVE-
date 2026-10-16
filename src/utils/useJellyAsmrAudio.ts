@@ -173,10 +173,14 @@ let mediaStreamAudioEl: HTMLAudioElement | null = null;
 const SILENT_WAV_BASE64 =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
+let isAsmrSilentUnlocked = false;
+
 /**
  * Activa la categoría 'Playback' a nivel de sistema operativo en iOS Safari y Android.
  * Esto anula el interruptor físico de silencio / Focus Mode / No Molestar en celulares,
  * garantizando que los sonidos se reproduzcan siempre a través de los altavoces multimedia.
+ * Solo emite un pulso único al inicio y no mantiene elementos de audio en reproducción
+ * para no activar la Dynamic Island en iOS ni la notificación multimedia en Android.
  */
 function activatePlaybackCategory(ctx?: AudioContext | null) {
   if (typeof window === 'undefined') return;
@@ -191,6 +195,15 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
         navigator.mediaSession.playbackState = 'none';
       } catch {}
     }
+
+    if (isAsmrSilentUnlocked) {
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      return;
+    }
+    isAsmrSilentUnlocked = true;
+
     if (!silentAudioEl) {
       silentAudioEl = document.createElement('audio');
       silentAudioEl.src = SILENT_WAV_BASE64;
@@ -213,12 +226,14 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
             if (silentAudioEl) {
               silentAudioEl.pause();
               silentAudioEl.currentTime = 0;
+              silentAudioEl.remove();
+              silentAudioEl = null;
             }
             if ('mediaSession' in navigator) {
               navigator.mediaSession.playbackState = 'none';
             }
           } catch {}
-        }, 100);
+        }, 80);
       })
       .catch(() => {});
 

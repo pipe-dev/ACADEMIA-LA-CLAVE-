@@ -83,15 +83,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [logsCopied, setLogsCopied] = useState<boolean>(false);
 
   const hasMountedRef = useRef<boolean>(false);
-  const onRefreshSessionRef = useRef(onRefreshSession);
-  onRefreshSessionRef.current = onRefreshSession;
 
   useEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
-      audioService.playOpenSound();
-      logger.info('Settings', 'Ajustes abiertos por el usuario');
-      onRefreshSessionRef.current?.();
+      const now = Date.now();
+      // Prevents audio looping if remounted rapidly
+      if (typeof window !== 'undefined') {
+        const lastPlay = Number((window as any).__lastSettingsOpenSound || 0);
+        if (now - lastPlay > 2000) {
+          (window as any).__lastSettingsOpenSound = now;
+          audioService.playOpenSound();
+          logger.info('Settings', 'Ajustes abiertos por el usuario');
+        }
+      }
     }
 
     enableScreenWakeLock().then((active) => {

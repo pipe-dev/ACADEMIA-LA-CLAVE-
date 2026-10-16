@@ -70,26 +70,32 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
   return (
     <div className={`pb-6 pt-1 px-4 max-w-md mx-auto space-y-5 animate-fadeIn ${zenMode ? 'text-[#ded9cf]' : ''}`}>
       {/* Level & XP Card with Web Share */}
-      <ProgresoLevelCard
-        userStats={userStats}
-        zenMode={zenMode}
-      />
+      <div id="tour-progreso-level">
+        <ProgresoLevelCard
+          userStats={userStats}
+          zenMode={zenMode}
+        />
+      </div>
 
       {/* Meta de Entrenamiento Diaria con Progreso Circular */}
-      <ProgresoDailyGoalCard
-        currentPracticeMinutes={currentPracticeMinutes}
-        dailyGoalMinutes={dailyGoalMinutes}
-        onSelectGoal={handleSelectGoal}
-        zenMode={zenMode}
-      />
+      <div id="tour-progreso-goal">
+        <ProgresoDailyGoalCard
+          currentPracticeMinutes={currentPracticeMinutes}
+          dailyGoalMinutes={dailyGoalMinutes}
+          onSelectGoal={handleSelectGoal}
+          zenMode={zenMode}
+        />
+      </div>
 
       {/* Racha Semanal - Registro de Días Consecutivos */}
-      <ProgresoConsistencyStreak
-        streak={userStats.streak}
-        days={weekData.days}
-        activeDaysCount={weekData.activeDaysCount}
-        zenMode={zenMode}
-      />
+      <div id="tour-progreso-consistency">
+        <ProgresoConsistencyStreak
+          streak={userStats.streak}
+          days={weekData.days}
+          activeDaysCount={weekData.activeDaysCount}
+          zenMode={zenMode}
+        />
+      </div>
 
       {/* Resumen Semanal de Práctica con Gráfica de Barras */}
       <ProgresoWeeklyChart
@@ -120,20 +126,24 @@ export const ProgresoView: React.FC<ProgresoViewProps> = ({
       />
 
       {/* Insignias y Logros (200 Singing Badges System) */}
-      <ProgresoBadgesSection
-        allBadges={allBadges}
-        zenMode={zenMode}
-      />
+      <div id="tour-progreso-badges">
+        <ProgresoBadgesSection
+          allBadges={allBadges}
+          zenMode={zenMode}
+        />
+      </div>
 
       {/* Misiones Diarias Section */}
-      <ProgresoQuestsSection
-        quests={quests}
-        onClaimReward={onClaimReward}
-        bonusChestClaimed={bonusChestClaimed}
-        bonusChestReward={bonusChestReward}
-        onClaimBonusChest={onClaimBonusChest}
-        zenMode={zenMode}
-      />
+      <div id="tour-progreso-quests">
+        <ProgresoQuestsSection
+          quests={quests}
+          onClaimReward={onClaimReward}
+          bonusChestClaimed={bonusChestClaimed}
+          bonusChestReward={bonusChestReward}
+          onClaimBonusChest={onClaimBonusChest}
+          zenMode={zenMode}
+        />
+      </div>
 
       {/* Sección Amigos y Retos */}
       <FriendsSection

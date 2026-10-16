@@ -2,21 +2,40 @@ import { driver, Driver, DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { TabType } from '../types';
 
-export const TOUR_STORAGE_KEY = 'laclave_tour_v2_completed';
+export const TOUR_KEYS = {
+  academia: 'laclave_tour_academia_v2',
+  afinador: 'laclave_tour_afinador_v2',
+  practica: 'laclave_tour_practica_v2',
+  progreso: 'laclave_tour_progreso_v2',
+} as const;
+
+let activeDriverInstance: Driver | null = null;
+let isTourRunning = false;
 
 /**
- * Sección 1: Tour detallado de la Academia
+ * Indica si hay un tour de Driver.js activo en la pantalla actualmente
  */
-export function startAcademiaTour(
-  onChangeTab: (tab: TabType) => void,
-  onFinish?: () => void
-) {
+export function isTourActive(): boolean {
+  if (isTourRunning) return true;
+  if (typeof document !== 'undefined') {
+    return Boolean(document.querySelector('.driver-popover') || document.querySelector('.driver-overlay'));
+  }
+  return false;
+}
+
+/**
+ * Sección 1: Tour de la Academia y Ruta de Aprendizaje
+ */
+export function startAcademiaTour(onFinish?: () => void) {
+  if (typeof window === 'undefined') return;
+  if (isTourActive()) return;
+
   const steps: DriveStep[] = [
     {
       element: '#tour-header-profile',
       popover: {
         title: 'Academia La Clave: Tu Perfil',
-        description: 'Aquí encuentras tus ajustes personales, días de membresía activos, modo oscuro, modo Zen nocturno y la opción de repetir este tutorial cuando lo desees.',
+        description: 'Aquí encuentras tus ajustes personales, días de membresía activos, cambio de tema (claro, oscuro o Zen) y la opción de repetir este tutorial cuando lo desees.',
         side: 'bottom',
         align: 'start',
       },
@@ -59,7 +78,6 @@ export function startAcademiaTour(
     },
   ];
 
-  // Si el primer nodo aún no está en el DOM, filtramos el paso para evitar errores
   const validSteps = steps.filter((s) => {
     if (typeof s.element === 'string') {
       return Boolean(document.querySelector(s.element));
@@ -67,31 +85,35 @@ export function startAcademiaTour(
     return true;
   });
 
-  const driverObj = driver({
+  isTourRunning = true;
+  activeDriverInstance = driver({
     showProgress: true,
     animate: true,
     overlayColor: '#071322',
     overlayOpacity: 0.85,
     nextBtnText: 'Siguiente →',
     prevBtnText: '← Anterior',
-    doneBtnText: 'Ir al Afinador Vocal →',
+    doneBtnText: '¡Entendido, a Cantar!',
     steps: validSteps.length > 0 ? validSteps : steps,
     onDestroyed: () => {
-      if (onFinish) {
-        onFinish();
-      }
+      isTourRunning = false;
+      activeDriverInstance = null;
+      localStorage.setItem(TOUR_KEYS.academia, 'true');
+      window.dispatchEvent(new CustomEvent('laclave_tour_section_completed', { detail: { section: 'academia' } }));
+      if (onFinish) onFinish();
     },
   });
 
-  driverObj.drive();
+  activeDriverInstance.drive();
 }
 
 /**
- * Sección 2: Tour exhaustivo del Afinador Vocal en tiempo real
+ * Sección 2: Tour detallado del Afinador Vocal en tiempo real
  */
-export function startAfinadorTour(
-  onFinish?: () => void
-) {
+export function startAfinadorTour(onFinish?: () => void) {
+  if (typeof window === 'undefined') return;
+  if (isTourActive()) return;
+
   const steps: DriveStep[] = [
     {
       element: '#tour-tuner-card',
@@ -156,60 +178,230 @@ export function startAfinadorTour(
     return true;
   });
 
-  const driverObj = driver({
+  isTourRunning = true;
+  activeDriverInstance = driver({
     showProgress: true,
     animate: true,
     overlayColor: '#071322',
     overlayOpacity: 0.85,
     nextBtnText: 'Siguiente →',
     prevBtnText: '← Anterior',
-    doneBtnText: '¡Entendido, a Cantar!',
+    doneBtnText: '¡A Afinar!',
     steps: validSteps.length > 0 ? validSteps : steps,
     onDestroyed: () => {
-      localStorage.setItem(TOUR_STORAGE_KEY, 'true');
-      if (onFinish) {
-        onFinish();
-      }
+      isTourRunning = false;
+      activeDriverInstance = null;
+      localStorage.setItem(TOUR_KEYS.afinador, 'true');
+      window.dispatchEvent(new CustomEvent('laclave_tour_section_completed', { detail: { section: 'afinador' } }));
+      if (onFinish) onFinish();
     },
   });
 
-  driverObj.drive();
+  activeDriverInstance.drive();
 }
 
 /**
- * Orquestador principal del Tour Guiado Completo por Secciones
+ * Sección 3: Tour del Karaoke y Práctica con Canciones
  */
-export function startOnboardingTour(
-  activeTab: TabType,
-  onChangeTab: (tab: TabType) => void,
-  isManualTrigger = false
-) {
-  // Si no es manual y ya se completó la versión 2 del tour, no abrir automáticamente
-  if (!isManualTrigger) {
-    const isCompleted = localStorage.getItem(TOUR_STORAGE_KEY);
-    if (isCompleted === 'true') {
-      return;
-    }
-  }
+export function startPracticaTour(onFinish?: () => void) {
+  if (typeof window === 'undefined') return;
+  if (isTourActive()) return;
 
-  // Si estamos en afinador y fue manual, podemos empezar en afinador directamente
-  if (activeTab === 'afinador' && isManualTrigger) {
-    startAfinadorTour();
+  const steps: DriveStep[] = [
+    {
+      element: '#tour-practica-header',
+      popover: {
+        title: 'Karaoke & Práctica con Canciones',
+        description: 'Canta canciones completas con la pista musical original, letra sincronizada en pantalla y evaluación de afinación en tiempo real.',
+        side: 'bottom',
+        align: 'center',
+      },
+    },
+    {
+      element: '#tour-practica-search',
+      popover: {
+        title: 'Buscador de Canciones',
+        description: 'Encuentra al instante tus canciones o artistas favoritos escribiendo su nombre aquí.',
+        side: 'bottom',
+        align: 'center',
+      },
+    },
+    {
+      element: '#tour-practica-categories',
+      popover: {
+        title: 'Géneros y Colecciones Musicales',
+        description: 'Explora listas curadas de éxitos: Pop & Baladas, Música Cristiana, Urbano Latino, Rock en Español, Música Mexicana y más.',
+        side: 'bottom',
+        align: 'center',
+      },
+    },
+    {
+      element: '#tour-practica-first-track',
+      popover: {
+        title: 'Escenario de Karaoke Interactivo',
+        description: 'Toca cualquier canción para entrar al escenario. Al cantar, el micrófono evalúa tus notas y un polígrafo visual te indicará cuántos puntos y combos acumulas.',
+        side: 'top',
+        align: 'center',
+      },
+    },
+  ];
+
+  const validSteps = steps.filter((s) => {
+    if (typeof s.element === 'string') {
+      return Boolean(document.querySelector(s.element));
+    }
+    return true;
+  });
+
+  isTourRunning = true;
+  activeDriverInstance = driver({
+    showProgress: true,
+    animate: true,
+    overlayColor: '#071322',
+    overlayOpacity: 0.85,
+    nextBtnText: 'Siguiente →',
+    prevBtnText: '← Anterior',
+    doneBtnText: '¡A Cantar!',
+    steps: validSteps.length > 0 ? validSteps : steps,
+    onDestroyed: () => {
+      isTourRunning = false;
+      activeDriverInstance = null;
+      localStorage.setItem(TOUR_KEYS.practica, 'true');
+      window.dispatchEvent(new CustomEvent('laclave_tour_section_completed', { detail: { section: 'practica' } }));
+      if (onFinish) onFinish();
+    },
+  });
+
+  activeDriverInstance.drive();
+}
+
+/**
+ * Sección 4: Tour de Progreso, Niveles e Insignias
+ */
+export function startProgresoTour(onFinish?: () => void) {
+  if (typeof window === 'undefined') return;
+  if (isTourActive()) return;
+
+  const steps: DriveStep[] = [
+    {
+      element: '#tour-progreso-level',
+      popover: {
+        title: 'Nivel y Puntos de Experiencia (XP)',
+        description: 'Aquí ves tu nivel artístico actual, puntos XP acumulados y cuánto te falta para subir de rango. Puedes compartir tus logros con un toque.',
+        side: 'bottom',
+        align: 'center',
+      },
+    },
+    {
+      element: '#tour-progreso-goal',
+      popover: {
+        title: 'Meta Diaria de Práctica',
+        description: 'Configura tus minutos de entrenamiento diario (10, 15 o 30 minutos). El círculo se irá llenando a medida que practiques lecciones o canciones.',
+        side: 'bottom',
+        align: 'center',
+      },
+    },
+    {
+      element: '#tour-progreso-consistency',
+      popover: {
+        title: 'Registro Semanal y Racha',
+        description: 'Monitorea qué días de la semana has cumplido tu práctica. La constancia es la clave para desarrollar una voz potente y afinada.',
+        side: 'bottom',
+        align: 'center',
+      },
+    },
+    {
+      element: '#tour-progreso-badges',
+      popover: {
+        title: 'Insignias y Medallas de Canto',
+        description: 'Colecciona más de 50 medallas especiales desbloqueables por afinar notas difíciles, mantener rachas largas y superar evaluaciones.',
+        side: 'top',
+        align: 'center',
+      },
+    },
+    {
+      element: '#tour-progreso-quests',
+      popover: {
+        title: 'Misiones Diarias y Cofre de Recompensas',
+        description: 'Completa desafíos diarios como afinar 5 notas o cantar 10 minutos para reclamar XP adicional y abrir el cofre de bonificación.',
+        side: 'top',
+        align: 'center',
+      },
+    },
+  ];
+
+  const validSteps = steps.filter((s) => {
+    if (typeof s.element === 'string') {
+      return Boolean(document.querySelector(s.element));
+    }
+    return true;
+  });
+
+  isTourRunning = true;
+  activeDriverInstance = driver({
+    showProgress: true,
+    animate: true,
+    overlayColor: '#071322',
+    overlayOpacity: 0.85,
+    nextBtnText: 'Siguiente →',
+    prevBtnText: '← Anterior',
+    doneBtnText: '¡Excelente!',
+    steps: validSteps.length > 0 ? validSteps : steps,
+    onDestroyed: () => {
+      isTourRunning = false;
+      activeDriverInstance = null;
+      localStorage.setItem(TOUR_KEYS.progreso, 'true');
+      window.dispatchEvent(new CustomEvent('laclave_tour_section_completed', { detail: { section: 'progreso' } }));
+      if (onFinish) onFinish();
+    },
+  });
+
+  activeDriverInstance.drive();
+}
+
+/**
+ * Disparador inteligente por sección:
+ * Ejecuta el tour correspondiente a la pestaña activa solo si el usuario no lo ha completado antes,
+ * o forzosamente si se invoca de manera manual desde Ajustes.
+ */
+export function triggerSectionTour(tab: TabType, isManual = false) {
+  if (typeof window === 'undefined') return;
+  if (tab === 'racha') return;
+
+  const key = TOUR_KEYS[tab as keyof typeof TOUR_KEYS];
+  if (!isManual && key && localStorage.getItem(key) === 'true') {
     return;
   }
 
-  // Asegurar que estamos en academia para la Sección 1
-  if (activeTab !== 'academia') {
-    onChangeTab('academia');
-  }
-
+  // Esperar a que React monte los componentes de la vista en el DOM
   setTimeout(() => {
-    startAcademiaTour(onChangeTab, () => {
-      // Al terminar la sección de Academia, cambiamos ordenadamente al Afinador
-      onChangeTab('afinador');
-      setTimeout(() => {
+    if (isTourActive()) return;
+
+    switch (tab) {
+      case 'academia':
+        startAcademiaTour();
+        break;
+      case 'afinador':
         startAfinadorTour();
-      }, 400);
-    });
-  }, 250);
+        break;
+      case 'practica':
+        startPracticaTour();
+        break;
+      case 'progreso':
+        startProgresoTour();
+        break;
+    }
+  }, 400);
+}
+
+/**
+ * Función de compatibilidad general:
+ * Ejecuta el tour de la sección en la que el usuario se encuentra actualmente.
+ */
+export function startOnboardingTour(
+  activeTab: TabType,
+  _onChangeTab?: (tab: TabType) => void,
+  isManualTrigger = false
+) {
+  triggerSectionTour(activeTab, isManualTrigger);
 }

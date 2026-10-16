@@ -52,6 +52,9 @@ class AudioService {
       const USER_EVENTS = ['touchstart', 'touchend', 'click', 'mousedown', 'keydown', 'pointerdown'];
       const unlockHandler = () => {
         this.unlockForMobileSilentMode();
+        USER_EVENTS.forEach(ev => {
+          window.removeEventListener(ev, unlockHandler, { capture: true });
+        });
       };
 
       USER_EVENTS.forEach(ev => {
@@ -59,8 +62,8 @@ class AudioService {
       });
 
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          this.unlockForMobileSilentMode();
+        if (document.visibilityState === 'visible' && this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
         }
       });
     }
@@ -69,9 +72,19 @@ class AudioService {
   /**
    * Desbloquea Web Audio API para sonar a traves de altavoces multimedia aun cuando
    * el dispositivo este en modo silencio fisico (mute switch en iPhone) o modo enfoque/no molestar (Android e iOS).
+   * Solo ejecuta el pulso HTML5 una unica vez para no secuestrar la Dynamic Island de iOS ni el reproductor de Android.
    */
   public unlockForMobileSilentMode() {
     if (typeof window === 'undefined') return;
+
+    // Si ya fue desbloqueado, solo reanudar contexto si estuviera suspendido
+    if (this.isSilentUnlocked) {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      return;
+    }
+    this.isSilentUnlocked = true;
 
     // 1. Audio Session: Playback
     if ('audioSession' in navigator) {
@@ -85,8 +98,7 @@ class AudioService {
       } catch {}
     }
 
-    // 2. Elemento HTML5 de audio inaudible de un solo pulso para desbloquear contexto:
-    // loop = false y pausar tras iniciar contexto para no secuestrar la Dynamic Island de iOS ni la barra de Android
+    // 2. Elemento HTML5 de audio inaudible de un unico pulso para iniciar el subsistema multimedia
     if (!this.unlockAudioEl) {
       try {
         this.unlockAudioEl = document.createElement('audio');
@@ -112,12 +124,14 @@ class AudioService {
               if (this.unlockAudioEl) {
                 this.unlockAudioEl.pause();
                 this.unlockAudioEl.currentTime = 0;
+                this.unlockAudioEl.remove();
+                this.unlockAudioEl = null;
               }
               if ('mediaSession' in navigator) {
                 navigator.mediaSession.playbackState = 'none';
               }
             } catch {}
-          }, 100);
+          }, 80);
         })
         .catch(() => {});
     }

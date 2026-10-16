@@ -9,7 +9,7 @@ import {
   enableScreenWakeLock,
   scheduleLocalPracticeAlarm,
 } from '../../utils/pwaFeatures';
-import { startOnboardingTour } from '../../utils/tour';
+import { triggerSectionTour, isTourActive, TOUR_KEYS } from '../../utils/tour';
 import { TabType } from '../../types';
 
 interface UseGlobalAppListenersParams {
@@ -115,36 +115,60 @@ export function useGlobalAppListeners({
     }
   }, []);
 
-  const hasAutoTriggeredTourRef = useRef(false);
-
-  // Auto-start onboarding tour for new users after splash screen (only once)
+  // Trigger onboarding tour for active tab if user hasn't seen it yet
   useEffect(() => {
-    if (showSplash || hasAutoTriggeredTourRef.current) return;
-    hasAutoTriggeredTourRef.current = true;
+    if (showSplash) return;
     const timer = setTimeout(() => {
       try {
-        startOnboardingTour(activeTab, onTabChange, false);
+        triggerSectionTour(activeTab, false);
       } catch (err) {
-        console.warn('[Tour] Ignored tour initialization error:', err);
+        console.warn('[Tour] Ignored section tour initialization error:', err);
       }
-    }, 600);
+    }, 500);
     return () => clearTimeout(timer);
-  }, [showSplash, activeTab, onTabChange]);
+  }, [showSplash, activeTab]);
 
   const pwaInstall = usePwaInstall();
 
-  // Auto-prompt install modal when app detects user has not installed the app
+  // Auto-prompt install modal only AFTER initial tutorial is completed and no tour is currently running
   useEffect(() => {
-    if (showSplash) return;
-    if (!pwaInstall.isInstalled) {
-      const isDismissed = sessionStorage.getItem('laclave_pwa_dismissed') === 'true';
-      if (!isDismissed) {
-        const timer = setTimeout(() => {
+    if (showSplash || pwaInstall.isInstalled) return;
+
+    const isDismissed = sessionStorage.getItem('laclave_pwa_dismissed') === 'true';
+    if (isDismissed) return;
+
+    let timer: NodeJS.Timeout | null = null;
+    const scheduleInstallPrompt = (delayMs = 2500) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!isTourActive() && !pwaInstall.isInstalled) {
           pwaInstall.openModal();
-        }, 1200);
-        return () => clearTimeout(timer);
-      }
+        }
+      }, delayMs);
+    };
+
+    const isAcademiaTourDone = localStorage.getItem(TOUR_KEYS.academia) === 'true';
+
+    if (isAcademiaTourDone && !isTourActive()) {
+      scheduleInstallPrompt(2000);
+    } else {
+      const handleTourCompleted = (e: Event) => {
+        const customEvent = e as CustomEvent<{ section: string }>;
+        if (customEvent.detail?.section === 'academia') {
+          scheduleInstallPrompt(2500);
+        }
+      };
+
+      window.addEventListener('laclave_tour_section_completed', handleTourCompleted);
+      return () => {
+        if (timer) clearTimeout(timer);
+        window.removeEventListener('laclave_tour_section_completed', handleTourCompleted);
+      };
     }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [showSplash, pwaInstall.isInstalled, pwaInstall.openModal]);
 
   return {

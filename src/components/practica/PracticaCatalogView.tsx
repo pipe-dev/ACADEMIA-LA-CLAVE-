@@ -41,7 +41,7 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Header del Catálogo */}
-      <div className="flex items-center justify-between">
+      <div id="tour-practica-header" className="flex items-center justify-between">
         <div>
           <h2
             className={`font-heading font-black text-2xl ${
@@ -66,7 +66,7 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
       </div>
 
       {/* Barra de Búsqueda */}
-      <div className="relative">
+      <div id="tour-practica-search" className="relative">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
           {isSearching ? (
             <Loader2
@@ -99,7 +99,7 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
 
       {/* Categorías de Filtro */}
       {!searchQuery && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div id="tour-practica-categories" className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
@@ -177,9 +177,10 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
           </div>
         ) : (
           <div className="space-y-2">
-            {displayedCatalog.map((track) => (
+            {displayedCatalog.map((track, idx) => (
               <motion.button
                 key={track.id}
+                id={idx === 0 ? 'tour-practica-first-track' : undefined}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onSelectTrack(track)}

@@ -31,6 +31,17 @@ export function useSessionGuard() {
   const [isValidating, setIsValidating] = useState<boolean>(true);
   const isKickingRef = useRef<boolean>(false);
 
+  const kickOut = useCallback((reason: 'blocked' | 'expired' | 'ended') => {
+    if (isKickingRef.current) return;
+    isKickingRef.current = true;
+    try {
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
+      localStorage.removeItem(STORAGE_KEY_SERVER_TIME);
+    } catch {}
+    window.location.href = `/login?reason=${reason}`;
+  }, []);
+
   const checkSession = useCallback(async (force = false) => {
     if (isKickingRef.current) return;
 
@@ -42,14 +53,11 @@ export function useSessionGuard() {
     // Anti-tamper check: clock set backward by more than 2 minutes
     const isClockTampered = lastServerTime > 0 && now < (lastServerTime - 120000);
 
-    // If we have in-memory session, check for immediate expiration
+    // Immediate local expiration evaluation
     if (currentUser?.expiresAt) {
       const expiry = new Date(currentUser.expiresAt).getTime();
       if (now >= expiry) {
-        isKickingRef.current = true;
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
-        window.location.href = '/login?reason=expired';
+        kickOut('expired');
         return;
       }
       const daysRemaining = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
@@ -58,9 +66,9 @@ export function useSessionGuard() {
       }
     }
 
-    // Only hit the server if forced, clock was tampered, or > 1h since last check
-    const ONE_HOUR_MS = 60 * 60 * 1000;
-    const shouldCheckServer = force || isClockTampered || (now - lastCheck > ONE_HOUR_MS);
+    // High-frequency license check: check server if forced, tampered, or > 12s since last check
+    const HEARTBEAT_WINDOW_MS = 12 * 1000;
+    const shouldCheckServer = force || isClockTampered || (now - lastCheck > HEARTBEAT_WINDOW_MS);
 
     if (!shouldCheckServer && currentUser) {
       setIsValidating(false);
@@ -74,22 +82,16 @@ export function useSessionGuard() {
       });
 
       if (!res.ok) {
-        isKickingRef.current = true;
         const data = await res.json().catch(() => ({}));
         const reason = data.reason === 'blocked' ? 'blocked' : (data.reason === 'expired' ? 'expired' : 'ended');
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
-        window.location.href = `/login?reason=${reason}`;
+        kickOut(reason);
         return;
       }
 
       const data = await res.json();
       if (!data.authenticated || !data.user) {
-        isKickingRef.current = true;
         const reason = data.reason === 'blocked' ? 'blocked' : (data.reason === 'expired' ? 'expired' : 'ended');
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
-        window.location.href = `/login?reason=${reason}`;
+        kickOut(reason);
         return;
       }
 
@@ -97,10 +99,7 @@ export function useSessionGuard() {
       const expiryTime = new Date(data.user.expiresAt).getTime();
 
       if (serverNow >= expiryTime || data.user.daysRemaining <= 0) {
-        isKickingRef.current = true;
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
-        window.location.href = '/login?reason=expired';
+        kickOut('expired');
         return;
       }
 
@@ -115,54 +114,87 @@ export function useSessionGuard() {
       if (typeof navigator !== 'undefined' && !navigator.onLine && currentUser) {
         const expiry = new Date(currentUser.expiresAt).getTime();
         if (Date.now() >= expiry) {
-          isKickingRef.current = true;
-          localStorage.removeItem(STORAGE_KEY_USER);
-          window.location.href = '/login?reason=expired';
+          kickOut('expired');
         }
         return;
       }
     } finally {
       setIsValidating(false);
     }
-  }, []);
+  }, [kickOut]);
 
   useEffect(() => {
     // Initial verification on mount
     checkSession(true);
 
-    // Dynamic timer: evaluate local expiration and daily countdown every 30 seconds
-    const ticker = setInterval(() => {
-      if (isKickingRef.current) return;
-      const cached = localStorage.getItem(STORAGE_KEY_USER);
-      if (!cached) return;
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed.expiresAt) {
-          const now = Date.now();
-          const expiry = new Date(parsed.expiresAt).getTime();
-          if (now >= expiry) {
-            isKickingRef.current = true;
-            localStorage.removeItem(STORAGE_KEY_USER);
-            localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
-            window.location.href = '/login?reason=expired';
-            return;
+    // 1. Cross-tab real-time session revocation via BroadcastChannel
+    let authChannel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        authChannel = new BroadcastChannel('afinapp_auth_channel');
+        authChannel.onmessage = (event) => {
+          const payload = event.data;
+          if (!payload) return;
+          const current = sessionUserRef.current;
+          if (
+            payload.type === 'SESSION_REVOKED' &&
+            current &&
+            (payload.email === current.email || payload.userId === current.id)
+          ) {
+            const reason = payload.status === 'blocked' ? 'blocked' : 'expired';
+            kickOut(reason);
+          } else if (payload.type === 'FORCE_SESSION_CHECK') {
+            checkSession(true);
           }
-          const daysRemaining = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
-          setSessionUser((prev) => (prev ? { ...prev, daysRemaining } : null));
-        }
-      } catch {}
-    }, 30000);
+        };
+      }
+    } catch {}
 
-    // Verify with server every hour
-    const serverInterval = setInterval(() => {
-      checkSession(false);
-    }, 60 * 60 * 1000);
+    // 2. Storage event listener for cross-window notification
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'afinapp_session_revoked_event' && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          const current = sessionUserRef.current;
+          if (current && (payload.email === current.email || payload.userId === current.id)) {
+            const reason = payload.status === 'blocked' ? 'blocked' : 'expired';
+            kickOut(reason);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // 3. Real-time heartbeat interval every 12 seconds to detect server revocations
+    const heartbeatTimer = setInterval(() => {
+      checkSession(true);
+    }, 12000);
+
+    // 4. Instant check when returning to app / tab / window
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkSession(true);
+      }
+    };
+    const handleFocus = () => {
+      checkSession(true);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
-      clearInterval(ticker);
-      clearInterval(serverInterval);
+      clearInterval(heartbeatTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('storage', handleStorageChange);
+      if (authChannel) {
+        try {
+          authChannel.close();
+        } catch {}
+      }
     };
-  }, [checkSession]);
+  }, [checkSession, kickOut]);
 
   return {
     sessionUser,

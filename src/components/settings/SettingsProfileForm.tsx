@@ -71,20 +71,20 @@ export const SettingsProfileForm: React.FC<SettingsProfileFormProps> = ({
   return (
     <div className="space-y-4">
       {sessionUser && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-teal-500/10 dark:from-emerald-950/40 dark:via-emerald-950/20 dark:to-teal-950/30 border border-emerald-500/25 space-y-3.5 shadow-xs">
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-teal-500/10 dark:from-emerald-950/40 dark:via-emerald-950/20 dark:to-teal-950/30 border border-emerald-500/25 space-y-3.5 shadow-sm">
           {/* Fila Superior: Título y Botón de Actualizar */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
-                <Sparkles className="w-4 h-4" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 dark:bg-emerald-400/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
+                <Sparkles className="w-5 h-5" />
               </div>
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <div className="min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
                   Membresía Oficial
-                </div>
-                <div className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
+                </span>
+                <span className="text-sm font-black text-slate-800 dark:text-slate-100 block">
                   Academia La Clave
-                </div>
+                </span>
               </div>
             </div>
 
@@ -93,7 +93,7 @@ export const SettingsProfileForm: React.FC<SettingsProfileFormProps> = ({
                 type="button"
                 onClick={handleSyncSession}
                 disabled={isRefreshing}
-                className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
                 title="Sincronizar vigencia con el servidor"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -102,23 +102,23 @@ export const SettingsProfileForm: React.FC<SettingsProfileFormProps> = ({
             )}
           </div>
 
-          {/* Email y Rol del Estudiante */}
-          <div className="px-3 py-2 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-emerald-500/15">
+          {/* Email del Estudiante */}
+          <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-emerald-500/15">
             <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
-              Usuario Registrado
+              Estudiante Registrado
             </div>
-            <div className="text-xs font-mono font-medium text-slate-800 dark:text-slate-200 break-all mt-0.5">
+            <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100 break-all mt-0.5">
               {sessionUser.email}
             </div>
           </div>
 
-          {/* Cuadrícula de Vigencia: Días y Fecha sin comprimir */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-emerald-500/15">
+          {/* Vigencia y Vencimiento */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-emerald-500/15">
               <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">
-                Días Restantes
+                Días Restantes de Acceso
               </div>
-              <div className="flex items-center gap-1.5 mt-1">
+              <div className="flex items-center gap-2 mt-1">
                 <span className={`text-base font-black ${
                   sessionUser.daysRemaining > 5
                     ? 'text-emerald-600 dark:text-emerald-400'
@@ -128,22 +128,31 @@ export const SettingsProfileForm: React.FC<SettingsProfileFormProps> = ({
                 }`}>
                   {sessionUser.daysRemaining > 0 ? `${sessionUser.daysRemaining} días` : 'Vencida'}
                 </span>
+                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                  sessionUser.daysRemaining > 5
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                    : sessionUser.daysRemaining > 0
+                    ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                    : 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                }`}>
+                  {sessionUser.daysRemaining > 5 ? 'Activa' : sessionUser.daysRemaining > 0 ? 'Por vencer' : 'Expirada'}
+                </span>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-emerald-500/15">
+            <div className="p-3 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-emerald-500/15">
               <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span>Fecha Límite</span>
+                <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Fecha de Vencimiento</span>
               </div>
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">
+              <div className="text-xs font-bold text-slate-800 dark:text-slate-100 mt-1">
                 {sessionUser.expiresAt
                   ? new Date(sessionUser.expiresAt).toLocaleDateString('es-CO', {
                       day: 'numeric',
-                      month: 'short',
+                      month: 'long',
                       year: 'numeric',
                     })
-                  : 'Sin fecha'}
+                  : 'Sin fecha asignada'}
               </div>
             </div>
           </div>

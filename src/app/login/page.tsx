@@ -266,21 +266,39 @@ export default function LoginPage() {
         if (data.code === 'ACCOUNT_BLOCKED' || data.reason === 'blocked') {
           setAccountAlert({
             type: 'blocked',
-            title: 'Cuenta Bloqueada',
-            message: data.error || 'Tu cuenta ha sido suspendida por la administración de la academia.',
+            title: 'Cuenta Bloqueada / Suspendida',
+            message: data.error || 'Esta cuenta ha sido bloqueada o suspendida por la administración de la academia.',
             whatsappUrl: `https://wa.me/573006269056?text=${encodeURIComponent(`Hola, mi cuenta en AfinApp (${cleanUsername}) está bloqueada o suspendida y deseo solicitar reactivación.`)}`,
           });
-        } else if (data.code === 'ACCOUNT_EXPIRED' || data.reason === 'expired') {
+          toast({
+            variant: 'destructive',
+            title: 'Cuenta Bloqueada',
+            description: data.error || 'Tu cuenta se encuentra bloqueada por la administración.',
+            duration: 8000,
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        if (data.code === 'ACCOUNT_EXPIRED' || data.reason === 'expired') {
           setAccountAlert({
             type: 'expired',
             title: 'Membresía Expirada',
             message: data.error || 'Tu periodo de membresía ha expirado. Por favor renueva tus días de acceso para continuar practicando.',
             whatsappUrl: `https://wa.me/573006269056?text=${encodeURIComponent(`Hola, mi periodo de membresía en AfinApp (${cleanUsername}) ha vencido y deseo renovar mi acceso.`)}`,
           });
-        } else {
-          setAccountAlert(null);
+          toast({
+            variant: 'destructive',
+            title: 'Membresía Expirada',
+            description: data.error || 'Tu suscripción ha finalizado. Renueva tu acceso.',
+            duration: 8000,
+          });
+          setIsLoading(false);
+          return;
         }
-        throw new Error(data.error || 'Credenciales incorrectas');
+
+        setAccountAlert(null);
+        throw new Error(data.error || 'Clave de acceso o correo incorrectos.');
       }
 
       setAccountAlert(null);
@@ -411,14 +429,18 @@ export default function LoginPage() {
             {/* Banner Informativo de Bloqueo o Expiración */}
             {accountAlert && (
               <div
-                className={`p-3 sm:p-3.5 rounded-2xl border text-left space-y-2 animate-in fade-in duration-200 shadow-sm ${
+                className={`p-3 sm:p-4 rounded-2xl border text-left space-y-2.5 animate-in fade-in duration-200 shadow-md ${
                   accountAlert.type === 'blocked'
-                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-950'
-                    : 'bg-amber-500/15 border-amber-500/30 text-amber-950'
+                    ? 'bg-rose-500/20 border-rose-500/40 text-rose-950 dark:text-rose-100'
+                    : 'bg-amber-500/20 border-amber-500/40 text-amber-950 dark:text-amber-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                  <span className={`text-xs font-black uppercase tracking-wider ${
+                    accountAlert.type === 'blocked'
+                      ? 'text-rose-800 dark:text-rose-300'
+                      : 'text-amber-800 dark:text-amber-300'
+                  }`}>
                     {accountAlert.title}
                   </span>
                   <button
@@ -429,7 +451,11 @@ export default function LoginPage() {
                     ✕
                   </button>
                 </div>
-                <p className="text-[11px] sm:text-xs leading-relaxed font-semibold text-slate-800">
+                <p className={`text-xs leading-relaxed font-bold ${
+                  accountAlert.type === 'blocked'
+                    ? 'text-rose-900 dark:text-rose-200'
+                    : 'text-amber-950 dark:text-amber-200'
+                }`}>
                   {accountAlert.message}
                 </p>
                 {accountAlert.whatsappUrl && (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/jwt';
-import { userDb } from '@/lib/userDb';
+import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
 import { checkRateLimit } from '@/lib/securityService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
@@ -11,20 +11,20 @@ async function getAuthUser(request: NextRequest) {
   const payload = await verifyJwt(cookie, JWT_SECRET);
   if (!payload || !payload.sub) return null;
 
-  // Stateless validation using cryptographically signed JWT payload
-  if (payload.userId && payload.expiresAt) {
-    const expiresTimestamp = new Date(payload.expiresAt as string).getTime();
-    if (Date.now() > expiresTimestamp) {
-      return null;
-    }
-    return {
-      id: payload.userId as string,
-      email: payload.sub as string,
-      name: (payload.name as string) || (payload.sub as string),
-    };
+  // Always verify user exists and is not blocked or expired in DB
+  const user = (payload.userId ? await userDb.getUserById(payload.userId as string) : null) || await userDb.getUserByEmail(payload.sub);
+  if (!user) return null;
+
+  const statusInfo = computeUserEffectiveStatus(user);
+  if (statusInfo.isBlocked || statusInfo.isExpired) {
+    return null;
   }
 
-  return userDb.getUserByEmail(payload.sub);
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+  };
 }
 
 export async function GET(request: NextRequest) {

@@ -38,8 +38,38 @@ export async function POST(request: NextRequest) {
       user = await userDb.getUserByKey('grupoiglesia');
     }
 
-    // 2. If user exists in DB, verify key and subscription status (case-insensitive for convenience)
+    // 2. If user exists in DB, prioritize checking blocked and expired status
     if (user) {
+      const statusInfo = computeUserEffectiveStatus(user);
+
+      if (statusInfo.isBlocked) {
+        return NextResponse.json(
+          {
+            error: 'Esta cuenta ha sido bloqueada o suspendida por administración. Por favor contacta a la academia para reactivar tu acceso.',
+            code: 'ACCOUNT_BLOCKED',
+            reason: 'blocked',
+          },
+          { status: 403 }
+        );
+      }
+
+      if (statusInfo.isExpired || statusInfo.daysRemaining <= 0) {
+        const formattedExpiry = user.expires_at ? new Date(user.expires_at).toLocaleDateString('es-CO', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        }) : 'fecha no especificada';
+        return NextResponse.json(
+          {
+            error: `Tu periodo de membresía ha expirado (venció el ${formattedExpiry}). Por favor contacta a la academia para renovar tus días de acceso.`,
+            code: 'ACCOUNT_EXPIRED',
+            reason: 'expired',
+            expiresAt: user.expires_at,
+          },
+          { status: 403 }
+        );
+      }
+
       const userKeyNormalized = (user.access_key || '').trim().toUpperCase();
       const inputKeyNormalized = cleanKey.trim().toUpperCase();
       const isMasterGroup = cleanKey.trim().toLowerCase() === 'grupoiglesia';
@@ -48,34 +78,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Clave de acceso incorrecta para este usuario.', code: 'INVALID_CREDENTIALS' },
           { status: 401 }
-        );
-      }
-
-      const statusInfo = computeUserEffectiveStatus(user);
-
-      if (statusInfo.isBlocked) {
-        return NextResponse.json(
-          {
-            error: 'Tu cuenta ha sido bloqueada o suspendida por administración. Por favor contacta a la academia para reactivar tu acceso.',
-            code: 'ACCOUNT_BLOCKED',
-          },
-          { status: 403 }
-        );
-      }
-
-      if (statusInfo.isExpired) {
-        const formattedExpiry = new Date(user.expires_at).toLocaleDateString('es-CO', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        });
-        return NextResponse.json(
-          {
-            error: `Tu periodo de membresía ha expirado (venció el ${formattedExpiry}). Por favor contacta a la academia para renovar tus días de acceso.`,
-            code: 'ACCOUNT_EXPIRED',
-            expiresAt: user.expires_at,
-          },
-          { status: 403 }
         );
       }
 
