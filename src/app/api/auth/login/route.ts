@@ -120,6 +120,21 @@ export async function POST(request: NextRequest) {
     }
 
     const statusInfo = computeUserEffectiveStatus(user);
+
+    if (statusInfo.isBlocked) {
+      return NextResponse.json(
+        { error: 'Tu cuenta ha sido suspendida por la administracion.', reason: 'blocked' },
+        { status: 403 }
+      );
+    }
+
+    if (statusInfo.isExpired || statusInfo.daysRemaining <= 0) {
+      return NextResponse.json(
+        { error: 'Tu suscripcion ha finalizado. Renueva tu membresia para continuar.', reason: 'expired' },
+        { status: 403 }
+      );
+    }
+
     const tokenExp = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days
     const tokenPayload = {
       sub: user.email,

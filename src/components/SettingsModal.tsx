@@ -42,6 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateStats,
   onStartSplash,
   sessionUser,
+  onRefreshSession,
 }) => {
   const [name, setName] = useState<string>(userStats.name);
   const [avatarUrl, setAvatarUrl] = useState<string>(userStats.avatarUrl || '');
@@ -85,12 +86,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     audioService.playOpenSound();
     logger.info('Settings', 'Ajustes abiertos por el usuario');
 
+    // Sincronizar vigencia en tiempo real al abrir ajustes
+    onRefreshSession?.();
+
     enableScreenWakeLock().then((active) => {
       setWakeLockActive(active || isScreenWakeLockActive());
     });
 
     return logger.subscribe((newLogs) => setLogs(newLogs));
-  }, []);
+  }, [onRefreshSession]);
 
   const handleCopyLogs = async () => {
     try {
@@ -221,6 +225,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             avatarUrl={avatarUrl}
             onAvatarChange={setAvatarUrl}
             sessionUser={sessionUser}
+            onRefreshSession={onRefreshSession}
           />
 
           <SettingsOfflineCard

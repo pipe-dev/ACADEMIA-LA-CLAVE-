@@ -79,6 +79,7 @@ interface MainAppModalsProps {
     expiresAt: string;
     daysRemaining: number;
   } | null;
+  onRefreshSession?: () => Promise<void> | void;
 }
 
 export const MainAppModals: React.FC<MainAppModalsProps> = ({
@@ -131,6 +132,7 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
   onStartSplash,
   onTabChange,
   sessionUser,
+  onRefreshSession,
 }) => {
   const [showCadencePrompt, setShowCadencePrompt] = React.useState<boolean>(false);
 
@@ -268,6 +270,7 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
           onUpdateStats={onUpdateStats}
           onStartSplash={onStartSplash}
           sessionUser={sessionUser}
+          onRefreshSession={onRefreshSession}
         />
       )}
 

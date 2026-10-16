@@ -22,6 +22,7 @@ export interface SettingsModalProps {
     expiresAt: string;
     daysRemaining: number;
   } | null;
+  onRefreshSession?: () => Promise<void> | void;
 }
 
 export interface SavedVocalRangeData {

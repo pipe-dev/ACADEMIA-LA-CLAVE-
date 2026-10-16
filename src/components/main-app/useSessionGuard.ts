@@ -38,20 +38,29 @@ export function useSessionGuard() {
     // Anti-tamper check: clock set backward by more than 2 minutes
     const isClockTampered = lastServerTime > 0 && now < (lastServerTime - 120000);
 
-    // Only hit the server if forced, clock was tampered, or > 24h since last verified check
-    const shouldCheckServer = force || isClockTampered || (now - lastCheck > TWENTY_FOUR_HOURS_MS);
-
-    // If we have valid cached session and don't need server check yet, calculate daysRemaining in memory
-    if (!shouldCheckServer && sessionUser) {
+    // If we have in-memory session, check for immediate expiration
+    if (sessionUser?.expiresAt) {
       const expiry = new Date(sessionUser.expiresAt).getTime();
-      if (now > expiry) {
-        // Expired in memory: force immediate server verification
-      } else {
-        const daysRemaining = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
-        setSessionUser((prev) => prev ? { ...prev, daysRemaining } : null);
-        setIsValidating(false);
+      if (now >= expiry) {
+        isKickingRef.current = true;
+        localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
+        window.location.href = '/login?reason=expired';
         return;
       }
+      const daysRemaining = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
+      if (daysRemaining !== sessionUser.daysRemaining) {
+        setSessionUser((prev) => (prev ? { ...prev, daysRemaining } : null));
+      }
+    }
+
+    // Only hit the server if forced, clock was tampered, or > 1h since last check
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const shouldCheckServer = force || isClockTampered || (now - lastCheck > ONE_HOUR_MS);
+
+    if (!shouldCheckServer && sessionUser) {
+      setIsValidating(false);
+      return;
     }
 
     try {
@@ -80,8 +89,17 @@ export function useSessionGuard() {
         return;
       }
 
-      // Record authoritative server time to prevent clock tampering
       const serverNow = data.serverTime ? new Date(data.serverTime).getTime() : now;
+      const expiryTime = new Date(data.user.expiresAt).getTime();
+
+      if (serverNow >= expiryTime || data.user.daysRemaining <= 0) {
+        isKickingRef.current = true;
+        localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
+        window.location.href = '/login?reason=expired';
+        return;
+      }
+
       localStorage.setItem(STORAGE_KEY_SERVER_TIME, String(serverNow));
       localStorage.setItem(STORAGE_KEY_LAST_CHECK, String(now));
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data.user));
@@ -90,6 +108,12 @@ export function useSessionGuard() {
     } catch (e) {
       // Offline fallback: allow student to keep practicing if cached session exists and isn't expired
       if (typeof navigator !== 'undefined' && !navigator.onLine && sessionUser) {
+        const expiry = new Date(sessionUser.expiresAt).getTime();
+        if (Date.now() >= expiry) {
+          isKickingRef.current = true;
+          localStorage.removeItem(STORAGE_KEY_USER);
+          window.location.href = '/login?reason=expired';
+        }
         return;
       }
     } finally {
@@ -99,15 +123,39 @@ export function useSessionGuard() {
 
   useEffect(() => {
     // Initial verification on mount
-    checkSession();
+    checkSession(true);
 
-    // Verify once every 6 hours instead of every 60 seconds (massive quota saving)
-    const interval = setInterval(() => {
+    // Dynamic timer: evaluate local expiration and daily countdown every 30 seconds
+    const ticker = setInterval(() => {
+      if (isKickingRef.current) return;
+      const cached = localStorage.getItem(STORAGE_KEY_USER);
+      if (!cached) return;
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.expiresAt) {
+          const now = Date.now();
+          const expiry = new Date(parsed.expiresAt).getTime();
+          if (now >= expiry) {
+            isKickingRef.current = true;
+            localStorage.removeItem(STORAGE_KEY_USER);
+            localStorage.removeItem(STORAGE_KEY_LAST_CHECK);
+            window.location.href = '/login?reason=expired';
+            return;
+          }
+          const daysRemaining = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
+          setSessionUser((prev) => (prev ? { ...prev, daysRemaining } : null));
+        }
+      } catch {}
+    }, 30000);
+
+    // Verify with server every hour
+    const serverInterval = setInterval(() => {
       checkSession(false);
-    }, 6 * 60 * 60 * 1000);
+    }, 60 * 60 * 1000);
 
     return () => {
-      clearInterval(interval);
+      clearInterval(ticker);
+      clearInterval(serverInterval);
     };
   }, [checkSession]);
 

@@ -48,6 +48,12 @@ export async function middleware(request: NextRequest) {
   // 3. Login page handling
   if (pathname.startsWith('/login')) {
     if (sessionPayload && sessionPayload.sub) {
+      const isExpired = sessionPayload.expiresAt && Date.now() >= new Date(sessionPayload.expiresAt).getTime();
+      if (isExpired) {
+        const response = NextResponse.next();
+        response.cookies.delete('afinapp_session');
+        return applySecurityHeaders(response);
+      }
       // Already authenticated, redirect to app root
       return applySecurityHeaders(NextResponse.redirect(new URL('/', request.url)));
     }
@@ -62,6 +68,14 @@ export async function middleware(request: NextRequest) {
     if (sessionCookie) {
       response.cookies.delete('afinapp_session');
     }
+    return applySecurityHeaders(response);
+  }
+
+  // 5. Evict expired users immediately
+  if (sessionPayload.expiresAt && Date.now() >= new Date(sessionPayload.expiresAt).getTime()) {
+    const loginUrl = new URL('/login?reason=expired', request.url);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete('afinapp_session');
     return applySecurityHeaders(response);
   }
 
