@@ -265,6 +265,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onShareApp={handleShareApp}
             onStartTour={onStartTour}
             onClose={handleClose}
+            streak={userStats.streak || 1}
           />
 
           <SettingsDiagnosticLogs

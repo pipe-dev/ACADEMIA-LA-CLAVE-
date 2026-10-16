@@ -7,6 +7,7 @@ import { MAX_LIVES } from '../utils/livesEngine';
 import { AcademiaWelcomeBanner } from './academia/AcademiaWelcomeBanner';
 import { AcademiaNoLivesModal } from './academia/AcademiaNoLivesModal';
 import { AcademiaUnitCard } from './academia/AcademiaUnitCard';
+import { AcademiaStreakProtectionBanner } from './academia/AcademiaStreakProtectionBanner';
 
 interface AcademiaViewProps {
   userStats: UserStats;
@@ -306,6 +307,12 @@ const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
         streak={userStats.streak}
         activeVocalRange={activeVocalRange}
         savedRangeData={savedRangeData}
+        zenMode={zenMode}
+      />
+
+      {/* Duolingo-style Streak Protection Banner */}
+      <AcademiaStreakProtectionBanner
+        streak={userStats.streak || 0}
         zenMode={zenMode}
       />
 

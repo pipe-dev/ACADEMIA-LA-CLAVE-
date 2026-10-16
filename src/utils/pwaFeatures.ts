@@ -181,24 +181,78 @@ export function getRandomPracticeNotificationMessage(streakDays: number = 1): { 
   return PRACTICE_NOTIFICATION_MESSAGES[randomIndex](streakDays);
 }
 
-export async function requestNotificationPermission(silent: boolean = false): Promise<boolean> {
-  const isIOS =
-    typeof navigator !== 'undefined' &&
-    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)));
-  const isStandalone =
-    typeof window !== 'undefined' &&
-    (window.matchMedia('(display-mode: standalone)').matches ||
-      Boolean((navigator as unknown as { standalone?: boolean }).standalone));
+export interface NotificationSupportStatus {
+  supported: boolean;
+  permission: NotificationPermission | 'unsupported';
+  isIOSWithoutPwa: boolean;
+  isStandalone: boolean;
+}
 
-  if (!('Notification' in window)) {
+export function getNotificationSupportStatus(): NotificationSupportStatus {
+  if (typeof window === 'undefined') {
+    return { supported: false, permission: 'unsupported', isIOSWithoutPwa: false, isStandalone: false };
+  }
+
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    Boolean((navigator as unknown as { standalone?: boolean }).standalone);
+
+  const supported = 'Notification' in window;
+
+  return {
+    supported,
+    permission: supported ? Notification.permission : 'unsupported',
+    isIOSWithoutPwa: isIOS && !isStandalone,
+    isStandalone,
+  };
+}
+
+export function getDailyReminderConfig(): { enabled: boolean; time: string } {
+  if (typeof window === 'undefined') return { enabled: true, time: '20:00' };
+  try {
+    const enabled = localStorage.getItem('laclave_practice_reminder_enabled') !== 'false';
+    const time = localStorage.getItem('laclave_practice_reminder_time') || '20:00';
+    return { enabled, time };
+  } catch {
+    return { enabled: true, time: '20:00' };
+  }
+}
+
+export function setDailyReminderConfig(enabled: boolean, time: string, streak = 1) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('laclave_practice_reminder_enabled', enabled ? 'true' : 'false');
+    localStorage.setItem('laclave_practice_reminder_time', time);
+    if (enabled) {
+      const [h, m] = time.split(':').map(Number);
+      scheduleLocalPracticeAlarm(h || 20, m || 0, streak, true);
+    } else {
+      cancelLocalPracticeAlarm();
+    }
+  } catch {}
+}
+
+export function cancelLocalPracticeAlarm() {
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then((reg) => {
+      const activeSw = reg.active || navigator.serviceWorker.controller;
+      activeSw?.postMessage({ type: 'CANCEL_PRACTICE_REMINDER' });
+    }).catch(() => {});
+  }
+}
+
+export async function requestNotificationPermission(silent: boolean = false): Promise<boolean> {
+  const status = getNotificationSupportStatus();
+
+  if (!status.supported) {
     if (!silent) {
-      if (isIOS && !isStandalone) {
-        alert(
-          'En iPhone y iPad, Apple exige que agregues AfinApp a la pantalla de inicio para recibir notificaciones.\n\nPasos sencillos:\n1. Toca el botón Compartir (el ícono del cuadrado con la flecha hacia arriba) en Safari.\n2. Selecciona "Agregar al inicio".\n3. Abre la app desde tu pantalla de inicio y podrás activar tus recordatorios.'
-        );
+      if (status.isIOSWithoutPwa) {
+        window.dispatchEvent(new CustomEvent('laclave_open_pwa_install_modal', { detail: { reason: 'notifications' } }));
       } else {
-        alert('Las notificaciones no están disponibles o fueron bloqueadas en este navegador.');
+        window.dispatchEvent(new CustomEvent('laclave_notif_unsupported'));
       }
     }
     return false;
@@ -214,28 +268,36 @@ export async function requestNotificationPermission(silent: boolean = false): Pr
   }
 
   if (!silent) {
-    alert('Las notificaciones están bloqueadas en los permisos de tu navegador. Puedes habilitarlas desde la configuración del sitio.');
+    window.dispatchEvent(new CustomEvent('laclave_notif_permission_denied'));
   }
   return false;
 }
 
-export async function sendPracticeReminderNotification(streakDays: number): Promise<void> {
+export async function sendPracticeReminderNotification(streakDays: number): Promise<boolean> {
   const hasPermission = await requestNotificationPermission();
-  if (!hasPermission) return;
+  if (!hasPermission) return false;
 
   const msg = getRandomPracticeNotificationMessage(streakDays);
   const options: NotificationOptions = {
     body: msg.body,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    tag: 'practice-reminder'
+    tag: 'practice-reminder',
+    data: { url: '/' }
   };
 
-  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    const reg = await navigator.serviceWorker.ready;
-    reg.showNotification(msg.title, options);
-  } else {
-    new Notification(msg.title, options);
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(msg.title, options);
+      return true;
+    } else {
+      new Notification(msg.title, options);
+      return true;
+    }
+  } catch (e) {
+    console.warn('[Notifications] Error sending notification:', e);
+    return false;
   }
 }
 
@@ -277,7 +339,7 @@ export async function scheduleLocalPracticeAlarm(
         body: msg.body,
         streak: streakDays
       });
-      console.log(`[PWA] Alarm local programada para las ${scheduledTime.toLocaleTimeString()}`);
+      console.log(`[PWA] Alarma de práctica programada para las ${scheduledTime.toLocaleTimeString()}`);
       return true;
     }
   }

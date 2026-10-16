@@ -44,12 +44,18 @@ export function usePwaInstall() {
       setIsModalOpen(false);
     };
 
+    const handleOpenInstallModal = () => {
+      setIsModalOpen(true);
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('laclave_open_pwa_install_modal', handleOpenInstallModal);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('laclave_open_pwa_install_modal', handleOpenInstallModal);
     };
   }, []);
 
