@@ -59,21 +59,21 @@ export function useVocalRemover(initialVideoId?: string) {
     const suppression = 1.0 - clampedVocal; // 0 = voz original, 1 = karaoke total
 
     // 1. Ganancia del canal central Mid (Voz seca frontal)
-    // Curva perceptual exponencial: a 0% cae a -36 dB (0.015x), a 100% llega a 0 dB (1.0x)
+    // A 0% se silencia por completo (0.0x); de 1% a 100% sigue curva perceptual exponencial
     if (midCenterGainRef.current) {
-      const targetMidGain = Math.pow(clampedVocal, 1.8) * 0.985 + 0.015;
+      const targetMidGain = clampedVocal === 0 ? 0 : Math.pow(clampedVocal, 1.8) * 0.985 + 0.015;
       if (ctx) midCenterGainRef.current.gain.setTargetAtTime(targetMidGain, now, 0.02);
       else midCenterGainRef.current.gain.value = targetMidGain;
     }
 
     // 2. Filtro dinámico de reverberación lateral (Opción C)
-    // Atenúa hasta -14 dB en 1.800 Hz cuando la voz está en 0%, apagando el eco residual.
+    // Atenúa hasta -18 dB en 1.800 Hz cuando la voz está en 0%, apagando el eco residual.
     // Entre 0% y 50% de voz se abre gradualmente hasta 0 dB (plano e inalterado de 50% a 100%).
     if (sideReverbNotchRef.current) {
       let targetReverbGain = 0;
       if (clampedVocal < 0.5) {
         const factor = (0.5 - clampedVocal) / 0.5; // 1.0 en 0%, 0.0 en 50%
-        targetReverbGain = -14.0 * factor;
+        targetReverbGain = -18.0 * factor;
       }
       if (ctx) sideReverbNotchRef.current.gain.setTargetAtTime(targetReverbGain, now, 0.02);
       else sideReverbNotchRef.current.gain.value = targetReverbGain;
@@ -272,7 +272,7 @@ export function useVocalRemover(initialVideoId?: string) {
       midLp.Q.value = 0.707;
 
       const midCenterGain = ctx.createGain();
-      midCenterGain.gain.value = Math.pow(initialVocalLevel, 1.8) * 0.985 + 0.015;
+      midCenterGain.gain.value = initialVocalLevel === 0 ? 0 : Math.pow(initialVocalLevel, 1.8) * 0.985 + 0.015;
       midCenterGainRef.current = midCenterGain;
 
       midBus.connect(midHp);
