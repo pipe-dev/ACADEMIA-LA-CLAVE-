@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { TabType, LessonNode } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mic } from 'lucide-react';
@@ -316,7 +316,7 @@ export default function MainApp() {
         onStartSplash={() => setShowSplash(true)}
         onTabChange={handleTabChange}
         sessionUser={sessionUser}
-        onRefreshSession={() => checkSession(true)}
+        onRefreshSession={checkSession}
       />
     </div>
   );

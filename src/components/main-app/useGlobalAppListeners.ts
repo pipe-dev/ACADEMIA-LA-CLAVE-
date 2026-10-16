@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { audioService } from '../../utils/audioService';
 import { registerServiceWorker } from '../../utils/offlineSync';
 import { usePwaInstall } from '../../utils/usePwaInstall';
@@ -115,16 +115,19 @@ export function useGlobalAppListeners({
     }
   }, []);
 
-  // Auto-start onboarding tour for new users after splash screen
+  const hasAutoTriggeredTourRef = useRef(false);
+
+  // Auto-start onboarding tour for new users after splash screen (only once)
   useEffect(() => {
-    if (showSplash) return;
+    if (showSplash || hasAutoTriggeredTourRef.current) return;
+    hasAutoTriggeredTourRef.current = true;
     const timer = setTimeout(() => {
       try {
         startOnboardingTour(activeTab, onTabChange, false);
       } catch (err) {
         console.warn('[Tour] Ignored tour initialization error:', err);
       }
-    }, 500);
+    }, 600);
     return () => clearTimeout(timer);
   }, [showSplash, activeTab, onTabChange]);
 

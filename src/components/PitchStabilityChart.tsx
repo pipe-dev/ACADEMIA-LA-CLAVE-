@@ -284,7 +284,7 @@ export const PitchStabilityChart: React.FC<PitchStabilityChartProps> = React.mem
   const hasData = isTuningActive && trailRef.current.length > 0;
 
   return (
-    <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3.5 transition-colors">
+    <div id="tour-tuner-stability" className="bg-white dark:bg-[#102034] rounded-3xl p-5 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3.5 transition-colors">
       {/* Header & Metrics Summary */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">

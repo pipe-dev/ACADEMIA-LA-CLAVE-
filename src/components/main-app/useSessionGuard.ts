@@ -25,12 +25,16 @@ export function useSessionGuard() {
     }
   });
 
+  const sessionUserRef = useRef<SessionUser | null>(sessionUser);
+  sessionUserRef.current = sessionUser;
+
   const [isValidating, setIsValidating] = useState<boolean>(true);
   const isKickingRef = useRef<boolean>(false);
 
   const checkSession = useCallback(async (force = false) => {
     if (isKickingRef.current) return;
 
+    const currentUser = sessionUserRef.current;
     const now = Date.now();
     const lastCheck = Number(localStorage.getItem(STORAGE_KEY_LAST_CHECK) || 0);
     const lastServerTime = Number(localStorage.getItem(STORAGE_KEY_SERVER_TIME) || 0);
@@ -39,8 +43,8 @@ export function useSessionGuard() {
     const isClockTampered = lastServerTime > 0 && now < (lastServerTime - 120000);
 
     // If we have in-memory session, check for immediate expiration
-    if (sessionUser?.expiresAt) {
-      const expiry = new Date(sessionUser.expiresAt).getTime();
+    if (currentUser?.expiresAt) {
+      const expiry = new Date(currentUser.expiresAt).getTime();
       if (now >= expiry) {
         isKickingRef.current = true;
         localStorage.removeItem(STORAGE_KEY_USER);
@@ -49,7 +53,7 @@ export function useSessionGuard() {
         return;
       }
       const daysRemaining = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
-      if (daysRemaining !== sessionUser.daysRemaining) {
+      if (daysRemaining !== currentUser.daysRemaining) {
         setSessionUser((prev) => (prev ? { ...prev, daysRemaining } : null));
       }
     }
@@ -58,7 +62,7 @@ export function useSessionGuard() {
     const ONE_HOUR_MS = 60 * 60 * 1000;
     const shouldCheckServer = force || isClockTampered || (now - lastCheck > ONE_HOUR_MS);
 
-    if (!shouldCheckServer && sessionUser) {
+    if (!shouldCheckServer && currentUser) {
       setIsValidating(false);
       return;
     }
@@ -107,8 +111,9 @@ export function useSessionGuard() {
       setSessionUser(data.user);
     } catch (e) {
       // Offline fallback: allow student to keep practicing if cached session exists and isn't expired
-      if (typeof navigator !== 'undefined' && !navigator.onLine && sessionUser) {
-        const expiry = new Date(sessionUser.expiresAt).getTime();
+      const currentUser = sessionUserRef.current;
+      if (typeof navigator !== 'undefined' && !navigator.onLine && currentUser) {
+        const expiry = new Date(currentUser.expiresAt).getTime();
         if (Date.now() >= expiry) {
           isKickingRef.current = true;
           localStorage.removeItem(STORAGE_KEY_USER);
@@ -119,7 +124,7 @@ export function useSessionGuard() {
     } finally {
       setIsValidating(false);
     }
-  }, [sessionUser]);
+  }, []);
 
   useEffect(() => {
     // Initial verification on mount

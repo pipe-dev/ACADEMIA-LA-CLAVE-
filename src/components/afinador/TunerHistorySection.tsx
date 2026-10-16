@@ -21,7 +21,7 @@ export const TunerHistorySection: React.FC<TunerHistorySectionProps> = ({
 
   return (
     <div
-      id="sec-historial"
+      id="tour-tuner-history"
       className={`rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 transition-colors ${
         zenMode
           ? 'bg-[#1b1c1e] border border-[#2e3138]'

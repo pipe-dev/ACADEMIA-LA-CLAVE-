@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
       if (userKeyNormalized !== inputKeyNormalized && !isMasterGroup) {
         return NextResponse.json(
-          { error: 'Clave de acceso incorrecta para este usuario.' },
+          { error: 'Clave de acceso incorrecta para este usuario.', code: 'INVALID_CREDENTIALS' },
           { status: 401 }
         );
       }
@@ -55,14 +55,26 @@ export async function POST(request: NextRequest) {
 
       if (statusInfo.isBlocked) {
         return NextResponse.json(
-          { error: 'Tu cuenta ha sido suspendida. Contacta a la academia para reactivar tu acceso.' },
+          {
+            error: 'Tu cuenta ha sido bloqueada o suspendida por administración. Por favor contacta a la academia para reactivar tu acceso.',
+            code: 'ACCOUNT_BLOCKED',
+          },
           { status: 403 }
         );
       }
 
       if (statusInfo.isExpired) {
+        const formattedExpiry = new Date(user.expires_at).toLocaleDateString('es-CO', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
         return NextResponse.json(
-          { error: 'Tu suscripcion ha vencido. Contacta a la academia para renovar tu acceso.' },
+          {
+            error: `Tu periodo de membresía ha expirado (venció el ${formattedExpiry}). Por favor contacta a la academia para renovar tus días de acceso.`,
+            code: 'ACCOUNT_EXPIRED',
+            expiresAt: user.expires_at,
+          },
           { status: 403 }
         );
       }
@@ -123,14 +135,28 @@ export async function POST(request: NextRequest) {
 
     if (statusInfo.isBlocked) {
       return NextResponse.json(
-        { error: 'Tu cuenta ha sido suspendida por la administracion.', reason: 'blocked' },
+        {
+          error: 'Tu cuenta ha sido bloqueada o suspendida por administración. Por favor contacta a la academia para reactivar tu acceso.',
+          code: 'ACCOUNT_BLOCKED',
+          reason: 'blocked',
+        },
         { status: 403 }
       );
     }
 
     if (statusInfo.isExpired || statusInfo.daysRemaining <= 0) {
+      const formattedExpiry = user.expires_at ? new Date(user.expires_at).toLocaleDateString('es-CO', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }) : 'fecha no especificada';
       return NextResponse.json(
-        { error: 'Tu suscripcion ha finalizado. Renueva tu membresia para continuar.', reason: 'expired' },
+        {
+          error: `Tu periodo de membresía ha expirado (venció el ${formattedExpiry}). Por favor contacta a la academia para renovar tus días de acceso.`,
+          code: 'ACCOUNT_EXPIRED',
+          reason: 'expired',
+          expiresAt: user.expires_at,
+        },
         { status: 403 }
       );
     }

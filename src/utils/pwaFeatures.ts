@@ -182,9 +182,24 @@ export function getRandomPracticeNotificationMessage(streakDays: number = 1): { 
 }
 
 export async function requestNotificationPermission(silent: boolean = false): Promise<boolean> {
+  const isIOS =
+    typeof navigator !== 'undefined' &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)));
+  const isStandalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      Boolean((navigator as unknown as { standalone?: boolean }).standalone));
+
   if (!('Notification' in window)) {
     if (!silent) {
-      alert('Tu navegador no soporta notificaciones de escritorio/móvil.');
+      if (isIOS && !isStandalone) {
+        alert(
+          'En iPhone y iPad, Apple exige que agregues AfinApp a la pantalla de inicio para recibir notificaciones.\n\nPasos sencillos:\n1. Toca el botón Compartir (el ícono del cuadrado con la flecha hacia arriba) en Safari.\n2. Selecciona "Agregar al inicio".\n3. Abre la app desde tu pantalla de inicio y podrás activar tus recordatorios.'
+        );
+      } else {
+        alert('Las notificaciones no están disponibles o fueron bloqueadas en este navegador.');
+      }
     }
     return false;
   }
@@ -198,6 +213,9 @@ export async function requestNotificationPermission(silent: boolean = false): Pr
     return permission === 'granted';
   }
 
+  if (!silent) {
+    alert('Las notificaciones están bloqueadas en los permisos de tu navegador. Puedes habilitarlas desde la configuración del sitio.');
+  }
   return false;
 }
 

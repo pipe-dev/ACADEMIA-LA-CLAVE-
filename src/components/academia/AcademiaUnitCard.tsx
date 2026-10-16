@@ -205,7 +205,7 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
         </div>
 
         {/* Render Nodes */}
-        {nodePositions.map(({ node, xOffset }) => {
+        {nodePositions.map(({ node, xOffset }, i) => {
           const isCompleted = node.status === 'completed';
           const isThisNodeLockedUntilIllumination =
             isThisUnitAnimating && !isFirstNodeIlluminated && !isCompleted;
@@ -235,6 +235,7 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
               )}
 
               <motion.button
+                id={index === 0 && i === 0 ? 'tour-academia-first-node' : undefined}
                 onClick={(e) => onNodeClick(node, e)}
                 data-locked={isLocked ? 'true' : undefined}
                 animate={

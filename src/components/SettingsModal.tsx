@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { audioService } from '../utils/audioService';
 import { X, Sliders, Check } from 'lucide-react';
 import {
@@ -82,19 +82,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [logsCopied, setLogsCopied] = useState<boolean>(false);
 
-  useEffect(() => {
-    audioService.playOpenSound();
-    logger.info('Settings', 'Ajustes abiertos por el usuario');
+  const hasMountedRef = useRef<boolean>(false);
+  const onRefreshSessionRef = useRef(onRefreshSession);
+  onRefreshSessionRef.current = onRefreshSession;
 
-    // Sincronizar vigencia en tiempo real al abrir ajustes
-    onRefreshSession?.();
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      audioService.playOpenSound();
+      logger.info('Settings', 'Ajustes abiertos por el usuario');
+      onRefreshSessionRef.current?.();
+    }
 
     enableScreenWakeLock().then((active) => {
       setWakeLockActive(active || isScreenWakeLockActive());
     });
 
     return logger.subscribe((newLogs) => setLogs(newLogs));
-  }, [onRefreshSession]);
+  }, []);
 
   const handleCopyLogs = async () => {
     try {

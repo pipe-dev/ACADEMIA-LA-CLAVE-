@@ -194,7 +194,7 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
     if (!silentAudioEl) {
       silentAudioEl = document.createElement('audio');
       silentAudioEl.src = SILENT_WAV_BASE64;
-      silentAudioEl.loop = true;
+      silentAudioEl.loop = false;
       silentAudioEl.volume = 0.001;
       silentAudioEl.setAttribute('playsinline', 'true');
       silentAudioEl.setAttribute('webkit-playsinline', 'true');
@@ -206,18 +206,29 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
       silentAudioEl.style.bottom = '0';
       document.body?.appendChild(silentAudioEl);
     }
-    silentAudioEl.play().catch(() => {});
+    silentAudioEl.play()
+      .then(() => {
+        setTimeout(() => {
+          try {
+            if (silentAudioEl) {
+              silentAudioEl.pause();
+              silentAudioEl.currentTime = 0;
+            }
+            if ('mediaSession' in navigator) {
+              navigator.mediaSession.playbackState = 'none';
+            }
+          } catch {}
+        }, 100);
+      })
+      .catch(() => {});
 
-    // En iOS Safari, conectar un MediaStream asegura la categoría Playback en WebKit
-    if (ctx && !mediaStreamAudioEl && typeof ctx.createMediaStreamDestination === 'function') {
+    // Detener cualquier mediaStreamAudio previo para evitar que el sistema muestre reproductor activo
+    if (mediaStreamAudioEl) {
       try {
-        const dest = ctx.createMediaStreamDestination();
-        mediaStreamAudioEl = document.createElement('audio');
-        mediaStreamAudioEl.srcObject = dest.stream;
-        mediaStreamAudioEl.setAttribute('playsinline', 'true');
-        mediaStreamAudioEl.setAttribute('webkit-playsinline', 'true');
-        mediaStreamAudioEl.volume = 0.001;
-        mediaStreamAudioEl.play().catch(() => {});
+        mediaStreamAudioEl.pause();
+        mediaStreamAudioEl.srcObject = null;
+        mediaStreamAudioEl.remove();
+        mediaStreamAudioEl = null;
       } catch {}
     }
   } catch {}

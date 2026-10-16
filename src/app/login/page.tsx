@@ -28,6 +28,12 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [wrong, setWrong] = useState(false);
   const wrongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [accountAlert, setAccountAlert] = useState<{
+    type: 'blocked' | 'expired' | 'error';
+    title: string;
+    message: string;
+    whatsappUrl?: string;
+  } | null>(null);
 
   const router = useRouter();
   const { toast } = useToast();
@@ -81,12 +87,24 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const reason = params.get('reason');
     if (reason === 'expired') {
+      setAccountAlert({
+        type: 'expired',
+        title: 'Membresía Expirada',
+        message: 'Tu suscripción mensual ha finalizado. Renueva tu membresía para continuar practicando.',
+        whatsappUrl: `https://wa.me/573006269056?text=${encodeURIComponent('Hola, mi membresía en AfinApp ha finalizado y deseo renovar mis días de acceso.')}`,
+      });
       toast({
         variant: 'destructive',
         title: 'Suscripción finalizada',
         description: 'Tu suscripción mensual ha finalizado. Renueva tu membresía para continuar.',
       });
     } else if (reason === 'blocked') {
+      setAccountAlert({
+        type: 'blocked',
+        title: 'Cuenta Suspendida',
+        message: 'Tu cuenta ha sido bloqueada por la administración. Por favor comunícate para reactivar tu acceso.',
+        whatsappUrl: `https://wa.me/573006269056?text=${encodeURIComponent('Hola, mi cuenta en AfinApp ha sido bloqueada y deseo solicitar reactivación.')}`,
+      });
       toast({
         variant: 'destructive',
         title: 'Cuenta suspendida',
@@ -245,8 +263,27 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.code === 'ACCOUNT_BLOCKED' || data.reason === 'blocked') {
+          setAccountAlert({
+            type: 'blocked',
+            title: 'Cuenta Bloqueada',
+            message: data.error || 'Tu cuenta ha sido suspendida por la administración de la academia.',
+            whatsappUrl: `https://wa.me/573006269056?text=${encodeURIComponent(`Hola, mi cuenta en AfinApp (${cleanUsername}) está bloqueada o suspendida y deseo solicitar reactivación.`)}`,
+          });
+        } else if (data.code === 'ACCOUNT_EXPIRED' || data.reason === 'expired') {
+          setAccountAlert({
+            type: 'expired',
+            title: 'Membresía Expirada',
+            message: data.error || 'Tu periodo de membresía ha expirado. Por favor renueva tus días de acceso para continuar practicando.',
+            whatsappUrl: `https://wa.me/573006269056?text=${encodeURIComponent(`Hola, mi periodo de membresía en AfinApp (${cleanUsername}) ha vencido y deseo renovar mi acceso.`)}`,
+          });
+        } else {
+          setAccountAlert(null);
+        }
         throw new Error(data.error || 'Credenciales incorrectas');
       }
+
+      setAccountAlert(null);
 
       try {
         if (rememberMe) {
@@ -370,6 +407,43 @@ export default function LoginPage() {
                 Ingresa tus datos
               </p>
             </div>
+
+            {/* Banner Informativo de Bloqueo o Expiración */}
+            {accountAlert && (
+              <div
+                className={`p-3 sm:p-3.5 rounded-2xl border text-left space-y-2 animate-in fade-in duration-200 shadow-sm ${
+                  accountAlert.type === 'blocked'
+                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-950'
+                    : 'bg-amber-500/15 border-amber-500/30 text-amber-950'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                    {accountAlert.title}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAccountAlert(null)}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-900 p-0.5"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-[11px] sm:text-xs leading-relaxed font-semibold text-slate-800">
+                  {accountAlert.message}
+                </p>
+                {accountAlert.whatsappUrl && (
+                  <a
+                    href={accountAlert.whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full py-2 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-[11px] sm:text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  >
+                    Contactar a la Academia por WhatsApp
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Formulario */}
             <form onSubmit={handleSubmit} className={`${isFieldFocused ? 'space-y-2 sm:space-y-5 pt-0.5 sm:pt-1' : 'space-y-3 sm:space-y-5 pt-1 sm:pt-2'}`}>

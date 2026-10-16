@@ -85,13 +85,13 @@ class AudioService {
       } catch {}
     }
 
-    // 2. Elemento HTML5 de audio inaudible en bucle continuo:
-    // Mantiene la sesion de iOS y Android en Playback / STREAM_MUSIC
+    // 2. Elemento HTML5 de audio inaudible de un solo pulso para desbloquear contexto:
+    // loop = false y pausar tras iniciar contexto para no secuestrar la Dynamic Island de iOS ni la barra de Android
     if (!this.unlockAudioEl) {
       try {
         this.unlockAudioEl = document.createElement('audio');
         this.unlockAudioEl.src = createSilentWav(44100);
-        this.unlockAudioEl.loop = true;
+        this.unlockAudioEl.loop = false;
         this.unlockAudioEl.volume = 0.001;
         this.unlockAudioEl.setAttribute('playsinline', 'true');
         this.unlockAudioEl.setAttribute('webkit-playsinline', 'true');
@@ -105,7 +105,21 @@ class AudioService {
       } catch {}
     }
     if (this.unlockAudioEl) {
-      this.unlockAudioEl.play().catch(() => {});
+      this.unlockAudioEl.play()
+        .then(() => {
+          setTimeout(() => {
+            try {
+              if (this.unlockAudioEl) {
+                this.unlockAudioEl.pause();
+                this.unlockAudioEl.currentTime = 0;
+              }
+              if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'none';
+              }
+            } catch {}
+          }, 100);
+        })
+        .catch(() => {});
     }
 
     // 3. Web Audio Context initialization & buffer trigger
