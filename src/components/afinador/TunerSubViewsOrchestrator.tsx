@@ -35,7 +35,7 @@ export const TunerSubViewsOrchestrator: React.FC<TunerSubViewsOrchestratorProps>
   if (activeSubView === 'respiracion') {
     return (
       <div className="pb-28 pt-4 px-4 max-w-md mx-auto animate-fadeIn">
-        <BreathingModal isEmbeddedView={true} onClose={onClose} />
+        <BreathingModal isEmbeddedView={true} onClose={onClose} onGrantXp={onGrantXp} />
       </div>
     );
   }

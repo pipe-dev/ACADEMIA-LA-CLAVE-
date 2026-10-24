@@ -8,10 +8,19 @@ import { audioService } from '../utils/audioService';
 interface BreathingModalProps {
   isOpen?: boolean;
   onClose: () => void;
+  onGrantXp?: (amount: number) => void;
   isEmbeddedView?: boolean;
+  backLabel?: string;
 }
 
-export const BreathingModal: React.FC<BreathingModalProps> = ({ isOpen = true, onClose, isEmbeddedView = false }) => {
+export const BreathingModal: React.FC<BreathingModalProps> = ({
+  isOpen = true,
+  onClose,
+  onGrantXp,
+  isEmbeddedView = false,
+  backLabel
+}) => {
+  const computedBackLabel = backLabel || (isEmbeddedView ? 'Volver al Afinador' : 'Volver');
   if (!isOpen && !isEmbeddedView) return null;
 
   const innerContent = (
@@ -26,7 +35,7 @@ export const BreathingModal: React.FC<BreathingModalProps> = ({ isOpen = true, o
           className="py-1.5 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-xs shrink-0"
         >
           <ArrowLeft className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span className="hidden sm:inline">Volver a Gimnasio Vocal</span>
+          <span className="hidden sm:inline">{computedBackLabel}</span>
           <span className="sm:hidden">Volver</span>
         </button>
 
@@ -36,7 +45,7 @@ export const BreathingModal: React.FC<BreathingModalProps> = ({ isOpen = true, o
       </div>
 
       {/* Embed Breathing Exercise Card */}
-      <BreathingGameCard />
+      <BreathingGameCard onGrantXp={onGrantXp} />
     </div>
   );
 

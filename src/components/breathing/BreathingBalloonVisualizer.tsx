@@ -102,7 +102,9 @@ export const BreathingBalloonVisualizer: React.FC<BreathingBalloonVisualizerProp
             <div className="relative w-52 h-52 flex items-center justify-center">
               {/* External Ripple Glow Ring */}
               <div
-                className="absolute rounded-full transition-all duration-700 ease-out pointer-events-none"
+                className={`absolute rounded-full pointer-events-none ${
+                  isActive ? 'transition-all duration-1000 ease-linear' : 'transition-all duration-500 ease-out'
+                }`}
                 style={{
                   width: `${160 * balloonScale}px`,
                   height: `${200 * balloonScale}px`,
@@ -113,7 +115,9 @@ export const BreathingBalloonVisualizer: React.FC<BreathingBalloonVisualizerProp
 
               {/* Balloon Container with Scale transform */}
               <div
-                className="relative transition-transform duration-500 ease-out flex flex-col items-center justify-center"
+                className={`relative flex flex-col items-center justify-center ${
+                  isActive ? 'transition-transform duration-1000 ease-linear' : 'transition-transform duration-500 ease-out'
+                }`}
                 style={{
                   transform: `scale(${balloonScale})`,
                   filter: `drop-shadow(0 15px 25px ${currentBalloonTheme.glowRgb})`

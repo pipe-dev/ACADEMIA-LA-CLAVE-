@@ -12,7 +12,11 @@ import { BreathingTechniqueSelector } from './breathing/BreathingTechniqueSelect
 
 export { BREATHING_TECHNIQUES, type BreathingTechnique };
 
-export const BreathingGameCard: React.FC = () => {
+export interface BreathingGameCardProps {
+  onGrantXp?: (amount: number) => void;
+}
+
+export const BreathingGameCard: React.FC<BreathingGameCardProps> = ({ onGrantXp }) => {
   const {
     selectedTechId,
     isActive,
@@ -27,7 +31,7 @@ export const BreathingGameCard: React.FC = () => {
     handleToggleActive,
     handleReset,
     handleSelectTechnique
-  } = useBreathingEngine();
+  } = useBreathingEngine(onGrantXp);
 
   const targetCycles = currentTech.targetCycles || 2;
 

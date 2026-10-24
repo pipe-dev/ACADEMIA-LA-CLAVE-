@@ -74,6 +74,20 @@ export const BALLOON_COLOR_THEMES: BalloonColorTheme[] = [
 
 export const BREATHING_TECHNIQUES: BreathingTechnique[] = [
   {
+    id: 'diafragmatico-426',
+    name: 'Apoyo Costodiafragmático',
+    subtitle: 'Base Fundamental del Canto',
+    category: 'Control Vocal',
+    description: 'Inhala expandiendo costillas y abdomen en 4s, retén 2s activando el apoyo, y exhala suave en 6s.',
+    instructions: 'Siente la expansión 360° en la base de tus costillas y mantén el diafragma activo al exhalar.',
+    targetCycles: 3,
+    phases: [
+      { type: 'inhale', duration: 4, label: 'Inhala diafragmático', detail: 'Expande costillas y abdomen hacia afuera' },
+      { type: 'hold_full', duration: 2, label: 'Activa el apoyo', detail: 'Sostén con músculos intercostales abiertos' },
+      { type: 'exhale', duration: 6, label: 'Exhala dosificado', detail: 'Vacia suavemente sin colapsar el pecho' }
+    ]
+  },
+  {
     id: 'pursed-lips',
     name: 'Labios Fruncidos',
     subtitle: 'Rehabilitación Pulmonar y Presión Positiva',

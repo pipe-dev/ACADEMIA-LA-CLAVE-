@@ -149,7 +149,7 @@ export const TunerToolsAccordion: React.FC<TunerToolsAccordionProps> = ({
                   zenMode ? 'text-[#9ea3ae]' : 'text-emerald-100/90'
                 }`}
               >
-                Visualizador diafragmático 4-4-4
+                Apoyo diafragmático y capacidad pulmonar
               </p>
             </div>
             <div

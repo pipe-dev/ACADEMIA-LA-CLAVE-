@@ -11,11 +11,26 @@ import {
   BalloonColor
 } from './breathingTypes';
 
-export function useBreathingEngine() {
-  const [selectedTechId, setSelectedTechId] = useState<string>('pursed-lips');
+export function useBreathingEngine(onGrantXp?: (amount: number) => void) {
+  const [selectedTechId, setSelectedTechId] = useState<string>('diafragmatico-426');
   const [isActive, setIsActive] = useState<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
-  const [balloonColor, setBalloonColor] = useState<BalloonColor>('red');
+  const [balloonColor, setBalloonColorState] = useState<BalloonColor>(() => {
+    try {
+      const saved = localStorage.getItem('laclave_breathing_balloon_color');
+      if (saved && ['red', 'blue', 'purple', 'emerald', 'amber', 'pink', 'cyan'].includes(saved)) {
+        return saved as BalloonColor;
+      }
+    } catch {}
+    return 'red';
+  });
+
+  const setBalloonColor = useCallback((color: BalloonColor) => {
+    setBalloonColorState(color);
+    try {
+      localStorage.setItem('laclave_breathing_balloon_color', color);
+    } catch {}
+  }, []);
 
   const balloonRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,52 +90,12 @@ export function useBreathingEngine() {
     return boundaries;
   }, [currentTech]);
 
-  // Smooth scroll to balloon
+  // Smooth scroll to balloon (adaptive for modals and window)
   const scrollToBalloon = useCallback(() => {
     setTimeout(() => {
       const el = balloonRef.current;
       if (!el) return;
-
-      const startY = window.scrollY;
-      const rect = el.getBoundingClientRect();
-      const viewportH = window.innerHeight;
-      // Centra el globo de forma óptima en el viewport dejando espacio a los controles inferiores
-      const targetRaw =
-        startY + rect.top - Math.max(20, (viewportH - el.offsetHeight) / 2) + 115;
-      const maxY = Math.max(
-        0,
-        (document.documentElement.scrollHeight || document.body.scrollHeight) -
-          viewportH
-      );
-      const endY = Math.min(Math.max(0, targetRaw), maxY);
-
-      if (Math.abs(endY - startY) < 2) return;
-
-      const duration = 500;
-      const t0 = performance.now();
-      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-
-      let rafId: number | null = null;
-      const cancelAnimation = () => {
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        window.removeEventListener('wheel', cancelAnimation);
-        window.removeEventListener('touchstart', cancelAnimation);
-      };
-
-      window.addEventListener('wheel', cancelAnimation, { passive: true });
-      window.addEventListener('touchstart', cancelAnimation, { passive: true });
-
-      const step = (now: number) => {
-        const progress = Math.min(1, (now - t0) / duration);
-        window.scrollTo(0, startY + (endY - startY) * easeOutCubic(progress));
-        if (progress < 1) {
-          rafId = requestAnimationFrame(step);
-        } else {
-          cancelAnimation();
-        }
-      };
-
-      rafId = requestAnimationFrame(step);
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 60);
   }, []);
 
@@ -149,13 +124,33 @@ export function useBreathingEngine() {
           });
           emitStreakEligibleAction();
           emitQuestEvent('BREATHING_SESSION', 1);
+
+          // Update breathing completed count for badge_5 ("Respiración consciente")
+          try {
+            const currentCount = parseInt(localStorage.getItem('laclave_breathing_completed_count') || '0', 10) || 0;
+            localStorage.setItem('laclave_breathing_completed_count', String(currentCount + 1));
+          } catch {}
+
+          if (onGrantXp) {
+            onGrantXp(20);
+          }
+
           return totalDuration;
         }
 
         const timeInCycle = next % cycleDuration;
         if (phaseBoundaries.includes(timeInCycle)) {
-          audioService.playSoftDing();
-          audioService.vibrate([25]);
+          // Identify the exact phase starting at this second boundary
+          let accum = 0;
+          let startingPhase = currentTech.phases[0];
+          for (let i = 0; i < currentTech.phases.length; i++) {
+            if (accum === timeInCycle) {
+              startingPhase = currentTech.phases[i];
+              break;
+            }
+            accum += currentTech.phases[i].duration;
+          }
+          audioService.playBreathCue(startingPhase.type);
         }
 
         return next;
@@ -163,17 +158,26 @@ export function useBreathingEngine() {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [isActive, totalDuration, cycleDuration, phaseBoundaries]);
+  }, [isActive, totalDuration, cycleDuration, phaseBoundaries, currentTech, onGrantXp]);
 
   const handleToggleActive = useCallback(() => {
-    audioService.playClickSound();
     if (isFinished) {
+      audioService.playBreathCue(currentTech.phases[0].type);
       setElapsedSeconds(0);
       setIsActive(true);
     } else {
-      setIsActive((prev) => !prev);
+      setIsActive((prev) => {
+        const nextState = !prev;
+        if (nextState) {
+          // Play initial cue for the currently visible phase when starting
+          audioService.playBreathCue(currentPhase.type);
+        } else {
+          audioService.playClickSound();
+        }
+        return nextState;
+      });
     }
-  }, [isFinished]);
+  }, [isFinished, currentTech, currentPhase]);
 
   const handleReset = useCallback(() => {
     audioService.playClickSound();
