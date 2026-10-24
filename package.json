@@ -11,7 +11,7 @@
     "deploy:worker": "wrangler deploy --no-upload-source-maps --keep-vars",
     "start": "next start",
     "test": "node scratch/test_suite.mjs",
-    "test:unit": "npx tsx src/utils/__tests__/pitchUtils.test.ts && npx tsx src/utils/__tests__/livesEngine.test.ts && npx tsx src/components/__tests__/AuraShieldRing.test.ts && npx tsx src/utils/__tests__/vocalNotePool.test.ts && npx tsx src/components/vocal-range/__tests__/vocalRangeUtils.test.ts",
+    "test:unit": "npx tsx src/utils/__tests__/pitchUtils.test.ts && npx tsx src/utils/__tests__/livesEngine.test.ts && npx tsx src/components/__tests__/AuraShieldRing.test.ts && npx tsx src/utils/__tests__/vocalNotePool.test.ts && npx tsx src/components/vocal-range/__tests__/vocalRangeUtils.test.ts && npx tsx src/utils/__tests__/vocalRangeHelper.test.ts && npx tsx src/components/breathing/__tests__/breathingEngine.test.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

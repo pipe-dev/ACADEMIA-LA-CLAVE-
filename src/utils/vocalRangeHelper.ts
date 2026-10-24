@@ -107,15 +107,63 @@ export function calculateOctaves(range: VocalRangeData | null): string {
 }
 
 /**
- * Saves a vocal range evaluation and appends it to the user's vocal range evolution history.
+ * Saves a vocal range evaluation:
+ * - Updates the operational saved range (laclave_vocal_range_saved) applying the ratchet rule
+ *   to ensure historical records are never diminished (protecting the user's records).
+ * - Appends the REAL evaluated measurement of this session to the evolution history
+ *   (laclave_vocal_range_history) so the progress chart reflects what was actually sung.
  */
-export function recordVocalRangeEvaluation(range: VocalRangeData): void {
-  if (typeof window === 'undefined') return;
+export function recordVocalRangeEvaluation(
+  range: VocalRangeData,
+  ratchetedSavedRange?: VocalRangeData
+): VocalRangeData {
+  if (typeof window === 'undefined') return range;
   try {
-    localStorage.setItem(VOCAL_RANGE_SAVED_KEY, JSON.stringify(range));
-    localStorage.setItem('laclave_vocal_range_classification', range.classification);
-    if (range.gender) {
-      localStorage.setItem('laclave_voice_gender', range.gender);
+    let savedRange: VocalRangeData;
+
+    if (ratchetedSavedRange) {
+      savedRange = ratchetedSavedRange;
+    } else {
+      let finalMinHz = range.minHz || noteNameToHz(range.noteMin);
+      let finalMaxHz = range.maxHz || noteNameToHz(range.noteMax);
+      let finalNoteMin = range.noteMin;
+      let finalNoteMax = range.noteMax;
+      let finalClassification = range.classification;
+
+      const rawPrev = localStorage.getItem(VOCAL_RANGE_SAVED_KEY);
+      if (rawPrev) {
+        const prev: VocalRangeData = JSON.parse(rawPrev);
+        const prevMinHz = prev.minHz || noteNameToHz(prev.noteMin);
+        const prevMaxHz = prev.maxHz || noteNameToHz(prev.noteMax);
+
+        if (prevMinHz > 0 && (finalMinHz <= 0 || prevMinHz < finalMinHz)) {
+          finalMinHz = prevMinHz;
+          finalNoteMin = prev.noteMin || hzToNoteName(prevMinHz).fullName;
+        }
+        if (prevMaxHz > 0 && (finalMaxHz <= 0 || prevMaxHz > finalMaxHz)) {
+          finalMaxHz = prevMaxHz;
+          finalNoteMax = prev.noteMax || hzToNoteName(prevMaxHz).fullName;
+        }
+        const gender = range.gender || prev.gender || 'femenino';
+        finalClassification = classifyVoice(finalMinHz, finalMaxHz, gender === 'femenino' ? 'female' : 'male').classification;
+      }
+
+      savedRange = {
+        minHz: finalMinHz,
+        maxHz: finalMaxHz,
+        noteMin: finalNoteMin,
+        noteMax: finalNoteMax,
+        classification: finalClassification,
+        gender: range.gender
+      };
+    }
+
+    localStorage.setItem(VOCAL_RANGE_SAVED_KEY, JSON.stringify(savedRange));
+    if (savedRange.classification) {
+      localStorage.setItem('laclave_vocal_range_classification', savedRange.classification);
+    }
+    if (savedRange.gender) {
+      localStorage.setItem('laclave_voice_gender', savedRange.gender);
     }
 
     markVocalRangeCheckCompleted();
@@ -147,9 +195,13 @@ export function recordVocalRangeEvaluation(range: VocalRangeData): void {
     localStorage.setItem(VOCAL_RANGE_HISTORY_KEY, JSON.stringify(history));
 
     window.dispatchEvent(new CustomEvent('laclave_vocal_range_updated', {
-      detail: { newRange: range, history }
+      detail: { newRange: savedRange, evaluatedRange: range, history }
     }));
-  } catch {}
+
+    return savedRange;
+  } catch {
+    return range;
+  }
 }
 
 /**

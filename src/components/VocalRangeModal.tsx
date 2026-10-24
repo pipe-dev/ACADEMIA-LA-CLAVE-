@@ -170,13 +170,30 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
   const fallbackLowest = voiceGender === 'female' ? 196 : 110;
   const fallbackHighest = voiceGender === 'female' ? 659 : 440;
 
-  // Calculations for final result step
+  // Calculations for final result step: REAL TEST MEASUREMENTS
   const rawLowest = lowestHz || fallbackLowest;
   const rawHighest = highestHz || fallbackHighest;
   const minHzVal = Math.min(rawLowest, rawHighest);
   const maxHzVal = Math.max(rawLowest, rawHighest);
 
-  // Consolidated range applying the ratchet rule so the Result screen displays exactly what is saved
+  // Real momentary evaluation of the current test session (does NOT overwrite with historical record)
+  const evaluatedRange = React.useMemo(() => {
+    const vocalEval = classifyVoice(minHzVal, maxHzVal, voiceGender || 'male');
+    const octavesRange = (Math.log2(maxHzVal / minHzVal)).toFixed(1);
+    const lowestNote = hzToNoteName(minHzVal).fullName;
+    const highestNote = hzToNoteName(maxHzVal).fullName;
+
+    return {
+      minHz: minHzVal,
+      maxHz: maxHzVal,
+      lowestNote,
+      highestNote,
+      vocalEval,
+      octavesRange
+    };
+  }, [minHzVal, maxHzVal, voiceGender]);
+
+  // Consolidated range applying the ratchet rule so the operational profile (piano, tuner pool) never shrinks
   const consolidatedRange = React.useMemo(() => {
     let finalMinHz = minHzVal;
     let finalMaxHz = maxHzVal;
@@ -221,7 +238,16 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
     const finalGender: 'masculino' | 'femenino' = voiceGender === 'female' ? 'femenino' : 'masculino';
 
-    const rangeData = {
+    const currentEvalData = {
+      minHz: evaluatedRange.minHz,
+      maxHz: evaluatedRange.maxHz,
+      noteMin: evaluatedRange.lowestNote,
+      noteMax: evaluatedRange.highestNote,
+      classification: evaluatedRange.vocalEval.classification,
+      gender: finalGender
+    };
+
+    const protectedProfileData = {
       minHz: consolidatedRange.minHz,
       maxHz: consolidatedRange.maxHz,
       noteMin: consolidatedRange.lowestNote,
@@ -230,10 +256,10 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
       gender: finalGender
     };
 
-    recordVocalRangeEvaluation(rangeData);
+    recordVocalRangeEvaluation(currentEvalData, protectedProfileData);
 
     if (onSaveRange) {
-      onSaveRange(rangeData);
+      onSaveRange(protectedProfileData);
     }
 
     audioService.playSoftDing();
@@ -354,10 +380,10 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
       {/* Step 4: Result */}
       {step === 'result' && (
         <VocalRangeResultStep
-          vocalEval={consolidatedRange.vocalEval}
-          octavesRange={consolidatedRange.octavesRange}
-          lowestNote={consolidatedRange.lowestNote}
-          highestNote={consolidatedRange.highestNote}
+          vocalEval={evaluatedRange.vocalEval}
+          octavesRange={evaluatedRange.octavesRange}
+          lowestNote={evaluatedRange.lowestNote}
+          highestNote={evaluatedRange.highestNote}
           isSavedSuccess={isSavedSuccess}
           comparison={comparison}
           onRepeat={() => setStep('intro')}
