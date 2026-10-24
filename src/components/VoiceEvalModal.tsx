@@ -11,57 +11,116 @@ import {
 } from '../utils/voicePlaybackService';
 import { Activity, History, ArrowLeft } from 'lucide-react';
 import { emitStreakEligibleAction } from '../utils/streakPrompt';
+import { checkAndExpandVocalRange } from '../utils/vocalRangeHelper';
 import { VoiceEvalModalProps, PitchSample, TunerHistoryItem, VocalRangeSavedData } from './voice-eval/voiceEvalTypes';
 import { computeVoiceEvaluation } from './voice-eval/voiceEvalScoring';
 import { VoiceEvalPianoSelector } from './voice-eval/VoiceEvalPianoSelector';
 import { VoiceEvalRecordingState } from './voice-eval/VoiceEvalRecordingState';
 import { VoiceEvalResultsView } from './voice-eval/VoiceEvalResultsView';
 
+const VOCAL_PRESETS: Record<string, VocalRangeSavedData> = {
+  Bajo: { classification: 'Bajo', gender: 'masculino', noteMin: 'Mi2', noteMax: 'Mi4', minHz: 82.41, maxHz: 329.63 },
+  Barítono: { classification: 'Barítono', gender: 'masculino', noteMin: 'La2', noteMax: 'Sol4', minHz: 110.0, maxHz: 392.0 },
+  Tenor: { classification: 'Tenor', gender: 'masculino', noteMin: 'Do3', noteMax: 'La4', minHz: 130.81, maxHz: 440.0 },
+  Alto: { classification: 'Contralto', gender: 'femenino', noteMin: 'Fa3', noteMax: 'Fa5', minHz: 174.61, maxHz: 698.46 },
+  Contralto: { classification: 'Contralto', gender: 'femenino', noteMin: 'Fa3', noteMax: 'Fa5', minHz: 174.61, maxHz: 698.46 },
+  Mezzosoprano: { classification: 'Mezzosoprano', gender: 'femenino', noteMin: 'La3', noteMax: 'La5', minHz: 220.0, maxHz: 880.0 },
+  Soprano: { classification: 'Soprano', gender: 'femenino', noteMin: 'Do4', noteMax: 'Do6', minHz: 261.63, maxHz: 1046.5 },
+};
+
+function resolveClassification(stats?: any): string {
+  if (stats?.vocalRange) return stats.vocalRange;
+  if (stats?.vocalRangeData?.classification) return stats.vocalRangeData.classification;
+  if (typeof window !== 'undefined') {
+    try {
+      const c = localStorage.getItem('laclave_vocal_range_classification');
+      if (c) return c;
+      const s = localStorage.getItem('laclave_vocal_range_saved');
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed?.classification) return parsed.classification;
+      }
+      const u = localStorage.getItem('laclave_user_stats_v6');
+      if (u) {
+        const parsed = JSON.parse(u);
+        if (parsed?.vocalRange) return parsed.vocalRange;
+        if (parsed?.vocalRangeData?.classification) return parsed.vocalRangeData.classification;
+      }
+    } catch {}
+  }
+  return 'Tenor';
+}
+
+function resolveGender(classification: string, stats?: any): 'masculino' | 'femenino' {
+  const lower = (classification || '').toLowerCase();
+  if (lower.includes('tenor') || lower.includes('barítono') || lower.includes('baritono') || lower.includes('bajo')) {
+    return 'masculino';
+  }
+  if (lower.includes('soprano') || lower.includes('mezzosoprano') || lower.includes('mezzo') || lower.includes('contralto') || lower.includes('alto')) {
+    return 'femenino';
+  }
+  if (stats?.vocalRangeData?.gender === 'masculino' || stats?.vocalRangeData?.gender === 'femenino') {
+    return stats.vocalRangeData.gender;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const g = localStorage.getItem('laclave_voice_gender');
+      if (g === 'masculino' || g === 'femenino') return g;
+    } catch {}
+  }
+  return 'masculino';
+}
+
+function resolveRangeData(classification: string, gender: 'masculino' | 'femenino', stats?: any): VocalRangeSavedData {
+  if (stats?.vocalRangeData && stats.vocalRangeData.noteMin && stats.vocalRangeData.noteMax) {
+    return {
+      ...stats.vocalRangeData,
+      classification: stats.vocalRangeData.classification || classification,
+      gender: stats.vocalRangeData.gender || gender,
+    };
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const s = localStorage.getItem('laclave_vocal_range_saved');
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed?.noteMin && parsed?.noteMax) {
+          return {
+            ...parsed,
+            classification: parsed.classification || classification,
+            gender: parsed.gender || gender,
+          };
+        }
+      }
+    } catch {}
+  }
+  const preset = VOCAL_PRESETS[classification] || VOCAL_PRESETS[gender === 'masculino' ? 'Tenor' : 'Mezzosoprano'];
+  return { ...preset };
+}
+
 export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
   isOpen = true,
   onClose,
   isEmbeddedView = false,
+  userStats,
 }) => {
-  const getInitialRangeState = (): VocalRangeSavedData | null => {
-    try {
-      const saved = localStorage.getItem('laclave_vocal_range_saved');
-      if (saved) return JSON.parse(saved) as VocalRangeSavedData;
-    } catch {}
-    return null;
-  };
-
-  const getInitialGender = (): 'masculino' | 'femenino' => {
-    try {
-      const saved = localStorage.getItem('laclave_voice_gender');
-      if (saved === 'masculino' || saved === 'femenino') return saved;
-      const savedRange = localStorage.getItem('laclave_vocal_range_saved');
-      if (savedRange) {
-        const parsed = JSON.parse(savedRange);
-        if (parsed.gender === 'masculino' || parsed.gender === 'femenino') return parsed.gender;
-        if (parsed.classification === 'Bajo' || parsed.classification === 'Barítono' || parsed.classification === 'Tenor') {
-          return 'masculino';
-        }
-      }
-    } catch {}
-    return 'femenino';
-  };
+  const initialClassif = resolveClassification(userStats);
+  const initialGender = resolveGender(initialClassif, userStats);
+  const initialRange = resolveRangeData(initialClassif, initialGender, userStats);
 
   // Vocal range + gender guardados en la app. Controlan qué voces suenan y qué teclas se activan.
-  const [effectiveRangeData, setEffectiveRangeData] = useState<VocalRangeSavedData | null>(getInitialRangeState);
-  const [gender, setGender] = useState<'masculino' | 'femenino'>(getInitialGender);
+  const [effectiveRangeData, setEffectiveRangeData] = useState<VocalRangeSavedData>(initialRange);
+  const [gender, setGender] = useState<'masculino' | 'femenino'>(initialGender);
 
-  // Re-lee el rango calibrado cada vez que se abre el modal para estar siempre sincronizado
+  // Re-lee el rango calibrado cada vez que se abre el modal o cambian los stats para estar siempre sincronizado
   useEffect(() => {
     if (!isOpen && !isEmbeddedView) return;
-    try {
-      const savedRange = localStorage.getItem('laclave_vocal_range_saved');
-      if (savedRange) setEffectiveRangeData(JSON.parse(savedRange));
-    } catch {}
-    try {
-      const savedGender = localStorage.getItem('laclave_voice_gender');
-      if (savedGender === 'masculino' || savedGender === 'femenino') setGender(savedGender);
-    } catch {}
-  }, [isOpen, isEmbeddedView]);
+    const classif = resolveClassification(userStats);
+    const resolvedGen = resolveGender(classif, userStats);
+    const resolvedRange = resolveRangeData(classif, resolvedGen, userStats);
+    setGender(resolvedGen);
+    setEffectiveRangeData(resolvedRange);
+  }, [isOpen, isEmbeddedView, userStats]);
 
   // Precarga las grabaciones de voz real de la carpeta /public/sounds para el género del usuario
   useEffect(() => {
@@ -95,12 +154,10 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
     [sharpNotes]
   );
 
-  // Nota objetivo por defecto: LA (440 Hz) si está en rango, si no la primera nota alcanzable
+  // Nota objetivo por defecto: LA o primera nota cómoda alcanzable dentro de su rango
   const [selectedTargetNote, setSelectedTargetNote] = useState<ChromaticNoteButtonInfo>(() => {
-    const range = getInitialRangeState();
-    const voiceGender = getInitialGender();
-    const chrom = getComfortableChromaticNotes(range, voiceGender);
-    const pool = generateUserNotePool(range, voiceGender);
+    const chrom = getComfortableChromaticNotes(initialRange, initialGender);
+    const pool = generateUserNotePool(initialRange, initialGender);
     const pick = (n: ChromaticNoteButtonInfo) => pool.some((p) => p.midi === n.midi);
     return (
       chrom.naturalNotes.find((n) => n.semitone === 9 && pick(n)) ||
@@ -125,7 +182,7 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
   const miniPianoNotes = useMemo(() => {
     const cMain = naturalNotes.find((n) => n.semitone === 0);
     const nextOctave = (cMain?.octave ?? (gender === 'masculino' ? 3 : 4)) + 1;
-    return [0, 1, 2, 3, 4].map((semitone) => getChromaticNoteByMidi((nextOctave + 1) * 12 + semitone));
+    return [0, 1, 2, 3, 4].map((semitone) => getChromaticNoteByMidi((nextOctave + 1) * 12 + semitone, gender));
   }, [naturalNotes, gender]);
 
   const miniPianoWhiteKeys = useMemo(
@@ -256,6 +313,10 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
     if (!evalResult.insufficientAudio) {
       emitStreakEligibleAction();
       audioService.playFrequency(587.33, 0.4);
+
+      if (evalResult.pitchAccuracy >= 60 || evalResult.score >= 60) {
+        checkAndExpandVocalRange(selectedTargetNote.frequency, selectedTargetNote.name, 'afinador');
+      }
     }
 
     setResult(evalResult);
@@ -272,7 +333,7 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
             audioService.stopMicrophone();
             handleClose();
           }}
-          className="py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-[11px] sm:text-xs shrink-0"
+          className="py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-[11px] sm:text-xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-600 dark:text-sky-400" />
           <span className="hidden sm:inline">Volver a Gimnasio Vocal</span>

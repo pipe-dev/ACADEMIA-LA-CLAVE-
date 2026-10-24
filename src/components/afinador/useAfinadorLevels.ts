@@ -10,7 +10,7 @@ import {
   generateIntervalChallenge,
   melodies
 } from '../../data/tunerLevelsData';
-import { NoteInfo, voicePlayback } from '../../utils/voicePlaybackService';
+import { NoteInfo, voicePlayback, getOctaveIndicator, VOCAL_AUDIO_LIMITS } from '../../utils/voicePlaybackService';
 import { audioService } from '../../utils/audioService';
 import { emitStreakEligibleAction } from '../../utils/streakPrompt';
 import { emitQuestEvent } from '../../utils/dailyQuestsEngine';
@@ -207,14 +207,25 @@ export function useAfinadorLevels({
       } else if (diff === 'Fácil' && (lvl === 4 || lvl === 6)) {
         const melodyKey = lvl === 4 ? 'twinkle' : 'maryHadALamb';
         const m = melodies[melodyKey] || melodies.twinkle;
-        const baseMidi = userNotePool[Math.floor(userNotePool.length / 2)]?.midi || 60;
+        const minOffset = Math.min(...m.map(item => item.midi - 60));
+        const maxOffset = Math.max(...m.map(item => item.midi - 60));
+        const limits = VOCAL_AUDIO_LIMITS[gender] || VOCAL_AUDIO_LIMITS.masculino;
+        const poolMin = userNotePool[0]?.midi ?? limits.minMidi;
+        const poolMax = userNotePool[userNotePool.length - 1]?.midi ?? limits.maxMidi;
+        const midPoolMidi = userNotePool[Math.floor(userNotePool.length / 2)]?.midi || Math.floor((limits.minMidi + limits.maxMidi) / 2);
+        let safeBase = midPoolMidi;
+        if (poolMax - maxOffset >= poolMin - minOffset) {
+          safeBase = Math.max(poolMin - minOffset, Math.min(poolMax - maxOffset, midPoolMidi));
+        } else {
+          safeBase = Math.max(limits.minMidi - minOffset, Math.min(limits.maxMidi - maxOffset, midPoolMidi));
+        }
         notes = m.map(item => {
-          const midi = baseMidi + (item.midi - 60);
+          const midi = safeBase + (item.midi - 60);
           const name = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'][midi % 12];
           const letter = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][midi % 12];
           const octave = Math.floor(midi / 12) - 1;
           const frequency = Math.round(440 * Math.pow(2, (midi - 69) / 12) * 100) / 100;
-          return { name, letter, octave, frequency, fullName: `${name}${octave}`, midi };
+          return { name, letter, octave, frequency, fullName: `${name}${octave}`, midi, octaveArrow: getOctaveIndicator(octave, gender) };
         });
       } else {
         const noteCount = diff === 'Calentamiento' ? 4 : (diffArray ? diffArray[lvl - 1] || 4 : 4);

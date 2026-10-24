@@ -291,13 +291,18 @@ export function generateIntervalChallenge(level: number, pool: NoteInfo[]): Note
   const poolMidMidi = pool[Math.floor(pool.length / 2)].midi;
   const targetOctave = Math.floor(poolMidMidi / 12) - 1;
 
-  // Find root note in the pool near the user's middle octave
+  const intervals = type === 'major'
+    ? [0, 4, 7, 12] // Root, 3M, 5J, Octave
+    : [0, 3, 7, 12]; // Root, 3m, 5J, Octave
+
+  // Find root note near the user's middle octave where ALL chord intervals
+  // exist in the pool (verifies every degree, making no assumption of a contiguous pool).
   let bestRoot: NoteInfo | undefined;
   for (let octOffset = 0; octOffset <= 3; octOffset++) {
     const candidates = [targetOctave - octOffset, targetOctave + octOffset];
     for (const oct of candidates) {
       const candidateMidi = (rootMidi % 12) + 12 * (oct + 1);
-      if (poolByMidi.has(candidateMidi)) {
+      if (intervals.every(inv => poolByMidi.has(candidateMidi + inv))) {
         bestRoot = poolByMidi.get(candidateMidi);
         break;
       }
@@ -305,14 +310,25 @@ export function generateIntervalChallenge(level: number, pool: NoteInfo[]): Note
     if (bestRoot) break;
   }
 
+  // Fallback: find any root in the pool near the user's middle octave
+  if (!bestRoot) {
+    for (let octOffset = 0; octOffset <= 3; octOffset++) {
+      const candidates = [targetOctave - octOffset, targetOctave + octOffset];
+      for (const oct of candidates) {
+        const candidateMidi = (rootMidi % 12) + 12 * (oct + 1);
+        if (poolByMidi.has(candidateMidi)) {
+          bestRoot = poolByMidi.get(candidateMidi);
+          break;
+        }
+      }
+      if (bestRoot) break;
+    }
+  }
+
   if (!bestRoot) {
     const rootName = pool.find(n => n.midi % 12 === rootMidi % 12);
     bestRoot = rootName || pool[0];
   }
-
-  const intervals = type === 'major'
-    ? [0, 4, 7, 12] // Root, 3M, 5J, Octave
-    : [0, 3, 7, 12]; // Root, 3m, 5J, Octave
 
   const challengeNotes: NoteInfo[] = [];
   for (const interval of intervals) {
@@ -321,7 +337,7 @@ export function generateIntervalChallenge(level: number, pool: NoteInfo[]): Note
     if (note) challengeNotes.push(note);
   }
 
-  if (challengeNotes.length < 2) {
+  if (challengeNotes.length < 4) {
     return generateChallenge(4, pool);
   }
 

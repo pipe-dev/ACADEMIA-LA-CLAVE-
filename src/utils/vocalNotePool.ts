@@ -7,6 +7,7 @@ export interface NoteInfo {
   frequency: number; // e.g. 130.81
   fullName: string;  // e.g. "Do3"
   midi: number;      // e.g. 48
+  octaveArrow?: 'up' | 'down' | null; // ▲ = aguda; ▼ = grave; null = base
 }
 
 export interface ChromaticNoteButtonInfo {
@@ -22,6 +23,8 @@ export interface ChromaticNoteButtonInfo {
   midi: number;
   bgColor: string;
   shadowColor: string;
+  hasRecording: boolean; // true = existe MP3 real del género en public/sounds/; false = se cubre con sintetizador
+  octaveArrow: 'up' | 'down' | null; // ▲ = octava aguda (> base); ▼ = grave (< base); null = octava base (3 masc / 4 fem)
 }
 
 // Backward-compatible alias
@@ -49,6 +52,62 @@ export const chromaticBase = [
 ];
 
 /**
+ * Returns the gender-aware octave direction indicator:
+ * - Masculino: Octava base = 3 (A3). Octava 2 (A2) = 'down' (▼ grave). Octava 4 (A4) = 'up' (▲ aguda).
+ * - Femenino:  Octava base = 4 (A4). Octava 3 (A3) = 'down' (▼ grave). Octava 5 (C5) = 'up' (▲ aguda).
+ */
+export function getOctaveIndicator(
+  octave: number,
+  gender: 'masculino' | 'femenino' = 'femenino'
+): 'up' | 'down' | null {
+  const baseOctave = gender === 'masculino' ? 3 : 4;
+  if (octave > baseOctave) return 'up';
+  if (octave < baseOctave) return 'down';
+  return null;
+}
+
+/**
+ * Rangos canónicos de las 6 clasificaciones vocales fisiológicas:
+ * Masculinas: Bajo, Barítono, Tenor (grabaciones disponibles G2..B4)
+ * Femeninas: Contralto, Mezzosoprano, Soprano (grabaciones disponibles A3..Fs5)
+ */
+export const CLASSIFICATION_RANGES: Record<
+  string,
+  { noteMin: string; noteMax: string; gender: 'masculino' | 'femenino'; minHz: number; maxHz: number }
+> = {
+  Bajo: { noteMin: 'Mi2', noteMax: 'Mi4', gender: 'masculino', minHz: 82, maxHz: 330 },
+  Barítono: { noteMin: 'La2', noteMax: 'Sol4', gender: 'masculino', minHz: 110, maxHz: 392 },
+  Tenor: { noteMin: 'Do3', noteMax: 'Do5', gender: 'masculino', minHz: 130, maxHz: 523 },
+  Contralto: { noteMin: 'Fa3', noteMax: 'Fa5', gender: 'femenino', minHz: 174, maxHz: 698 },
+  Mezzosoprano: { noteMin: 'La3', noteMax: 'La5', gender: 'femenino', minHz: 220, maxHz: 880 },
+  Soprano: { noteMin: 'Do4', noteMax: 'Do6', gender: 'femenino', minHz: 261, maxHz: 1046 }
+};
+
+/**
+ * Physical voice audio recordings limits (public/sounds/)
+ * Masculino: G2 (MIDI 43) to B4 (MIDI 71) = 29 audios
+ * Femenino: A3 (MIDI 57) to F#5 (MIDI 78) = 22 audios
+ */
+export const VOCAL_AUDIO_LIMITS = {
+  masculino: {
+    minMidi: 43, // G2
+    maxMidi: 71, // B4
+    minNote: 'G2',
+    maxNote: 'B4',
+    defaultMinMidi: 43, // G2 (cobertura total de los 29 audios)
+    defaultMaxMidi: 71  // B4
+  },
+  femenino: {
+    minMidi: 57, // A3
+    maxMidi: 78, // F#5 (Fs5)
+    minNote: 'A3',
+    maxNote: 'Fs5',
+    defaultMinMidi: 57, // A3 (cobertura total de los 22 audios)
+    defaultMaxMidi: 78  // F#5
+  }
+} as const;
+
+/**
  * Parses note name like "Do3", "Fa#4", "C4", "A2" to MIDI number
  */
 export function noteNameToMidi(noteName: string): number {
@@ -70,42 +129,87 @@ export function noteNameToMidi(noteName: string): number {
 }
 
 /**
- * Generates the full pool of chromatic NoteInfo objects within the user's detected vocal range [minMidi, maxMidi]
+ * Shape accepted by the pool helpers (physical range of the user, optional).
  */
-export function generateUserNotePool(
-  rangeData?: { noteMin?: string; noteMax?: string; minHz?: number; maxHz?: number; classification?: string; gender?: 'masculino' | 'femenino' } | null,
-  gender: 'masculino' | 'femenino' = 'femenino'
-): NoteInfo[] {
-  let activeGender = gender;
-  if (rangeData?.gender) {
-    activeGender = rangeData.gender;
-  } else if (rangeData?.classification === 'Bajo' || rangeData?.classification === 'Barítono' || rangeData?.classification === 'Tenor') {
-    activeGender = 'masculino';
-  } else if (typeof window !== 'undefined') {
+export type VoiceRangeData = {
+  noteMin?: string;
+  noteMax?: string;
+  minHz?: number;
+  maxHz?: number;
+  classification?: string;
+  gender?: 'masculino' | 'femenino';
+} | null | undefined;
+
+interface UserRangeWindow {
+  activeGender: 'masculino' | 'femenino';
+  /** Ventana cruda del usuario ANTES del clamp contra las grabaciones. */
+  rawMinMidi: number;
+  rawMaxMidi: number;
+}
+
+/**
+ * Resolves the active gender: explicit rangeData.gender > classification (male voices) > localStorage > default.
+ */
+function resolveVoiceGender(
+  rangeData: VoiceRangeData,
+  gender: 'masculino' | 'femenino'
+): 'masculino' | 'femenino' {
+  if (rangeData?.gender) return rangeData.gender;
+  if (rangeData?.classification === 'Bajo' || rangeData?.classification === 'Barítono' || rangeData?.classification === 'Tenor') {
+    return 'masculino';
+  }
+  if (rangeData?.classification === 'Contralto' || rangeData?.classification === 'Mezzosoprano' || rangeData?.classification === 'Soprano') {
+    return 'femenino';
+  }
+  if (typeof window !== 'undefined') {
     try {
       const saved = localStorage.getItem('laclave_voice_gender');
-      if (saved === 'masculino' || saved === 'femenino') activeGender = saved;
+      if (saved === 'masculino' || saved === 'femenino') return saved;
     } catch {}
   }
+  return gender;
+}
 
-  let minMidi = activeGender === 'masculino' ? 45 : 57; // A2 for male, A3 for female default
-  let maxMidi = activeGender === 'masculino' ? 67 : 81; // G4 for male, A5 for female default
+/**
+ * Resolves the user's RAW vocal window (before clamping to the physical recordings).
+ */
+function resolveUserRangeWindow(rangeData: VoiceRangeData, gender: 'masculino' | 'femenino'): UserRangeWindow {
+  const activeGender = resolveVoiceGender(rangeData, gender);
+  const limits = VOCAL_AUDIO_LIMITS[activeGender];
+  const classPreset = rangeData?.classification ? CLASSIFICATION_RANGES[rangeData.classification] : null;
+
+  let rawMinMidi: number = classPreset ? noteNameToMidi(classPreset.noteMin) : limits.defaultMinMidi;
+  let rawMaxMidi: number = classPreset ? noteNameToMidi(classPreset.noteMax) : limits.defaultMaxMidi;
 
   if (rangeData?.noteMin) {
-    minMidi = noteNameToMidi(rangeData.noteMin);
+    rawMinMidi = noteNameToMidi(rangeData.noteMin);
   } else if (rangeData?.minHz && rangeData.minHz > 40) {
-    minMidi = Math.round(12 * Math.log2(rangeData.minHz / 440) + 69);
+    rawMinMidi = Math.round(12 * Math.log2(rangeData.minHz / 440) + 69);
   }
 
   if (rangeData?.noteMax) {
-    maxMidi = noteNameToMidi(rangeData.noteMax);
+    rawMaxMidi = noteNameToMidi(rangeData.noteMax);
   } else if (rangeData?.maxHz && rangeData.maxHz > 40) {
-    maxMidi = Math.round(12 * Math.log2(rangeData.maxHz / 440) + 69);
+    rawMaxMidi = Math.round(12 * Math.log2(rangeData.maxHz / 440) + 69);
   }
 
-  // Safety clamp to reasonable human vocal range (A1 to C7)
-  minMidi = Math.max(33, Math.min(minMidi, maxMidi - 4));
-  maxMidi = Math.min(96, Math.max(maxMidi, minMidi + 4));
+  return { activeGender, rawMinMidi, rawMaxMidi };
+}
+
+/**
+ * Generates the full pool of chromatic NoteInfo objects strictly within the user's detected
+ * vocal range and constrained to the physical audio recordings in public/sounds/.
+ */
+export function generateUserNotePool(
+  rangeData?: VoiceRangeData,
+  gender: 'masculino' | 'femenino' = 'femenino'
+): NoteInfo[] {
+  const { activeGender, rawMinMidi, rawMaxMidi } = resolveUserRangeWindow(rangeData, gender);
+  const limits = VOCAL_AUDIO_LIMITS[activeGender];
+
+  // Hard clamp strictly within the physical audio recordings limits [limits.minMidi, limits.maxMidi]
+  let minMidi: number = Math.max(limits.minMidi, Math.min(rawMinMidi, limits.maxMidi - 4));
+  let maxMidi: number = Math.min(limits.maxMidi, Math.max(rawMaxMidi, minMidi + 4));
 
   const pool: NoteInfo[] = [];
   for (let m = minMidi; m <= maxMidi; m++) {
@@ -119,7 +223,8 @@ export function generateUserNotePool(
       octave,
       frequency: Math.round(frequency * 100) / 100,
       fullName: `${name}${octave}`,
-      midi: m
+      midi: m,
+      octaveArrow: getOctaveIndicator(octave, activeGender)
     });
   }
 
@@ -127,49 +232,72 @@ export function generateUserNotePool(
 }
 
 /**
- * Returns all 12 chromatic notes (naturals + sostenidas) placed in the most natural,
- * comfortable octave for the user's detected vocal range.
+ * Returns all 12 chromatic notes (naturals + sostenidas) placed in the octave that best fits
+ * the user's vocal range or the requested forcedOctave.
+ * Supports multi-octave navigation by returning availableOctaves and currentOctave.
  */
 export function getComfortableChromaticNotes(
-  rangeData?: { noteMin?: string; noteMax?: string; minHz?: number; maxHz?: number; classification?: string; gender?: 'masculino' | 'femenino' } | null,
-  gender: 'masculino' | 'femenino' = 'femenino'
+  rangeData?: VoiceRangeData,
+  gender: 'masculino' | 'femenino' = 'femenino',
+  forcedOctave?: number
 ): {
   allNotes: ChromaticNoteButtonInfo[];
   naturalNotes: ChromaticNoteButtonInfo[];
   sharpNotes: ChromaticNoteButtonInfo[];
+  availableOctaves: number[];
+  currentOctave: number;
 } {
-  let activeGender = gender;
-  if (rangeData?.gender) {
-    activeGender = rangeData.gender;
-  } else if (rangeData?.classification === 'Bajo' || rangeData?.classification === 'Barítono' || rangeData?.classification === 'Tenor') {
-    activeGender = 'masculino';
-  } else if (typeof window !== 'undefined') {
-    try {
-      const saved = localStorage.getItem('laclave_voice_gender');
-      if (saved === 'masculino' || saved === 'femenino') activeGender = saved;
-    } catch {}
+  const pool = generateUserNotePool(rangeData, gender);
+  const { activeGender, rawMinMidi, rawMaxMidi } = resolveUserRangeWindow(rangeData, gender);
+  const limits = VOCAL_AUDIO_LIMITS[activeGender];
+
+  // Extraer octavas presentes en el pool de este usuario
+  const octSet = new Set<number>();
+  pool.forEach(n => octSet.add(n.octave));
+  if (octSet.size === 0) {
+    octSet.add(activeGender === 'masculino' ? 3 : 4);
+  }
+  const minPossibleOct = Math.floor(limits.minMidi / 12) - 1;
+  const maxPossibleOct = Math.floor(limits.maxMidi / 12) - 1;
+  if (forcedOctave !== undefined && forcedOctave >= minPossibleOct && forcedOctave <= maxPossibleOct) {
+    octSet.add(forcedOctave);
+  }
+  const availableOctaves = Array.from(octSet).sort((a, b) => a - b);
+
+  const lo = Math.min(rawMinMidi, rawMaxMidi);
+  const hi = Math.max(rawMinMidi, rawMaxMidi);
+  const centerMidi = Math.floor((lo + hi) / 2);
+
+  const octaveSpanStart = (octave: number) => (octave + 1) * 12; // Do de esa octava
+  const octaveSpanMiddle = (octave: number) => octaveSpanStart(octave) + 5.5;
+  const closeToCenter = (a: number, b: number) =>
+    Math.abs(octaveSpanMiddle(a) - centerMidi) - Math.abs(octaveSpanMiddle(b) - centerMidi);
+  const fitsRecordings = (octave: number) =>
+    octaveSpanStart(octave) >= limits.minMidi && octaveSpanStart(octave) + 11 <= limits.maxMidi;
+  const fitsUserWindow = (octave: number) =>
+    octaveSpanStart(octave) >= lo && octaveSpanStart(octave) + 11 <= hi;
+
+  let preferredOctave: number;
+  if (forcedOctave !== undefined && (availableOctaves.includes(forcedOctave) || (forcedOctave >= minPossibleOct && forcedOctave <= maxPossibleOct))) {
+    preferredOctave = forcedOctave;
+  } else {
+    // 1) Octava completa dentro del rango del usuario y de las grabaciones, más cercana al centro
+    const tier1 = availableOctaves.filter(o => fitsRecordings(o) && fitsUserWindow(o)).sort(closeToCenter);
+    // 2) Octava completa dentro de las grabaciones, más cercana al centro
+    const tier2 = availableOctaves.filter(o => fitsRecordings(o)).sort(closeToCenter);
+    // 3) Octava disponible más cercana al centro
+    const tier3 = [...availableOctaves].sort(closeToCenter);
+    preferredOctave = tier1[0] ?? tier2[0] ?? tier3[0] ?? (activeGender === 'masculino' ? 3 : 4);
   }
 
-  const pool = generateUserNotePool(rangeData, activeGender);
-  const midMidi = pool.length > 0 ? pool[Math.floor(pool.length / 2)].midi : (activeGender === 'masculino' ? 55 : 67);
-
-  // Target octave for C based on midMidi:
-  const preferredOctave = Math.floor(midMidi / 12) - 1;
-
   const allNotes: ChromaticNoteButtonInfo[] = chromaticBase.map(item => {
-    let midi = (preferredOctave + 1) * 12 + item.semitone;
-    // Check if within pool or adjust by octave
-    const inPool = pool.find(p => p.midi === midi);
-    if (!inPool) {
-      const altLower = pool.find(p => p.midi === midi - 12);
-      const altHigher = pool.find(p => p.midi === midi + 12);
-      if (altLower) midi = midi - 12;
-      else if (altHigher) midi = midi + 12;
-    }
+    const midi = (preferredOctave + 1) * 12 + item.semitone;
+    const hasRecording = midi >= limits.minMidi && midi <= limits.maxMidi;
     const octave = Math.floor(midi / 12) - 1;
     const frequency = Math.round(440 * Math.pow(2, (midi - 69) / 12) * 100) / 100;
     const fullName = `${item.displayName}${octave}`;
     const americanFullName = `${item.fileKey}${octave}`;
+    const octaveArrow = getOctaveIndicator(octave, activeGender);
 
     return {
       name: item.name,
@@ -183,24 +311,33 @@ export function getComfortableChromaticNotes(
       americanFullName,
       midi,
       bgColor: item.bgColor,
-      shadowColor: item.shadowColor
+      shadowColor: item.shadowColor,
+      hasRecording,
+      octaveArrow
     };
   });
 
   return {
     allNotes,
     naturalNotes: allNotes.filter(n => !n.isSharp),
-    sharpNotes: allNotes.filter(n => n.isSharp)
+    sharpNotes: allNotes.filter(n => n.isSharp),
+    availableOctaves,
+    currentOctave: preferredOctave
   };
 }
 
 /**
- * Builds a single ChromaticNoteButtonInfo for an arbitrary MIDI note.
+ * Builds a single ChromaticNoteButtonInfo for an arbitrary MIDI note in its TRUE octave:
+ * no octave mirroring. If the note falls outside the physical recordings it is flagged
+ * with hasRecording = false and covered by the synthesizer at its real frequency.
  */
-export function getChromaticNoteByMidi(midi: number): ChromaticNoteButtonInfo {
-  const item = chromaticBase[((midi % 12) + 12) % 12];
-  const octave = Math.floor(midi / 12) - 1;
-  const frequency = Math.round(440 * Math.pow(2, (midi - 69) / 12) * 100) / 100;
+export function getChromaticNoteByMidi(midi: number, gender: 'masculino' | 'femenino' = 'femenino'): ChromaticNoteButtonInfo {
+  const limits = VOCAL_AUDIO_LIMITS[gender];
+  const m = midi;
+  const item = chromaticBase[((m % 12) + 12) % 12];
+  const octave = Math.floor(m / 12) - 1;
+  const frequency = Math.round(440 * Math.pow(2, (m - 69) / 12) * 100) / 100;
+  const hasRecording = m >= limits.minMidi && m <= limits.maxMidi;
 
   return {
     name: item.name,
@@ -212,9 +349,11 @@ export function getChromaticNoteByMidi(midi: number): ChromaticNoteButtonInfo {
     frequency,
     fullName: `${item.displayName}${octave}`,
     americanFullName: `${item.fileKey}${octave}`,
-    midi,
+    midi: m,
     bgColor: item.bgColor,
-    shadowColor: item.shadowColor
+    shadowColor: item.shadowColor,
+    hasRecording,
+    octaveArrow: getOctaveIndicator(octave, gender)
   };
 }
 
@@ -222,7 +361,7 @@ export function getChromaticNoteByMidi(midi: number): ChromaticNoteButtonInfo {
  * Backward compatibility: returns the 7 natural solfege notes or all notes
  */
 export function getComfortableSolfegeNotes(
-  rangeData?: { noteMin?: string; noteMax?: string; minHz?: number; maxHz?: number } | null,
+  rangeData?: VoiceRangeData,
   gender: 'masculino' | 'femenino' = 'femenino'
 ): SolfegeButtonInfo[] {
   return getComfortableChromaticNotes(rangeData, gender).allNotes;

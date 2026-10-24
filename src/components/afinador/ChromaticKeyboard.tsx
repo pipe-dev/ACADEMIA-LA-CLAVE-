@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Mic, MicOff } from 'lucide-react';
-import { ChromaticNoteButtonInfo, NoteInfo } from '../../utils/voicePlaybackService';
+import { ChromaticNoteButtonInfo, NoteInfo, getOctaveIndicator } from '../../utils/voicePlaybackService';
 import { Difficulty } from '../../data/tunerLevelsData';
 
 interface ChromaticKeyboardProps {
@@ -19,6 +19,10 @@ interface ChromaticKeyboardProps {
   isTuningActive: boolean;
   onToggleTuning: () => void;
   zenMode?: boolean;
+  gender?: 'masculino' | 'femenino';
+  availableOctaves?: number[];
+  currentOctave?: number;
+  onSelectOctave?: (octave: number) => void;
 }
 
 export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
@@ -35,14 +39,22 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
   onSelectDifficulty,
   isTuningActive,
   onToggleTuning,
-  zenMode = false
+  zenMode = false,
+  gender = 'femenino',
+  availableOctaves = [],
+  currentOctave,
+  onSelectOctave
 }) => {
+  const activeArrow =
+    ('octaveArrow' in activeTargetNote && activeTargetNote.octaveArrow !== undefined)
+      ? activeTargetNote.octaveArrow
+      : getOctaveIndicator(activeTargetNote.octave, gender);
   return (
     <div
       id="tour-tuner-reference"
       className="bg-white dark:bg-[#102034] rounded-3xl p-3.5 sm:p-4 border border-slate-100 dark:border-[#1b2b3f] shadow-[0_4px_20px_rgba(0,0,0,0.05)] space-y-3 sm:space-y-3.5"
     >
-      <div className="flex items-center justify-between pb-1 sm:pb-1.5">
+      <div className="flex items-center justify-between pb-1 sm:pb-1.5 gap-2">
         <div className="flex flex-col gap-0.5">
           <span className="font-heading font-black text-xs sm:text-[13px] text-slate-800 dark:text-white leading-tight">
             Teclado Vocal
@@ -53,6 +65,40 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
               : 'Toca la tecla activa para recordar su tono de referencia'}
           </span>
         </div>
+
+        {/* Selector de Octava */}
+        {availableOctaves && availableOctaves.length > 1 && (
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#152336] p-0.5 rounded-full border border-slate-200/80 dark:border-slate-700/80 shrink-0">
+            {availableOctaves.map((oct) => {
+              const indicator = getOctaveIndicator(oct, gender);
+              const isCurrent = currentOctave === oct;
+              return (
+                <button
+                  key={oct}
+                  type="button"
+                  disabled={tunerMode === 'niveles'}
+                  onClick={() => onSelectOctave?.(oct)}
+                  title={`Octava ${oct} (${indicator === 'down' ? 'Grave' : indicator === 'up' ? 'Aguda' : 'Media'})`}
+                  className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold transition-all ${
+                    isCurrent
+                      ? zenMode
+                        ? 'bg-[#e5b83b] text-[#161719] shadow-xs font-black'
+                        : 'bg-indigo-600 text-white shadow-xs'
+                      : zenMode
+                      ? 'text-[#99958d] hover:text-[#ded9cf]'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300'
+                  } ${tunerMode === 'niveles' ? 'cursor-default opacity-90' : 'cursor-pointer'}`}
+                >
+                  <span className="flex items-center gap-0.5">
+                    {indicator === 'down' && <span className="text-[9px]">▼</span>}
+                    {indicator === 'up' && <span className="text-[9px]">▲</span>}
+                    <span>{oct}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 🎹 Piano Touch Strip (7 Natural White Keys + 5 Sharp Black Keys) */}
@@ -64,17 +110,21 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
             const isInChallenge =
               isLevelMode &&
               challengeNotes.some(
-                cn => cn.name.toUpperCase() === note.name.toUpperCase()
+                cn => (cn.midi != null && note.midi != null ? cn.midi === note.midi : cn.name.toUpperCase() === note.name.toUpperCase())
               );
             const isCurrentTarget = isLevelMode
-              ? activeTargetNote.name.toUpperCase() === note.name.toUpperCase()
-              : selectedNote.name === note.name;
+              ? (activeTargetNote.midi != null && note.midi != null
+                  ? activeTargetNote.midi === note.midi
+                  : activeTargetNote.name.toUpperCase() === note.name.toUpperCase())
+              : (selectedNote.midi != null && note.midi != null
+                  ? selectedNote.midi === note.midi
+                  : selectedNote.name.toUpperCase() === note.name.toUpperCase());
             const isCompleted =
               isLevelMode &&
               challengeNotes.some(
                 (cn, idx) =>
                   completedChallengeNotes.has(idx) &&
-                  cn.name.toUpperCase() === note.name.toUpperCase() &&
+                  (cn.midi != null && note.midi != null ? cn.midi === note.midi : cn.name.toUpperCase() === note.name.toUpperCase()) &&
                   idx < challengeIndex
               );
             const isUnused = isLevelMode && !isInChallenge;
@@ -104,9 +154,9 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
                 title={
                   isLevelMode
                     ? isCurrentTarget
-                      ? `Tocar ${note.displayName} (recordar tono)`
-                      : `Nota ${note.displayName}`
-                    : `Tocar ${note.displayName}`
+                      ? `Tocar ${note.fullName} (recordar tono)`
+                      : `Nota ${note.fullName}`
+                    : `Tocar ${note.fullName}`
                 }
               >
                 {/* Top Indicator for Level Challenge (Check or Active Dot) */}
@@ -132,17 +182,37 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
                   </div>
                 )}
 
-                <span
-                  className={`font-heading font-black text-xs sm:text-sm leading-none ${
-                    zenMode && isCurrentTarget
-                      ? 'text-[#161719]'
-                      : zenMode
-                      ? 'text-[#141619]'
-                      : ''
-                  }`}
-                >
-                  {note.name}
-                </span>
+                {(() => {
+                  const keyArrow = isCurrentTarget
+                    ? activeArrow
+                    : (note.octaveArrow ?? getOctaveIndicator(note.octave, gender));
+                  return (
+                    <span
+                      className={`font-heading font-black text-xs sm:text-sm leading-none ${
+                        zenMode && isCurrentTarget
+                          ? 'text-[#161719]'
+                          : zenMode
+                          ? 'text-[#141619]'
+                          : ''
+                      }`}
+                    >
+                      {note.name}
+                      {keyArrow && (
+                        <span
+                          className={`ml-[1px] align-super text-[8px] sm:text-[9px] font-black ${
+                            isCurrentTarget
+                              ? keyArrow === 'up'
+                                ? 'text-amber-300'
+                                : 'text-sky-300'
+                              : 'opacity-70'
+                          }`}
+                        >
+                          {keyArrow === 'up' ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
                 <span
                   className={`text-[10px] font-bold mt-0.5 leading-none ${
                     zenMode
@@ -172,17 +242,21 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
           const isInChallenge =
             isLevelMode &&
             challengeNotes.some(
-              cn => cn.name.toUpperCase() === note.name.toUpperCase()
+              cn => (cn.midi != null && note.midi != null ? cn.midi === note.midi : cn.name.toUpperCase() === note.name.toUpperCase())
             );
           const isCurrentTarget = isLevelMode
-            ? activeTargetNote.name.toUpperCase() === note.name.toUpperCase()
-            : selectedNote.name === note.name;
+            ? (activeTargetNote.midi != null && note.midi != null
+                ? activeTargetNote.midi === note.midi
+                : activeTargetNote.name.toUpperCase() === note.name.toUpperCase())
+            : (selectedNote.midi != null && note.midi != null
+                ? selectedNote.midi === note.midi
+                : selectedNote.name.toUpperCase() === note.name.toUpperCase());
           const isCompleted =
             isLevelMode &&
             challengeNotes.some(
               (cn, idx) =>
                 completedChallengeNotes.has(idx) &&
-                cn.name.toUpperCase() === note.name.toUpperCase() &&
+                (cn.midi != null && note.midi != null ? cn.midi === note.midi : cn.name.toUpperCase() === note.name.toUpperCase()) &&
                 idx < challengeIndex
             );
           const isUnused = isLevelMode && !isInChallenge;
@@ -213,9 +287,9 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
               title={
                 isLevelMode
                   ? isCurrentTarget
-                    ? `Tocar ${note.displayName} (recordar tono)`
-                    : `Nota ${note.displayName}`
-                  : `Tocar ${note.displayName}`
+                    ? `Tocar ${note.fullName} (recordar tono)`
+                    : `Nota ${note.fullName}`
+                  : `Tocar ${note.fullName}`
               }
             >
               {/* Top Indicator for Level Challenge (Check or Active Dot) */}
@@ -245,13 +319,33 @@ export const ChromaticKeyboard: React.FC<ChromaticKeyboardProps> = ({
                 </div>
               )}
 
-              <span
-                className={`font-heading font-black text-[9px] sm:text-[10px] leading-none drop-shadow-xs ${
-                  isCurrentTarget && zenMode ? 'text-[#161719]' : 'text-white'
-                }`}
-              >
-                {note.name}
-              </span>
+              {(() => {
+                const keyArrow = isCurrentTarget
+                  ? activeArrow
+                  : (note.octaveArrow ?? getOctaveIndicator(note.octave, gender));
+                return (
+                  <span
+                    className={`font-heading font-black text-[9px] sm:text-[10px] leading-none drop-shadow-xs ${
+                      isCurrentTarget && zenMode ? 'text-[#161719]' : 'text-white'
+                    }`}
+                  >
+                    {note.name}
+                    {keyArrow && (
+                      <span
+                        className={`ml-[1px] align-super text-[7px] sm:text-[8px] font-black ${
+                          isCurrentTarget
+                            ? keyArrow === 'up'
+                              ? 'text-amber-300'
+                              : 'text-sky-300'
+                            : 'opacity-70'
+                        }`}
+                      >
+                        {keyArrow === 'up' ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </span>
+                );
+              })()}
               <span
                 className={`text-[8px] sm:text-[9px] font-bold mt-0.5 leading-none ${
                   zenMode

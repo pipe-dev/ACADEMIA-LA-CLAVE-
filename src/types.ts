@@ -55,6 +55,7 @@ export interface UserStats {
     noteMin: string;
     noteMax: string;
     classification: string;
+    gender?: 'masculino' | 'femenino';
   };
 }
 

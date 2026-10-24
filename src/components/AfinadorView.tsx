@@ -88,38 +88,15 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     return generateUserNotePool(effectiveRangeData, gender);
   }, [effectiveRangeData, gender]);
 
-  const chromaticData = useMemo(() => {
-    return getComfortableChromaticNotes(effectiveRangeData, gender);
-  }, [effectiveRangeData, gender]);
-
-  const { allNotes, naturalNotes, sharpNotes } = chromaticData;
-
-  const blackKeyPositions = useMemo(
-    () => [
-      { note: sharpNotes[0], left: '14.2857%' },
-      { note: sharpNotes[1], left: '28.5714%' },
-      { note: sharpNotes[2], left: '57.1428%' },
-      { note: sharpNotes[3], left: '71.4285%' },
-      { note: sharpNotes[4], left: '85.7142%' }
-    ],
-    [sharpNotes]
-  );
-
   // ─── 3. Tuner Mode & Note Selection ──────────────────────────────
   const [tunerMode, setTunerMode] = useState<'libre' | 'niveles'>('libre');
-  const [selectedNote, setSelectedNote] = useState<ChromaticNoteButtonInfo>(
-    () => naturalNotes[0] || allNotes[0]
-  );
   const [difficulty, setDifficulty] = useState<'facil' | 'medio' | 'dificil'>('medio');
+  const [selectedOctave, setSelectedOctave] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (allNotes.length > 0) {
-      setSelectedNote(prev => {
-        const matching = allNotes.find(b => b.name === prev.name);
-        return matching || naturalNotes[0] || allNotes[0];
-      });
-    }
-  }, [allNotes, naturalNotes]);
+  const [selectedNote, setSelectedNote] = useState<ChromaticNoteButtonInfo>(() => {
+    const init = getComfortableChromaticNotes(effectiveRangeData, gender);
+    return init.naturalNotes[0] || init.allNotes[0];
+  });
 
   // ─── 4. Sub-Views & Tools ─────────────────────────────────────────
   const [isExtraToolsOpen, setIsExtraToolsOpen] = useState<boolean>(false);
@@ -161,6 +138,40 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
       ? selectedNote
       : levelsHook.challengeNotes[levelsHook.challengeIndex] || selectedNote;
 
+  // En modo niveles el teclado sigue automáticamente la octava del reto actual
+  const currentKeyboardOctave = useMemo(() => {
+    if (tunerMode === 'niveles' && levelsHook.challengeNotes[levelsHook.challengeIndex]) {
+      return levelsHook.challengeNotes[levelsHook.challengeIndex].octave;
+    }
+    return selectedOctave;
+  }, [tunerMode, levelsHook.challengeNotes, levelsHook.challengeIndex, selectedOctave]);
+
+  const chromaticData = useMemo(() => {
+    return getComfortableChromaticNotes(effectiveRangeData, gender, currentKeyboardOctave ?? undefined);
+  }, [effectiveRangeData, gender, currentKeyboardOctave]);
+
+  const { allNotes, naturalNotes, sharpNotes, availableOctaves, currentOctave } = chromaticData;
+
+  const blackKeyPositions = useMemo(
+    () => [
+      { note: sharpNotes[0], left: '14.2857%' },
+      { note: sharpNotes[1], left: '28.5714%' },
+      { note: sharpNotes[2], left: '57.1428%' },
+      { note: sharpNotes[3], left: '71.4285%' },
+      { note: sharpNotes[4], left: '85.7142%' }
+    ],
+    [sharpNotes]
+  );
+
+  useEffect(() => {
+    if (allNotes.length > 0) {
+      setSelectedNote(prev => {
+        const matching = allNotes.find(b => b.name.toUpperCase() === prev.name.toUpperCase());
+        return matching || naturalNotes[0] || allNotes[0];
+      });
+    }
+  }, [allNotes, naturalNotes]);
+
   // ─── 7. Pitch Detection Hook (receives LIVE challenge target & notes) ─
   const pitchHook = useAfinadorPitch({
     tunerMode,
@@ -188,23 +199,41 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
   };
 
   const handlePlayReferenceNote = useCallback(() => {
-    pitchHook.registerPlayedNote(activeTargetNote.name);
+    pitchHook.registerPlayedNote(activeTargetNote.fullName || (activeTargetNote.name + activeTargetNote.octave));
     voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
   }, [activeTargetNote, gender, pitchHook]);
 
+  const handleSelectOctave = useCallback((oct: number) => {
+    setSelectedOctave(oct);
+    const newNotes = getComfortableChromaticNotes(effectiveRangeData, gender, oct).allNotes;
+    const matching = newNotes.find(n => n.name.toUpperCase() === selectedNote.name.toUpperCase()) || newNotes[0];
+    if (matching) {
+      setSelectedNote(matching);
+      pitchHook.registerPlayedNote(matching.fullName || (matching.name + matching.octave));
+      if (tunerMode === 'libre') {
+        voicePlayback.playVoiceNote(
+          { name: matching.displayName || matching.name, midi: matching.midi, frequency: matching.frequency, octave: matching.octave },
+          gender,
+          2.0
+        );
+      }
+    }
+  }, [effectiveRangeData, gender, pitchHook, selectedNote.name, tunerMode]);
+
   const handleSelectNote = (note: ChromaticNoteButtonInfo) => {
     if (tunerMode === 'niveles') {
-      const isTarget = activeTargetNote.name.toUpperCase() === note.name.toUpperCase();
+      const isTarget = activeTargetNote.midi != null && note.midi != null ? activeTargetNote.midi === note.midi : activeTargetNote.name.toUpperCase() === note.name.toUpperCase();
       if (!isTarget) return;
-      pitchHook.registerPlayedNote(activeTargetNote.name);
+      pitchHook.registerPlayedNote(activeTargetNote.fullName || (activeTargetNote.name + activeTargetNote.octave));
       voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
       return;
     }
 
     setSelectedNote(note);
+    setSelectedOctave(note.octave);
     pitchHook.setIsPitchMatched(false);
     pitchHook.setDetectedPitch(null);
-    pitchHook.registerPlayedNote(note.name);
+    pitchHook.registerPlayedNote(note.fullName || (note.name + note.octave));
     voicePlayback.playVoiceNote(
       { name: note.displayName || note.name, midi: note.midi, frequency: note.frequency, octave: note.octave },
       gender,
@@ -452,6 +481,10 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
             isTuningActive={pitchHook.isTuningActive}
             onToggleTuning={pitchHook.toggleTuning}
             zenMode={zenMode}
+            gender={gender}
+            availableOctaves={availableOctaves}
+            currentOctave={currentOctave}
+            onSelectOctave={handleSelectOctave}
           />
 
           {/* ─── Pitch Stability Chart ─── */}

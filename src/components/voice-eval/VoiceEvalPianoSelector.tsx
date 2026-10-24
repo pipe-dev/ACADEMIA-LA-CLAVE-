@@ -67,7 +67,7 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
                     isCurrentTarget
                       ? 'bg-gradient-to-b from-indigo-500 to-indigo-600 text-white border-indigo-600 shadow-[0_4px_0_0_#312e81] ring-2 ring-indigo-400/80 z-0 cursor-pointer animate-pulse'
                       : isReachable
-                      ? 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
+                      ? 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200   border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
                       : 'bg-slate-200/70 dark:bg-slate-800/40 text-slate-400 dark:text-slate-600 border-slate-200/60 dark:border-slate-800/60 shadow-[0_4px_0_0_#e2e8f0] dark:shadow-[0_4px_0_0_#0a111c] cursor-not-allowed opacity-60'
                   }`}
                   title={
@@ -85,6 +85,11 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
 
                   <span className="font-heading font-black text-xs sm:text-sm leading-none">
                     {note.displayName}
+                    {note.octaveArrow && (
+                      <span className="ml-[1px] align-super text-[8px] opacity-70">
+                        {note.octaveArrow === 'up' ? '▲' : '▼'}
+                      </span>
+                    )}
                   </span>
                   <span className={`text-[10px] font-bold mt-0.5 leading-none ${
                     isCurrentTarget
@@ -119,7 +124,7 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
                   isCurrentTarget
                     ? 'bg-gradient-to-b from-violet-500 to-purple-700 text-white border-violet-400 shadow-[0_3px_0_0_#3b0764] ring-2 ring-violet-300 scale-105 z-20 cursor-pointer animate-pulse'
                     : isReachable
-                    ? 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
+                    ? 'bg-slate-900 dark:bg-[#070d18] text-white   border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
                     : 'bg-slate-700/70 dark:bg-slate-900/60 text-slate-500 dark:text-slate-600 border-slate-600/70 dark:border-slate-800 shadow-[0_3px_0_0_#1e293b] dark:shadow-[0_3px_0_0_#020617] cursor-not-allowed opacity-50'
                 }`}
                 title={
@@ -137,6 +142,11 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
 
                 <span className="font-heading font-black text-[9px] sm:text-[10px] text-white leading-none drop-shadow-xs">
                   {note.displayName}
+                  {note.octaveArrow && (
+                    <span className="ml-[1px] align-super text-[7px] opacity-70">
+                      {note.octaveArrow === 'up' ? '▲' : '▼'}
+                    </span>
+                  )}
                 </span>
                 <span className={`text-[8px] sm:text-[9px] font-bold mt-0.5 leading-none ${
                   isCurrentTarget
@@ -157,7 +167,7 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
             Voces filtradas por tu rango:
           </span>
           <span className="text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/60">
-            {effectiveRangeData?.classification ?? (gender === 'masculino' ? 'Barítono' : 'Mezzosoprano')} · {effectiveRangeData?.noteMin ?? (gender === 'masculino' ? 'La2' : 'La3')} – {effectiveRangeData?.noteMax ?? (gender === 'masculino' ? 'Sol4' : 'La5')}
+            {effectiveRangeData?.classification ?? (gender === 'masculino' ? 'Tenor' : 'Soprano')} · {effectiveRangeData?.noteMin ?? (gender === 'masculino' ? 'Do3' : 'Do4')} – {effectiveRangeData?.noteMax ?? (gender === 'masculino' ? 'La4' : 'Do5')}
           </span>
         </div>
 
@@ -167,6 +177,9 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
             <span className="text-[10px] font-extrabold text-slate-600 dark:text-[#c0c1ff] uppercase tracking-wider flex items-center gap-1.5">
               Mini Piano Superior · amplía tu rango
             </span>
+            <span className="text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+              Reto: afina para expandir
+            </span>
           </div>
 
           <div className="relative w-full mx-auto select-none pt-1 pb-1">
@@ -174,6 +187,7 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
             <div className="flex gap-1 w-full h-12">
               {miniPianoWhiteKeys.map((note) => {
                 const isCurrentTarget = selectedTargetNote.name === note.name;
+                const inRange = isNoteInRange(note);
 
                 return (
                   <motion.button
@@ -186,9 +200,9 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
                     className={`flex-1 h-full rounded-b-xl transition-all flex flex-col justify-end items-center pb-1 relative border ${
                       isCurrentTarget
                         ? 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white border-emerald-600 shadow-[0_4px_0_0_#064e3b] ring-2 ring-emerald-400/80 z-0 cursor-pointer animate-pulse'
-                        : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
+                        : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200   border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
                     }`}
-                    title={`Nota superior: ${note.fullName}`}
+                    title={inRange ? `Nota en tu rango: ${note.fullName}` : `Reto de estiramiento: ${note.fullName} (afínala para expandir tu rango)`}
                   >
                     {isCurrentTarget && (
                       <div className="absolute top-0.5 inset-x-0 flex justify-center">
@@ -197,6 +211,11 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
                     )}
                     <span className="font-heading font-black text-xs leading-none">
                       {note.displayName}
+                      {note.octaveArrow && (
+                        <span className="ml-[1px] align-super text-[7px] opacity-70">
+                          {note.octaveArrow === 'up' ? '▲' : '▼'}
+                        </span>
+                      )}
                     </span>
                     <span className={`text-[9px] font-bold mt-0.5 leading-none ${
                       isCurrentTarget
@@ -214,6 +233,7 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
             {miniBlackKeyPositions.map(({ note, left }) => {
               if (!note) return null;
               const isCurrentTarget = selectedTargetNote.name === note.name;
+              const inRange = isNoteInRange(note);
 
               return (
                 <motion.button
@@ -227,12 +247,17 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
                   className={`absolute top-1 z-10 -translate-x-1/2 w-[10.5%] h-7 rounded-b-lg transition-all flex flex-col justify-end items-center pb-0.5 border ${
                     isCurrentTarget
                       ? 'bg-gradient-to-b from-emerald-500 to-teal-700 text-white border-emerald-300 shadow-[0_3px_0_0_#065f46] ring-2 ring-emerald-300 scale-105 z-20 cursor-pointer animate-pulse'
-                      : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
+                      : 'bg-slate-900 dark:bg-[#070d18] text-white   border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
                   }`}
-                  title={`Nota superior: ${note.fullName}`}
+                  title={inRange ? `Nota en tu rango: ${note.fullName}` : `Reto de estiramiento: ${note.fullName} (afínala para expandir tu rango)`}
                 >
                   <span className="font-heading font-black text-[8px] text-white leading-none drop-shadow-xs">
                     {note.displayName}
+                    {note.octaveArrow && (
+                      <span className="ml-[1px] align-super text-[6px] opacity-70">
+                        {note.octaveArrow === 'up' ? '▲' : '▼'}
+                      </span>
+                    )}
                   </span>
                 </motion.button>
               );
@@ -270,7 +295,7 @@ export const VoiceEvalPianoSelector: React.FC<VoiceEvalPianoSelectorProps> = ({
       {/* Start test CTA button */}
       <button
         onClick={onStartTest}
-        className="w-full py-3.5 px-4 rounded-2xl tactile-btn-primary font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-indigo-500/20 transition-all text-center whitespace-nowrap"
+        className="w-full py-3.5 px-4 rounded-2xl tactile-btn-primary font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all text-center whitespace-nowrap"
       >
         <Mic className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse shrink-0" />
         <span>Iniciar Grabación (5s - {selectedTargetNote.name})</span>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { audioService } from '../../utils/audioService';
 import {
   calculateCentsOff,
+  getOctaveDisplacement,
   DIFFICULTY_PITCH_TOLERANCES,
   FREE_MODE_PITCH_TOLERANCES
 } from '../../utils/pitchUtils';
@@ -47,6 +48,7 @@ export function useAfinadorPitch({
   const [volume, setVolume] = useState<number>(0);
   const [tuningStatusMsg, setTuningStatusMsg] = useState<string>('Escuchando voz...');
   const [isPitchMatched, setIsPitchMatched] = useState<boolean>(false);
+  const [octaveDisplacement, setOctaveDisplacement] = useState<number>(0);
 
   // Tug of war / level progress states
   const [tugOfWarProgress, setTugOfWarProgress] = useState<number>(50);
@@ -168,14 +170,14 @@ export function useAfinadorPitch({
       return tugOfWarProgress;
     }
     if (!isTuningActive || !detectedPitch) return 0;
-    if (isPitchMatched) return 100;
+    if (isPitchMatched) return octaveDisplacement === 0 ? 100 : 85;
     if (absCents !== null) {
       const maxCents = 50;
       const ratio = Math.max(0, Math.min(1, 1 - absCents / maxCents));
       return Math.max(12, Math.round(ratio * 100));
     }
     return 0;
-  }, [tunerMode, selectedDifficulty, calentamientoProgress, tugOfWarProgress, isTuningActive, detectedPitch, isPitchMatched, absCents]);
+  }, [tunerMode, selectedDifficulty, calentamientoProgress, tugOfWarProgress, isTuningActive, detectedPitch, isPitchMatched, octaveDisplacement, absCents]);
 
   // Visual sphere styles and badges
   let sphereStyle = zenMode
@@ -188,14 +190,25 @@ export function useAfinadorPitch({
   let statusIcon: React.ReactNode = null;
 
   if (isPitchMatched) {
-    sphereStyle = zenMode
-      ? 'bg-[#e5b83b] text-[#161719] shadow-[0_0_40px_rgba(229,184,59,0.9)] scale-110 ring-4 ring-[#f5d56b] animate-pulse'
-      : 'bg-emerald-500 dark:bg-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.9)] scale-110 ring-4 ring-emerald-300 dark:ring-emerald-400 animate-pulse';
-    badgeBorderColor = zenMode
-      ? 'border-[#e5b83b] bg-[#e5b83b]/20'
-      : 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/90 dark:bg-emerald-950/90';
-    statusTextColor = zenMode ? 'text-[#e5b83b]' : 'text-emerald-800 dark:text-emerald-200';
-    statusIcon = <CheckCircle2 className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'} animate-bounce`} />;
+    if (octaveDisplacement === 0) {
+      sphereStyle = zenMode
+        ? 'bg-[#e5b83b] text-[#161719] shadow-[0_0_40px_rgba(229,184,59,0.9)] scale-110 ring-4 ring-[#f5d56b] animate-pulse'
+        : 'bg-emerald-500 dark:bg-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.9)] scale-110 ring-4 ring-emerald-300 dark:ring-emerald-400 animate-pulse';
+      badgeBorderColor = zenMode
+        ? 'border-[#e5b83b] bg-[#e5b83b]/20'
+        : 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/90 dark:bg-emerald-950/90';
+      statusTextColor = zenMode ? 'text-[#e5b83b]' : 'text-emerald-800 dark:text-emerald-200';
+      statusIcon = <CheckCircle2 className={`w-4 h-4 ${zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'} animate-bounce`} />;
+    } else {
+      sphereStyle = zenMode
+        ? 'bg-[#d8a728] text-[#161719] shadow-[0_0_35px_rgba(229,184,59,0.85)] scale-105 ring-4 ring-[#f5d56b]'
+        : 'bg-amber-500 dark:bg-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.85)] scale-105 ring-4 ring-amber-300 dark:ring-amber-400/80';
+      badgeBorderColor = zenMode
+        ? 'border-[#d8a728] bg-[#d8a728]/20'
+        : 'border-amber-300 dark:border-amber-700 bg-amber-50/90 dark:bg-amber-950/90';
+      statusTextColor = zenMode ? 'text-[#f5d56b]' : 'text-amber-800 dark:text-amber-200';
+      statusIcon = <Zap className={`w-3.5 h-3.5 ${zenMode ? 'text-[#f5d56b]' : 'text-amber-500'}`} />;
+    }
   } else if (absCents !== null) {
     if (absCents <= nearMissCents) {
       sphereStyle = zenMode
@@ -246,17 +259,35 @@ export function useAfinadorPitch({
 
         const currCentsOff = calculateCentsOff(pitchHz, currTarget.frequency);
         const absCentsVal = Math.abs(currCentsOff);
-        const octaveMultiplier = Math.pow(2, Math.round(Math.log2(pitchHz / currTarget.frequency)));
+        const octaveDisp = getOctaveDisplacement(pitchHz, currTarget.frequency);
+        setOctaveDisplacement(octaveDisp);
+        const isExactOctave = octaveDisp === 0;
+        const octaveMultiplier = Math.pow(2, octaveDisp);
         const effectiveTargetFreq = currTarget.frequency * octaveMultiplier;
         const diffHz = Math.abs(pitchHz - effectiveTargetFreq);
         const isMatched = absCentsVal <= toleranceCentsRef.current;
         setIsPitchMatched(isMatched);
 
         if (isMatched) {
-          setTuningStatusMsg('¡AFINACIÓN PERFECTA!');
-          if (nowTime - lastVibeTimeRef.current > 1200) {
-            lastVibeTimeRef.current = nowTime;
-            audioService.vibrateSuccess();
+          if (isExactOctave) {
+            setTuningStatusMsg('¡AFINACIÓN PERFECTA!');
+            if (nowTime - lastVibeTimeRef.current > 1200) {
+              lastVibeTimeRef.current = nowTime;
+              audioService.vibrateSuccess();
+            }
+          } else {
+            const targetOctave = currTarget.octave ?? (Math.floor(currTarget.midi / 12) - 1);
+            const sungOctave = targetOctave + octaveDisp;
+            const sungNoteName = `${currTarget.name}${sungOctave}`;
+            if (octaveDisp === -1) {
+              setTuningStatusMsg(`Buen tono, pero 1 octava abajo (${sungNoteName}) ↑`);
+            } else if (octaveDisp === 1) {
+              setTuningStatusMsg(`Buen tono, pero 1 octava arriba (${sungNoteName}) ↓`);
+            } else if (octaveDisp < -1) {
+              setTuningStatusMsg(`Buen tono, pero ${Math.abs(octaveDisp)} octavas abajo (${sungNoteName}) ↑`);
+            } else {
+              setTuningStatusMsg(`Buen tono, pero ${octaveDisp} octavas arriba (${sungNoteName}) ↓`);
+            }
           }
 
           // Level mode progression
@@ -275,7 +306,7 @@ export function useAfinadorPitch({
                   onNoteCompletedRef.current();
                 }
               }
-            } else {
+            } else if (isExactOctave) {
               const gain = selectedDifficultyRef.current === 'Fácil'
                 ? 3.2
                 : selectedDifficultyRef.current === 'Medio'
@@ -299,18 +330,20 @@ export function useAfinadorPitch({
           // 2) Note was tuned and sustained >= 450ms
           // 3) Only counts ONCE if staying on the same note without changing
           if (tunerModeRef.current === 'libre') {
-            const targetKey = currTarget.name.trim().toUpperCase();
+            const fullNameKey = (currTarget.fullName || `${currTarget.name}${currTarget.octave ?? ''}`).trim().toUpperCase();
+            const nameKey = currTarget.name.trim().toUpperCase();
             if (!inTuneNoteStartTimeRef.current) {
               inTuneNoteStartTimeRef.current = nowTime;
             }
 
             const sustainedMs = nowTime - inTuneNoteStartTimeRef.current;
             if (sustainedMs >= 450) {
-              const isReferencePlayed = lastPlayedReferenceNoteRef.current === targetKey;
-              const hasNoteChanged = lastCountedTunedNoteRef.current !== targetKey;
+              const playedRef = lastPlayedReferenceNoteRef.current;
+              const isReferencePlayed = playedRef === fullNameKey || playedRef === nameKey;
+              const hasNoteChanged = lastCountedTunedNoteRef.current !== fullNameKey && lastCountedTunedNoteRef.current !== nameKey;
 
               if (isReferencePlayed && hasNoteChanged) {
-                lastCountedTunedNoteRef.current = targetKey;
+                lastCountedTunedNoteRef.current = fullNameKey;
                 lastPlayedReferenceNoteRef.current = null;
                 if (onUpdateQuestProgressRef.current) {
                   onUpdateQuestProgressRef.current(1);
@@ -327,7 +360,11 @@ export function useAfinadorPitch({
           // Debounced history logging
           setTunedHistory(prev => {
             const lastItem = prev[0];
-            const isDuplicate = lastItem && lastItem.noteName === currTarget.name && (nowTime - parseInt(lastItem.id, 10) < 3000);
+            const isDuplicate =
+              lastItem &&
+              lastItem.noteName === currTarget.name &&
+              Math.abs(lastItem.targetFreq - currTarget.frequency) < 5 &&
+              (nowTime - parseInt(lastItem.id, 10) < 3000);
             if (isDuplicate) return prev;
 
             const newItem: TunedHistoryItem = {
@@ -336,7 +373,7 @@ export function useAfinadorPitch({
               noteColor: (currTarget as SolfegeButtonInfo).bgColor || '#10b981',
               targetFreq: currTarget.frequency,
               detectedFreq: Math.round(pitchHz),
-              diffHz: Math.round(diffHz),
+              diffHz: Math.round(pitchHz - effectiveTargetFreq),
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
 
@@ -347,6 +384,7 @@ export function useAfinadorPitch({
             return updated;
           });
         } else {
+          setOctaveDisplacement(0);
           inTuneSinceRef.current = null;
           inTuneNoteStartTimeRef.current = null;
           setCalentamientoProgress(0);
@@ -387,6 +425,7 @@ export function useAfinadorPitch({
       } else {
         setDetectedPitch(null);
         setIsPitchMatched(false);
+        setOctaveDisplacement(0);
         setTuningStatusMsg('Escuchando voz...');
         inTuneSinceRef.current = null;
         inTuneNoteStartTimeRef.current = null;
@@ -408,6 +447,7 @@ export function useAfinadorPitch({
     setIsTuningActive(false);
     setDetectedPitch(null);
     setIsPitchMatched(false);
+    setOctaveDisplacement(0);
     setTuningStatusMsg('Micrófono en pausa');
   }, []);
 
@@ -466,6 +506,7 @@ export function useAfinadorPitch({
     centsOff,
     absCents,
     pitchDiff,
+    octaveDisplacement,
     ringProgress,
     sphereStyle,
     badgeBorderColor,

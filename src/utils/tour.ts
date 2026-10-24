@@ -179,6 +179,7 @@ export function startAfinadorTour(onFinish?: () => void) {
   });
 
   isTourRunning = true;
+  window.dispatchEvent(new CustomEvent('laclave_tour_section_started', { detail: { section: 'afinador' } }));
   activeDriverInstance = driver({
     showProgress: true,
     animate: true,

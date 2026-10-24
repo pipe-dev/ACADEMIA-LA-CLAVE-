@@ -27,6 +27,17 @@ export function calculateRawCentsOff(detectedHz: number, targetHz: number): numb
   return 1200 * Math.log2(detectedHz / targetHz);
 }
 
+/**
+ * Calculates signed octave difference:
+ * 0 = same octave
+ * -1 = one octave lower (e.g. singing C3 when target is C4)
+ * +1 = one octave higher (e.g. singing C5 when target is C4)
+ */
+export function getOctaveDisplacement(detectedHz: number, targetHz: number): number {
+  if (!detectedHz || !targetHz || detectedHz <= 0 || targetHz <= 0) return 0;
+  return Math.round(Math.log2(detectedHz / targetHz));
+}
+
 export interface DifficultyTolerances {
   toleranceCents: number;
   nearMissCents: number;

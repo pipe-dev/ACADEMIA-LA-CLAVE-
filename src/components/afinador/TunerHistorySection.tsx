@@ -134,7 +134,7 @@ export const TunerHistorySection: React.FC<TunerHistorySectionProps> = ({
                     zenMode ? 'text-[#e5b83b]' : 'text-emerald-500'
                   }`}
                 />
-                <span>{item.diffHz === 0 ? 'Perfecto' : `±${item.diffHz} Hz`}</span>
+                <span>{item.diffHz === 0 ? 'Perfecto' : `${item.diffHz > 0 ? `+${item.diffHz}` : item.diffHz} Hz`}</span>
               </div>
             </div>
           ))}

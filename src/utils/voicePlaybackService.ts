@@ -7,12 +7,14 @@ import {
   SolfegeButtonInfo,
   noteStrings,
   americanNoteStrings,
+  VOCAL_AUDIO_LIMITS,
   generateUserNotePool,
   getComfortableChromaticNotes,
   getChromaticNoteByMidi,
   getComfortableSolfegeNotes,
 } from './vocalNotePool';
 export {
+  VOCAL_AUDIO_LIMITS,
   generateUserNotePool,
   getComfortableChromaticNotes,
   getChromaticNoteByMidi,
@@ -148,6 +150,15 @@ export class VoicePlaybackService {
 
     const safeFreq = note.frequency > 20 ? note.frequency : 440;
     const midi = note.midi ?? Math.round(12 * Math.log2(safeFreq / 440) + 69);
+
+    // Guard: si la nota está fuera de las grabaciones físicas reales (Masculino: G2-B4, Femenino: A3-Fs5),
+    // no alterar ni forzar audios fuera de su rango; reproducir tono sintético limpio e inalterado.
+    const limits = VOCAL_AUDIO_LIMITS[activeGender];
+    if (midi < limits.minMidi || midi > limits.maxMidi) {
+      audioService.playFrequency(note.frequency, duration);
+      return;
+    }
+
     const octave = note.octave ?? (Math.floor(midi / 12) - 1);
     const noteClassIdx = ((midi % 12) + 12) % 12;
     const americanName = americanNoteStrings[noteClassIdx];
@@ -157,9 +168,9 @@ export class VoicePlaybackService {
     const filePath = `/sounds/${audioKey}.mp3`;
 
     let buffer = this.bufferCache.get(audioKey);
-    let playbackRate = 1.0;
+    const playbackRate = 1.0;
 
-    // 1. Try to load exact note audio file if not in cache
+    // 1. Cargar archivo de audio de la nota exacta
     if (!buffer) {
       try {
         const res = await fetch(filePath);
@@ -169,59 +180,7 @@ export class VoicePlaybackService {
           this.bufferCache.set(audioKey, buffer);
         }
       } catch (err) {
-        // Fallback below
-      }
-    }
-
-    // 2. Safe Pitch-Shifting Fallback:
-    // When exact note file does not exist, find the closest available note by absolute MIDI distance.
-    // We STRICTLY limit pitch shifting to +/- 3 semitones (a minor third).
-    // Extreme pitch shifting (+/- 12 or 24 semitones) causes deep demonic distortion or screeching chipmunk artifacts.
-    if (!buffer) {
-      const availableKeys = activeGender === 'masculino'
-        ? [
-            { key: 'G2', m: 43 }, { key: 'Gs2', m: 44 }, { key: 'A2', m: 45 }, { key: 'As2', m: 46 }, { key: 'B2', m: 47 },
-            { key: 'C3', m: 48 }, { key: 'Cs3', m: 49 }, { key: 'D3', m: 50 }, { key: 'Ds3', m: 51 }, { key: 'E3', m: 52 },
-            { key: 'F3', m: 53 }, { key: 'Fs3', m: 54 }, { key: 'G3', m: 55 }, { key: 'Gs3', m: 56 }, { key: 'A3', m: 57 },
-            { key: 'As3', m: 58 }, { key: 'B3', m: 59 }, { key: 'C4', m: 60 }, { key: 'Cs4', m: 61 }, { key: 'D4', m: 62 },
-            { key: 'Ds4', m: 63 }, { key: 'E4', m: 64 }, { key: 'F4', m: 65 }, { key: 'Fs4', m: 66 }, { key: 'G4', m: 67 },
-            { key: 'Gs4', m: 68 }, { key: 'A4', m: 69 }, { key: 'As4', m: 70 }, { key: 'B4', m: 71 }
-          ]
-        : [
-            { key: 'A3', m: 57 }, { key: 'As3', m: 58 }, { key: 'B3', m: 59 },
-            { key: 'C4', m: 60 }, { key: 'Cs4', m: 61 }, { key: 'D4', m: 62 }, { key: 'Ds4', m: 63 }, { key: 'E4', m: 64 },
-            { key: 'F4', m: 65 }, { key: 'Fs4', m: 66 }, { key: 'G4', m: 67 }, { key: 'Gs4', m: 68 }, { key: 'A4', m: 69 },
-            { key: 'As4', m: 70 }, { key: 'B4', m: 71 }, { key: 'C5', m: 72 }, { key: 'Cs5', m: 73 }, { key: 'D5', m: 74 },
-            { key: 'Ds5', m: 75 }, { key: 'E5', m: 76 }, { key: 'F5', m: 77 }, { key: 'Fs5', m: 78 }
-          ];
-
-      // Find closest note by minimum absolute MIDI distance (NEVER by modulo 12 across 2 octaves)
-      const closest = availableKeys.reduce((best, curr) =>
-        Math.abs(curr.m - midi) < Math.abs(best.m - midi) ? curr : best
-      );
-
-      const semitoneDiff = midi - closest.m;
-
-      // Only pitch shift if within +/- 3 semitones (musical minor third).
-      // Beyond +/- 3 semitones, real voice samples lose natural formants.
-      if (Math.abs(semitoneDiff) <= 3) {
-        const fallbackAudioKey = `${activeGender}_${closest.key}`;
-        let fallbackBuffer = this.bufferCache.get(fallbackAudioKey);
-        if (!fallbackBuffer) {
-          try {
-            const res = await fetch(`/sounds/${fallbackAudioKey}.mp3`);
-            if (res.ok) {
-              const ab = await res.arrayBuffer();
-              fallbackBuffer = await ctx.decodeAudioData(ab);
-              this.bufferCache.set(fallbackAudioKey, fallbackBuffer);
-            }
-          } catch {}
-        }
-
-        if (fallbackBuffer) {
-          buffer = fallbackBuffer;
-          playbackRate = Math.pow(2, semitoneDiff / 12);
-        }
+        // Fallback al sintetizador
       }
     }
 

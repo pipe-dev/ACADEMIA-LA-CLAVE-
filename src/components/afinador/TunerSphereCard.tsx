@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Volume2, Mic, X, Zap, ShieldCheck } from 'lucide-react';
 import { AudioParticleCanvas } from '../AudioParticleCanvas';
 import { AuraShieldRing } from '../AuraShieldRing';
-import { ChromaticNoteButtonInfo, NoteInfo, voicePlayback } from '../../utils/voicePlaybackService';
+import { ChromaticNoteButtonInfo, NoteInfo, voicePlayback, getOctaveIndicator } from '../../utils/voicePlaybackService';
 import { Difficulty } from '../../data/tunerLevelsData';
 
 interface TunerSphereCardProps {
@@ -274,9 +274,29 @@ export const TunerSphereCard: React.FC<TunerSphereCardProps> = ({
                     : undefined
               }}
             >
-              <span className="font-heading font-bold text-3xl tracking-wide leading-none drop-shadow-sm">
-                {activeTargetNote.name}
-              </span>
+              {(() => {
+                const targetArrow =
+                  ('octaveArrow' in activeTargetNote && activeTargetNote.octaveArrow !== undefined)
+                    ? activeTargetNote.octaveArrow
+                    : getOctaveIndicator(activeTargetNote.octave, gender);
+                return (
+                  <span className="font-heading font-bold text-3xl tracking-wide leading-none drop-shadow-sm flex items-center justify-center">
+                    <span>{activeTargetNote.name}</span>
+                    {targetArrow && (
+                      <span
+                        className={`ml-1 text-base font-black select-none ${
+                          targetArrow === 'up'
+                            ? '-translate-y-1 text-amber-300'
+                            : 'translate-y-1 text-sky-300'
+                        }`}
+                        title={targetArrow === 'up' ? 'Octava aguda (▲)' : 'Octava grave (▼)'}
+                      >
+                        {targetArrow === 'up' ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </span>
+                );
+              })()}
               <span className="text-[11px] font-semibold opacity-95 mt-1 bg-black/25 px-2.5 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1">
                 <Volume2 className="w-3 h-3 opacity-80" />
                 {detectedPitch ? `${detectedPitch} Hz` : `${targetFreq} Hz`}

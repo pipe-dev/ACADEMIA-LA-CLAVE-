@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { calculateCentsOff, DIFFICULTY_PITCH_TOLERANCES, FREE_MODE_PITCH_TOLERANCES } from '../pitchUtils';
+import {
+  calculateCentsOff,
+  getOctaveDisplacement,
+  DIFFICULTY_PITCH_TOLERANCES,
+  FREE_MODE_PITCH_TOLERANCES
+} from '../pitchUtils';
 
 console.log('--- Running pitchUtils and tolerance tests ---');
 
@@ -50,4 +55,16 @@ assert(Math.abs(a442Cents) <= maestroTols.toleranceCents, '442Hz should pass Mae
 const a443Cents = calculateCentsOff(443, 440);
 assert(Math.abs(a443Cents) > maestroTols.toleranceCents, '443Hz should fail Maestro mode');
 
-console.log('🎉 ALL pitchUtils tests passed successfully!');
+// 6. Test octave displacement helper
+const c4Hz = 261.63;
+const c3Hz = 130.81;
+const c5Hz = 523.25;
+const c2Hz = 65.41;
+
+assert.equal(getOctaveDisplacement(c4Hz, c4Hz), 0, 'Same octave should yield displacement 0');
+assert.equal(getOctaveDisplacement(c3Hz, c4Hz), -1, 'C3 against C4 should yield displacement -1');
+assert.equal(getOctaveDisplacement(c5Hz, c4Hz), 1, 'C5 against C4 should yield displacement 1');
+assert.equal(getOctaveDisplacement(c2Hz, c4Hz), -2, 'C2 against C4 should yield displacement -2');
+console.log('Octave displacement tests passed');
+
+console.log('ALL pitchUtils tests passed successfully!');
