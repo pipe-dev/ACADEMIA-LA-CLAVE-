@@ -352,9 +352,13 @@ export function useAfinadorPitch({
             }
           }
 
-          // Passive vocal range auto-expansion check
-          if (currTarget?.name) {
-            checkAndExpandVocalRange(pitchHz, currTarget.name, 'afinador');
+          // Passive vocal range auto-expansion check:
+          // Only expand if the pitch is in the exact target octave and sustained firmly (>= 450ms)
+          if (currTarget?.name && isExactOctave) {
+            const sustained = inTuneNoteStartTimeRef.current ? (nowTime - inTuneNoteStartTimeRef.current >= 450) : false;
+            if (sustained) {
+              checkAndExpandVocalRange(pitchHz, currTarget.name, 'afinador');
+            }
           }
 
           // Debounced history logging

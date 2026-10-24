@@ -12,6 +12,7 @@ export interface VocalRangeModalProps {
   onClose: () => void;
   onSaveRange?: (rangeData: SavedRangeData) => void;
   isEmbeddedView?: boolean;
+  backLabel?: string;
 }
 
 export type VocalRangeStep = 'intro' | 'lowest' | 'highest' | 'result';

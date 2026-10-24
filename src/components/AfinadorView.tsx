@@ -283,6 +283,13 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     }
   }, [userStats.lives, pitchHook.isTuningActive, pitchHook.stopTuningMic]);
 
+  // Cleanly stop tuner mic when navigating into any subview (e.g. tesitura, escalas)
+  useEffect(() => {
+    if (activeSubView && pitchHook.isTuningActive) {
+      pitchHook.stopTuningMic();
+    }
+  }, [activeSubView, pitchHook.isTuningActive, pitchHook.stopTuningMic]);
+
   useEffect(() => {
     return () => {
       audioService.stopMicrophone();

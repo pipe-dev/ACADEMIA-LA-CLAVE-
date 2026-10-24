@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { Mic, ArrowLeft } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import { voicePlayback } from '../utils/voicePlaybackService';
+import { calculateRawCentsOff } from '../utils/pitchUtils';
 import { emitStreakEligibleAction } from '../utils/streakPrompt';
 import { emitQuestEvent } from '../utils/dailyQuestsEngine';
 import { VocalRangeModalProps, VocalRangeStep } from './vocal-range/vocalRangeTypes';
@@ -19,7 +20,8 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
   isOpen = true,
   onClose,
   onSaveRange,
-  isEmbeddedView = false
+  isEmbeddedView = false,
+  backLabel
 }) => {
   const [step, setStep] = useState<VocalRangeStep>('intro');
   const [voiceGender, setVoiceGender] = useState<'male' | 'female' | null>(() => {
@@ -42,18 +44,26 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
   
   // Hold stability timer for locked note detection
   const [holdProgress, setHoldProgress] = useState<number>(0);
-  const stablePitchRef = useRef<{ pitch: number; count: number }>({ pitch: 0, count: 0 });
+  const stablePitchRef = useRef<{ basePitch: number; smoothedPitch: number; startTime: number }>({
+    basePitch: 0,
+    smoothedPitch: 0,
+    startTime: 0
+  });
 
   useEffect(() => {
     audioService.playOpenSound();
     if (voiceGender) {
       voicePlayback.preloadNotes(voiceGender === 'female' ? 'femenino' : 'masculino');
     }
+    return () => {
+      audioService.stopMicrophone();
+    };
   }, [voiceGender]);
 
   const handleClose = () => {
     audioService.stopMicrophone();
     audioService.playCloseSound();
+    setIsListening(false);
     onClose();
   };
 
@@ -61,51 +71,77 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
     audioService.playClickSound();
     setCurrentPitch(null);
     setHoldProgress(0);
-    stablePitchRef.current = { pitch: 0, count: 0 };
+    stablePitchRef.current = { basePitch: 0, smoothedPitch: 0, startTime: 0 };
 
     const ok = await audioService.startMicrophone((pitchHz, volume) => {
       setCurrentPitch(pitchHz);
 
+      // Filter plausible human singing frequencies and minimum volume
       if (pitchHz > 50 && pitchHz < 1200 && volume > 0.008) {
-        if (Math.abs(pitchHz - stablePitchRef.current.pitch) < 8) {
-          stablePitchRef.current.count += 1;
+        const nowTime = performance.now();
+
+        if (stablePitchRef.current.basePitch === 0) {
+          stablePitchRef.current = {
+            basePitch: pitchHz,
+            smoothedPitch: pitchHz,
+            startTime: nowTime
+          };
+          setHoldProgress(0);
         } else {
-          stablePitchRef.current.pitch = pitchHz;
-          stablePitchRef.current.count = 1;
-        }
+          // Both anchor distance (prevents glissando drift) and local distance (allows natural vibrato)
+          const centsFromBase = Math.abs(calculateRawCentsOff(pitchHz, stablePitchRef.current.basePitch));
+          const centsFromSmoothed = Math.abs(calculateRawCentsOff(pitchHz, stablePitchRef.current.smoothedPitch));
 
-        const pct = Math.min(100, Math.round((stablePitchRef.current.count / 15) * 100));
-        setHoldProgress(pct);
+          if (centsFromBase <= 45 && centsFromSmoothed <= 45) {
+            // Exponential moving average captures the true sustained pitch rather than the first frame
+            stablePitchRef.current.smoothedPitch =
+              stablePitchRef.current.smoothedPitch * 0.85 + pitchHz * 0.15;
+            const elapsedMs = nowTime - stablePitchRef.current.startTime;
+            const HOLD_DURATION_MS = 1500; // Exactly 1.5s as stated in user instructions
+            const pct = Math.min(100, Math.round((elapsedMs / HOLD_DURATION_MS) * 100));
+            setHoldProgress(pct);
 
-        if (stablePitchRef.current.count >= 15) { // Held for ~1.5 sec
-          const confirmedHz = Math.round(stablePitchRef.current.pitch);
-          audioService.playSoftDing();
+            if (elapsedMs >= HOLD_DURATION_MS) {
+              const confirmedHz = Math.round(stablePitchRef.current.smoothedPitch);
+              audioService.playSoftDing();
 
-          if (targetMode === 'lowest') {
-            setLowestHz(confirmedHz);
-            audioService.stopMicrophone();
-            setIsListening(false);
-            setStep('highest');
-          } else if (targetMode === 'highest') {
-            setHighestHz(confirmedHz);
-            audioService.stopMicrophone();
-            setIsListening(false);
-            setStep('result');
-            
-            confetti({
-              particleCount: 90,
-              spread: 80,
-              origin: { y: 0.6 }
-            });
+              if (targetMode === 'lowest') {
+                setLowestHz(confirmedHz);
+                audioService.stopMicrophone();
+                setIsListening(false);
+                setStep('highest');
+              } else if (targetMode === 'highest') {
+                setHighestHz(confirmedHz);
+                audioService.stopMicrophone();
+                setIsListening(false);
+                setStep('result');
+                
+                confetti({
+                  particleCount: 90,
+                  spread: 80,
+                  origin: { y: 0.6 }
+                });
+              }
+            }
+          } else {
+            // User shifted or glided to a different pitch -> restart anchor and hold timer
+            stablePitchRef.current = {
+              basePitch: pitchHz,
+              smoothedPitch: pitchHz,
+              startTime: nowTime
+            };
+            setHoldProgress(0);
           }
         }
       } else {
+        // Silence or invalid pitch resets hold progress
+        stablePitchRef.current = { basePitch: 0, smoothedPitch: 0, startTime: 0 };
         setHoldProgress(0);
       }
     });
 
     if (!ok) {
-      alert('Se requiere acceso al micrófono para realizar la prueba de tesitura vocal.');
+      setIsListening(false);
       return;
     }
 
@@ -130,16 +166,50 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
     }
   };
 
+  // Canonical fallback defaults by gender: Sol3 (196 Hz) / Mi5 (659 Hz) for female, La2 (110 Hz) / La4 (440 Hz) for male
+  const fallbackLowest = voiceGender === 'female' ? 196 : 110;
+  const fallbackHighest = voiceGender === 'female' ? 659 : 440;
+
   // Calculations for final result step
-  const rawLowest = lowestHz || (voiceGender === 'female' ? 196 : 110);
-  const rawHighest = highestHz || (voiceGender === 'female' ? 659 : 440);
+  const rawLowest = lowestHz || fallbackLowest;
+  const rawHighest = highestHz || fallbackHighest;
   const minHzVal = Math.min(rawLowest, rawHighest);
   const maxHzVal = Math.max(rawLowest, rawHighest);
 
-  const lowestNoteInfo = hzToNoteName(minHzVal);
-  const highestNoteInfo = hzToNoteName(maxHzVal);
-  const octavesRange = (Math.log2(maxHzVal / minHzVal)).toFixed(1);
-  const vocalEval = classifyVoice(minHzVal, maxHzVal, voiceGender || 'male');
+  // Consolidated range applying the ratchet rule so the Result screen displays exactly what is saved
+  const consolidatedRange = React.useMemo(() => {
+    let finalMinHz = minHzVal;
+    let finalMaxHz = maxHzVal;
+    let finalNoteMin = hzToNoteName(minHzVal).fullName;
+    let finalNoteMax = hzToNoteName(maxHzVal).fullName;
+
+    try {
+      const prevSaved = localStorage.getItem('laclave_vocal_range_saved');
+      if (prevSaved) {
+        const prev = JSON.parse(prevSaved);
+        if (prev.minHz && prev.minHz > 0 && finalMinHz > prev.minHz) {
+          finalMinHz = prev.minHz;
+          finalNoteMin = prev.noteMin || hzToNoteName(prev.minHz).fullName;
+        }
+        if (prev.maxHz && prev.maxHz > 0 && finalMaxHz < prev.maxHz) {
+          finalMaxHz = prev.maxHz;
+          finalNoteMax = prev.noteMax || hzToNoteName(prev.maxHz).fullName;
+        }
+      }
+    } catch {}
+
+    const vocalEval = classifyVoice(finalMinHz, finalMaxHz, voiceGender || 'male');
+    const octavesRange = (Math.log2(finalMaxHz / finalMinHz)).toFixed(1);
+
+    return {
+      minHz: finalMinHz,
+      maxHz: finalMaxHz,
+      lowestNote: finalNoteMin,
+      highestNote: finalNoteMax,
+      vocalEval,
+      octavesRange
+    };
+  }, [minHzVal, maxHzVal, voiceGender]);
 
   const comparison = React.useMemo(() => {
     return getEvaluationComparison(minHzVal, maxHzVal);
@@ -151,35 +221,12 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
     const finalGender: 'masculino' | 'femenino' = voiceGender === 'female' ? 'femenino' : 'masculino';
 
-    // Ratchet rule: protect historical best boundary so range only increases, never decreases
-    let finalMinHz = minHzVal;
-    let finalMaxHz = maxHzVal;
-    let finalNoteMin = lowestNoteInfo.fullName;
-    let finalNoteMax = highestNoteInfo.fullName;
-
-    try {
-      const prevSaved = localStorage.getItem('laclave_vocal_range_saved');
-      if (prevSaved) {
-        const prev = JSON.parse(prevSaved);
-        if (prev.minHz && prev.minHz > 0 && finalMinHz > prev.minHz) {
-          finalMinHz = prev.minHz;
-          finalNoteMin = prev.noteMin;
-        }
-        if (prev.maxHz && prev.maxHz > 0 && finalMaxHz < prev.maxHz) {
-          finalMaxHz = prev.maxHz;
-          finalNoteMax = prev.noteMax;
-        }
-      }
-    } catch {}
-
-    const finalClassification = classifyVoice(finalMinHz, finalMaxHz, voiceGender || 'male').classification;
-
     const rangeData = {
-      minHz: finalMinHz,
-      maxHz: finalMaxHz,
-      noteMin: finalNoteMin,
-      noteMax: finalNoteMax,
-      classification: finalClassification,
+      minHz: consolidatedRange.minHz,
+      maxHz: consolidatedRange.maxHz,
+      noteMin: consolidatedRange.lowestNote,
+      noteMax: consolidatedRange.highestNote,
+      classification: consolidatedRange.vocalEval.classification,
       gender: finalGender
     };
 
@@ -211,6 +258,8 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
   if (!isOpen && !isEmbeddedView) return null;
 
+  const computedBackLabel = backLabel || (isEmbeddedView ? 'Volver al Afinador' : 'Volver');
+
   const innerContent = (
     <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 sm:p-6 w-full space-y-5 shadow-md relative border border-slate-100 dark:border-[#1b2b3f] transition-colors">
       {/* Navigation Header */}
@@ -220,7 +269,7 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
           className="py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-[11px] sm:text-xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
-          <span className="hidden sm:inline">Volver a Gimnasio Vocal</span>
+          <span className="hidden sm:inline">{computedBackLabel}</span>
           <span className="sm:hidden">Volver</span>
         </button>
 
@@ -275,7 +324,7 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
           onStartMic={() => startPitchDetection('lowest')}
           onPlayGuide={playLowestGuide}
           onFallback={() => {
-            setLowestHz(110);
+            setLowestHz(fallbackLowest);
             audioService.stopMicrophone();
             setIsListening(false);
             setStep('highest');
@@ -294,7 +343,7 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
           onStartMic={() => startPitchDetection('highest')}
           onPlayGuide={playHighestGuide}
           onFallback={() => {
-            setHighestHz(440);
+            setHighestHz(fallbackHighest);
             audioService.stopMicrophone();
             setIsListening(false);
             setStep('result');
@@ -305,10 +354,10 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
       {/* Step 4: Result */}
       {step === 'result' && (
         <VocalRangeResultStep
-          vocalEval={vocalEval}
-          octavesRange={octavesRange}
-          lowestNote={lowestNoteInfo.fullName}
-          highestNote={highestNoteInfo.fullName}
+          vocalEval={consolidatedRange.vocalEval}
+          octavesRange={consolidatedRange.octavesRange}
+          lowestNote={consolidatedRange.lowestNote}
+          highestNote={consolidatedRange.highestNote}
           isSavedSuccess={isSavedSuccess}
           comparison={comparison}
           onRepeat={() => setStep('intro')}
@@ -323,7 +372,7 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn cursor-pointer" onClick={handleClose}>
       <div className="w-full max-w-md max-h-[90vh] overflow-y-auto cursor-default" onClick={(e) => e.stopPropagation()}>
         {innerContent}
       </div>

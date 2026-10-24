@@ -7,7 +7,7 @@ import { YouTubeAmbientPlayer } from '../YouTubeAmbientPlayer';
 import { SplashScreen } from '../SplashScreen';
 import { startOnboardingTour } from '../../utils/tour';
 import { usePwaInstall } from '../../utils/usePwaInstall';
-import { recordVocalRangeEvaluation, isVocalRangeCheckDue, snoozeVocalRangeCheck } from '../../utils/vocalRangeHelper';
+import { isVocalRangeCheckDue, snoozeVocalRangeCheck } from '../../utils/vocalRangeHelper';
 import { VocalRangeCadencePrompt } from '../vocal-range/VocalRangeCadencePrompt';
 
 // Code-split dynamic modals (loaded on-demand or preheated by SplashScreen)
@@ -204,9 +204,9 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
 
       {isVocalRangeOpen && (
         <VocalRangeModal
+          backLabel="Volver al Gimnasio Vocal"
           onClose={onCloseVocalRange}
           onSaveRange={(rangeData) => {
-            recordVocalRangeEvaluation(rangeData);
             onUpdateStats({
               vocalRange: rangeData.classification,
               vocalRangeData: rangeData,

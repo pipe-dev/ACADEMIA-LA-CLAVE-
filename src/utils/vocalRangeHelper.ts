@@ -365,28 +365,23 @@ export function getEvaluationComparison(newMinHz: number, newMaxHz: number): Eva
   const maxNote = hzToNoteName(newMaxHz).fullName;
   const octavesStr = (Math.log2(newMaxHz / newMinHz)).toFixed(1);
 
+  const createFirstRecord = (): EvaluationComparison => ({
+    type: 'first',
+    title: '¡Línea Base Registrada!',
+    message: `Has establecido tu punto de partida con ${octavesStr} octavas (${minNote} a ${maxNote}). A partir de ahora, cada nota que cantes en Afinador y Academia ayudará a expandir tu voz.`,
+    newMinNote: minNote,
+    newMaxNote: maxNote,
+    octaves: octavesStr
+  });
+
   if (typeof window === 'undefined') {
-    return {
-      type: 'first',
-      title: '¡Línea Base Registrada!',
-      message: `Has establecido tu punto de partida con ${octavesStr} octavas (${minNote} a ${maxNote}). A partir de ahora, cada nota que cantes en Afinador y Academia ayudará a expandir tu voz.`,
-      newMinNote: minNote,
-      newMaxNote: maxNote,
-      octaves: octavesStr
-    };
+    return createFirstRecord();
   }
 
   try {
     const rawSaved = localStorage.getItem(VOCAL_RANGE_SAVED_KEY);
     if (!rawSaved) {
-      return {
-        type: 'first',
-        title: '¡Línea Base Registrada!',
-        message: `Has establecido tu punto de partida con ${octavesStr} octavas (${minNote} a ${maxNote}). A partir de ahora, cada nota que cantes en Afinador y Academia ayudará a expandir tu voz.`,
-        newMinNote: minNote,
-        newMaxNote: maxNote,
-        octaves: octavesStr
-      };
+      return createFirstRecord();
     }
 
     const prev: VocalRangeData = JSON.parse(rawSaved);

@@ -12,6 +12,7 @@ import {
 import { Activity, History, ArrowLeft } from 'lucide-react';
 import { emitStreakEligibleAction } from '../utils/streakPrompt';
 import { checkAndExpandVocalRange } from '../utils/vocalRangeHelper';
+import { calculateCentsOff } from '../utils/pitchUtils';
 import { VoiceEvalModalProps, PitchSample, TunerHistoryItem, VocalRangeSavedData } from './voice-eval/voiceEvalTypes';
 import { computeVoiceEvaluation } from './voice-eval/voiceEvalScoring';
 import { VoiceEvalPianoSelector } from './voice-eval/VoiceEvalPianoSelector';
@@ -314,8 +315,18 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
       emitStreakEligibleAction();
       audioService.playFrequency(587.33, 0.4);
 
-      if (evalResult.pitchAccuracy >= 60 || evalResult.score >= 60) {
-        checkAndExpandVocalRange(selectedTargetNote.frequency, selectedTargetNote.name, 'afinador');
+      if (evalResult.pitchAccuracy >= 75) {
+        const vocalPitches = pitchSamplesRef.current
+          .filter((s) => s.pitchHz >= 50 && s.pitchHz <= 1200 && s.volume >= 0.012)
+          .map((s) => s.pitchHz)
+          .sort((a, b) => a - b);
+        if (vocalPitches.length >= 10) {
+          const medianSungHz = vocalPitches[Math.floor(vocalPitches.length / 2)];
+          const centsDiff = Math.abs(calculateCentsOff(medianSungHz, selectedTargetNote.frequency));
+          if (centsDiff <= 35) {
+            checkAndExpandVocalRange(medianSungHz, selectedTargetNote.name, 'afinador');
+          }
+        }
       }
     }
 

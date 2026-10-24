@@ -326,6 +326,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                 <VocalRangeModal
                   isOpen={true}
                   isEmbeddedView={true}
+                  backLabel="Volver a la Lección"
                   onClose={() => {
                     unlockOrientation();
                     onClose();
