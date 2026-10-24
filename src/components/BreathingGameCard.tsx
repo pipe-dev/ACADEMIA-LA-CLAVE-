@@ -90,14 +90,9 @@ export const BreathingGameCard: React.FC<BreathingGameCardProps> = ({ onGrantXp 
 
       {/* Selected Technique Detail Banner */}
       <div className="bg-indigo-50/80 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-indigo-200/70 dark:border-slate-700 text-left space-y-1 animate-fadeIn">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest block truncate">
-            {currentTech.name}
-          </span>
-          <span className="text-[10px] font-extrabold bg-indigo-200/80 dark:bg-indigo-900/80 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded-full shrink-0">
-            {currentTech.subtitle}
-          </span>
-        </div>
+        <span className="text-[11px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest block">
+          {currentTech.name}
+        </span>
         <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-snug">
           {currentTech.description}
         </p>
