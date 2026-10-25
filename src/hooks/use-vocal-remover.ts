@@ -30,6 +30,8 @@ export function useVocalRemover(initialVideoId?: string) {
   // ─── Nodos DSP Tri-Banda ───
   // 1. Graves (< 200 Hz)
   const bassGainRef = useRef<GainNode | null>(null);
+  const bassSub80ShelfRef = useRef<BiquadFilterNode | null>(null);
+  const bassSubsonicCutRef = useRef<BiquadFilterNode | null>(null);
 
   // 2. Medios (200 Hz - 6.500 Hz)
   const midCenterGainRef = useRef<GainNode | null>(null);
@@ -46,7 +48,7 @@ export function useVocalRemover(initialVideoId?: string) {
 
   // Niveles guardados
   const vocalLevelRef = useRef<number>(0);
-  const drumBoostRef = useRef<number>(1.4); // 1.4 = pegada rítmica por defecto
+  const drumBoostRef = useRef<number>(1.0); // 1.0 = ganancia unitaria limpia y balanceada
 
   const updateMix = useCallback((vocalLvl: number, drumBoostLvl: number) => {
     const clampedVocal = Math.max(0, Math.min(1, vocalLvl));
@@ -88,17 +90,26 @@ export function useVocalRemover(initialVideoId?: string) {
     }
 
     // 4. Pegada del bombo y bajo eléctrico (Graves mono < 200 Hz)
-    // Sostenido al 100% con refuerzo dinámico al suprimir la voz para máxima solidez rítmica
+    // Control dinámico Low-Shelf a 80 Hz: al suprimir la voz, atenúa suavemente hasta -3.5 dB
+    // en frecuencias < 80 Hz para que el subgrave no sature el altavoz ni distorsione el compresor.
+    if (bassSub80ShelfRef.current) {
+      const targetShelfGain = -3.5 * suppression; // 0 dB a voz normal, -3.5 dB a voz 0%
+      if (ctx) bassSub80ShelfRef.current.gain.setTargetAtTime(targetShelfGain, now, 0.02);
+      else bassSub80ShelfRef.current.gain.value = targetShelfGain;
+    }
+
+    // Ganancia de graves desacoplada del makeup general para mantener un nivel neto estable (1.0x) sin clipping
     if (bassGainRef.current) {
-      const targetBass = clampedDrum * (1.0 + (0.25 * suppression));
+      const targetMakeupFactor = 1.0 + (0.20 * suppression);
+      const targetBass = clampedDrum / targetMakeupFactor;
       if (ctx) bassGainRef.current.gain.setTargetAtTime(targetBass, now, 0.02);
       else bassGainRef.current.gain.value = targetBass;
     }
 
-    // 5. Compensador de ganancia adaptativo (Makeup Gain)
-    // A 0% de voz compensa hasta +3.8 dB (1.55x) de energía acústica para evitar bajones de volumen
+    // 5. Compensador de ganancia adaptativo moderado (Makeup Gain)
+    // Compensación suave (+1.6 dB máx) para los medios/estéreo instrumentales sin distorsión
     if (makeupGainRef.current) {
-      const targetMakeup = 1.0 + (0.55 * suppression);
+      const targetMakeup = 1.0 + (0.20 * suppression);
       if (ctx) makeupGainRef.current.gain.setTargetAtTime(targetMakeup, now, 0.02);
       else makeupGainRef.current.gain.value = targetMakeup;
     }
@@ -116,6 +127,8 @@ export function useVocalRemover(initialVideoId?: string) {
       audioContextRef.current = null;
     }
     bassGainRef.current = null;
+    bassSub80ShelfRef.current = null;
+    bassSubsonicCutRef.current = null;
     midCenterGainRef.current = null;
     sideReverbNotchRef.current = null;
     sideBusGainRef.current = null;
@@ -158,7 +171,7 @@ export function useVocalRemover(initialVideoId?: string) {
   const initAudio = useCallback(async (
     videoIdToUse?: string, 
     initialVocalLevel: number = 0, 
-    initialDrumBoost: number = 1.4,
+    initialDrumBoost: number = 1.0,
     autoPlay: boolean = true
   ) => {
     const vid = videoIdToUse || initialVideoId;
@@ -235,10 +248,28 @@ export function useVocalRemover(initialVideoId?: string) {
       bassMonoL.connect(bassBus);
       bassMonoR.connect(bassBus);
 
+      // Filtro subsónico: elimina ruidos mecánicos e infrasonidos inaudibles (< 40 Hz)
+      const bassSubsonicCut = ctx.createBiquadFilter();
+      bassSubsonicCut.type = 'highpass';
+      bassSubsonicCut.frequency.value = 40;
+      bassSubsonicCut.Q.value = 0.707;
+      bassSubsonicCutRef.current = bassSubsonicCut;
+
+      // Filtro Low-Shelf a 80 Hz: atenúa dinámicamente las frecuencias < 80 Hz al quitar la voz
+      // para evitar saturación del cono, distorsión armónica y retumbo excesivo
+      const bassSub80Shelf = ctx.createBiquadFilter();
+      bassSub80Shelf.type = 'lowshelf';
+      bassSub80Shelf.frequency.value = 80;
+      bassSub80Shelf.gain.value = 0; // Se ajusta en updateMix
+      bassSub80ShelfRef.current = bassSub80Shelf;
+
       const bassGain = ctx.createGain();
       bassGain.gain.value = initialDrumBoost;
-      bassBus.connect(bassGain);
       bassGainRef.current = bassGain;
+
+      bassBus.connect(bassSubsonicCut);
+      bassSubsonicCut.connect(bassSub80Shelf);
+      bassSub80Shelf.connect(bassGain);
 
       // Inyección idéntica en fase a ambos canales (inmune a cancelación mono)
       bassGain.connect(merger, 0, 0); // Canal L
@@ -359,15 +390,15 @@ export function useVocalRemover(initialVideoId?: string) {
       // merger -> makeupGain -> compressor -> masterGain -> destination
       // ═════════════════════════════════════════════════════════════════
       const makeupGain = ctx.createGain();
-      makeupGain.gain.value = 1.0 + (0.55 * (1.0 - initialVocalLevel));
+      makeupGain.gain.value = 1.0 + (0.20 * (1.0 - initialVocalLevel));
       makeupGainRef.current = makeupGain;
 
       const compressor = ctx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-8, ctx.currentTime);
-      compressor.knee.setValueAtTime(6, ctx.currentTime);
-      compressor.ratio.setValueAtTime(4.0, ctx.currentTime);
-      compressor.attack.setValueAtTime(0.003, ctx.currentTime);
-      compressor.release.setValueAtTime(0.12, ctx.currentTime);
+      compressor.threshold.setValueAtTime(-3.0, ctx.currentTime);
+      compressor.knee.setValueAtTime(8, ctx.currentTime);
+      compressor.ratio.setValueAtTime(3.0, ctx.currentTime);
+      compressor.attack.setValueAtTime(0.025, ctx.currentTime); // 25ms para no deformar ondas graves de 50-80 Hz
+      compressor.release.setValueAtTime(0.18, ctx.currentTime); // 180ms para evitar bombeo
       compressorRef.current = compressor;
 
       const masterGain = ctx.createGain();

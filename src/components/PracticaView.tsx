@@ -401,7 +401,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     try {
       engine.setActiveVideoId(videoId);
 
-      await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.4, true);
+      await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.0, true);
       engine.vocalRemover.setMasterVolume(engine.volume);
 
       const started = await engine.vocalRemover.play();
