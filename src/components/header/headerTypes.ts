@@ -47,4 +47,6 @@ export interface HeaderProps {
   onOpenFlameView?: () => void;
   onNavigateTab?: (tab: 'academia' | 'afinador' | 'practica') => void;
   onNavigateToPractice?: () => void;
+  /** Las decoraciones animadas del header esperan a que termine el splash */
+  headerReady?: boolean;
 }

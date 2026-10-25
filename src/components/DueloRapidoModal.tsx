@@ -11,6 +11,7 @@ import { DuelResultsView } from './duelo-rapido/DuelResultsView';
 import { Unit4DuelArena } from './unit4-flappy/Unit4DuelArena';
 import { Unit3DuelArena } from './unit3-rhythm/Unit3DuelArena';
 import { RhythmSphereDuelArena } from './rhythm/RhythmSphereDuelArena';
+import { CautionTapeRibbon } from './ui/CautionTapeRibbon';
 
 export type { DueloRapidoModalProps, DuelResult };
 
@@ -102,15 +103,35 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
   }
 
   const innerContent = (
-    <div className="bg-white dark:bg-[#102034] w-full rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-[#1b2b3f] shadow-md space-y-5 relative">
-      {/* Navigation Header */}
-      <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+    <div className="bg-white dark:bg-[#102034] w-full rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-[#1b2b3f] shadow-md space-y-5 relative overflow-hidden select-none">
+      {/* Cinta de precaución / construcción sobre el modal */}
+      <CautionTapeRibbon
+        text="Disponible Pronto"
+        angle="-rotate-[12deg]"
+        size="md"
+        className="-left-20 top-28"
+      />
+      <CautionTapeRibbon
+        text="Disponible Próximamente"
+        angle="rotate-[8deg]"
+        size="md"
+        className="-right-20 bottom-28"
+      />
+
+      {/* Capa de bloqueo e inhabilitación total para interacción */}
+      <div 
+        className="absolute inset-0 bg-slate-900/35 dark:bg-black/60 backdrop-blur-[1px] z-20 pointer-events-auto cursor-not-allowed rounded-3xl"
+        title="Disponible pronto"
+      />
+
+      {/* Navigation Header (con z-30 para permitir volver) */}
+      <div className="relative z-30 flex items-center justify-between gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
         <button
           onClick={() => {
             audioService.playCloseSound();
             onClose();
           }}
-          className="py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-[11px] sm:text-xs shrink-0"
+          className="py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-[11px] sm:text-xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
           <span className="hidden sm:inline">Volver a Gimnasio Vocal</span>
@@ -122,8 +143,10 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
         </span>
       </div>
 
-      {/* Title Banner */}
-      <div className="flex items-center gap-3">
+      {/* Contenido atenuado bajo la cinta */}
+      <div className="opacity-40 pointer-events-none space-y-5 select-none">
+        {/* Title Banner */}
+        <div className="flex items-center gap-3">
         <div className={`p-3 rounded-2xl shrink-0 ${
           duelType === 'sky_run_duel'
             ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-300'
@@ -231,6 +254,7 @@ export const DueloRapidoModal: React.FC<DueloRapidoModalProps> = ({
           onPlayAgain={resetGame}
         />
       )}
+      </div>
     </div>
   );
 

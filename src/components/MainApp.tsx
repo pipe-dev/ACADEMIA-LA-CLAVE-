@@ -6,6 +6,7 @@ import { Mic } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
+import { FabBatOnWeb, EvalFabSpiderWeb } from './ui/HalloweenDecorations';
 import { ToastContainer } from './ToastNotification';
 import { OfflineSyncBanner } from './OfflineSyncBanner';
 import { TAB_ORDER } from './main-app/mainAppTypes';
@@ -143,6 +144,7 @@ export default function MainApp() {
         zenMode={zenMode}
         ambientSound={ambientSound}
         isOnline={isOnline}
+        headerReady={!showSplash}
         onToggleDarkMode={() => setDarkMode((prev) => !prev)}
         onToggleZenMode={handleToggleZenMode}
         onToggleAmbientSound={handleToggleAmbientSound}
@@ -230,17 +232,22 @@ export default function MainApp() {
                   audioService.playClickSound();
                   setIsVoiceEvalOpen(true);
                 }}
-                whileHover={{ scale: 1.04, y: -2 }}
                 whileTap={{ scale: 0.94 }}
                 transition={{ type: 'spring', stiffness: 800, damping: 12, mass: 0.5 }}
-                className={`flex items-center gap-2 px-6 py-4 rounded-full transition-colors duration-75 group cursor-pointer relative overflow-hidden select-none touch-manipulation ${
+                className={`flex items-center gap-2 px-6 py-4 rounded-full transition-colors duration-75 group cursor-pointer relative overflow-visible select-none touch-manipulation ${
                   zenMode
                     ? 'bg-[#e5b83b] text-[#161719] shadow-[0px_6px_0px_0px_#9a7212,0px_12px_20px_0px_rgba(229,184,59,0.3)] border border-[#f5d56b] active:translate-y-1'
                     : 'bg-[#6063EE] text-white shadow-[0px_6px_0px_0px_rgba(30,30,120,1),0px_12px_20px_0px_rgba(47,46,190,0.6),inset_0px_4px_6px_rgba(255,255,255,0.7),inset_0px_-4px_6px_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-[0px_2px_0px_0px_rgba(30,30,120,1),0px_6px_10px_0px_rgba(47,46,190,0.4),inset_0px_2px_4px_rgba(255,255,255,0.5),inset_0px_-2px_4px_rgba(0,0,0,0.3)]'
                 }`}
                 aria-label="Evaluar mi voz"
               >
-                <Mic className="w-6 h-6 font-bold group-hover:rotate-12 transition-transform animate-pulse" />
+                {/* Telaraña pequeña anclada a la esquina superior derecha del botón */}
+                <span className="absolute inset-0 rounded-full overflow-hidden z-10 pointer-events-none" aria-hidden="true">
+                  <EvalFabSpiderWeb className="absolute -top-[15px] sm:-top-[18px] right-0 w-20 sm:w-24 h-auto" />
+                </span>
+                {/* Murciélago sobre el botón */}
+                <FabBatOnWeb />
+                <Mic className="w-6 h-6 font-bold animate-pulse" />
                 <span className="font-bold font-heading text-sm">Evaluar mi voz</span>
               </motion.button>
             </motion.div>

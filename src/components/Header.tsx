@@ -6,6 +6,8 @@ import { HeaderRightControls } from './header/HeaderRightControls';
 import { HeaderStreakModal } from './header/HeaderStreakModal';
 import { HeaderLivesModal } from './header/HeaderLivesModal';
 
+import { WitchHat, LogoBat, HangingSpider } from './ui/HalloweenDecorations';
+
 export type { HeaderProps } from './header/headerTypes';
 
 const HeaderComponent: React.FC<HeaderProps> = ({
@@ -22,7 +24,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenFlameView,
   onNavigateTab,
-  onNavigateToPractice
+  onNavigateToPractice,
+  headerReady = true
 }) => {
   const [isStreakModalOpen, setIsStreakModalOpen] = useState<boolean>(false);
   const [isLivesModalOpen, setIsLivesModalOpen] = useState<boolean>(false);
@@ -31,7 +34,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-[#0b1c30]/80 backdrop-blur-xl px-4 pt-[calc(var(--safe-top,env(safe-area-inset-top,0px))+0.625rem)] pb-2.5 border-b border-white/40 dark:border-white/10 shadow-[0px_4px_30px_0px_rgba(0,0,0,0.05)] flex items-center justify-between transition-colors max-w-lg mx-auto">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-[#0b1c30] px-4 pt-[calc(var(--safe-top,env(safe-area-inset-top,0px))+0.625rem)] pb-2.5 border-b border-white/40 dark:border-white/10 shadow-[0px_4px_30px_0px_rgba(0,0,0,0.05)] flex items-center justify-between transition-colors max-w-lg mx-auto overflow-visible">
         {/* Left: Avatar & Title */}
         <div 
           id="tour-header-profile"
@@ -39,28 +42,43 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             audioService.playClickSound();
             if (onOpenSettings) onOpenSettings();
           }}
-          className="flex items-center gap-2.5 cursor-pointer group press-effect"
+          className="flex items-center gap-2.5 cursor-pointer press-effect relative z-10"
           title="Ver Perfil y Configuración"
         >
-          <div className="w-9 h-9 rounded-full border-2 border-[#4648d4]/30 bg-slate-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center font-bold text-xs text-slate-600 dark:text-slate-200 shadow-xs group-hover:border-[#4648d4] transition-colors">
-            {userStats.avatarUrl ? (
-              <img 
-                src={userStats.avatarUrl} 
-                alt={userStats.name} 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <span>img</span>
-            )}
+          {/* Avatar with Witch Hat */}
+          <div className="relative">
+            <WitchHat className="absolute -top-3 sm:-top-3.5 -left-1 w-[38px] sm:w-[42px] h-auto max-w-none pointer-events-none z-20 drop-shadow-sm" />
+            <div className="w-9 h-9 rounded-full border-2 border-[#4648d4]/30 bg-slate-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center font-bold text-xs text-slate-600 dark:text-slate-200 shadow-xs transition-colors relative z-10">
+              {userStats.avatarUrl ? (
+                <img 
+                  src={userStats.avatarUrl} 
+                  alt={userStats.name} 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span>img</span>
+              )}
+            </div>
           </div>
-          <div>
+
+          {/* Logo with Bat and Spider hanging from the last P */}
+          <div className="relative">
+            {headerReady && (
+              <LogoBat className="absolute -top-[13px] sm:-top-[15px] left-[40%] sm:left-[42%] w-[42px] sm:w-[48px] h-auto max-w-none z-20" />
+            )}
             <h1 className={`font-heading font-bold text-base md:text-lg leading-tight transition-colors ${
               zenMode
                 ? 'text-[#f0ebe1]'
-                : 'text-[#2c2abc] dark:text-[#c0c1ff] group-hover:text-[#4648d4]'
+                : 'text-[#2c2abc] dark:text-[#c0c1ff]'
             }`}>
-              AFINAPP
+              AFINAP<span className="relative inline-block">P
+                <span className="absolute left-[72%] top-[55%] -translate-x-1/2 pointer-events-none z-20">
+                  {headerReady && (
+                    <HangingSpider threadHeight="h-5 sm:h-7" spiderWidth="w-4 sm:w-5" />
+                  )}
+                </span>
+              </span>
             </h1>
           </div>
         </div>

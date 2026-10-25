@@ -5,6 +5,7 @@ import { Flame, Heart, Sun, Moon, Sparkles, Volume2, VolumeX, WifiOff, Trophy, A
 import { UserStats } from '../../types';
 import { audioService } from '../../utils/audioService';
 import { MAX_LIVES } from '../../utils/livesEngine';
+import { HeaderButtonsSpiderWeb } from '../ui/HalloweenDecorations';
 
 interface HeaderRightControlsProps {
   userStats: UserStats;
@@ -68,17 +69,20 @@ export const HeaderRightControls: React.FC<HeaderRightControlsProps> = ({
         </div>
       )}
 
-      {/* Streak Pill (Interactive) */}
+      {/* 3 Header buttons with hanging spiderweb */}
+      <div className="relative flex items-center gap-2">
+        <HeaderButtonsSpiderWeb />
+
+        {/* Streak Pill (Interactive) */}
       <motion.button
         id="tour-header-streak"
         onClick={() => {
           audioService.playSoftDing();
           onOpenStreakModal();
         }}
-        whileHover={{ scale: 1.08, y: -1 }}
         whileTap={{ scale: 0.93 }}
         transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-        className={`flex items-center gap-1.5 border px-2.5 py-1 rounded-full shadow-2xs cursor-pointer ${
+        className={`relative z-10 flex items-center gap-1.5 border px-2.5 py-1 rounded-full shadow-2xs cursor-pointer ${
           zenMode
             ? 'bg-[#1f2125] border-[#2e3138] text-[#f0ebe1]'
             : streakPillStyle
@@ -102,10 +106,9 @@ export const HeaderRightControls: React.FC<HeaderRightControlsProps> = ({
           audioService.playClickSound();
           onOpenLivesModal();
         }}
-        whileHover={{ scale: 1.08, y: -1 }}
         whileTap={{ scale: 0.93 }}
         transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-        className={`flex items-center gap-1.5 border px-2.5 py-1 rounded-full shadow-inner hover:brightness-110 cursor-pointer transition-all ${
+        className={`relative z-10 flex items-center gap-1.5 border px-2.5 py-1 rounded-full shadow-inner  cursor-pointer transition-all ${
           zenMode
             ? 'bg-[#1f2125] border-[#2e3138] text-[#ded9cf]'
             : (userStats.lives ?? MAX_LIVES) === 0
@@ -140,16 +143,15 @@ export const HeaderRightControls: React.FC<HeaderRightControlsProps> = ({
             audioService.playClickSound();
             onToggleAmbientSound();
           }}
-          whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
-          className={`p-1.5 rounded-full border cursor-pointer shadow-2xs flex items-center gap-1 ${
+          className={`relative z-10 p-1.5 rounded-full border cursor-pointer shadow-2xs flex items-center gap-1 ${
             ambientSound
               ? (zenMode 
                   ? 'bg-[#26292f] border-[#e5b83b] text-[#e5b83b] animate-pulse'
                   : 'bg-emerald-100 dark:bg-emerald-950/80 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 animate-pulse')
               : (zenMode
-                  ? 'bg-[#1f2125] border-[#2e3138] text-[#99958d] hover:text-[#e5b83b]'
-                  : 'bg-[#eff4ff] dark:bg-[#102034] border-slate-200/80 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-emerald-600')
+                  ? 'bg-[#1f2125] border-[#2e3138] text-[#99958d] '
+                  : 'bg-[#eff4ff] dark:bg-[#102034] border-slate-200/80 dark:border-slate-700 text-slate-500 dark:text-slate-400 ')
           }`}
           title={ambientSound ? 'Desactivar Música Ambiental de Naturaleza' : 'Activar Música Ambiental (Sonidos de la Naturaleza)'}
           aria-label="Toggle Ambient Nature Sound"
@@ -172,12 +174,11 @@ export const HeaderRightControls: React.FC<HeaderRightControlsProps> = ({
             audioService.playClickSound();
             onToggleZenMode();
           }}
-          whileHover={{ scale: 1.1, rotate: zenMode ? 15 : -15 }}
           whileTap={{ scale: 0.9 }}
-          className={`p-1.5 rounded-full border cursor-pointer shadow-2xs flex items-center gap-1 ${
+          className={`relative z-10 p-1.5 rounded-full border cursor-pointer shadow-2xs flex items-center gap-1 ${
             zenMode
               ? 'bg-[#e5b83b] border-[#f5d56b] text-[#161719]'
-              : 'bg-[#eff4ff] dark:bg-[#102034] border-slate-200/80 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-amber-600'
+              : 'bg-[#eff4ff] dark:bg-[#102034] border-slate-200/80 dark:border-slate-700 text-slate-500 dark:text-slate-400 '
           }`}
           title={zenMode ? 'Desactivar Enfoque Nocturno' : 'Activar Enfoque Nocturno (Modo Zen)'}
           aria-label="Toggle Zen Mode"
@@ -188,6 +189,7 @@ export const HeaderRightControls: React.FC<HeaderRightControlsProps> = ({
           )}
         </motion.button>
       )}
+      </div>
 
       {/* Dark / Light Mode Toggle Switch */}
       {onToggleDarkMode && (

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { audioService } from '@/utils/audioService';
+import { CautionTapeRibbon } from '@/components/ui/CautionTapeRibbon';
 
 export default function CertificationPage() {
   const handleBack = () => {
@@ -34,7 +35,7 @@ export default function CertificationPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 rounded-2xl bg-slate-900/80 border-white/10 hover:bg-slate-800 text-slate-200"
+              className="gap-2 rounded-2xl bg-slate-900/80 border-white/10 text-slate-200"
             >
               <ArrowLeft className="w-4 h-4 text-amber-400" />
               <span>Volver a la Academia</span>
@@ -49,19 +50,13 @@ export default function CertificationPage() {
 
         {/* Certificate Card Preview (with Caution Ribbon) */}
         <div className="relative rounded-3xl bg-slate-950/80 border border-amber-500/40 p-6 sm:p-10 shadow-[0_0_60px_rgba(245,158,11,0.15)] backdrop-blur-xl overflow-hidden text-center space-y-6">
-          {/* Construction Caution Tape Ribbon (Idéntica a Duelo Rápido / PvP) */}
-          <div
-            className="absolute -left-16 top-10 w-[150%] -rotate-[14deg] py-2 flex items-center justify-center shadow-2xl z-30 pointer-events-none"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(45deg, #0a0a0a 0px, #0a0a0a 9px, #facc15 9px, #facc15 18px)',
-            }}
-          >
-            <span className="bg-black/90 text-yellow-300 text-xs sm:text-sm font-black uppercase tracking-widest px-6 py-1 rounded-sm shadow-xl flex items-center gap-2 border border-yellow-400/40 -ml-16">
-              <Lock className="w-4 h-4" />
-              Disponible Pronto
-            </span>
-          </div>
+          {/* Construction Caution Tape Ribbon */}
+          <CautionTapeRibbon
+            text="Disponible Pronto"
+            angle="-rotate-[14deg]"
+            size="md"
+            className="-left-16 top-10"
+          />
 
           {/* Certificate Header Banner */}
           <div className="space-y-2 pt-2">
@@ -127,7 +122,7 @@ export default function CertificationPage() {
           {/* Action button back */}
           <div className="pt-2">
             <Link href="/" onClick={handleBack}>
-              <Button className="w-full sm:w-auto px-8 h-12 rounded-2xl font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 cursor-pointer">
+              <Button className="w-full sm:w-auto px-8 h-12 rounded-2xl font-bold bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/20 cursor-pointer">
                 Entendido, volver a practicar
               </Button>
             </Link>

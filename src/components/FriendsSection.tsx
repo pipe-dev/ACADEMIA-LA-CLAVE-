@@ -15,6 +15,7 @@ import { AddFriendForm } from './friends/AddFriendForm';
 import { FriendsRankingList } from './friends/FriendsRankingList';
 import { FriendDetailModal } from './friends/FriendDetailModal';
 import { friendsSyncService } from '../utils/friendsSyncService';
+import { CautionTapeRibbon } from './ui/CautionTapeRibbon';
 
 export type { FriendItem } from './friends/friendsTypes';
 
@@ -217,67 +218,92 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({ userXp, userLeve
   };
 
   return (
-    <div className="space-y-4 pt-2">
-      {/* Title & Section Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className={`p-2 rounded-2xl ${
-            zenMode
-              ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
-              : 'bg-indigo-50 dark:bg-indigo-950/70 text-[#4648d4] dark:text-[#c0c1ff]'
-          }`}>
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className={`font-heading font-extrabold text-base ${
-              zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+    <div className="space-y-4 pt-2 relative rounded-3xl overflow-hidden p-1 sm:p-2 border border-dashed border-amber-500/30 bg-amber-500/5 select-none">
+      {/* Cinta de precaución / construcción superior */}
+      <CautionTapeRibbon
+        text="Amigos & Retos en Construcción"
+        angle="-rotate-[8deg]"
+        size="md"
+        className="-left-20 top-20"
+      />
+
+      {/* Cinta de precaución / construcción inferior cruzada */}
+      <CautionTapeRibbon
+        text="Disponible Próximamente"
+        angle="rotate-[6deg]"
+        size="md"
+        className="-right-20 bottom-32"
+      />
+
+      {/* Capa de bloqueo e inhabilitación total para interacción */}
+      <div 
+        className="absolute inset-0 bg-slate-900/30 dark:bg-black/55 backdrop-blur-[1px] z-20 pointer-events-auto cursor-not-allowed rounded-3xl"
+        title="Sección de Amigos y Retos en construcción"
+      />
+
+      {/* Contenido visual de la sección atenuado bajo la cinta */}
+      <div className="opacity-40 pointer-events-none space-y-4">
+        {/* Title & Section Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={`p-2 rounded-2xl ${
+              zenMode
+                ? 'bg-[#26292f] text-[#e5b83b] border border-[#383c44]'
+                : 'bg-indigo-50 dark:bg-indigo-950/70 text-[#4648d4] dark:text-[#c0c1ff]'
             }`}>
-              Amigos y Retos
-            </h3>
-            <p className="text-xs text-slate-400 font-medium">
-              Conecta, compara progreso y desafía a otros cantantes
-            </p>
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className={`font-heading font-extrabold text-base ${
+                zenMode ? 'text-[#f0ebe1]' : 'text-[#0b1c30] dark:text-[#d3e4fe]'
+              }`}>
+                Amigos y Retos
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">
+                Conecta, compara progreso y desafía a otros cantantes
+              </p>
+            </div>
           </div>
+
+          <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${
+            zenMode
+              ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/30'
+              : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+          }`}>
+            {friends.length} {friends.length === 1 ? 'Amigo' : 'Amigos'}
+          </span>
         </div>
 
-        <span className={`text-xs font-extrabold px-3 py-1 rounded-full ${
-          zenMode
-            ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/30'
-            : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
-        }`}>
-          {friends.length} {friends.length === 1 ? 'Amigo' : 'Amigos'}
-        </span>
+        {/* My Friend Code Card */}
+        <MyFriendCodeCard
+          myCode={myCode}
+          zenMode={zenMode}
+          onCopy={handleCopyCode}
+          onShare={handleShareCode}
+          copied={copied}
+        />
+
+        {/* Add Friend By Code Input Form */}
+        <AddFriendForm
+          inputCode={inputCode}
+          setInputCode={setInputCode}
+          onSubmit={handleAddFriendByCode}
+          feedbackMsg={feedbackMsg}
+          zenMode={zenMode}
+        />
+
+        {/* Friends List & Weekly Ranking */}
+        <FriendsRankingList
+          friends={friends}
+          userXp={userXp}
+          userLevel={userLevel}
+          nudgeSentIds={nudgeSentIds}
+          zenMode={zenMode}
+          onSelectFriend={handleSelectFriend}
+          onOpenDuel={handleOpenDuel}
+          onSendNudge={handleSendNudge}
+        />
       </div>
-
-      {/* My Friend Code Card */}
-      <MyFriendCodeCard
-        myCode={myCode}
-        zenMode={zenMode}
-        onCopy={handleCopyCode}
-        onShare={handleShareCode}
-        copied={copied}
-      />
-
-      {/* Add Friend By Code Input Form */}
-      <AddFriendForm
-        inputCode={inputCode}
-        setInputCode={setInputCode}
-        onSubmit={handleAddFriendByCode}
-        feedbackMsg={feedbackMsg}
-        zenMode={zenMode}
-      />
-
-      {/* Friends List & Weekly Ranking */}
-      <FriendsRankingList
-        friends={friends}
-        userXp={userXp}
-        userLevel={userLevel}
-        nudgeSentIds={nudgeSentIds}
-        zenMode={zenMode}
-        onSelectFriend={handleSelectFriend}
-        onOpenDuel={handleOpenDuel}
-        onSendNudge={handleSendNudge}
-      />
 
       {/* Friend Detail Modal */}
       <FriendDetailModal

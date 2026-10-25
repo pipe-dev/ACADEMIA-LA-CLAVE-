@@ -7,6 +7,7 @@ import { MAX_LIVES } from '../utils/livesEngine';
 import { AcademiaWelcomeBanner } from './academia/AcademiaWelcomeBanner';
 import { AcademiaNoLivesModal } from './academia/AcademiaNoLivesModal';
 import { AcademiaUnitCard } from './academia/AcademiaUnitCard';
+import { SpiderWebCorner } from './ui/HalloweenDecorations';
 
 interface AcademiaViewProps {
   userStats: UserStats;
@@ -299,7 +300,9 @@ const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
   };
 
   return (
-    <div className="pb-6 pt-1 px-4 max-w-lg mx-auto space-y-6 animate-fadeIn">
+    <div className="pb-6 pt-1 px-4 max-w-lg mx-auto space-y-6 animate-fadeIn relative">
+      {/* Telaraña decorativa debajo del header al lado superior izquierdo */}
+      <SpiderWebCorner className="absolute -top-7 -left-4 w-[76px] h-[76px] sm:w-[84px] sm:h-[84px] pointer-events-none z-0" />
       {/* Welcome Rotating Greeting Banner */}
       <AcademiaWelcomeBanner
         userName={userStats.name}

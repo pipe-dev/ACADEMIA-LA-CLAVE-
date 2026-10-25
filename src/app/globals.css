@@ -1243,3 +1243,40 @@ nextjs-portal,
 
 
 
+
+/* Micro-animaciones de las decoraciones de Halloween */
+/* Bucles idle de Halloween en CSS (compositor), mismas curvas aprobadas */
+@keyframes batHeaderIdle {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(1.2deg); }
+}
+
+/* Entrada única del murciélago del header (misma curva que la de Motion) */
+@keyframes batEntrance {
+  0% { opacity: 0; transform: translate(-46px, -14px) rotate(-18deg) scale(0.7); }
+  100% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+}
+
+@keyframes spiderSwing {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes spiderPopIn {
+  0% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spiderBodySwing {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+@keyframes fabBatIdle {
+  0% { transform: translateY(0px) rotate(-0.8deg) scaleX(1); }
+  18% { transform: translateY(-1.5px) rotate(0.8deg) scaleX(1); }
+  36% { transform: translateY(0px) rotate(-0.8deg) scaleX(1); }
+  78% { transform: translateY(0px) rotate(-0.8deg) scaleX(1); }
+  87% { transform: translateY(0px) rotate(1.6deg) scaleX(0.95); }
+  100% { transform: translateY(0px) rotate(-0.8deg) scaleX(1); }
+}
