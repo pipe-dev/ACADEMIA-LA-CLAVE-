@@ -1,6 +1,7 @@
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'AfinApp',
@@ -36,6 +37,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://www.youtube.com" />
         <link rel="preconnect" href="https://www.youtube-nocookie.com" />
         <link rel="preconnect" href="https://i.ytimg.com" />
+        <link rel="preconnect" href="https://is1-ssl.mzstatic.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://googlevideo.com" />
         <script src="https://www.youtube.com/iframe_api" async></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -49,11 +51,15 @@ export default function RootLayout({
               </ErrorBoundary>
             </main>
           </div>
+          {/* Toasts globales (errores de micrófono, permisos, etc.) — fuera
+              del ErrorBoundary para que sobrevivan a un crash de la vista */}
+          <Toaster />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                if (window.location.hostname.includes('trycloudflare.com') || window.location.hostname === 'localhost') {
+                const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('trycloudflare.com') || window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.') || window.location.port === '9005';
+                if (isDev) {
                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
                     for (let registration of registrations) {
                       registration.unregister();

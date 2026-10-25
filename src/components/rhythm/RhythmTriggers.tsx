@@ -20,7 +20,7 @@ export const RhythmTriggers: React.FC<RhythmTriggersProps> = ({
       <div className="flex gap-2 pt-1 w-full">
         <button
           onClick={onRetry}
-          className="w-full h-16 rounded-2xl font-heading font-extrabold text-base text-white bg-indigo-600 hover:bg-indigo-500 shadow-[0_5px_0_0_#3730a3] hover:translate-y-0.5 active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full h-16 rounded-2xl font-heading font-extrabold text-base text-white bg-indigo-600 shadow-[0_5px_0_0_#3730a3] active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           <RotateCcw className="w-5 h-5" />
           <span>Reintentar Ritmo</span>
@@ -39,7 +39,7 @@ export const RhythmTriggers: React.FC<RhythmTriggersProps> = ({
         onClick={() => onTap('kick')}
         className={`h-20 sm:h-24 md:h-26 px-4 rounded-2xl sm:rounded-3xl font-heading text-white transition-all cursor-pointer flex items-center justify-center relative overflow-hidden select-none ${
           isPlayable
-            ? 'bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 shadow-[0_6px_0_0_#1e3a8a] active:translate-y-1 active:shadow-[0_1px_0_0_#1e3a8a]'
+            ? 'bg-gradient-to-b from-blue-500 to-blue-700   shadow-[0_6px_0_0_#1e3a8a] active:translate-y-1 active:shadow-[0_1px_0_0_#1e3a8a]'
             : 'bg-blue-950/40 border border-blue-900/50 shadow-none cursor-not-allowed opacity-50'
         }`}
       >
@@ -54,7 +54,7 @@ export const RhythmTriggers: React.FC<RhythmTriggersProps> = ({
         onClick={() => onTap('clap')}
         className={`h-20 sm:h-24 md:h-26 px-4 rounded-2xl sm:rounded-3xl font-heading text-white transition-all cursor-pointer flex items-center justify-center relative overflow-hidden select-none ${
           isPlayable
-            ? 'bg-gradient-to-b from-rose-500 to-rose-700 hover:from-rose-400 hover:to-rose-600 shadow-[0_6px_0_0_#9f1239] active:translate-y-1 active:shadow-[0_1px_0_0_#9f1239]'
+            ? 'bg-gradient-to-b from-rose-500 to-rose-700   shadow-[0_6px_0_0_#9f1239] active:translate-y-1 active:shadow-[0_1px_0_0_#9f1239]'
             : 'bg-rose-950/40 border border-rose-900/50 shadow-none cursor-not-allowed opacity-50'
         }`}
       >

@@ -69,7 +69,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { xp, level, streak, progressData } = body;
+    const { xp, level, streak, progressData, name: bodyName } = body;
+
+    let targetName = typeof bodyName === 'string' && bodyName.trim() ? bodyName.trim() : null;
+    if (!targetName && progressData) {
+      try {
+        const parsed = typeof progressData === 'string' ? JSON.parse(progressData) : progressData;
+        const uStats = parsed.userStats || parsed;
+        if (uStats?.name && typeof uStats.name === 'string' && uStats.name.trim() && uStats.name !== 'Alex') {
+          targetName = uStats.name.trim();
+        }
+      } catch {}
+    }
+
+    if (targetName && targetName !== user.name) {
+      await userDb.updateUser(user.id, { name: targetName }).catch(() => {});
+    }
 
     const rawData = typeof progressData === 'string' ? progressData : JSON.stringify(progressData || {});
     // Enforce max 500KB payload to prevent bombing (Pillar 4)

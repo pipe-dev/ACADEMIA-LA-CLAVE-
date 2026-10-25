@@ -134,7 +134,7 @@ export const VocalRangeResultStep: React.FC<VocalRangeResultStepProps> = ({
         {!isSavedSuccess && (
           <button
             onClick={onRepeat}
-            className="py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1 hover:bg-slate-200 cursor-pointer"
+            className="py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Repetir</span>

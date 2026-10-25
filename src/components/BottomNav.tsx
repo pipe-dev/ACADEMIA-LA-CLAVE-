@@ -40,10 +40,10 @@ const BottomNavComponent: React.FC<BottomNavProps> = ({
       style={{
         paddingBottom: 'calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 0.5rem)',
       }}
-      className={`fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl rounded-t-3xl flex justify-around items-center px-4 pt-2 border-t border-x select-none max-w-lg mx-auto ${
+      className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl flex justify-around items-center px-4 pt-2 border-t border-x select-none max-w-lg mx-auto ${
         zenMode
-          ? 'bg-[#191b1f]/95 border-[#2e3138] shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.6)]'
-          : 'bg-white/85 dark:bg-[#0b1c30]/90 border-white/50 dark:border-white/10 shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.08)]'
+          ? 'bg-[#191b1f] border-[#2e3138] shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.6)]'
+          : 'bg-white dark:bg-[#0b1c30] border-slate-200 dark:border-slate-800 shadow-[0px_-6px_25px_0px_rgba(0,0,0,0.08)]'
       }`}
     >
       {NAV_ITEMS.map((item) => {
@@ -59,10 +59,10 @@ const BottomNavComponent: React.FC<BottomNavProps> = ({
               zenMode
                 ? isActive
                   ? 'text-[#161719] font-black'
-                  : 'text-[#ded9cf] hover:text-white'
+                  : 'text-[#ded9cf]'
                 : isActive
                 ? 'text-[#005236] dark:text-white font-black'
-                : 'text-slate-600 dark:text-slate-400 hover:text-[#4648d4] dark:hover:text-indigo-300'
+                : 'text-slate-600 dark:text-slate-400  '
             }`}
           >
             {isActive && (

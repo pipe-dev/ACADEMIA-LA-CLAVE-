@@ -118,7 +118,7 @@ export const ProgresoQuestsSection: React.FC<ProgresoQuestsSectionProps> = ({
             <motion.div
               key={quest.id}
               variants={cascadeItemVariants}
-              whileHover={{ scale: 1.01 }}
+
               whileTap={{ scale: 0.99 }}
               onClick={() => {
                 if (isCompleted && !isClaimed) {
@@ -224,7 +224,7 @@ export const ProgresoQuestsSection: React.FC<ProgresoQuestsSectionProps> = ({
         onClick={handleClaim}
         className={`w-full py-4 rounded-full font-heading font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2 transition-all active:scale-[0.99] ${
           zenMode
-            ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
+            ? 'bg-[#e5b83b]  text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
             : 'tactile-btn-primary'
         }`}
       >

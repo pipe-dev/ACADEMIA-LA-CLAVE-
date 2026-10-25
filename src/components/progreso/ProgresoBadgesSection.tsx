@@ -139,7 +139,7 @@ export const ProgresoBadgesSection: React.FC<ProgresoBadgesSectionProps> = ({
             <button
               type="button"
               onClick={() => setBadgeSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 p-0.5"
             >
               <X className="w-3 h-3" />
             </button>
@@ -169,7 +169,7 @@ export const ProgresoBadgesSection: React.FC<ProgresoBadgesSectionProps> = ({
                 className={`py-1.5 px-2 rounded-lg text-[11px] font-bold text-center transition-all cursor-pointer truncate ${
                   isActive
                     ? 'bg-white dark:bg-[#102034] text-amber-700 dark:text-amber-300 shadow-2xs font-extrabold'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    : 'text-slate-500 dark:text-slate-400  '
                 }`}
               >
                 {tab.label}
@@ -201,7 +201,7 @@ export const ProgresoBadgesSection: React.FC<ProgresoBadgesSectionProps> = ({
               <motion.div 
                 key={badge.id}
                 variants={cascadeItemVariants}
-                whileHover={{ scale: 1.015 }}
+
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleOpenBadgeDetails(badge)}
                 className={`rounded-2xl p-4 transition-all flex items-start gap-3.5 border cursor-pointer relative overflow-hidden group ${
@@ -223,7 +223,7 @@ export const ProgresoBadgesSection: React.FC<ProgresoBadgesSectionProps> = ({
 
                 {/* Badge Icon Container */}
                 <div className="relative shrink-0">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 ${
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs transition-transform ${
                     zenMode
                       ? (badge.unlocked
                           ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/40 shadow-xs'
@@ -317,7 +317,7 @@ export const ProgresoBadgesSection: React.FC<ProgresoBadgesSectionProps> = ({
               audioService.playClickSound();
               setBadgeVisibleCount((prev) => Math.min(filteredBadges.length, prev + 15));
             }}
-            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
           >
             <span>Ver Más Insignias ({filteredBadges.length - badgeVisibleCount} restantes)</span>
             <ChevronDown className="w-4 h-4" />

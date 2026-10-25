@@ -57,6 +57,7 @@ export const KaraokeStageHero: React.FC<KaraokeStageHeroProps> = ({
           src={selectedTrack.thumbnail}
           alt={selectedTrack.title}
           onError={onStageImageError}
+          decoding="async"
           className={`absolute inset-0 w-full h-full object-cover opacity-80 filter blur-[0.5px] scale-105 ${
             zenMode ? 'grayscale contrast-110 brightness-90' : ''
           }`}

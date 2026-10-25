@@ -54,7 +54,7 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({
               audioService.playCloseSound();
               onConfirmExit();
             }}
-            className="w-full py-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 font-heading font-bold text-xs transition-colors cursor-pointer"
+            className="w-full py-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-heading font-bold text-xs transition-colors cursor-pointer"
           >
             Abandonar lección
           </button>

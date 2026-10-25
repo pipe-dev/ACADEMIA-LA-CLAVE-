@@ -176,7 +176,7 @@ export const BalloonExerciseView: React.FC<BalloonExerciseViewProps> = ({
                   className={`w-5 h-5 rounded-full transition-all duration-300 press-effect cursor-pointer ${theme.bgCircle} ${
                     balloonThemeIdx === idx
                       ? 'scale-125 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 shadow-md'
-                      : 'opacity-60 hover:opacity-100 hover:scale-110'
+                      : 'opacity-60'
                   }`}
                   title={theme.name}
                 />
@@ -285,7 +285,7 @@ export const BalloonExerciseView: React.FC<BalloonExerciseViewProps> = ({
             audioService.playClickSound();
             setBalloonActive(!balloonActive);
           }}
-          className="flex-1 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-heading font-black text-sm flex items-center justify-center gap-2 shadow-lg press-effect cursor-pointer"
+          className="flex-1 py-3.5 rounded-2xl bg-indigo-600 text-white font-heading font-black text-sm flex items-center justify-center gap-2 shadow-lg press-effect cursor-pointer"
         >
           {balloonActive ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white" />}
           <span>{balloonActive ? 'Pausar Ejercicio' : 'Iniciar Ejercicio'}</span>
@@ -297,7 +297,7 @@ export const BalloonExerciseView: React.FC<BalloonExerciseViewProps> = ({
             setBalloonActive(false);
             setBalloonTotalSecs(0);
           }}
-          className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 press-effect shrink-0 cursor-pointer"
+          className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center press-effect shrink-0 cursor-pointer"
           title="Reiniciar Ejercicio"
         >
           <RotateCcw className="w-5 h-5" />

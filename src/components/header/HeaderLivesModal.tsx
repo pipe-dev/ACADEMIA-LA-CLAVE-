@@ -59,9 +59,14 @@ export const HeaderLivesModal: React.FC<HeaderLivesModalProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          className={`absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full shadow-xs cursor-pointer active:scale-90 transition-transform ${
+            zenMode
+              ? 'bg-[#26292f] border border-[#2e3138] text-rose-400'
+              : 'bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/70 text-rose-500 dark:text-rose-400'
+          }`}
+          aria-label="Cerrar"
         >
-          <X className="w-4 h-4" />
+          <X className="w-5 h-5" />
         </button>
 
         {/* Visual Icon and Title */}
@@ -154,7 +159,7 @@ export const HeaderLivesModal: React.FC<HeaderLivesModalProps> = ({
                   onClose();
                   onOpenRecoveryExam();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Zap className="w-4 h-4 text-emerald-200 fill-emerald-200" />
                 <span>Entrenar para ganar 1 vida (Gratis)</span>
@@ -170,8 +175,8 @@ export const HeaderLivesModal: React.FC<HeaderLivesModalProps> = ({
                 }}
                 className={`w-full py-2.5 px-4 rounded-xl font-heading font-bold text-xs active:scale-98 transition-all flex items-center justify-center gap-2 border cursor-pointer ${
                   zenMode
-                    ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#2e323a] border-[#383c44]'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200/80 dark:border-slate-700'
+                    ? 'bg-[#26292f] text-[#ded9cf]  border-[#383c44]'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200   border-slate-200/80 dark:border-slate-700'
                 }`}
               >
                 <ShoppingBag className="w-4 h-4 text-indigo-500" />

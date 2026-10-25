@@ -65,13 +65,18 @@ export const StoreModal: React.FC<StoreModalProps> = ({
       >
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          className={`absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full shadow-xs cursor-pointer active:scale-90 transition-transform ${
+            zenMode
+              ? 'bg-[#26292f] border border-[#2e3138] text-rose-400'
+              : 'bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/70 text-rose-500 dark:text-rose-400'
+          }`}
+          aria-label="Cerrar"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Header Title */}
-        <div className="flex items-center justify-between pr-8">
+        <div className="flex items-center justify-between pr-16">
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs ${
               zenMode
@@ -173,7 +178,7 @@ export const StoreModal: React.FC<StoreModalProps> = ({
                   ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                   : !canAfford
                     ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                    : 'bg-rose-600 hover:bg-rose-700 text-white active:scale-95 cursor-pointer'
+                    : 'bg-rose-600  text-white active:scale-95 cursor-pointer'
               }`}
             >
               {isMaxLives ? 'Lleno' : !canAfford ? `${cost} XP` : `${cost} XP`}
@@ -207,7 +212,7 @@ export const StoreModal: React.FC<StoreModalProps> = ({
                   onClose();
                   onOpenRecoveryExam();
                 }}
-                className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs active:scale-95 transition-all cursor-pointer shadow-xs whitespace-nowrap"
+                className="px-3.5 py-1.5 rounded-full bg-emerald-600 text-white font-heading font-bold text-xs active:scale-95 transition-all cursor-pointer shadow-xs whitespace-nowrap"
               >
                 Entrenar
               </button>
@@ -239,7 +244,7 @@ export const StoreModal: React.FC<StoreModalProps> = ({
                 audioService.playClickSound();
                 alert('¡Protector de racha activado para tu siguiente práctica!');
               }}
-              className="px-3.5 py-1.5 rounded-full bg-amber-500 text-white font-heading font-bold text-xs hover:bg-amber-600 active:scale-95 transition-all cursor-pointer shadow-xs"
+              className="px-3.5 py-1.5 rounded-full bg-amber-500 text-white font-heading font-bold text-xs active:scale-95 transition-all cursor-pointer shadow-xs"
             >
               100 XP
             </button>
@@ -248,7 +253,7 @@ export const StoreModal: React.FC<StoreModalProps> = ({
 
         <button
           onClick={handleClose}
-          className="w-full py-3.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"
+          className="w-full py-3.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs cursor-pointer"
         >
           Cerrar
         </button>

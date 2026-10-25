@@ -160,10 +160,10 @@ export const SettingsTogglesList: React.FC<SettingsTogglesListProps> = ({
           onClick={() => {
             onInstallApp();
           }}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/60 dark:to-teal-950/60 p-3.5 sm:p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs cursor-pointer hover:border-emerald-400 transition-colors group"
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/60 dark:to-teal-950/60 p-3.5 sm:p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs cursor-pointer transition-colors group"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <Smartphone className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+            <Smartphone className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 transition-transform" />
             <div className="text-left">
               <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#d3e4fe] flex items-center gap-1.5">
                 <span>Instalar App</span>
@@ -226,7 +226,7 @@ export const SettingsTogglesList: React.FC<SettingsTogglesListProps> = ({
         <button
           type="button"
           onClick={onTestNotification}
-          className="text-xs font-black text-[#4648d4] dark:text-[#c0c1ff] px-3 py-1.5 bg-white dark:bg-[#102034] border border-indigo-100 dark:border-indigo-900 rounded-xl shadow-2xs cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shrink-0 flex items-center gap-1.5"
+          className="text-xs font-black text-[#4648d4] dark:text-[#c0c1ff] px-3 py-1.5 bg-white dark:bg-[#102034] border border-indigo-100 dark:border-indigo-900 rounded-xl shadow-2xs cursor-pointer shrink-0 flex items-center gap-1.5"
         >
           <Bell className="w-3.5 h-3.5 text-[#4648d4] dark:text-[#c0c1ff]" />
           <span>Probar</span>
@@ -250,7 +250,7 @@ export const SettingsTogglesList: React.FC<SettingsTogglesListProps> = ({
         <button
           type="button"
           onClick={onShareApp}
-          className="text-xs font-black text-emerald-700 dark:text-emerald-300 px-3 py-1.5 bg-white dark:bg-[#102034] border border-emerald-100 dark:border-emerald-900 rounded-xl shadow-2xs cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-950/50 shrink-0 flex items-center gap-1.5"
+          className="text-xs font-black text-emerald-700 dark:text-emerald-300 px-3 py-1.5 bg-white dark:bg-[#102034] border border-emerald-100 dark:border-emerald-900 rounded-xl shadow-2xs cursor-pointer shrink-0 flex items-center gap-1.5"
         >
           <Share2 className="w-3.5 h-3.5" />
           <span>Compartir</span>
@@ -267,10 +267,10 @@ export const SettingsTogglesList: React.FC<SettingsTogglesListProps> = ({
               onStartTour();
             }, 150);
           }}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/60 dark:to-purple-950/60 p-3.5 sm:p-4 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs cursor-pointer hover:border-indigo-400 transition-colors group"
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/60 dark:to-purple-950/60 p-3.5 sm:p-4 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs cursor-pointer transition-colors group"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <Compass className="w-5 h-5 text-[#4648d4] dark:text-[#c0c1ff] shrink-0 group-hover:rotate-45 transition-transform" />
+            <Compass className="w-5 h-5 text-[#4648d4] dark:text-[#c0c1ff] shrink-0 transition-transform" />
             <div className="text-left">
               <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#d3e4fe]">
                 Tour Guiado Interactivo

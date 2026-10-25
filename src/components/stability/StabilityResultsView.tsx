@@ -64,7 +64,7 @@ export const StabilityResultsView: React.FC<StabilityResultsViewProps> = ({
           audioService.playClickSound();
           onRetry();
         }}
-        className="w-full py-3 rounded-2xl bg-[#4648d4] hover:bg-indigo-600 text-white font-heading font-extrabold text-xs shadow-md transition-all active:scale-98 cursor-pointer"
+        className="w-full py-3 rounded-2xl bg-[#4648d4] text-white font-heading font-extrabold text-xs shadow-md transition-all active:scale-98 cursor-pointer"
       >
         ¡Intentar de Nuevo!
       </button>

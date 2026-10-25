@@ -99,11 +99,11 @@ export const PitchChallengeKeyboard: React.FC<PitchChallengeKeyboardProps> = ({
                       : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/80 shadow-[0_4px_0_0_#059669] dark:shadow-[0_4px_0_0_#064e3b] cursor-pointer'
                     : isInChallenge
                     ? zenMode
-                      ? 'bg-[#e2e6ed] text-[#141619] hover:bg-[#edf1f8] border-[#e5b83b] ring-1 ring-[#e5b83b]/60 shadow-[0_4px_0_0_#9ba2b0] cursor-pointer'
-                      : 'bg-white dark:bg-[#152336] text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-indigo-200/90 dark:border-indigo-800/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] ring-1 ring-indigo-400/30 cursor-pointer'
+                      ? 'bg-[#e2e6ed] text-[#141619]  border-[#e5b83b] ring-1 ring-[#e5b83b]/60 shadow-[0_4px_0_0_#9ba2b0] cursor-pointer'
+                      : 'bg-white dark:bg-[#152336] text-slate-800 dark:text-slate-100   border-indigo-200/90 dark:border-indigo-800/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] ring-1 ring-indigo-400/30 cursor-pointer'
                     : zenMode
-                    ? 'bg-[#c8ccd4] text-[#141619] hover:bg-[#d8dce4] border-[#aeb4c0] shadow-[0_4px_0_0_#8e94a0] cursor-pointer'
-                    : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1a2c44] border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
+                    ? 'bg-[#c8ccd4] text-[#141619]  border-[#aeb4c0] shadow-[0_4px_0_0_#8e94a0] cursor-pointer'
+                    : 'bg-white dark:bg-[#152336] text-slate-700 dark:text-slate-200   border-slate-200/90 dark:border-slate-700/80 shadow-[0_4px_0_0_#cbd5e1] dark:shadow-[0_4px_0_0_#0b1420] cursor-pointer'
                 }`}
                 title={
                   isCurrentTarget
@@ -200,11 +200,11 @@ export const PitchChallengeKeyboard: React.FC<PitchChallengeKeyboardProps> = ({
                     : 'bg-emerald-800 dark:bg-emerald-900 text-emerald-100 border-emerald-600 shadow-[0_3px_0_0_#064e3b] z-10 cursor-pointer'
                   : isInChallenge
                   ? zenMode
-                    ? 'bg-[#141619] text-white hover:bg-[#1f2125] border-[#e5b83b]/40 shadow-[0_3px_0_0_#0a0b0d] cursor-pointer'
-                    : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-purple-400/70 shadow-[0_3px_0_0_#020617] ring-1 ring-violet-400/40 cursor-pointer'
+                    ? 'bg-[#141619] text-white  border-[#e5b83b]/40 shadow-[0_3px_0_0_#0a0b0d] cursor-pointer'
+                    : 'bg-slate-900 dark:bg-[#070d18] text-white   border-purple-400/70 shadow-[0_3px_0_0_#020617] ring-1 ring-violet-400/40 cursor-pointer'
                   : zenMode
-                  ? 'bg-[#141619] text-[#ded9cf] hover:bg-[#1f2125] border-[#2e3138] shadow-[0_3px_0_0_#0a0b0d] cursor-pointer'
-                  : 'bg-slate-900 dark:bg-[#070d18] text-white hover:bg-slate-800 dark:hover:bg-[#0d1728] border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
+                  ? 'bg-[#141619] text-[#ded9cf]  border-[#2e3138] shadow-[0_3px_0_0_#0a0b0d] cursor-pointer'
+                  : 'bg-slate-900 dark:bg-[#070d18] text-white   border-slate-700/90 dark:border-slate-800 shadow-[0_3px_0_0_#020617] cursor-pointer'
               }`}
               title={
                 isCurrentTarget

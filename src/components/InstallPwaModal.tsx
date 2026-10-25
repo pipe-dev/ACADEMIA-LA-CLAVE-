@@ -34,12 +34,13 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
         
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/70 text-rose-500 dark:text-rose-400 shadow-xs cursor-pointer active:scale-90 transition-transform"
+          aria-label="Cerrar"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pr-14">
           <div className="w-12 h-12 bg-[#4648d4] text-white rounded-2xl flex items-center justify-center shadow-md shrink-0">
             <Smartphone className="w-6 h-6" />
           </div>
@@ -75,7 +76,7 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
                 if (onTriggerNativeInstall) onTriggerNativeInstall();
                 onClose();
               }}
-              className="w-full py-3 bg-[#4648d4] hover:bg-[#383aa8] text-white font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              className="w-full py-3 bg-[#4648d4] text-white font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
               <Download className="w-4 h-4" />
               <span>Instalar Ahora</span>
@@ -92,7 +93,7 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
             </div>
             <button
               onClick={handleOpenNewTab}
-              className="w-full py-3 bg-[#4648d4] hover:bg-[#383aa8] text-white font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              className="w-full py-3 bg-[#4648d4] text-white font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
               <span>Abrir en Pestaña Nueva para Instalar</span>
@@ -124,7 +125,7 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="w-full py-3 bg-[#4648d4] text-white font-black text-xs rounded-2xl cursor-pointer hover:bg-[#383aa8] transition-colors"
+              className="w-full py-3 bg-[#4648d4] text-white font-black text-xs rounded-2xl cursor-pointer transition-colors"
             >
               ¡Entendido!
             </button>

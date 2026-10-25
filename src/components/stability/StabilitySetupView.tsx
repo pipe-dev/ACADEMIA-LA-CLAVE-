@@ -46,7 +46,7 @@ export const StabilitySetupView: React.FC<StabilitySetupViewProps> = ({
                 className={`p-2.5 rounded-2xl font-heading font-extrabold text-xs text-white flex flex-col items-center justify-center transition-all cursor-pointer ${
                   isSel
                     ? 'ring-4 ring-indigo-400 scale-105 shadow-md'
-                    : 'opacity-80 hover:opacity-100'
+                    : 'opacity-80'
                 } ${!reachable ? 'opacity-25 cursor-not-allowed' : ''}`}
                 style={{ backgroundColor: note.bgColor }}
               >
@@ -89,7 +89,7 @@ export const StabilitySetupView: React.FC<StabilitySetupViewProps> = ({
 
       <button
         onClick={onStartChallenge}
-        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-heading font-extrabold text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-heading font-extrabold text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
       >
         <span>¡Iniciar Desafío (10s)!</span>
       </button>

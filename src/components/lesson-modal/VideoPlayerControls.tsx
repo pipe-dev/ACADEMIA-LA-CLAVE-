@@ -54,7 +54,7 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
         <div className="flex items-center gap-2.5 md:gap-3.5 pointer-events-auto">
           <button
             onClick={onBackClick}
-            className="organic-shape w-11 h-11 md:w-14 md:h-14 flex items-center justify-center text-white cursor-pointer transition-all duration-300 press-effect hover:scale-105 shrink-0"
+            className="organic-shape w-11 h-11 md:w-14 md:h-14 flex items-center justify-center text-white cursor-pointer transition-all duration-300 press-effect shrink-0"
             style={{
               backgroundColor: '#ef4444',
               boxShadow: '0 4px 0 0 #b91c1c'
@@ -145,7 +145,7 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
             max={duration || 100}
             value={currentTime}
             onChange={onSeekChange}
-            className="flex-1 h-2 sm:h-2.5 bg-white/20 rounded-full appearance-none outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 sm:[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-4 sm:[&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-[#4648d4] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-lg cursor-pointer transition-all hover:[&::-webkit-slider-thumb]:scale-125 touch-pan-x"
+            className="flex-1 h-2 sm:h-2.5 bg-white/20 rounded-full appearance-none outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 sm:[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-4 sm:[&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-[#4648d4] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-lg cursor-pointer transition-all touch-pan-x"
           />
           <span className="text-white text-[11px] sm:text-xs font-bold font-mono w-9 sm:w-11 text-right drop-shadow-md shrink-0">
             {formatTime(duration)}

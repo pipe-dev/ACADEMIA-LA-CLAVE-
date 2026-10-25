@@ -139,11 +139,16 @@ class AudioService {
       this.unlockForMobileSilentMode();
     }
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
-      logger.info('Audio', 'AudioContext creado correctamente');
+      try {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.ctx = new AudioCtx();
+        logger.info('Audio', 'AudioContext creado correctamente');
+      } catch (err) {
+        logger.error('Audio', 'No se pudo crear el AudioContext', err);
+        this.ctx = null;
+      }
     }
-    if (this.ctx.state === 'suspended') {
+    if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().then(() => {
         logger.info('Audio', 'AudioContext reanudado');
       }).catch((err) => {
@@ -804,14 +809,16 @@ class AudioService {
 
   /**
    * Play real-time flame swell sound as user swipes up to ignite streak (0.0 to 1.0)
+   * Volumen estable a 0.5 durante todo el recorrido (sin crescendo)
    */
-  public playFlameSwellSound(progress: number) {
+  public playFlameSwellSound(progress: number, volume: number = 0.5) {
     try {
       this.initCtx();
       if (!this.ctx) return;
 
       const now = this.ctx.currentTime;
-      const freq = 220 + progress * 660; // 220Hz -> 880Hz pitch swell
+      const clampedProg = Math.min(1.0, Math.max(0, progress));
+      const freq = 220 + clampedProg * 660; // 220Hz -> 880Hz pitch swell
 
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -819,18 +826,20 @@ class AudioService {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, now);
 
-      const vol = Math.min(0.22, 0.05 + progress * 0.17);
-      gain.gain.setValueAtTime(vol, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      // Volumen estable y constante a 0.5 para todo el recorrido (sin crescendo)
+      const vol = volume;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(vol, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.1);
+      osc.stop(now + 0.11);
 
-      if (Math.random() < 0.3) {
-        this.vibrate(Math.round(8 + progress * 15));
+      if (Math.random() < 0.4) {
+        this.vibrate(Math.round(8 + clampedProg * 15));
       }
     } catch {
       // Ignore
@@ -838,8 +847,58 @@ class AudioService {
   }
 
   /**
-   * Play triumphant multi-layered streak ignition fanfare and flame woosh burst
+   * Reproduce la secuencia completa de notas ascendentes de crecimiento de la llama.
+   * Garantiza que suenen todos los tonos con volumen constante y estable (0.5),
+   * incluso si el deslizamiento fue rápido o la llama ya se ha encendido.
    */
+  public playFlameGrowthSequence(fromProgress: number = 0, volume: number = 0.5, durationMs: number = 380) {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const steps = 8;
+      const intervalSec = (durationMs / 1000) / steps;
+      const startP = Math.min(0.5, Math.max(0, fromProgress));
+
+      for (let i = 0; i < steps; i++) {
+        const ratio = i / (steps - 1);
+        const p = startP + (1 - startP) * ratio;
+        const freq = 220 + p * 660; // 220Hz -> 880Hz
+        const noteTime = now + i * intervalSec;
+        const noteDuration = intervalSec * 1.35;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        // Volumen constante y estable a 0.5 para todo el recorrido (sin crescendo)
+        gain.gain.setValueAtTime(0.0001, noteTime);
+        gain.gain.linearRampToValueAtTime(volume, noteTime + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + noteDuration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + noteDuration);
+      }
+
+      this.vibrate([15, 20, 25, 30]);
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Reproduce una cascada armónica ascendente completa con volumen estable a 0.5
+   */
+  public playFlameCrescendo(fromProgress: number = 0, durationMs: number = 380) {
+    this.playFlameGrowthSequence(fromProgress, 0.5, durationMs);
+  }
+
   public playStreakIgnitionSound() {
     this.vibrate([40, 60, 40, 100, 50, 150]);
     try {

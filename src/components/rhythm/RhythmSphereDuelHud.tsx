@@ -266,7 +266,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
                   e.stopPropagation();
                   onExit();
                 }}
-                className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-heading font-bold text-xs cursor-pointer"
+                className="flex-1 py-3 rounded-2xl bg-slate-800 text-slate-300 font-heading font-bold text-xs cursor-pointer"
               >
                 Cancelar
               </button>
@@ -276,7 +276,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
                   e.stopPropagation();
                   onStartGame();
                 }}
-                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 text-white font-heading font-black text-xs shadow-md cursor-pointer"
+                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-heading font-black text-xs shadow-md cursor-pointer"
               >
                 {isLocal ? `Comenzar Turno ${localTurn}` : 'Comenzar Duelo'}
               </button>
@@ -345,7 +345,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
             <button
               type="button"
               onClick={onStartLocalTurn2}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 text-white font-heading font-black text-sm shadow-xl cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-heading font-black text-sm shadow-xl cursor-pointer flex items-center justify-center gap-2"
             >
               <Users className="w-4 h-4" />
               <span>Comenzar Turno de {opponentName}</span>
@@ -431,7 +431,7 @@ export const RhythmSphereDuelHud: React.FC<RhythmSphereDuelHudProps> = ({
             <button
               type="button"
               onClick={onFinishDuel}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 text-white font-heading font-black text-xs shadow-md cursor-pointer"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-heading font-black text-xs shadow-md cursor-pointer"
             >
               Ver Resumen y Reclamar XP
             </button>

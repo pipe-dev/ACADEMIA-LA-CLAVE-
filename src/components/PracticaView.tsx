@@ -8,7 +8,6 @@ const YouTube = dynamic<YouTubeProps>(() => import('react-youtube').then((mod) =
 import { ArrowLeft, Zap } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import { fetchLyrics, TrackLyrics, LyricLine } from '../lib/fetch-lyrics';
-import { NoteData } from './practica/polygraph-canvas';
 import { getTimeToNextLife, MAX_LIVES } from '../utils/livesEngine';
 import { CatalogTrack, PracticaViewProps } from './practica/practicaTypes';
 import {
@@ -25,6 +24,13 @@ import { KaraokeLoadingOverlay } from './practica/KaraokeLoadingOverlay';
 import { KaraokeResultsModal } from './practica/KaraokeResultsModal';
 import { KaraokeNoLivesModal } from './practica/KaraokeNoLivesModal';
 import { useKaraokeEngine } from './practica/useKaraokeEngine';
+import {
+  YtSearchVideo,
+  getTopYtMatches,
+  getQualifyingYtMatches
+} from './practica/pickBestYtMatch';
+import { rankSongSearch } from './practica/songSearchRank';
+import { VideoPickerModal } from './practica/VideoPickerModal';
 
 export const PracticaView: React.FC<PracticaViewProps> = ({
   userStats,
@@ -39,6 +45,18 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   // ─── Estado de Vidas y Canción de Cortesía ───
   const [isCourtesySongActive, setIsCourtesySongActive] = useState<boolean>(false);
   const [showNoLivesModal, setShowNoLivesModal] = useState<boolean>(false);
+
+  // Picker de las 2 mejores versiones de YouTube al abrir una canción nueva
+  const [videoOptions, setVideoOptions] = useState<YtSearchVideo[] | null>(null);
+  const [videoOptionsCacheKey, setVideoOptionsCacheKey] = useState<string>('');
+
+  // Complemento de canción específica traído desde la búsqueda de YouTube
+  const [ytComplement, setYtComplement] = useState<CatalogTrack | null>(null);
+  const [isSongSearch, setIsSongSearch] = useState<boolean>(false);
+  const ytVideoIdByTrackIdRef = useRef<Map<string, string>>(new Map());
+  // Nombre limpio (título sin "(cover)" etc. + artista real) por tarjeta yt_
+  const ytCleanNamesRef = useRef<Map<string, { title: string; artist: string }>>(new Map());
+  const loadingTrackIdRef = useRef<string | null>(null);
 
   const [timeToNextLife, setTimeToNextLife] = useState<{ remainingMs: number; formatted: string }>(() =>
     getTimeToNextLife(userStats)
@@ -71,10 +89,9 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const [loadingTipIndex, setLoadingTipIndex] = useState<number>(0);
   const [stageImageFailed, setStageImageFailed] = useState<boolean>(false);
 
-  // ─── Estado de Letras y Melodía ───
+  // ─── Estado de Letras ───
   const [trackLyrics, setTrackLyrics] = useState<TrackLyrics | null>(null);
   const [parsedLyrics, setParsedLyrics] = useState<LyricLine[]>([]);
-  const [melodyData, setMelodyData] = useState<NoteData[]>([]);
 
   // ─── Motor de Karaoke (Web Audio, Pitch, Grabación, Puntos) ───
   const engine = useKaraokeEngine({
@@ -101,6 +118,22 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   }, [selectedTrack]);
 
   // Cargar catálogo desde la API
+  // Limpia videoIds viejos guardados sin validar (podrían estar equivocados)
+  useEffect(() => {
+    try {
+      const legacyKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('yt_audio_') && !key.startsWith('yt_audio_v2_')) {
+          legacyKeys.push(key);
+        }
+      }
+      legacyKeys.forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // localStorage bloqueado: no es crítico
+    }
+  }, []);
+
   useEffect(() => {
     setIsLoadingCatalog(true);
     fetch('/api/top-tracks')
@@ -167,18 +200,30 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     return () => clearInterval(interval);
   }, [isLoadingTrack]);
 
+  // Normalizador de texto para búsqueda insensible a acentos, mayúsculas y espacios
+  const normalizeForSearch = useCallback((str: string) => {
+    return (str || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }, []);
+
   // Búsqueda en iTunes (Debounced)
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
       setSearchResults([]);
       setIsSearching(false);
+      setIsSongSearch(false);
+      setYtComplement(null);
       return;
     }
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/itunes-search?q=${encodeURIComponent(searchQuery)}`);
+        const res = await fetch(`/api/itunes-search?q=${encodeURIComponent(trimmed)}`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -189,7 +234,12 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
               category: 'Pop Latino',
               thumbnail: item.thumbnail || ''
             }));
-            setSearchResults(mapped);
+            // Solo ESA canción: oficial + complemento; nada que sea otra
+            // canción solo porque coincida el artista
+            const ranked = rankSongSearch(mapped, trimmed);
+            setIsSongSearch(ranked.length > 0);
+            setYtComplement(null);
+            setSearchResults(ranked.length > 0 ? ranked : mapped);
           }
         }
       } catch (err) {
@@ -197,16 +247,130 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       } finally {
         setIsSearching(false);
       }
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Catálogo filtrado
-  const displayedCatalog = useMemo(() => {
-    if (searchQuery.trim() && searchResults.length > 0) {
-      return searchResults;
+  // Complemento desde YouTube: cuando una búsqueda de canción específica
+  // solo trae 1 resultado válido, pedimos a yt-search las alternativas y
+  // agregamos la mejor como segunda tarjeta (aunque no traiga carátula).
+  useEffect(() => {
+    if (!isSongSearch || searchResults.length >= 2 || !searchResults[0]) {
+      setYtComplement((prev) => (prev ? null : prev));
+      return;
     }
+
+    const baseTrack = searchResults[0];
+    let cancelled = false;
+
+    // Quita marcadores de versión del título ("(Cover)", etc.) y las colas
+    // de video tipo "A su tiempo || arisa (letra)" para no contaminar el
+    // query de YouTube ni el puntaje de match
+    const cleanedTitle =
+      baseTrack.title
+        .split('|')[0]
+        .replace(/\((?:cover|live|remix|acoustic|acustic[oa]s?|en vivo|karaoke)\s*[^)]*\)/gi, '')
+        .trim() ||
+      baseTrack.title;
+
+    fetch(`/api/yt-search?q=${encodeURIComponent(`${baseTrack.artist} ${cleanedTitle} audio`)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((videos) => {
+        if (cancelled) return;
+        const matches = Array.isArray(videos)
+          ? getQualifyingYtMatches(videos, baseTrack.artist, cleanedTitle, 1)
+          : [];
+        const best = matches[0];
+        if (!(best && best.id)) return;
+
+        const trackId = `yt_${best.id}`;
+        const complementKey = `${normalizeForSearch(best.title)}|${
+          normalizeForSearch(best.channel || baseTrack.artist)
+        }`;
+        const baseKey = `${normalizeForSearch(baseTrack.title)}|${normalizeForSearch(baseTrack.artist)}`;
+        if (complementKey === baseKey) return; // duplicado de la ya mostrada
+
+        ytVideoIdByTrackIdRef.current.set(trackId, best.id);
+        ytCleanNamesRef.current.set(trackId, {
+          title: cleanedTitle,
+          artist: baseTrack.artist
+        });
+        setYtComplement({
+          id: trackId,
+          title: best.title,
+          artist: best.channel || baseTrack.artist,
+          thumbnail: best.thumbnail || '',
+          category: baseTrack.category || 'Pop Latino'
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSongSearch, searchResults, searchQuery, normalizeForSearch]);
+
+  // Catálogo filtrado (Instantáneo en local + iTunes)
+  const displayedCatalog = useMemo(() => {
+    const q = normalizeForSearch(searchQuery);
+
+    if (q) {
+      // 1. Buscar de inmediato en todo el catálogo local (secular, cristiano y top 100)
+      const seenKeys = new Set<string>();
+      const combinedPool = [...allTracks, ...top100Tracks].filter((t) => {
+        const key = `${normalizeForSearch(t.title)}|${normalizeForSearch(t.artist)}`;
+        if (seenKeys.has(key)) return false;
+        seenKeys.add(key);
+        return true;
+      });
+
+      const localMatches = combinedPool.filter((t) => {
+        const titleNorm = normalizeForSearch(t.title);
+        const artistNorm = normalizeForSearch(t.artist);
+        const genreNorm = normalizeForSearch(t.genre || '');
+        const catNorm = normalizeForSearch(t.category || '');
+        return (
+          titleNorm.includes(q) ||
+          artistNorm.includes(q) ||
+          genreNorm.includes(q) ||
+          catNorm.includes(q)
+        );
+      });
+
+      // 2. Anexar resultados externos de iTunes sin duplicar
+      const merged = [...localMatches];
+      if (searchResults.length > 0) {
+        for (const ext of searchResults) {
+          const key = `${normalizeForSearch(ext.title)}|${normalizeForSearch(ext.artist)}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            merged.push(ext);
+          }
+        }
+      }
+
+      // Solo ESA canción: oficial + complemento (si nada califica —
+      // búsquedas de artista/género — la lista unida queda tal cual)
+      const ranked = rankSongSearch(merged, searchQuery);
+      if (ranked.length > 0) {
+        const withComplement = [...ranked];
+        if (
+          ytComplement &&
+          !withComplement.some(
+            (t) =>
+              `${normalizeForSearch(t.title)}|${normalizeForSearch(t.artist)}` ===
+              `${normalizeForSearch(ytComplement.title)}|${normalizeForSearch(ytComplement.artist)}`
+          )
+        ) {
+          withComplement.push(ytComplement);
+        }
+        return withComplement;
+      }
+      return merged;
+    }
+
+    // Modo normal sin búsqueda: filtrar por pestañas de categoría
     if (selectedCategory === 'Todos') {
       return top100Tracks;
     }
@@ -219,7 +383,64 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         : top100Tracks.filter((t) => t.category === 'Música Cristiana');
     }
     return allTracks.filter((t) => t.genre === selectedCategory || t.category === selectedCategory);
-  }, [searchQuery, searchResults, selectedCategory, top100Tracks, secularTracks, christianTracks, allTracks]);
+  }, [
+    searchQuery,
+    normalizeForSearch,
+    searchResults,
+    selectedCategory,
+    top100Tracks,
+    secularTracks,
+    christianTracks,
+    allTracks,
+    ytComplement
+  ]);
+
+  // Arranca la reproducción con el videoId ya elegido (mismo flujo que
+  // siempre: initAudio → play → detección de tono → melodía).
+  const startKaraokePlayback = async (videoId: string) => {
+    try {
+      engine.setActiveVideoId(videoId);
+
+      await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.4, true);
+      engine.vocalRemover.setMasterVolume(engine.volume);
+
+      const started = await engine.vocalRemover.play();
+      if (started) {
+        engine.setIsPlaying(true);
+        engine.setAutoplayBlocked(false);
+        if (engine.isMicEnabled && !engine.isDetecting && !engine.isPlaybackMode) {
+          engine.startPitchDetection(engine.vocalRemover.getAudioContext());
+        }
+      } else {
+        engine.setAutoplayBlocked(true);
+      }
+
+    } catch (err) {
+      console.warn('Error resolviendo audio oficial:', err);
+      engine.setUseYtFallback(true);
+      engine.setActiveVideoId('1q3ND4XPzIg');
+    } finally {
+      setIsLoadingTrack(false);
+      setLoadingStatusMsg('');
+    }
+  };
+
+  // El usuario eligió una de las 2 mejores versiones del picker
+  const handleChooseVideo = async (video: YtSearchVideo) => {
+    setVideoOptions(null);
+    const cacheKey = videoOptionsCacheKey;
+    if (!video?.id || !cacheKey) return;
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(cacheKey, video.id);
+      }
+    } catch {
+      // localStorage bloqueado: reproducimos igual
+    }
+    setIsLoadingTrack(true);
+    setLoadingStatusMsg('Preparando pista y reproductor...');
+    await startKaraokePlayback(video.id);
+  };
 
   // Selección de canción y resolución
   const handleSelectTrack = async (track: CatalogTrack) => {
@@ -241,14 +462,29 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
 
     setIsLoadingTrack(true);
     setLoadingStatusMsg('Buscando pista de estudio...');
-    setSelectedTrack(track);
     setStageImageFailed(false);
     engine.resetKaraokeSession();
 
-    const normArtist = track.artist.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    const normTitle = track.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    // Tarjetas de YouTube: la etapa, el cache y las letras se muestran con
+    // el título/artista LIMPIOS de la canción real (sin "|| arisa (letra)"
+    // ni el nombre del canal). Si no encuentra sincronización, las letras
+    // estáticas salen de la canción correcta igual.
+    let songTitle = track.title;
+    let songArtist = track.artist;
+    if (track.id.startsWith('yt_')) {
+      const clean = ytCleanNamesRef.current.get(track.id);
+      if (clean) {
+        songTitle = clean.title;
+        songArtist = clean.artist;
+      }
+    }
+    setSelectedTrack({ ...track, title: songTitle, artist: songArtist });
+
+    const normArtist = songArtist.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const normTitle = songTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     const queryKey = `${normArtist} ${normTitle} audio`;
-    const cacheKey = `yt_audio_${normArtist}_${normTitle}`;
+    // Prefijo v2: los IDs cacheados con el prefijo viejo ya no se leen
+    const cacheKey = `yt_audio_v2_${normArtist}_${normTitle}`;
 
     setLoadingStatusMsg('Preparando pista y reproductor...');
     let resolvedVideoId: string | null = null;
@@ -256,9 +492,20 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       resolvedVideoId = localStorage.getItem(cacheKey);
     }
 
+    // Tarjetas inyectadas desde YouTube ya traen el videoId resuelto
+    if (!resolvedVideoId && track.id.startsWith('yt_')) {
+      const mappedId = ytVideoIdByTrackIdRef.current.get(track.id);
+      if (mappedId) {
+        resolvedVideoId = mappedId;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(cacheKey, mappedId);
+        }
+      }
+    }
+
     try {
       const [lyricsRes, searchRes] = await Promise.all([
-        fetchLyrics(track.title, track.artist).catch(() => null),
+        fetchLyrics(songTitle, songArtist).catch(() => null),
         resolvedVideoId
           ? Promise.resolve(null)
           : fetch(`/api/yt-search?q=${encodeURIComponent(queryKey)}`)
@@ -274,40 +521,34 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         setParsedLyrics([]);
       }
 
-      if (!resolvedVideoId && Array.isArray(searchRes) && searchRes.length > 0 && searchRes[0].id) {
-        resolvedVideoId = String(searchRes[0].id);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(cacheKey, resolvedVideoId);
-        }
+      // Versión ya elegida y cacheada: reproducción directa
+      if (resolvedVideoId) {
+        await startKaraokePlayback(resolvedVideoId);
+        return;
       }
 
-      const finalVideoId = resolvedVideoId || '1q3ND4XPzIg';
-      engine.setActiveVideoId(finalVideoId);
-
-      await engine.vocalRemover.initAudio(finalVideoId, engine.vocalLevel, 1.4, true);
-      engine.vocalRemover.setMasterVolume(engine.volume);
-
-      const started = await engine.vocalRemover.play();
-      if (started) {
-        engine.setIsPlaying(true);
-        engine.setAutoplayBlocked(false);
-        if (engine.isMicEnabled && !engine.isDetecting && !engine.isPlaybackMode) {
-          engine.startPitchDetection(engine.vocalRemover.getAudioContext());
+      // Versión nueva: mostramos las 2 mejores opciones para que el
+      // usuario elija (YouTube a veces desplaza la correcta).
+      if (Array.isArray(searchRes) && searchRes.length > 0) {
+        const topMatches = getTopYtMatches(searchRes, songArtist, songTitle, 2);
+        if (topMatches.length >= 2) {
+          setVideoOptions(topMatches);
+          setVideoOptionsCacheKey(cacheKey);
+          return;
         }
-      } else {
-        engine.setAutoplayBlocked(true);
-      }
-
-      fetch(`/api/karaoke-melody?videoId=${finalVideoId}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((mData) => {
-          if (mData && Array.isArray(mData.notes)) {
-            setMelodyData(mData.notes);
-          } else {
-            setMelodyData([]);
+        // Un solo resultado válido: se juega directo
+        const onlyOne = topMatches[0] || searchRes[0];
+        if (onlyOne?.id) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(cacheKey, String(onlyOne.id));
           }
-        })
-        .catch(() => setMelodyData([]));
+          await startKaraokePlayback(String(onlyOne.id));
+          return;
+        }
+      }
+
+      // Sin resultados en YouTube: pista de respaldo histórica
+      await startKaraokePlayback('1q3ND4XPzIg');
     } catch (err) {
       console.warn('Error resolviendo audio oficial:', err);
       engine.setUseYtFallback(true);
@@ -383,7 +624,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
           <div className="flex items-center justify-between gap-2 -mt-2.5 sm:-mt-3">
             <button
               onClick={handleExitToCatalog}
-              className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-white dark:bg-[#102034] border border-slate-200/80 dark:border-[#1b2b3f] text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-white dark:bg-[#102034] border border-slate-200/80 dark:border-[#1b2b3f] text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors shadow-xs cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Catálogo</span>
@@ -443,7 +684,6 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
             isDetecting={engine.isDetecting}
             currentTime={engine.currentTime}
             syncOffset={engine.syncOffset}
-            melodyData={melodyData}
             onHitUpdate={engine.handleHitUpdate}
             vocalLevel={engine.vocalLevel}
             onSetVocalLevel={engine.handleSetVocalLevel}
@@ -489,6 +729,25 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         onOpenRecoveryExam={onOpenRecoveryExam}
         onOpenStore={onOpenStore}
         zenMode={zenMode}
+      />
+
+      {/* ─── MODAL DE 2 MEJORES VERSIONES ─── */}
+      <VideoPickerModal
+        isOpen={videoOptions !== null}
+        options={videoOptions || []}
+        track={
+          selectedTrack
+            ? { artist: selectedTrack.artist, title: selectedTrack.title }
+            : null
+        }
+        zenMode={zenMode}
+        onSelect={handleChooseVideo}
+        onClose={() => {
+          // videoOptions captura SIEMPRE: era el bug del modal pegado
+          setVideoOptions(null);
+          engine.resetKaraokeSession();
+          setSelectedTrack(null);
+        }}
       />
     </div>
   );

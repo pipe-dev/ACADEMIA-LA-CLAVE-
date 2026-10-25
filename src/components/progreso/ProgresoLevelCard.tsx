@@ -67,8 +67,8 @@ export const ProgresoLevelCard: React.FC<ProgresoLevelCardProps> = ({
             onClick={handleShareProgress}
             className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer ${
               zenMode
-                ? 'bg-[#2e3138] text-[#e5b83b] hover:bg-[#383c44] border border-[#383c44]'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                ? 'bg-[#2e3138] text-[#e5b83b]  border border-[#383c44]'
+                : 'bg-indigo-600  text-white'
             }`}
             title="Compartir tus logros con Web Share API"
           >

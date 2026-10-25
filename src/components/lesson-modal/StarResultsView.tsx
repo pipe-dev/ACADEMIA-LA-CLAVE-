@@ -44,6 +44,11 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
   const [starIdleEffect, setStarIdleEffect] = useState<'none' | 'spin' | 'wink'>('none');
   const [idleTargetStar, setIdleTargetStar] = useState<number>(1);
   const targetStarRef = useRef<number>(1);
+  const onLoseLifeRef = useRef(onLoseLife);
+  useEffect(() => {
+    onLoseLifeRef.current = onLoseLife;
+  }, [onLoseLife]);
+  const hasFinishedRef = useRef<boolean>(false);
 
   const fireConfetti = (count: number = 40) => {
     try {
@@ -55,8 +60,9 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
     } catch (e) {}
   };
 
-  // Timeline sequence based on score
+  // Timeline sequence based on score - entra una sola vez y no en bucle
   useEffect(() => {
+    if (hasFinishedRef.current) return;
     setEarnedStars(0);
     setStar3Climax(false);
     setIsRollingBack(false);
@@ -76,6 +82,7 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
         setEarnedStars(2);
         audioService.playStar2ArpeggioNote();
         fireConfetti(45);
+        if (quizScore === 2) hasFinishedRef.current = true;
       }, 950);
 
       let t3: NodeJS.Timeout | undefined;
@@ -87,6 +94,7 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
           setEarnedStars(3);
           setStar3Climax(true);
           audioService.play3StarFanfare();
+          hasFinishedRef.current = true;
           fireConfetti(90);
           setTimeout(() => fireConfetti(65), 350);
           setTimeout(() => fireConfetti(45), 700);
@@ -106,6 +114,7 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
         t3 = setTimeout(() => {
           setEarnedStars(2.5);
           audioService.play2StarChime();
+          hasFinishedRef.current = true;
           fireConfetti(60);
         }, 1600);
       }
@@ -137,8 +146,9 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
         setIsRollingBack(true);
         setEarnedStars(1);
         audioService.playSadDefeatSound();
-        if (isExamNode && onLoseLife) {
-          onLoseLife('academia');
+        hasFinishedRef.current = true;
+        if (isExamNode && onLoseLifeRef.current) {
+          onLoseLifeRef.current('academia');
         }
       }, 1900);
 
@@ -159,7 +169,7 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
         if (t5) clearTimeout(t5);
       };
     }
-  }, [quizScore, isExamNode, onLoseLife]);
+  }, [quizScore, isExamNode]);
 
   // Idle animation loop for Star 1 and Star 2
   useEffect(() => {
@@ -443,7 +453,7 @@ export const StarResultsView: React.FC<StarResultsViewProps> = ({
             }
             onRetry();
           }}
-          className="w-full py-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-heading font-black text-sm cursor-pointer shadow-lg press-effect mt-2 flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-full bg-rose-600 text-white font-heading font-black text-sm cursor-pointer shadow-lg press-effect mt-2 flex items-center justify-center gap-2"
         >
           <RotateCcw className="w-5 h-5" />
           <span>

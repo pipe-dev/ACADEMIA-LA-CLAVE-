@@ -25,6 +25,16 @@ import { SettingsDiagnosticLogs } from './settings/SettingsDiagnosticLogs';
 
 export type { SettingsModalProps };
 
+const VOCAL_PRESETS: Record<string, SavedVocalRangeData> = {
+  Bajo: { classification: 'Bajo', gender: 'masculino', noteMin: 'Mi2', noteMax: 'Mi4', minHz: 82.41, maxHz: 329.63 },
+  Barítono: { classification: 'Barítono', gender: 'masculino', noteMin: 'La2', noteMax: 'Sol4', minHz: 110.0, maxHz: 392.0 },
+  Tenor: { classification: 'Tenor', gender: 'masculino', noteMin: 'Do3', noteMax: 'La4', minHz: 130.81, maxHz: 440.0 },
+  Alto: { classification: 'Contralto', gender: 'femenino', noteMin: 'Fa3', noteMax: 'Fa5', minHz: 174.61, maxHz: 698.46 },
+  Contralto: { classification: 'Contralto', gender: 'femenino', noteMin: 'Fa3', noteMax: 'Fa5', minHz: 174.61, maxHz: 698.46 },
+  Mezzosoprano: { classification: 'Mezzosoprano', gender: 'femenino', noteMin: 'La3', noteMax: 'La5', minHz: 220.0, maxHz: 880.0 },
+  Soprano: { classification: 'Soprano', gender: 'femenino', noteMin: 'Do4', noteMax: 'Do6', minHz: 261.63, maxHz: 1046.5 },
+};
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   userStats,
   darkMode = false,
@@ -45,7 +55,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [name, setName] = useState<string>(userStats.name);
   const [avatarUrl, setAvatarUrl] = useState<string>(userStats.avatarUrl || '');
-  const [savedVocalRangeData] = useState<SavedVocalRangeData | null>(() => {
+  const [savedVocalRangeData, setSavedVocalRangeData] = useState<SavedVocalRangeData | null>(() => {
     if (userStats.vocalRangeData) return userStats.vocalRangeData;
     try {
       const saved = localStorage.getItem('laclave_vocal_range_saved');
@@ -69,6 +79,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch {}
     return 'Tenor';
   });
+
+  useEffect(() => {
+    if (userStats.name) setName(userStats.name);
+    if (userStats.avatarUrl) setAvatarUrl(userStats.avatarUrl);
+    if (userStats.vocalRange) setVocalRange(userStats.vocalRange);
+    if (userStats.vocalRangeData) setSavedVocalRangeData(userStats.vocalRangeData);
+  }, [userStats.name, userStats.avatarUrl, userStats.vocalRange, userStats.vocalRangeData]);
 
   const [savedNotice, setSavedNotice] = useState<boolean>(false);
   const [offlineDownloading, setOfflineDownloading] = useState<boolean>(false);
@@ -167,25 +184,80 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSave = () => {
     audioService.playClickSound();
-    onUpdateStats({
-      name,
+
+    const trimmedName = name.trim() || userStats.name || 'Vocalista';
+    const finalAvatar = avatarUrl || userStats.avatarUrl || '';
+    const determinedGender: 'masculino' | 'femenino' =
+      (vocalRange === 'Tenor' || vocalRange === 'Barítono' || vocalRange === 'Bajo') ? 'masculino' : 'femenino';
+
+    const targetRangeData: SavedVocalRangeData = (savedVocalRangeData && savedVocalRangeData.classification === vocalRange)
+      ? { ...savedVocalRangeData, gender: determinedGender }
+      : (VOCAL_PRESETS[vocalRange] || { classification: vocalRange, gender: determinedGender });
+
+    const updatedStats = {
+      name: trimmedName,
       vocalRange,
-      avatarUrl,
-      vocalRangeData: savedVocalRangeData ? { ...savedVocalRangeData, classification: vocalRange } : undefined,
-    });
+      avatarUrl: finalAvatar,
+      vocalRangeData: targetRangeData,
+    };
+
+    onUpdateStats(updatedStats);
+
+    // 1. Direct overwrite in all dedicated and composite localStorage keys
     try {
+      localStorage.setItem('laclave_user_name', trimmedName);
+      localStorage.setItem('laclave_user_avatar', finalAvatar);
+      localStorage.setItem('laclave_profile_configured', 'true');
+      localStorage.setItem('laclave_voice_gender', determinedGender);
       localStorage.setItem('laclave_vocal_range_classification', vocalRange);
+      localStorage.setItem('laclave_vocal_range_saved', JSON.stringify(targetRangeData));
+
       const statsStr = localStorage.getItem('laclave_user_stats_v6');
-      if (statsStr) {
-        const parsed = JSON.parse(statsStr);
-        parsed.name = name;
-        parsed.avatarUrl = avatarUrl;
-        parsed.vocalRange = vocalRange;
-        localStorage.setItem('laclave_user_stats_v6', JSON.stringify(parsed));
+      const parsed = statsStr ? JSON.parse(statsStr) : {};
+      parsed.name = trimmedName;
+      parsed.avatarUrl = finalAvatar;
+      parsed.vocalRange = vocalRange;
+      parsed.vocalRangeData = targetRangeData;
+      parsed.isConfigured = true;
+      localStorage.setItem('laclave_user_stats_v6', JSON.stringify(parsed));
+
+      const cachedUser = localStorage.getItem('laclave_cached_session_user_v1');
+      if (cachedUser) {
+        const u = JSON.parse(cachedUser);
+        u.name = trimmedName;
+        localStorage.setItem('laclave_cached_session_user_v1', JSON.stringify(u));
       }
     } catch (e) {
-      console.warn('Could not save classification to localStorage', e);
+      console.warn('Could not persist profile to localStorage', e);
     }
+
+    // 2. Immediately push update to server API so DB user record and progress are updated right away
+    try {
+      fetch('/api/user/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          xp: userStats.xp || 0,
+          level: userStats.level || 1,
+          streak: userStats.streak || 0,
+          name: trimmedName,
+          progressData: JSON.stringify({
+            userStats: { ...userStats, ...updatedStats },
+            unitsProgress: localStorage.getItem('laclave_units_v8'),
+            dailyQuests: localStorage.getItem('laclave_daily_quests_state_v2'),
+            vocalRange: JSON.stringify(targetRangeData),
+            vocalRangeClassification: vocalRange,
+            voiceGender: determinedGender,
+          }),
+        }),
+      }).catch(() => {});
+    } catch {}
+
+    // 3. Dispatch force sync event so useCloudProgressSync immediately updates without debounce delay
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('laclave_force_cloud_sync'));
+    }
+
     setSavedNotice(true);
     setTimeout(() => {
       setSavedNotice(false);
@@ -204,13 +276,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       >
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer z-10"
+          className={`absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full shadow-xs cursor-pointer active:scale-90 transition-transform z-10 ${
+            zenMode
+              ? 'bg-[#26292f] border border-[#2e3138] text-rose-400'
+              : 'bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/70 text-rose-500 dark:text-rose-400'
+          }`}
           aria-label="Cerrar ajustes"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3 pr-8">
+        <div className="flex items-center gap-3 pr-16">
           <div className="organic-shape w-12 h-12 bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff] flex items-center justify-center shadow-xs shrink-0">
             <Sliders className="w-6 h-6" />
           </div>
@@ -300,7 +376,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               window.location.href = '/login';
             }
           }}
-          className="w-full py-3 rounded-2xl border border-red-500/20 hover:bg-red-500/10 text-red-500 font-heading font-bold text-xs cursor-pointer transition-colors"
+          className="w-full py-3 rounded-2xl border border-red-500/20 text-red-500 font-heading font-bold text-xs cursor-pointer transition-colors"
         >
           Cerrar Sesion
         </button>

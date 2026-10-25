@@ -7,6 +7,25 @@ if (typeof process !== 'undefined' && process.env) {
   } catch {}
 }
 
+const LRCLIB_USER_AGENT = 'AfinApp-MusicPlayer/2.0 (https://afinapp.com; contact: soporte@afinapp.com)';
+
+function cleanName(str: string): string {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+    .replace(/\s*[-–—|]\s*.*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isDistinctiveTitle(title: string): boolean {
+  const stopwords = new Set(['con', 'por', 'para', 'una', 'uno', 'los', 'las', 'les', 'del', 'que', 'sin', 'mas', 'pero', 'como']);
+  const clean = cleanName(title).toLowerCase();
+  const words = clean.split(/\s+/).filter(w => w.length > 2 && !stopwords.has(w));
+  return words.length >= 2 || clean.length >= 14;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q');
@@ -21,16 +40,19 @@ export async function GET(request: Request) {
     'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800'
   };
 
-  // Función de petición que prioriza fetch nativo (Cloudflare Workers / Web standard) y respalda con https (Node local)
+  const cleanTitle = cleanName(track_name || q || '');
+  const cleanArtist = cleanName(artist_name || '');
+
+  // Función de petición rápida con User-Agent verificado de LRCLIB
   const fetchData = async (url: string, headers: Record<string, string> = {}): Promise<{ status: number; data: string }> => {
     try {
       const res = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'User-Agent': LRCLIB_USER_AGENT,
           'Accept': 'application/json, text/plain, text/html, */*',
           ...headers
         },
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(4500)
       });
       const data = await res.text();
       return { status: res.status, data };
@@ -38,17 +60,20 @@ export async function GET(request: Request) {
       if (typeof https !== 'undefined' && typeof https.get === 'function') {
         try {
           return await new Promise((resolve) => {
-            https.get(url, { 
+            const req = https.get(url, { 
               rejectUnauthorized: false,
+              timeout: 4500,
               headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'User-Agent': LRCLIB_USER_AGENT,
                 ...headers
               }
             }, (res) => {
               let data = '';
               res.on('data', (chunk) => data += chunk);
               res.on('end', () => resolve({ status: res.statusCode || 500, data }));
-            }).on('error', () => resolve({ status: 500, data: '' }));
+            });
+            req.on('error', () => resolve({ status: 500, data: '' }));
+            req.on('timeout', () => { req.destroy(); resolve({ status: 408, data: '' }); });
           });
         } catch {}
       }
@@ -57,173 +82,192 @@ export async function GET(request: Request) {
   };
 
   try {
-    // 1. Si tenemos track_name y artist_name específicos, consultar /api/get (coincidencia exacta 100%)
-    if (track_name && artist_name) {
-      const lrclibGetUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(track_name)}&artist_name=${encodeURIComponent(artist_name)}`;
-      const getRes = await fetchData(lrclibGetUrl);
+    // 1. Extraer variantes de artistas si es dueto o colaboración ("A & B", "A feat B")
+    const artistsToTry: string[] = [];
+    if (cleanArtist) {
+      artistsToTry.push(cleanArtist);
+      const splitArtists = cleanArtist
+        .split(/&|,|\/|\bfeat\.?\b|\bft\.?\b|\by\b/i)
+        .map(a => a.trim())
+        .filter(a => a.length > 2 && a !== cleanArtist);
+      artistsToTry.push(...splitArtists);
+    }
 
-      if (getRes.status === 200 && getRes.data) {
-        try {
-          const exactTrack = JSON.parse(getRes.data);
-          if (exactTrack && (exactTrack.syncedLyrics || exactTrack.plainLyrics)) {
-            return NextResponse.json([exactTrack], { headers: cacheHeaders });
+    // 2. Intentar coincidencia directa 100% en LRCLIB /api/get
+    if (cleanTitle && artistsToTry.length > 0) {
+      for (const art of artistsToTry) {
+        const lrclibGetUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(art)}`;
+        const getRes = await fetchData(lrclibGetUrl);
+
+        if (getRes.status === 200 && getRes.data) {
+          try {
+            const exactTrack = JSON.parse(getRes.data);
+            if (exactTrack && (exactTrack.syncedLyrics || exactTrack.plainLyrics)) {
+              return NextResponse.json([exactTrack], { headers: cacheHeaders });
+            }
+          } catch (e) {
+            console.error("LRCLIB /api/get parse error", e);
           }
-        } catch (e) {
-          console.error("LRCLIB /api/get parse error", e);
         }
       }
 
-      // 2. Si /api/get no devolvió coincidencia exacta, buscar específicamente por track_name y artist_name
-      const lrclibSearchSpecificUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(track_name)}&artist_name=${encodeURIComponent(artist_name)}`;
-      const specificRes = await fetchData(lrclibSearchSpecificUrl);
+      // 3. Búsqueda específica por track_name Y artist_name
+      for (const art of artistsToTry.slice(0, 2)) {
+        const lrclibSearchSpecificUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(art)}`;
+        const specificRes = await fetchData(lrclibSearchSpecificUrl);
 
-      if (specificRes.status === 200 && specificRes.data) {
+        if (specificRes.status === 200 && specificRes.data) {
+          try {
+            const json = JSON.parse(specificRes.data);
+            if (Array.isArray(json) && json.length > 0) {
+              return NextResponse.json(json, { headers: cacheHeaders });
+            }
+          } catch (e) {
+            console.error("LRCLIB specific search error", e);
+          }
+        }
+      }
+
+      // 4. Búsqueda combinada "Artista Título"
+      const combinedQuery = `${artistsToTry[0]} ${cleanTitle}`;
+      const lrclibCombinedUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(combinedQuery)}`;
+      const combinedRes = await fetchData(lrclibCombinedUrl);
+
+      if (combinedRes.status === 200 && combinedRes.data) {
         try {
-          const json = JSON.parse(specificRes.data);
+          const json = JSON.parse(combinedRes.data);
           if (Array.isArray(json) && json.length > 0) {
             return NextResponse.json(json, { headers: cacheHeaders });
           }
         } catch (e) {
-          console.error("LRCLIB specific search error", e);
+          console.error("LRCLIB combined search error", e);
         }
       }
     }
 
-    // 3. Intentar con búsqueda general en lrclib.net
-    const generalQuery = q || `${artist_name || ''} ${track_name || ''}`.trim();
-    const lrclibUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(generalQuery)}`;
-    const lrcRes = await fetchData(lrclibUrl);
+    // 5. Búsqueda por título si no se proveyó artista O si el título es distintivo
+    // (Permite encontrar alabanzas/himnos/covers internacionales que están grabados por ministerios diferentes)
+    if (cleanTitle && (!cleanArtist || isDistinctiveTitle(cleanTitle))) {
+      const matchTrackName = (item: any): boolean => {
+        if (!item || !item.trackName) return false;
+        const it = cleanName(item.trackName).toLowerCase();
+        const ct = cleanTitle.toLowerCase();
+        return it === ct || it.includes(ct) || ct.includes(it);
+      };
 
-    if (lrcRes.status === 200 && lrcRes.data) {
-      try {
-        const json = JSON.parse(lrcRes.data);
-        if (Array.isArray(json) && json.length > 0) {
-          return NextResponse.json(json, { headers: cacheHeaders });
+      const lrclibUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}`;
+      const lrcRes = await fetchData(lrclibUrl);
+
+      if (lrcRes.status === 200 && lrcRes.data) {
+        try {
+          const json = JSON.parse(lrcRes.data);
+          if (Array.isArray(json) && json.length > 0) {
+            const matches = json.filter(matchTrackName);
+            if (matches.length > 0) {
+              return NextResponse.json(matches, { headers: cacheHeaders });
+            }
+          }
+        } catch (e) {
+          console.error("LRCLIB track_name search error", e);
         }
-      } catch (e) {
-        console.error("LRCLIB JSON Parse error", e);
+      }
+
+      // Búsqueda q con solo el título si track_name no arrojó resultados
+      const lrclibGeneralUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`;
+      const lrcGenRes = await fetchData(lrclibGeneralUrl);
+
+      if (lrcGenRes.status === 200 && lrcGenRes.data) {
+        try {
+          const json = JSON.parse(lrcGenRes.data);
+          if (Array.isArray(json) && json.length > 0) {
+            const matches = json.filter(matchTrackName);
+            if (matches.length > 0) {
+              return NextResponse.json(matches, { headers: cacheHeaders });
+            }
+          }
+        } catch (e) {
+          console.error("LRCLIB general search error", e);
+        }
       }
     }
 
-    // 4. Fallback a api.lyrics.ovh
-    let artist = artist_name || "Desconocido";
-    let title = (track_name || generalQuery).replace(/\(.*\)|\[.*\]/g, '').trim();
-
-    // Usar iTunes Search API para normalizar el Artista y el Título si no se tienen
-    if (!artist_name || artist === "Desconocido") {
+    // 6. Fallback a Genius para letras estáticas (con User-Agent y timeout seguro)
+    if (cleanTitle) {
       try {
-        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=song&limit=1`;
-        const itunesRes = await fetchData(itunesUrl);
-        if (itunesRes.status === 200 && itunesRes.data) {
-          const itunesData = JSON.parse(itunesRes.data);
-          if (itunesData.results && itunesData.results.length > 0) {
-            artist = itunesData.results[0].artistName;
-            title = itunesData.results[0].trackName;
-          } else {
-            if (title.includes('-')) {
-              const parts = title.split('-');
-              artist = parts[0].trim();
-              title = parts[1].trim();
-            } else {
-              const parts = title.split(' ');
-              if (parts.length > 1) {
-                artist = parts[0];
-                title = parts.slice(1).join(' ');
+        const geniusQuery = cleanArtist ? `${cleanArtist} ${cleanTitle}`.trim() : cleanTitle;
+        const geniusSearchUrl = `https://genius.com/api/search/multi?q=${encodeURIComponent(geniusQuery)}`;
+        const geniusRes = await fetchData(geniusSearchUrl, {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        });
+
+        if (geniusRes.status === 200 && geniusRes.data && geniusRes.data.startsWith('{')) {
+          const geniusData = JSON.parse(geniusRes.data);
+          const sections = geniusData.response?.sections || [];
+          let hitPath = null;
+          let hitTitle = cleanTitle;
+          let hitArtist = cleanArtist;
+
+          for (const sec of sections) {
+            if (sec.type === 'song' && Array.isArray(sec.hits) && sec.hits.length > 0) {
+              const topHit = sec.hits[0].result;
+              const candArtist = (topHit.artist_names || '').toLowerCase();
+              const isMatch = !cleanArtist || 
+                candArtist.includes(cleanArtist.toLowerCase()) || 
+                cleanArtist.toLowerCase().includes(candArtist) ||
+                isDistinctiveTitle(cleanTitle);
+
+              if (isMatch) {
+                hitPath = topHit.path;
+                hitTitle = topHit.title || cleanTitle;
+                hitArtist = topHit.artist_names || cleanArtist;
+                break;
+              }
+            }
+          }
+
+          if (hitPath) {
+            const songPageRes = await fetchData(`https://genius.com${hitPath}`, {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            });
+            if (songPageRes.status === 200 && songPageRes.data) {
+              const html = songPageRes.data;
+              const containers = html.match(/data-lyrics-container="true"[^>]*>([\s\S]*?)<\/div>/g);
+              if (containers && containers.length > 0) {
+                let text = containers.map((c: string) => {
+                  return c
+                    .replace(/^<div[^>]*>/i, '')
+                    .replace(/^[^>]*>/, '')
+                    .replace(/<\/div>$/i, '')
+                    .replace(/<br\s*\/?>/gi, '\n')
+                    .replace(/<\/p>/gi, '\n')
+                    .replace(/<[^>]+>/g, '')
+                    .replace(/&#x27;/g, "'")
+                    .replace(/&amp;/g, '&')
+                    .replace(/&quot;/g, '"');
+                }).join('\n\n');
+
+                text = text.replace(/^\d+\s+Contributors[\s\S]*?(Lyrics)?/i, '').trim();
+                text = text.replace(/^Translations[\s\S]*?(Lyrics)?/i, '').trim();
+
+                if (text && text.length > 20) {
+                  return NextResponse.json([{
+                    id: Date.now(),
+                    trackName: hitTitle,
+                    artistName: hitArtist,
+                    albumName: '',
+                    duration: 0,
+                    instrumental: false,
+                    plainLyrics: text,
+                    syncedLyrics: null
+                  }], { headers: cacheHeaders });
+                }
               }
             }
           }
         }
-      } catch (e) {
-        console.error("iTunes API error", e);
+      } catch (geniusErr) {
+        console.error("Genius search error", geniusErr);
       }
-    }
-
-    const ovhUrl = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
-    const ovhRes = await fetchData(ovhUrl);
-
-    if (ovhRes.status === 200 && ovhRes.data) {
-      try {
-        const json = JSON.parse(ovhRes.data);
-        if (json.lyrics) {
-          return NextResponse.json([{
-            id: Date.now(),
-            trackName: title,
-            artistName: artist,
-            albumName: "",
-            duration: 0,
-            instrumental: false,
-            plainLyrics: json.lyrics,
-            syncedLyrics: null
-          }], { headers: cacheHeaders });
-        }
-      } catch (e) {
-        console.error("OVH JSON Parse error", e);
-      }
-    }
-
-    // 5. Fallback a Genius Search y Extractor de Letras Estáticas
-    try {
-      const geniusQuery = `${artist} ${title}`.trim();
-      const geniusSearchUrl = `https://genius.com/api/search/multi?q=${encodeURIComponent(geniusQuery)}`;
-      const geniusRes = await fetchData(geniusSearchUrl);
-
-      if (geniusRes.status === 200 && geniusRes.data) {
-        const geniusData = JSON.parse(geniusRes.data);
-        const sections = geniusData.response?.sections || [];
-        let hitPath = null;
-        let hitTitle = title;
-        let hitArtist = artist;
-
-        for (const sec of sections) {
-          if (sec.type === 'song' && Array.isArray(sec.hits) && sec.hits.length > 0) {
-            const topHit = sec.hits[0].result;
-            hitPath = topHit.path;
-            hitTitle = topHit.title || title;
-            hitArtist = topHit.artist_names || artist;
-            break;
-          }
-        }
-
-        if (hitPath) {
-          const songPageRes = await fetchData(`https://genius.com${hitPath}`);
-          if (songPageRes.status === 200 && songPageRes.data) {
-            const html = songPageRes.data;
-            const containers = html.match(/data-lyrics-container="true"[^>]*>([\s\S]*?)<\/div>/g);
-            if (containers && containers.length > 0) {
-              let text = containers.map((c: string) => {
-                return c
-                  .replace(/^<div[^>]*>/i, '')
-                  .replace(/^[^>]*>/, '')
-                  .replace(/<\/div>$/i, '')
-                  .replace(/<br\s*\/?>/gi, '\n')
-                  .replace(/<\/p>/gi, '\n')
-                  .replace(/<[^>]+>/g, '')
-                  .replace(/&#x27;/g, "'")
-                  .replace(/&amp;/g, '&')
-                  .replace(/&quot;/g, '"');
-              }).join('\n\n');
-
-              text = text.replace(/^\d+\s+Contributors[\s\S]*?(Lyrics)?/i, '').trim();
-              text = text.replace(/^Translations[\s\S]*?(Lyrics)?/i, '').trim();
-
-              if (text && text.length > 20) {
-                return NextResponse.json([{
-                  id: Date.now(),
-                  trackName: hitTitle,
-                  artistName: hitArtist,
-                  albumName: '',
-                  duration: 0,
-                  instrumental: false,
-                  plainLyrics: text,
-                  syncedLyrics: null
-                }], { headers: cacheHeaders });
-              }
-            }
-          }
-        }
-      }
-    } catch (geniusErr) {
-      console.error("Genius search error", geniusErr);
     }
 
     return NextResponse.json({ error: "No lyrics found globally" }, { status: 404 });

@@ -964,7 +964,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_7",
     "rank": 7,
     "title": "La Bondad de Dios",
-    "artist": "Generación 12",
+    "artist": "Generación 12 & Essential Worship",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/7e/17/dc/7e17dcc6-a67b-1cb8-d218-c0b73c41ea44/888831633540.jpg/600x600bb.jpg"
@@ -982,7 +982,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_9",
     "rank": 9,
     "title": "Ven Te Necesito",
-    "artist": "Barak & Christine D'Clario",
+    "artist": "Jesús Adrián Romero & Lilly Goodman",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/5f/85/33/5f8533b7-789a-0e24-d2e8-d4cbf21a7337/888831633557.jpg/600x600bb.jpg"
@@ -1018,7 +1018,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_13",
     "rank": 13,
     "title": "Perfume a Tus Pies",
-    "artist": "Marcela Gándara",
+    "artist": "Marcela Gándara & En Espíritu y En Verdad",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/35/88/ce/3588cedb-632b-fefb-088c-668b81206497/888831633502.jpg/600x600bb.jpg"
@@ -1117,7 +1117,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_24",
     "rank": 24,
     "title": "Sobrenatural",
-    "artist": "Christine D'Clario",
+    "artist": "Marcos Witt",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/f5/61/bd/f561bd03-c402-9dc4-8395-9ff0f6ee85ea/888831633533.jpg/600x600bb.jpg"
@@ -1369,7 +1369,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_52",
     "rank": 52,
     "title": "El Señor Es Mi Pastor",
-    "artist": "Marco Barrientos",
+    "artist": "Marco Barrientos & Danilo Montero",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/f5/61/bd/f561bd03-c402-9dc4-8395-9ff0f6ee85ea/888831633533.jpg/600x600bb.jpg"
@@ -1405,7 +1405,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_56",
     "rank": 56,
     "title": "Al Que Está En El Trono",
-    "artist": "Marcos Brunet",
+    "artist": "Marcos Brunet & Toma Tu Lugar",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/5f/85/33/5f8533b7-789a-0e24-d2e8-d4cbf21a7337/888831633557.jpg/600x600bb.jpg"
@@ -1414,7 +1414,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_57",
     "rank": 57,
     "title": "Digno y Santo",
-    "artist": "Marcos Brunet",
+    "artist": "Kari Jobe & Marcos Brunet",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/5f/85/33/5f8533b7-789a-0e24-d2e8-d4cbf21a7337/888831633557.jpg/600x600bb.jpg"
@@ -1423,7 +1423,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_58",
     "rank": 58,
     "title": "Lugar Secreto",
-    "artist": "Marcos Brunet",
+    "artist": "Gabriela Rocha & Marcos Brunet",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/5f/85/33/5f8533b7-789a-0e24-d2e8-d4cbf21a7337/888831633557.jpg/600x600bb.jpg"
@@ -1432,7 +1432,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
     "id": "chr_59",
     "rank": 59,
     "title": "Ven Habitar",
-    "artist": "Marcos Brunet",
+    "artist": "Marcos Brunet & Toma Tu Lugar",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
     "thumbnail": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/5f/85/33/5f8533b7-789a-0e24-d2e8-d4cbf21a7337/888831633557.jpg/600x600bb.jpg"
@@ -1449,7 +1449,7 @@ export const DEFAULT_CHRISTIAN_TRACKS: CatalogTrack[] = [
   {
     "id": "chr_61",
     "rank": 61,
-    "title": "Renuévame Señor",
+    "title": "Lo Harás Otra Vez",
     "artist": "Elevation Worship",
     "category": "Música Cristiana",
     "genre": "Música Cristiana",
@@ -1842,28 +1842,28 @@ export const RECOMMENDED_TRACKS: CatalogTrack[] = (() => {
 
 // Citas motivacionales cuando una pista no contiene letra sincronizada
 export const FALLBACK_LYRICS: string[] = [
-  "🎵 Sigue el ritmo de la melodía — ¡Tu voz es el instrumento principal!",
-  "🎤 Canta con el corazón y déjate llevar por la armonía musical.",
-  "✨ Siente la música correr por tus venas — ¡Es tu momento de brillar!",
-  "🌟 Cierra los ojos y afina el alma — Sigue las notas y disfruta la música.",
-  "🎶 La melodía es tu lienzo y tu voz es el pincel: ¡dibuja cada nota!",
-  "🔥 Conecta con la emoción del momento y canta sin miedo a equivocarte.",
-  "💡 Las letras son solo palabras: ¡la precisión tonal es la verdadera magia!",
-  "🎧 Escucha atentamente los acordes y deja que tu instinto vocal te guíe.",
-  "💖 Cantar no requiere perfección: requiere pasión, aire y apoyo diafragmático.",
-  "🚀 Eleva tu vibrato y tu energía — ¡Disfruta la pista instrumental!"
+  "Sigue el ritmo de la melodía — Tu voz es el instrumento principal.",
+  "Canta con el corazón y déjate llevar por la armonía musical.",
+  "Siente la música correr por tus venas — Es tu momento de brillar.",
+  "Cierra los ojos y afina el alma — Sigue las notas y disfruta la música.",
+  "La melodía es tu lienzo y tu voz es el pincel: dibuja cada nota.",
+  "Conecta con la emoción del momento y canta sin miedo a equivocarte.",
+  "Las letras son solo palabras: la precisión tonal es la verdadera magia.",
+  "Escucha atentamente los acordes y deja que tu instinto vocal te guíe.",
+  "Cantar no requiere perfección: requiere pasión, aire y apoyo diafragmático.",
+  "Eleva tu vibrato y tu energía — Disfruta la pista instrumental."
 ];
 
 // 10 Textos para hacer amena la espera (Divertidas, Autoestima/Orgullo, Técnicas)
 export const LOADING_TIPS: string[] = [
-  "Calentando cuerdas vocales... y avisando a los vecinos 🎤😅",
-  "Tu voz es única e irrepetible: nadie en el mundo canta con tu misma esencia 🌟👑",
-  "Tip vocal: Apoya el aire desde el diafragma y relaja los hombros para no tensionar 🌬️🧘",
-  "Afinando el autotune mental... ¡aunque con tu talento natural no hace falta! 😉✨",
-  "Cantar no se trata de no fallar notas, sino de transmitir lo que llevas en el pecho ❤️🔥",
-  "Si se escapa un gallito, diremos con elegancia que fue un adorno estilístico 🐔🕶️",
-  "Tip vocal: Abre bien la mandíbula y relaja el cuello; la voz necesita espacio para resonar 🗣️💡",
-  "Olvídate de la timidez: este escenario es seguro y viniste a disfrutar tu propia voz 🚀🙌",
-  "Descargando y guardando en tu memoria local para que cantes sin interrupciones ⚡💾",
-  "Respira profundo, conecta con la emoción y ¡prepárate para dar un conciertazo! 🎵🎉"
+  "Calentando cuerdas vocales... y avisando a los vecinos.",
+  "Tu voz es única e irrepetible: nadie en el mundo canta con tu misma esencia.",
+  "Tip vocal: Apoya el aire desde el diafragma y relaja los hombros para no tensionar.",
+  "Afinando el autotune mental... aunque con tu talento natural no hace falta.",
+  "Cantar no se trata de no fallar notas, sino de transmitir lo que llevas en el pecho.",
+  "Si se escapa un gallito, diremos con elegancia que fue un adorno estilístico.",
+  "Tip vocal: Abre bien la mandíbula y relaja el cuello; la voz necesita espacio para resonar.",
+  "Olvídate de la timidez: este escenario es seguro y viniste a disfrutar tu propia voz.",
+  "Descargando y guardando en tu memoria local para que cantes sin interrupciones.",
+  "Respira profundo, conecta con la emoción y prepárate para dar un conciertazo."
 ];

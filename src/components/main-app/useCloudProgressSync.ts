@@ -125,13 +125,26 @@ export function useCloudProgressSync({
 
           // If cloud has newer/higher XP
           if (cloudStats && typeof cloudStats.xp === 'number' && cloudStats.xp >= (userStats.xp || 0)) {
-            setUserStats((prev) => ({
-              ...prev,
-              ...cloudStats,
-              xp: cloudStats.xp,
-              level: cloudStats.level || prev.level,
-              streak: cloudStats.streak || prev.streak,
-            }));
+            setUserStats((prev) => {
+              const localName = (typeof window !== 'undefined' ? localStorage.getItem('laclave_user_name') : null) || prev.name;
+              const localAvatar = (typeof window !== 'undefined' ? localStorage.getItem('laclave_user_avatar') : null) || prev.avatarUrl;
+              const localRange = (typeof window !== 'undefined' ? localStorage.getItem('laclave_vocal_range_classification') : null) || prev.vocalRange;
+
+              const chosenName = (localName && localName !== 'Alex' && localName.trim()) ? localName.trim() : (cloudStats.name || prev.name);
+              const chosenAvatar = (localAvatar && !localAvatar.includes('avatar-soprano.svg')) ? localAvatar : (cloudStats.avatarUrl || prev.avatarUrl);
+              const chosenRange = localRange || cloudStats.vocalRange || prev.vocalRange;
+
+              return {
+                ...prev,
+                ...cloudStats,
+                name: chosenName,
+                avatarUrl: chosenAvatar,
+                vocalRange: chosenRange,
+                xp: cloudStats.xp,
+                level: cloudStats.level || prev.level,
+                streak: cloudStats.streak || prev.streak,
+              };
+            });
 
             if (parsed.unitsProgress) localStorage.setItem('laclave_units_v8', parsed.unitsProgress);
             if (parsed.dailyQuests) localStorage.setItem('laclave_daily_quests_state_v2', parsed.dailyQuests);
@@ -168,6 +181,17 @@ export function useCloudProgressSync({
 
     return () => clearTimeout(timeout);
   }, [userStats, isOnline, syncToCloud]);
+
+  // Immediate force sync on explicit user profile/settings save
+  useEffect(() => {
+    const handleForceSync = () => {
+      syncToCloud(false);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('laclave_force_cloud_sync', handleForceSync);
+      return () => window.removeEventListener('laclave_force_cloud_sync', handleForceSync);
+    }
+  }, [syncToCloud]);
 
   // 3. Guard 2 & 3: Heartbeat + Visibility/Pagehide exit detection
   useEffect(() => {

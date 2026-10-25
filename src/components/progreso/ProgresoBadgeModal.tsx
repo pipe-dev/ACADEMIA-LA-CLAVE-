@@ -52,10 +52,10 @@ export const ProgresoBadgeModal: React.FC<ProgresoBadgeModalProps> = ({
                 audioService.playClickSound();
                 onClose();
               }}
-              className={`absolute top-4 right-4 p-1.5 rounded-full transition-colors z-10 cursor-pointer ${
+              className={`absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full shadow-xs transition-transform active:scale-90 cursor-pointer z-10 ${
                 zenMode
-                  ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#383c44]'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                  ? 'bg-[#26292f] border border-[#2e3138] text-rose-400'
+                  : 'bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/70 text-rose-500'
               }`}
             >
               <X className="w-5 h-5" />
@@ -174,8 +174,8 @@ export const ProgresoBadgeModal: React.FC<ProgresoBadgeModalProps> = ({
                 onClick={() => onShareBadge(badge)}
                 className={`w-full py-3 px-4 rounded-2xl font-heading font-extrabold text-xs shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   zenMode
-                    ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] font-black'
-                    : 'bg-amber-500 hover:bg-amber-600 text-white'
+                    ? 'bg-[#e5b83b]  text-[#161719] font-black'
+                    : 'bg-amber-500  text-white'
                 }`}
               >
                 <Share2 className="w-4 h-4" />

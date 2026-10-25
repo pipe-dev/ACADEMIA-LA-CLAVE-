@@ -101,7 +101,7 @@ ${logger.exportLogsAsString()}`;
               <button
                 type="button"
                 onClick={() => this.setState((prev) => ({ showLogs: !prev.showLogs, recentLogs: logger.getLogs() }))}
-                className="text-[11px] font-bold text-slate-400 hover:text-amber-300 underline cursor-pointer transition-colors"
+                className="text-[11px] font-bold text-slate-400 underline cursor-pointer transition-colors"
               >
                 {this.state.showLogs ? 'Ocultar historial de logs' : 'Ver historial de logs (Diagnóstico)'}
               </button>
@@ -109,7 +109,7 @@ ${logger.exportLogsAsString()}`;
               <button
                 type="button"
                 onClick={this.handleCopyLogs}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold cursor-pointer flex items-center gap-1.5 transition-all"
+                className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 text-[11px] font-bold cursor-pointer flex items-center gap-1.5 transition-all"
               >
                 {this.state.copied ? (
                   <>
@@ -163,7 +163,7 @@ ${logger.exportLogsAsString()}`;
             {/* Action Button */}
             <button
               onClick={this.handleReset}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-amber-500 hover:brightness-110 text-white font-heading font-black text-xs rounded-2xl shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-amber-500 text-white font-heading font-black text-xs rounded-2xl shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
             >
               <RefreshCw className="w-4 h-4 animate-spin-slow" />
               <span>Reiniciar Aplicación</span>

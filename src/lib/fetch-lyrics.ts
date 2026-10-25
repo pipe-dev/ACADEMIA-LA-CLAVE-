@@ -20,34 +20,79 @@ function cleanString(str: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // remover tildes y acentos
-    .replace(/\(.*\)|\[.*\]/g, "") // remover paréntesis y corchetes (Video Oficial, etc.)
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, "") // remover paréntesis y corchetes (Video Oficial, etc.)
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+function isDistinctiveTitle(title: string): boolean {
+  const stopwords = new Set(['con', 'por', 'para', 'una', 'uno', 'los', 'las', 'les', 'del', 'que', 'sin', 'mas', 'pero', 'como', 'de', 'la', 'el', 'en', 'un', 'y']);
+  const clean = cleanString(title);
+  const words = clean.split(/\s+/).filter(w => w.length > 2 && !stopwords.has(w));
+  return words.length >= 2 || clean.length >= 14;
+}
+
+/**
+ * Evalúa rigurosamente un candidato de letra para asegurar que pertenezca a la canción
+ * y al artista solicitados. Protege títulos genéricos ("Creo en ti") exigiendo coincidencia
+ * de artista, y permite canciones con títulos distintivos ("Perfume a tus pies", "La bondad de Dios")
+ * cuando están registradas por ministerios originales o versiones autorizadas.
+ */
 function scoreLyricCandidate(targetTitle: string, targetArtist: string, candidate: any): number {
   if (!candidate || !candidate.trackName) return 0;
+
+  // Descartar si el candidato no tiene ni letra sincronizada ni estática
+  if (!candidate.syncedLyrics && !candidate.plainLyrics) {
+    return 0;
+  }
 
   const cleanTarget = cleanString(targetTitle);
   const cleanCand = cleanString(candidate.trackName);
   const cleanTargetArt = cleanString(targetArtist);
   const cleanCandArt = cleanString(candidate.artistName || '');
 
+  // 1. VALIDACIÓN DEL ARTISTA
+  let isArtistMatch = false;
+  if (cleanTargetArt && cleanCandArt) {
+    const targetArtWords = cleanTargetArt.split(' ').filter(w => w.length > 2);
+    let artMatches = 0;
+    for (const w of targetArtWords) {
+      if (cleanCandArt.includes(w)) artMatches++;
+    }
+
+    const directInclude = cleanCandArt.includes(cleanTargetArt) || cleanTargetArt.includes(cleanCandArt);
+    isArtistMatch = directInclude || artMatches > 0;
+
+    // Si no coincide el artista:
+    if (!isArtistMatch && targetArtWords.length > 0) {
+      // Si el título es corto o genérico (ej. "Creo en ti", "Solo tú"), DESCALIFICAR rotundamente
+      // para evitar que se mezclen canciones homónimas de otros artistas.
+      if (!isDistinctiveTitle(targetTitle)) {
+        return 0;
+      }
+      // Si el título sí es distintivo pero la coincidencia de título no es exacta, descalificar
+      if (cleanTarget !== cleanCand) {
+        return 0;
+      }
+    }
+  }
+
+  // 2. VALIDACIÓN DEL TÍTULO
   const targetWords = cleanTarget.split(' ').filter(w => w.length > 2);
   let wordMatches = 0;
   for (const w of targetWords) {
     if (cleanCand.includes(w)) wordMatches++;
   }
 
-  // Descartar por completo si el título no comparte ninguna palabra clave con la canción solicitada
+  // Descartar si el título no comparte ninguna palabra clave con la canción solicitada
   if (targetWords.length > 0 && wordMatches === 0) {
     return 0;
   }
 
   let score = 0;
 
-  // Coincidencia exacta o parcial del título
+  // Coincidencia de título
   if (cleanTarget === cleanCand) {
     score += 100;
   } else if (cleanCand.includes(cleanTarget) || cleanTarget.includes(cleanCand)) {
@@ -56,45 +101,63 @@ function scoreLyricCandidate(targetTitle: string, targetArtist: string, candidat
     score += (wordMatches / Math.max(targetWords.length, 1)) * 50;
   }
 
-  // Coincidencia del artista
-  if (cleanTargetArt && cleanCandArt) {
-    if (cleanCandArt.includes(cleanTargetArt) || cleanTargetArt.includes(cleanCandArt)) {
-      score += 40;
+  // Coincidencia de artista: prioridad máxima al artista solicitado
+  if (isArtistMatch) {
+    if (cleanTargetArt === cleanCandArt) {
+      score += 90;
+    } else {
+      score += 60;
     }
   }
 
-  // Descartar si el candidato no contiene ni letra sincronizada ni estática
-  if (!candidate.syncedLyrics && !candidate.plainLyrics) {
-    return 0;
-  }
-
-  // Priorizar pistas con letras sincronizadas (lrc con timestamps), pero valorar las estáticas
-  if (candidate.syncedLyrics) {
-    score += 25;
-  } else if (candidate.plainLyrics) {
-    score += 10;
+  // Bonificación por letra sincronizada (preferida), pero valorar las estáticas
+  if (candidate.syncedLyrics && candidate.syncedLyrics.trim().length > 10) {
+    score += 30;
+  } else if (candidate.plainLyrics && candidate.plainLyrics.trim().length > 10) {
+    score += 15;
   }
 
   return score;
 }
 
+/**
+ * Quita marcadores de video del título antes de buscar la letra:
+ * "A su tiempo || arisa (letra)" → "A su tiempo"
+ */
+function stripVideoMarkers(title: string): string {
+  const stripped = (title || '')
+    .split('|')[0]
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+    .replace(/\s*[-–—]\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return stripped || (title || '').trim();
+}
+
 export async function fetchLyrics(titleOrQuery: string, artist?: string): Promise<TrackLyrics | null> {
   try {
-    const title = artist ? titleOrQuery : titleOrQuery.replace(/^.*?-/, '').trim();
+    const rawTitle = artist ? titleOrQuery : titleOrQuery.replace(/^.*?-/, '').trim();
+    const title = stripVideoMarkers(rawTitle);
     const cleanArtist = artist || '';
 
-    // Cache key v2 para invalidar cachés erróneos anteriores en los dispositivos
-    const cacheKey = `lyrics_v2_${cleanString(title)}_${cleanString(cleanArtist)}`;
+    // Cache key v4 para invalidar y descartar cachés viejos
+    const cacheKey = `lyrics_v4_${cleanString(title)}_${cleanString(cleanArtist)}`;
     if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        try {
+      try {
+        // Limpieza de claves obsoletas v2 y v3 si existen
+        const v2Key = `lyrics_v2_${cleanString(title)}_${cleanString(cleanArtist)}`;
+        const v3Key = `lyrics_v3_${cleanString(title)}_${cleanString(cleanArtist)}`;
+        if (localStorage.getItem(v2Key)) localStorage.removeItem(v2Key);
+        if (localStorage.getItem(v3Key)) localStorage.removeItem(v3Key);
+
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
           const parsed = JSON.parse(cached);
           if (scoreLyricCandidate(title, cleanArtist, parsed) > 0) {
             return parsed;
           }
-        } catch(e) {}
-      }
+        }
+      } catch(e) {}
     }
 
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -110,10 +173,10 @@ export async function fetchLyrics(titleOrQuery: string, artist?: string): Promis
         data = await response.json();
       }
     } catch (e) {
-      console.warn('[fetchLyrics] Error consultando /api/lyrics, intentando fallback directo a LRCLIB:', e);
+      console.warn('[fetchLyrics] Error consultando /api/lyrics, intentando fallback directo:', e);
     }
 
-    // Respaldo directo en el navegador hacia LRCLIB (CORS abierto)
+    // Respaldo directo en el navegador hacia LRCLIB si el proxy de la API falló
     if (!data || !Array.isArray(data) || data.length === 0) {
       try {
         if (artist) {
@@ -128,6 +191,15 @@ export async function fetchLyrics(titleOrQuery: string, artist?: string): Promis
             const directSearch = await fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
             if (directSearch.ok) {
               const list = await directSearch.json();
+              if (Array.isArray(list) && list.length > 0) {
+                data = list;
+              }
+            }
+          }
+          if (!data) {
+            const combinedSearch = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${title}`)}`);
+            if (combinedSearch.ok) {
+              const list = await combinedSearch.json();
               if (Array.isArray(list) && list.length > 0) {
                 data = list;
               }
@@ -161,7 +233,7 @@ export async function fetchLyrics(titleOrQuery: string, artist?: string): Promis
       }
     }
 
-    // Si el mejor candidato tiene puntaje 0 (es otra canción sin relación), descartar
+    // Si el mejor candidato tiene puntaje 0 (es de otro artista o tema no coincidente), descartar
     if (!bestMatch || highestScore <= 0) {
       console.warn(`[fetchLyrics] Candidatos descartados por no coincidir con "${title}" de "${cleanArtist}"`);
       return null;
@@ -182,7 +254,9 @@ export async function fetchLyrics(titleOrQuery: string, artist?: string): Promis
     };
     
     if (typeof window !== 'undefined') {
-      localStorage.setItem(cacheKey, JSON.stringify(result));
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(result));
+      } catch {}
     }
 
     return result;

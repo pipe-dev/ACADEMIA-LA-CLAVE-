@@ -481,6 +481,8 @@ export default function LoginPage() {
                 <div className="relative">
                   <input
                     id="static-email"
+                    name="email"
+                    autoComplete="email"
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -502,6 +504,8 @@ export default function LoginPage() {
                 <div className="relative flex items-center">
                   <input
                     id="static-password"
+                    name="password"
+                    autoComplete="current-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => {
@@ -544,6 +548,8 @@ export default function LoginPage() {
               <div className="flex items-center justify-between pt-0.5">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
+                    id="rememberMe"
+                    name="rememberMe"
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}

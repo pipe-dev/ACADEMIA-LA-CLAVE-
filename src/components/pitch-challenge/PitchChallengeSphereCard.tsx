@@ -142,8 +142,8 @@ export const PitchChallengeSphereCard: React.FC<PitchChallengeSphereCardProps> =
                 onClick={onToggleTuning}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap ${
                   zenMode
-                    ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/30 hover:bg-[#2e323a]'
-                    : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border-indigo-200/50 dark:border-indigo-800/50'
+                    ? 'bg-[#26292f] text-[#e5b83b] border-[#e5b83b]/30 '
+                    : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400   border-indigo-200/50 dark:border-indigo-800/50'
                 }`}
                 title="Activar micrófono para afinar"
               >
@@ -207,7 +207,6 @@ export const PitchChallengeSphereCard: React.FC<PitchChallengeSphereCardProps> =
         {/* Dynamic Center Sphere */}
         <div className="relative z-10 flex flex-col items-center my-2">
           <motion.button
-            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
               voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
@@ -241,10 +240,10 @@ export const PitchChallengeSphereCard: React.FC<PitchChallengeSphereCardProps> =
           ) : (
             <button
               onClick={onToggleTuning}
-              className={`mt-2 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-102 ${
+              className={`mt-2 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shadow-xs ${
                 zenMode
-                  ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/40 hover:bg-[#2e323a]'
-                  : 'bg-white/95 dark:bg-[#102034]/95 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/70 hover:bg-indigo-50 dark:hover:bg-[#15273e]'
+                  ? 'bg-[#26292f] text-[#e5b83b] border border-[#e5b83b]/40 '
+                  : 'bg-white/95 dark:bg-[#102034]/95 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/70  '
               }`}
             >
               <Mic

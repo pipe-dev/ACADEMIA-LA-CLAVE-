@@ -93,7 +93,7 @@ export const SettingsProfileForm: React.FC<SettingsProfileFormProps> = ({
                 type="button"
                 onClick={handleSyncSession}
                 disabled={isRefreshing}
-                className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-emerald-500/15 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
                 title="Sincronizar vigencia con el servidor"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -192,7 +192,7 @@ export const SettingsProfileForm: React.FC<SettingsProfileFormProps> = ({
               type="button"
               disabled={isUploading}
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#4648d4] text-white hover:bg-[#3b3dbb] disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#4648d4] text-white disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
             >
               <Camera className="w-3.5 h-3.5" />
               {isUploading ? 'Guardando foto...' : 'Cambiar foto'}
@@ -225,7 +225,7 @@ export const SettingsProfileForm: React.FC<SettingsProfileFormProps> = ({
                   className={`relative w-9 h-9 rounded-full shrink-0 overflow-hidden border-2 transition-all cursor-pointer ${
                     isSelected
                       ? 'border-[#4648d4] ring-2 ring-[#4648d4]/30 scale-105'
-                      : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600 opacity-70 hover:opacity-100'
+                      : 'border-transparent opacity-70'
                   }`}
                 >
                   <img

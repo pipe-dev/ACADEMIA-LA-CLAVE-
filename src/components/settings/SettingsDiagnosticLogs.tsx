@@ -42,7 +42,7 @@ export const SettingsDiagnosticLogs: React.FC<SettingsDiagnosticLogsProps> = ({
             <button
               type="button"
               onClick={onCopyLogs}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-slate-700"
+              className="px-2.5 py-1 bg-slate-800 text-slate-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-slate-700"
             >
               {logsCopied ? (
                 <>
@@ -60,7 +60,7 @@ export const SettingsDiagnosticLogs: React.FC<SettingsDiagnosticLogsProps> = ({
             <button
               type="button"
               onClick={onClearLogs}
-              className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-300 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-rose-800/60"
+              className="px-2.5 py-1 bg-rose-950/80 text-rose-300 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-rose-800/60"
               title="Limpiar registro de logs"
             >
               <Trash2 className="w-3 h-3" />
@@ -70,7 +70,7 @@ export const SettingsDiagnosticLogs: React.FC<SettingsDiagnosticLogsProps> = ({
             <button
               type="button"
               onClick={onToggleShowLogs}
-              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+              className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
             >
               {showLogs ? 'Ocultar' : 'Ver Logs'}
             </button>

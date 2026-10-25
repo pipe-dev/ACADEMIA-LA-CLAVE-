@@ -251,10 +251,16 @@ export const usePitchDetection = () => {
       }
     } catch (err) {
       console.error(err);
+      const isStandalone =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(display-mode: standalone)').matches;
       toast({
         variant: "destructive",
         title: "Acceso al Micrófono Denegado",
-        description: `Por favor permite el acceso al micrófono en la configuración de tu navegador.`,
+        description: isStandalone
+          ? 'Ajustes del teléfono → Aplicaciones → AfinApp → Permisos → Micrófono → Permitir, y vuelve a abrir la app.'
+          : 'Por favor permite el acceso al micrófono en la configuración de tu navegador.',
       });
       setIsDetecting(false);
     }

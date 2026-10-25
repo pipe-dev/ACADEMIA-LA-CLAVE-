@@ -121,8 +121,8 @@ export const ProgresoDailyGoalCard: React.FC<ProgresoDailyGoalCardProps> = ({
                           ? 'bg-[#e5b83b] text-[#161719] border-[#f5d56b] shadow-xs font-black'
                           : 'bg-[#4648d4] text-white border-[#3b3dbf] shadow-md shadow-indigo-500/20')
                       : (zenMode
-                          ? 'bg-[#22252a] text-[#ded9cf] border-[#2e3138] hover:bg-[#2c2f35]'
-                          : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800')
+                          ? 'bg-[#22252a] text-[#ded9cf] border-[#2e3138] '
+                          : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700  ')
                   }`}
                 >
                   <Clock className="w-3 h-3" />

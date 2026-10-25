@@ -80,7 +80,7 @@ export const VocalRangeIntroStep: React.FC<VocalRangeIntroStepProps> = ({
             className={`py-3 px-4 rounded-xl border-2 text-xs sm:text-sm font-black font-heading transition-all cursor-pointer text-center ${
               voiceGender === 'male'
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
-                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-slate-700/50'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700   '
             }`}
           >
             Voz Masculina
@@ -92,7 +92,7 @@ export const VocalRangeIntroStep: React.FC<VocalRangeIntroStepProps> = ({
             className={`py-3 px-4 rounded-xl border-2 text-xs sm:text-sm font-black font-heading transition-all cursor-pointer text-center ${
               voiceGender === 'female'
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
-                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-slate-700/50'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700   '
             }`}
           >
             Voz Femenina

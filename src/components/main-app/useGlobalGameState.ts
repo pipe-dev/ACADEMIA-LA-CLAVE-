@@ -145,6 +145,39 @@ export function useGlobalGameState({
     recordDailyXpSnapshot(userStats.xp || 0);
   }, [userStats]);
 
+  // Dynamic Vocal Range auto-expansion listener: updates userStats & celebrates milestones
+  useEffect(() => {
+    const handleRangeUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const detail = customEvent.detail;
+      if (!detail?.newRange) return;
+
+      const newRange = detail.newRange;
+      const result = detail.result;
+
+      setUserStats((prev) => ({
+        ...prev,
+        vocalRange: newRange.classification,
+        vocalRangeData: newRange,
+      }));
+
+      if (result?.expanded) {
+        audioService.play3StarFanfare();
+        const direction = result.expandedMax
+          ? `aguda (${result.newMaxNote})`
+          : `grave (${result.newMinNote})`;
+        addToast({
+          type: 'quest',
+          title: '¡Expansión de Rango Vocal! 🎉',
+          description: `¡Tu voz ha alcanzado la nota ${direction}! Tu tesitura ahora abarca ${result.newOctaves} octavas.`,
+        });
+      }
+    };
+
+    window.addEventListener('laclave_vocal_range_updated', handleRangeUpdate);
+    return () => window.removeEventListener('laclave_vocal_range_updated', handleRangeUpdate);
+  }, [addToast]);
+
   // Subscribe to Global Quest Events (Afinador, Academia, Karaoke, Biometría)
   useEffect(() => {
     return subscribeQuestEvent((type, amount) => {

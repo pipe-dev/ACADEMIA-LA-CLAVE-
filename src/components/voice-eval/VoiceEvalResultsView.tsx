@@ -72,7 +72,7 @@ export const VoiceEvalResultsView: React.FC<VoiceEvalResultsViewProps> = ({
 
           <button
             onClick={onClose}
-            className="py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer text-center"
+            className="py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
           >
             <span>Volver al Teclado</span>
           </button>
@@ -195,7 +195,7 @@ export const VoiceEvalResultsView: React.FC<VoiceEvalResultsViewProps> = ({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2">
         <button
           onClick={onRetry}
-          className="flex-1 py-2.5 sm:py-3 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer text-center"
+          className="flex-1 py-2.5 sm:py-3 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
         >
           <RefreshCw className="w-4 h-4 shrink-0" />
           <span>Repetir Diagnóstico</span>

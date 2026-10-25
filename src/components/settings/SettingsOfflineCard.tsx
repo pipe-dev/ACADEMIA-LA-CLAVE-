@@ -57,7 +57,7 @@ export const SettingsOfflineCard: React.FC<SettingsOfflineCardProps> = ({
           type="button"
           onClick={onPrecache}
           disabled={offlineDownloading}
-          className="py-2.5 px-3 bg-white dark:bg-[#102034] border border-slate-200 dark:border-slate-700 hover:border-indigo-400 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+          className="py-2.5 px-3 bg-white dark:bg-[#102034] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
         >
           {offlineDownloading ? (
             <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#4648d4]" />
@@ -73,7 +73,7 @@ export const SettingsOfflineCard: React.FC<SettingsOfflineCardProps> = ({
           type="button"
           onClick={onSync}
           disabled={syncing || queueCount === 0}
-          className="py-2.5 px-3 bg-[#4648d4] text-white hover:bg-[#383aa8] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="py-2.5 px-3 bg-[#4648d4] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
           <span>{syncing ? 'Sincronizando...' : queueCount > 0 ? `Sincronizar (${queueCount})` : 'Sincronizado'}</span>
@@ -87,7 +87,7 @@ export const SettingsOfflineCard: React.FC<SettingsOfflineCardProps> = ({
             onClose();
             onStartSplash();
           }}
-          className="w-full py-2.5 px-3 bg-[#102034] dark:bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-900/40 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors mt-2"
+          className="w-full py-2.5 px-3 bg-[#102034] dark:bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors mt-2"
         >
           <Download className="w-4 h-4 text-emerald-400" />
           <span>Re-descargar todas las secciones con Splash Screen</span>

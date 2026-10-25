@@ -254,7 +254,6 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
                         rotate: 0
                       }
                 }
-                whileHover={{ scale: isCurrent ? 1.08 : 1.04, rotate: isCurrent ? 5 : 0 }}
                 whileTap={{ scale: 0.92, y: 2 }}
                 transition={
                   isThisNodeCelebrating
@@ -340,7 +339,6 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
                 } catch {}
                 router.push('/certification');
               }}
-              whileHover={certUnlocked ? { scale: 1.05 } : undefined}
               whileTap={certUnlocked ? { scale: 0.95, y: 2 } : undefined}
               transition={{ type: 'spring', stiffness: 700, damping: 14, mass: 0.5 }}
               className={`flex flex-col items-center justify-center p-3 rounded-2xl sm:rounded-3xl transition-all relative overflow-hidden group w-[96px] h-[92px] sm:w-[104px] sm:h-[100px] ${
@@ -357,7 +355,7 @@ export const AcademiaUnitCard: React.FC<AcademiaUnitCardProps> = ({
             >
               {/* Icono: Birrete cuando está activo, candado cuando está bloqueado */}
               {certUnlocked ? (
-                <GraduationCap className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-sm transition-transform group-hover:-translate-y-0.5 group-hover:rotate-6" />
+                <GraduationCap className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-sm" />
               ) : (
                 <Lock className="w-8 h-8 sm:w-9 sm:h-9 text-slate-400 dark:text-slate-500" />
               )}

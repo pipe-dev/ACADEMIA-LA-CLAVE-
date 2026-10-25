@@ -127,8 +127,8 @@ export const ProgresoVocalRangeSection: React.FC<ProgresoVocalRangeSectionProps>
           }}
           className={`w-full py-3 px-4 rounded-2xl font-heading font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 ${
             zenMode
-              ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
-              : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white hover:shadow-indigo-500/20'
+              ? 'bg-[#e5b83b]  text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
+              : 'bg-gradient-to-r from-purple-600 to-indigo-600   text-white '
           }`}
         >
           <Mic className="w-4 h-4 animate-bounce" />

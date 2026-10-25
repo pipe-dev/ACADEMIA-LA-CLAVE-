@@ -50,8 +50,8 @@ export const ProgresoRecentLessons: React.FC<ProgresoRecentLessonsProps> = ({
               key={lesson.id}
               className={`rounded-2xl p-3.5 border shadow-xs flex items-center justify-between gap-3 transition-colors ${
                 zenMode
-                  ? 'bg-[#1b1c1e] border-[#2e3138] hover:border-[#e5b83b]/40'
-                  : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f] hover:border-indigo-200 dark:hover:border-indigo-900'
+                  ? 'bg-[#1b1c1e] border-[#2e3138] '
+                  : 'bg-white dark:bg-[#102034] border border-slate-100 dark:border-[#1b2b3f]  '
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">

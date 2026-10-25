@@ -88,16 +88,6 @@ export const BreathingGameCard: React.FC<BreathingGameCardProps> = ({ onGrantXp 
         onSelectTechnique={handleSelectTechnique}
       />
 
-      {/* Selected Technique Detail Banner */}
-      <div className="bg-indigo-50/80 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-indigo-200/70 dark:border-slate-700 text-left space-y-1 animate-fadeIn">
-        <span className="text-[11px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest block">
-          {currentTech.name}
-        </span>
-        <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-snug">
-          {currentTech.description}
-        </p>
-      </div>
-
       {/* Visual Canvas of the Latex Balloon */}
       <BreathingBalloonVisualizer
         balloonRef={balloonRef}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Search, Music2, Loader2, Play, LogOut } from 'lucide-react';
 import { CatalogTrack } from './practicaTypes';
+import { getThumbUrl } from './getThumbUrl';
 
 interface PracticaCatalogViewProps {
   searchQuery: string;
@@ -79,6 +80,9 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
           )}
         </div>
         <input
+          id="catalog-search"
+          name="search"
+          autoComplete="off"
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -90,7 +94,7 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
         {searchQuery && (
           <button
             onClick={() => onSearchChange('')}
-            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 cursor-pointer"
           >
             <LogOut className="w-4 h-4 rotate-180" />
           </button>
@@ -110,8 +114,8 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
                     ? 'bg-[#e5b83b] text-[#161719] shadow-sm scale-102 font-black border border-[#f5d56b]'
                     : 'bg-[#4648d4] text-white shadow-sm scale-102'
                   : zenMode
-                  ? 'bg-[#1f2125] text-[#ded9cf] border border-[#2e3138] hover:bg-[#26292f]'
-                  : 'bg-white dark:bg-[#102034] text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-[#1b2b3f] hover:bg-slate-50 dark:hover:bg-slate-800'
+                  ? 'bg-[#1f2125] text-[#ded9cf] border border-[#2e3138] '
+                  : 'bg-white dark:bg-[#102034] text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-[#1b2b3f]  '
               }`}
             >
               {cat}
@@ -175,28 +179,54 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
               Cargando catálogo musical...
             </p>
           </div>
+        ) : displayedCatalog.length === 0 ? (
+          <div className="py-12 text-center space-y-3 px-4">
+            <div
+              className={`w-12 h-12 rounded-2xl mx-auto flex items-center justify-center shadow-xs ${
+                zenMode
+                  ? 'bg-[#26292f] text-[#e5b83b] border border-[#2e3138]'
+                  : 'bg-indigo-50 dark:bg-slate-800 text-indigo-500 dark:text-indigo-400'
+              }`}
+            >
+              <Search className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                {searchQuery
+                  ? `No encontramos canciones para "${searchQuery}"`
+                  : 'No hay canciones en esta categoría'}
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                {searchQuery
+                  ? 'Intenta buscar por el título de la canción, nombre del artista o explora las categorías del catálogo.'
+                  : 'Selecciona otra categoría o usa el buscador para encontrar tus canciones favoritas.'}
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="space-y-2">
             {displayedCatalog.map((track, idx) => (
               <motion.button
                 key={track.id}
                 id={idx === 0 ? 'tour-practica-first-track' : undefined}
-                whileHover={{ scale: 1.01 }}
+
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onSelectTrack(track)}
-                className="w-full bg-white dark:bg-[#102034] p-3 rounded-2xl border border-slate-100 dark:border-[#1b2b3f] shadow-[0_2px_10px_rgba(0,0,0,0.03)] flex items-center justify-between gap-3 text-left transition-all hover:border-indigo-200 dark:hover:border-indigo-900/60 cursor-pointer group"
+                className="w-full bg-white dark:bg-[#102034] p-3 rounded-2xl border border-slate-100 dark:border-[#1b2b3f] shadow-[0_2px_10px_rgba(0,0,0,0.03)] flex items-center justify-between gap-3 text-left transition-all cursor-pointer group"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   {/* Carátula */}
                   <div className="w-13 h-13 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 relative shadow-xs">
                     {track.thumbnail && !failedImageIds.has(track.id) ? (
                       <img
-                        src={track.thumbnail}
+                        src={getThumbUrl(track.thumbnail, 200)}
                         alt={track.title}
+                        loading="lazy"
+                        decoding="async"
                         onError={() =>
                           setFailedImageIds((prev) => new Set(prev).add(track.id))
                         }
-                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                        className={`w-full h-full object-cover transition-transform ${
                           zenMode ? 'grayscale contrast-110 brightness-90' : ''
                         }`}
                       />
@@ -265,8 +295,8 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors shadow-xs ${
                     zenMode
-                      ? 'bg-[#26292f] text-[#e5b83b] group-hover:bg-[#e5b83b] group-hover:text-[#161719]'
-                      : 'bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff] group-hover:bg-[#4648d4] group-hover:text-white'
+                      ? 'bg-[#26292f] text-[#e5b83b]'
+                      : 'bg-[#eff4ff] dark:bg-slate-800 text-[#4648d4] dark:text-[#c0c1ff]'
                   }`}
                 >
                   <Play className="w-4 h-4 fill-current ml-0.5" />

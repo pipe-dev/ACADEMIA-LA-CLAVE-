@@ -2,12 +2,15 @@ import React from 'react';
 import { Mic, MicOff, Volume2, VolumeX, LogOut } from 'lucide-react';
 import { PolygraphCanvas, NoteData } from './polygraph-canvas';
 
+// La melodía objetivo (Apps Script /api/karaoke-melody) fue retirada:
+// el polígrafo corre siempre sin curva objetivo, como hasta ahora.
+const NO_MELODY: NoteData[] = [];
+
 interface KaraokeControlsPanelProps {
   frequency: number;
   isDetecting: boolean;
   currentTime: number;
   syncOffset: number;
-  melodyData: NoteData[];
   onHitUpdate: (isHit: boolean) => void;
   vocalLevel: number;
   onSetVocalLevel: (val: number) => void;
@@ -23,7 +26,6 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
   isDetecting,
   currentTime,
   syncOffset,
-  melodyData,
   onHitUpdate,
   vocalLevel,
   onSetVocalLevel,
@@ -59,7 +61,7 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
             frequency={frequency}
             isDetecting={isDetecting}
             currentTime={currentTime + syncOffset}
-            melodyData={melodyData}
+            melodyData={NO_MELODY}
             onHitUpdate={onHitUpdate}
           />
         </div>
@@ -70,7 +72,7 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
         <button
           type="button"
           onClick={() => onSetVocalLevel(vocalLevel > 0 ? 0 : 1)}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+          className="text-slate-400 transition-colors cursor-pointer shrink-0"
           title={vocalLevel === 0 ? 'Activar voz' : 'Silenciar voz'}
         >
           {vocalLevel === 0 ? (
@@ -90,6 +92,8 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
         </span>
 
         <input
+          id="vocalLevel"
+          name="vocalLevel"
           type="range"
           min={0}
           max={100}
@@ -134,7 +138,7 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
           <span className="text-[10px] font-bold text-slate-400">Letras:</span>
           <button
             onClick={() => onSetSyncOffset((s) => s - 0.5)}
-            className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition-colors cursor-pointer text-[11px] shadow-2xs"
+            className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold transition-colors cursor-pointer text-[11px] shadow-2xs"
             title="Atrasar letra 0.5s"
           >
             -0.5s
@@ -144,7 +148,7 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
           </span>
           <button
             onClick={() => onSetSyncOffset((s) => s + 0.5)}
-            className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition-colors cursor-pointer text-[11px] shadow-2xs"
+            className="px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold transition-colors cursor-pointer text-[11px] shadow-2xs"
             title="Adelantar letra 0.5s"
           >
             +0.5s
@@ -155,7 +159,7 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
       {/* Botón Salir */}
       <button
         onClick={onExitToCatalog}
-        className="w-full bg-[#eff4ff] dark:bg-[#0b1828] text-[#2c2abc] dark:text-[#c0c1ff] border border-slate-200 dark:border-slate-800 py-3.5 rounded-full font-heading font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-100 dark:hover:bg-slate-800 active:scale-98 transition-all cursor-pointer shadow-xs"
+        className="w-full bg-[#eff4ff] dark:bg-[#0b1828] text-[#2c2abc] dark:text-[#c0c1ff] border border-slate-200 dark:border-slate-800 py-3.5 rounded-full font-heading font-bold text-sm flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer shadow-xs"
       >
         <LogOut className="w-4 h-4" />
         <span>Elegir Otra Canción</span>

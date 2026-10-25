@@ -23,6 +23,34 @@ const UNITS_DATA_KEY = 'laclave_units_data_v1';
 
 // 1. Service Worker Registration
 export function registerServiceWorker() {
+  if (typeof window === 'undefined') return;
+
+  const isDevOrLocal =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.includes('trycloudflare.com') ||
+    window.location.hostname.startsWith('192.168.') ||
+    window.location.hostname.startsWith('10.') ||
+    window.location.port === '9005';
+
+  if (isDevOrLocal) {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const reg of registrations) {
+          reg.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        for (const key of keys) {
+          caches.delete(key);
+        }
+      });
+    }
+    return;
+  }
+
   if ('serviceWorker' in navigator) {
     const register = () => {
       navigator.serviceWorker.register('/sw.js')

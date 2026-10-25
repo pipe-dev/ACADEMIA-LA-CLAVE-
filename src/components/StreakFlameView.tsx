@@ -79,15 +79,44 @@ const [isIgnited, setIsIgnited] = useState<boolean>(() => {
     const newStreak = currentStreak + 1;
     setIsIgnited(true);
     setIsDragging(false);
-    dragProgressRef.current = 1;
-    setDragProgress(1);
-    setDisplayStreak(newStreak);
 
-try {
+    const initialProg = dragProgressRef.current;
+
+    // Reproduce toda la escala ascendente de notas de crecimiento con volumen constante a 0.5
+    // Asegura que suenen todos los tonos bonitos incluso si se deslizó rápido o ya se encendió
+    audioService.playFlameGrowthSequence(initialProg < 0.35 ? 0 : initialProg * 0.5, 0.5, 380);
+
+    // Transición visual sincronizada de la llama hasta 1.0 al compás de las notas
+    const startProgress = dragProgressRef.current;
+    const animStartTime = performance.now();
+    const animDuration = 320;
+
+    const animateIgniteGrowth = (nowTime: number) => {
+      const elapsed = nowTime - animStartTime;
+      const factor = Math.min(1, elapsed / animDuration);
+      const cur = startProgress + (1 - startProgress) * factor;
+      dragProgressRef.current = cur;
+      setDragProgress(cur);
+
+      if (factor < 1) {
+        requestAnimationFrame(animateIgniteGrowth);
+      } else {
+        dragProgressRef.current = 1;
+        setDragProgress(1);
+        setDisplayStreak(newStreak);
+      }
+    };
+    requestAnimationFrame(animateIgniteGrowth);
+
+    // Culmina con la fanfarria y explosión triunfal de ignición
+    setTimeout(() => {
+      audioService.playStreakIgnitionSound();
+    }, 300);
+
+    try {
       localStorage.setItem('laclave_last_streak_date', getTodayStr());
     } catch {}
 
-    audioService.playStreakIgnitionSound();
     triggerHapticFeedback('streak-update');
 
     try {
@@ -326,7 +355,7 @@ try {
 
     animFrameIdRef.current = requestAnimationFrame(render);
 
-    return () => {
+  return () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateCanvasSize);
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
@@ -339,9 +368,18 @@ try {
     currentTouchYRef.current = e.clientY;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
-    if (!isIgnited) {
-      setIsDragging(true);
+    if (isIgnited) {
+      // Si la llama ya está encendida y el usuario interactúa, reproduce la secuencia de crecimiento a vol 0.5
+      const now = Date.now();
+      if (now - lastSoundTimeRef.current > 400) {
+        lastSoundTimeRef.current = now;
+        audioService.playFlameGrowthSequence(0, 0.5, 340);
+        triggerHapticFeedback('streak-update');
+      }
+      return;
     }
+
+    setIsDragging(true);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -349,7 +387,8 @@ try {
 
     if (!isDragging || isIgnited) return;
     const deltaY = startYRef.current - e.clientY;
-    const targetDistance = 140;
+    // Mayor recorrido (180px) para un gesto más cómodo y natural
+    const targetDistance = 180;
     const progress = Math.min(1, Math.max(0, deltaY / targetDistance));
 
     // Update ref immediately for 60fps canvas loop without heavy React re-renders
@@ -360,14 +399,14 @@ try {
       setDragProgress(progress);
     }
 
-    // Audio pitch feedback
+    // Audio pitch feedback con volumen estable y constante a 0.5 (sin crescendo)
     const now = Date.now();
-    if (now - lastSoundTimeRef.current > 120 && progress > 0.05) {
+    if (now - lastSoundTimeRef.current > 75 && progress > 0.04) {
       lastSoundTimeRef.current = now;
-      audioService.playFlameSwellSound(progress);
+      audioService.playFlameSwellSound(progress, 0.5);
     }
 
-    if (progress >= 0.98) {
+    if (progress >= 0.96) {
       handleIgniteComplete();
     }
   };
@@ -376,13 +415,28 @@ try {
     if (isIgnited) return;
     setIsDragging(false);
     currentTouchYRef.current = 0;
-    if (dragProgressRef.current < 0.98) {
+    // Si alcanzó más del 50% del recorrido, culmina el encendido automáticamente
+    if (dragProgressRef.current >= 0.5) {
+      handleIgniteComplete();
+    } else {
       dragProgressRef.current = 0;
       setDragProgress(0);
     }
   };
 
-  // Lock body scrolling while flame screen is active
+  // Handle escape key to exit flame view
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        audioService.playCloseSound();
+        if (onBack) onBack();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onBack]);
+
+    // Lock body scrolling while flame screen is active
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalTouchAction = document.body.style.touchAction;
@@ -395,21 +449,22 @@ try {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[150] bg-[#f8faff] dark:bg-[#0a121e] text-[#0b1c30] dark:text-[#d3e4fe] flex flex-col justify-between overflow-hidden touch-none overscroll-none select-none p-4 pb-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]">
-      {/* Header with Back Button */}
-      <div className="z-50 flex items-center justify-between pointer-events-none pt-2 px-2 shrink-0">
+    <div className="fixed inset-0 z-[150] bg-[#f8faff] dark:bg-[#0a121e] text-[#0b1c30] dark:text-[#d3e4fe] flex flex-col justify-between overflow-hidden touch-none overscroll-none select-none px-3 sm:px-5 pb-[max(2rem,env(safe-area-inset-bottom,20px))] pt-[max(calc(var(--safe-top,env(safe-area-inset-top,0px))+0.75rem),2rem)]">
+      {/* Header with Responsive Safe-Area Back Button */}
+      <header className="z-[60] w-full flex items-center justify-between pointer-events-none px-1 sm:px-2 shrink-0">
         <button
           type="button"
           onClick={() => {
             audioService.playCloseSound();
             if (onBack) onBack();
           }}
-          className="pointer-events-auto p-3 rounded-full bg-white/95 dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer flex items-center justify-center border border-slate-200/80 dark:border-slate-700/60 shadow-md transition-all active:scale-95"
+          aria-label="Volver y cerrar racha"
           title="Volver"
+          className="pointer-events-auto min-w-[48px] min-h-[48px] w-12 h-12 rounded-full bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-100 cursor-pointer flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-md transition-all active:scale-90 touch-manipulation focus:outline-none focus:ring-2 focus:ring-orange-500"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-6 h-6 stroke-[2.5]" />
         </button>
-      </div>
+      </header>
 
       {/* Main 2D Canvas Interactive Area */}
       <div

@@ -8,6 +8,7 @@ import { emitStreakEligibleAction } from '../../utils/streakPrompt';
 import { emitQuestEvent } from '../../utils/dailyQuestsEngine';
 import { CatalogTrack, saveKaraokeScore } from './practicaTypes';
 import { useKaraokeScoring } from './useKaraokeScoring';
+import { pickBestYtMatch } from './pickBestYtMatch';
 
 interface UseKaraokeEngineParams {
   selectedTrack: CatalogTrack | null;
@@ -72,6 +73,9 @@ export function useKaraokeEngine({
   const failedVideosRef = useRef<Set<string>>(new Set());
   const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
   const hasCompletedRef = useRef<boolean>(false);
+  // Boost de la grabación cantada (+5 dB ≈ x1.78) vía grafo Web Audio:
+  // se conecta UNA sola vez al elemento <audio> cuando suena la voz
+  const recordingBoostRef = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
 
   // ─── Control de Nivel de Voz en Tiempo Real ───
   const handleSetVocalLevel = useCallback((val: number) => {
@@ -93,6 +97,64 @@ export function useKaraokeEngine({
       playerRef.current.setVolume(clamped);
     }
   }, [vocalRemover]);
+
+  // ─── Boost Web Audio de la Grabación Cantada (+13 dB) ───
+  // element.volume nunca puede superar 1.0; para "hacerla más dura"
+  // enrutamos el <audio> una única vez por un GainNode de 4.47 (+13 dB)
+  // más un limitador que recorta los picos sin clipear la salida.
+  // El grafo queda vivo para toda la sesión del motor (todas las
+  // canciones reutilizan el mismo elemento → misma conexión).
+  const ensureRecordingBoost = useCallback(() => {
+    const el = audioPlaybackRef.current;
+    if (recordingBoostRef.current) {
+      if (recordingBoostRef.current.ctx.state === 'suspended') {
+        recordingBoostRef.current.ctx.resume().catch(() => {});
+      }
+      return;
+    }
+    if (!el) return;
+    try {
+      const Ctor: typeof AudioContext | undefined =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) return;
+      const ctx = new Ctor();
+      const source = ctx.createMediaElementSource(el);
+      const gain = ctx.createGain();
+      gain.gain.value = 4.47; // +13 dB (x4.47)
+
+      // Limitador: con +13 dB los picos del mic superan el tope de salida;
+      // el compressor corta solo los crestas (voz normal pasa sin tocar)
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -6;
+      limiter.knee.value = 4;
+      limiter.ratio.value = 16;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.2;
+      source.connect(gain);
+      gain.connect(limiter);
+      limiter.connect(ctx.destination);
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      recordingBoostRef.current = { ctx, gain };
+    } catch (err) {
+      console.warn('No se pudo aplicar el boost a la grabación:', err);
+      recordingBoostRef.current = null;
+    }
+  }, []);
+
+  // El grafo se libera solo cuando el motor karaoke se desmonta
+  useEffect(() => {
+    return () => {
+      if (recordingBoostRef.current) {
+        try {
+          recordingBoostRef.current.ctx.close().catch(() => {});
+        } catch {}
+        recordingBoostRef.current = null;
+      }
+    };
+  }, []);
 
   // ─── Fin de Canción y Celebración Automática ───
   const handleSongCompleted = useCallback(() => {
@@ -263,6 +325,9 @@ export function useKaraokeEngine({
     try {
       e.target.unMute();
       e.target.setVolume(volume);
+      // Solo importa el AUDIO (reproductor oculto): sugerir 144p para
+      // bajar el consumo de datos/CPU de decodificación
+      e.target.setPlaybackQuality?.('tiny');
     } catch {}
     setIsReady(true);
     setDuration(e.target.getDuration() || 0);
@@ -275,10 +340,16 @@ export function useKaraokeEngine({
       setDuration(e.target.getDuration() || 0);
       setAutoplayBlocked(false);
 
+      // YouTube a veces reincide y sube la calidad al alcanzar play
+      try {
+        e.target.setPlaybackQuality?.('tiny');
+      } catch {}
+
       if (isMicEnabled && !isDetecting && !isPlaybackMode) {
         startPitchDetection(vocalRemover.getAudioContext());
       }
       if (isPlaybackMode && audioPlaybackRef.current) {
+        ensureRecordingBoost();
         audioPlaybackRef.current.play().catch(console.error);
       }
     } else if (state === 2 || state === 3) {
@@ -289,7 +360,7 @@ export function useKaraokeEngine({
     } else if (state === 0) {
       handleSongCompleted();
     }
-  }, [handleSongCompleted, isDetecting, isMicEnabled, isPlaybackMode, startPitchDetection, vocalRemover]);
+  }, [ensureRecordingBoost, handleSongCompleted, isDetecting, isMicEnabled, isPlaybackMode, startPitchDetection, vocalRemover]);
 
   const handlePlayerError = useCallback(async (e: any) => {
     console.warn('YouTube Error:', e?.data);
@@ -302,7 +373,9 @@ export function useKaraokeEngine({
       if (res.ok) {
         const videos = await res.json();
         if (Array.isArray(videos)) {
-          const alternate = videos.find((v: any) => !failedVideosRef.current.has(v.id));
+          const candidates = videos.filter((v: any) => !failedVideosRef.current.has(v.id));
+          const bestMatch = pickBestYtMatch(candidates, selectedTrack.artist, selectedTrack.title);
+          const alternate = bestMatch || candidates[0];
           if (alternate && alternate.id) {
             setActiveVideoId(alternate.id);
           }
@@ -337,6 +410,7 @@ export function useKaraokeEngine({
             startPitchDetection(vocalRemover.getAudioContext());
           }
           if (isPlaybackMode && audioPlaybackRef.current) {
+            ensureRecordingBoost();
             audioPlaybackRef.current.play().catch(console.error);
           }
         } else {
@@ -362,6 +436,7 @@ export function useKaraokeEngine({
           startPitchDetection(vocalRemover.getAudioContext());
         }
         if (isPlaybackMode && audioPlaybackRef.current) {
+          ensureRecordingBoost();
           audioPlaybackRef.current.play().catch(console.error);
         }
       }
@@ -395,10 +470,11 @@ export function useKaraokeEngine({
     }
     setIsPlaying(true);
     if (audioPlaybackRef.current) {
+      ensureRecordingBoost();
       audioPlaybackRef.current.currentTime = 0;
       audioPlaybackRef.current.play().catch(console.error);
     }
-  }, [useYtFallback, vocalRemover]);
+  }, [ensureRecordingBoost, useYtFallback, vocalRemover]);
 
   const handleReplaySong = useCallback(() => {
     hasCompletedRef.current = false;

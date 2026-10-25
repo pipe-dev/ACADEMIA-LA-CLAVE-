@@ -34,7 +34,7 @@ export const WebShareTargetBanner: React.FC<WebShareTargetBannerProps> = ({
       </div>
       <button
         onClick={onDismiss}
-        className="p-1 rounded-lg hover:bg-white/10 text-slate-300 cursor-pointer shrink-0"
+        className="w-9 h-9 flex items-center justify-center rounded-full bg-rose-100 border border-rose-300/60 text-rose-500 active:scale-90 transition-transform shrink-0 cursor-pointer"
       >
         <X className="w-4 h-4" />
       </button>

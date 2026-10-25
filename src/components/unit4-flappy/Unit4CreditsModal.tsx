@@ -215,7 +215,7 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart,
                   {/* Primary Gold Button */}
                   <button
                     onClick={handleNavigateToCertification}
-                    className="w-full py-3 px-4 rounded-xl font-heading font-black text-xs sm:text-sm bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    className="w-full py-3 px-4 rounded-xl font-heading font-black text-xs sm:text-sm bg-amber-500 active:bg-amber-600 text-white active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 transition-all"
                   >
                     <span>Certificarme ahora</span>
                     <ArrowRight className="w-4 h-4 text-white" />
@@ -224,7 +224,7 @@ export const Unit4CreditsModal: React.FC<Unit4CreditsModalProps> = ({ onRestart,
                   {/* Secondary Button (subrayado por debajo) */}
                   <button
                     onClick={handleRestart}
-                    className="w-full py-1.5 px-3 text-xs font-bold font-heading text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white cursor-pointer flex items-center justify-center transition-colors"
+                    className="w-full py-1.5 px-3 text-xs font-bold font-heading text-slate-500 dark:text-slate-400 cursor-pointer flex items-center justify-center transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
                     <span className="underline underline-offset-4">Volver a la Academia</span>

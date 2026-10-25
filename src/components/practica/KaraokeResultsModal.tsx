@@ -126,7 +126,7 @@ export const KaraokeResultsModal: React.FC<KaraokeResultsModalProps> = ({
               {audioBlobUrl && (
                 <button
                   onClick={onPlayRecording}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-heading font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md hover:brightness-105 active:scale-98 transition-all"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-heading font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
                 >
                   <Headphones className="w-4 h-4" />
                   <span>Escuchar mi Grabación</span>
@@ -136,7 +136,7 @@ export const KaraokeResultsModal: React.FC<KaraokeResultsModalProps> = ({
               {userLives > 0 ? (
                 <button
                   onClick={onReplaySong}
-                  className="w-full py-3 rounded-xl bg-[#4648d4] text-white font-heading font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_0_0_#282a9e] hover:brightness-105 active:scale-98 transition-all"
+                  className="w-full py-3 rounded-xl bg-[#4648d4] text-white font-heading font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_0_0_#282a9e] active:scale-98 transition-all"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Cantar de Nuevo</span>
@@ -150,7 +150,7 @@ export const KaraokeResultsModal: React.FC<KaraokeResultsModalProps> = ({
                         onExitToCatalog();
                         onOpenRecoveryExam();
                       }}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-heading font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-heading font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
                     >
                       <Zap className="w-4 h-4 text-emerald-200 fill-emerald-200" />
                       <span>Entrenar para ganar 1 vida (Gratis)</span>
@@ -163,7 +163,7 @@ export const KaraokeResultsModal: React.FC<KaraokeResultsModalProps> = ({
                         onExitToCatalog();
                         onOpenStore();
                       }}
-                      className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-heading font-bold text-xs cursor-pointer transition-colors"
+                      className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-heading font-bold text-xs cursor-pointer transition-colors"
                     >
                       Recargar en la Tienda
                     </button>
@@ -173,7 +173,7 @@ export const KaraokeResultsModal: React.FC<KaraokeResultsModalProps> = ({
 
               <button
                 onClick={onExitToCatalog}
-                className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-heading font-bold text-xs cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-heading font-bold text-xs cursor-pointer transition-colors"
               >
                 Elegir Otra Canción
               </button>

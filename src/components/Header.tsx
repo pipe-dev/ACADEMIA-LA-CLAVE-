@@ -34,7 +34,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-[#0b1c30] px-4 pt-[calc(var(--safe-top,env(safe-area-inset-top,0px))+0.625rem)] pb-2.5 border-b border-white/40 dark:border-white/10 shadow-[0px_4px_30px_0px_rgba(0,0,0,0.05)] flex items-center justify-between transition-colors max-w-lg mx-auto overflow-visible">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-[#0b1c30] px-4 pt-[calc(var(--safe-top,env(safe-area-inset-top,0px))+0.625rem)] pb-2.5 border-b border-slate-200 dark:border-slate-800 shadow-[0px_2px_10px_0px_rgba(0,0,0,0.05)] flex items-center justify-between transition-colors max-w-lg mx-auto overflow-visible">
         {/* Left: Avatar & Title */}
         <div 
           id="tour-header-profile"

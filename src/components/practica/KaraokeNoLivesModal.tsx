@@ -70,7 +70,7 @@ export const KaraokeNoLivesModal: React.FC<KaraokeNoLivesModalProps> = ({
                 onClose();
                 onOpenRecoveryExam();
               }}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-heading font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Zap className="w-4 h-4 text-emerald-200 fill-emerald-200" />
               <span>Entrenar para ganar 1 vida (Gratis)</span>
@@ -86,8 +86,8 @@ export const KaraokeNoLivesModal: React.FC<KaraokeNoLivesModalProps> = ({
               }}
               className={`w-full py-2.5 px-4 rounded-xl font-heading font-bold text-xs border active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 ${
                 zenMode
-                  ? 'bg-[#26292f] text-[#ded9cf] hover:bg-[#2e323a] border-[#383c44]'
-                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                  ? 'bg-[#26292f] text-[#ded9cf]  border-[#383c44]'
+                  : 'bg-slate-100 dark:bg-slate-800   text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
               }`}
             >
               <span>Recargar en la Tienda</span>
@@ -99,7 +99,7 @@ export const KaraokeNoLivesModal: React.FC<KaraokeNoLivesModalProps> = ({
               audioService.playClickSound();
               onClose();
             }}
-            className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            className="w-full py-2 text-xs font-bold text-slate-400 transition-colors cursor-pointer"
           >
             Volver al catálogo
           </button>

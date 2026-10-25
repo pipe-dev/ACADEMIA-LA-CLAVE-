@@ -227,7 +227,8 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             {/* Close button */}
             <button
               onClick={handleAttemptClose}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer z-10"
+              className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/70 text-rose-500 dark:text-rose-400 shadow-xs cursor-pointer active:scale-90 transition-transform z-10"
+              aria-label="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -235,7 +236,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             {/* Modal Top Header Bar */}
             {step !== 'vocal_diagnostic' &&
               ((!isUnit2Exam && !isUnit3Exam) || step !== 'practice' || showQuizResults) && (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pr-14">
                   <div
                     className={`w-12 h-12 rounded-2xl ${
                       isUnit2Exam || isUnit3Exam
@@ -326,7 +327,6 @@ export const LessonModal: React.FC<LessonModalProps> = ({
                 <VocalRangeModal
                   isOpen={true}
                   isEmbeddedView={true}
-                  backLabel="Volver a la Lección"
                   onClose={() => {
                     unlockOrientation();
                     onClose();

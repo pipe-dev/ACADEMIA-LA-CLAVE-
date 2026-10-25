@@ -42,7 +42,7 @@ export const Unit4Celebration: React.FC<Unit4CelebrationProps> = ({ onExit }) =>
       <button
         onClick={toggleMute}
         aria-label={muted ? 'Activar sonido' : 'Silenciar'}
-        className="fixed top-4 left-4 z-[300] flex h-11 w-11 items-center justify-center rounded-full bg-amber-950/60 text-amber-100 shadow-lg backdrop-blur-md transition-transform active:scale-95 hover:bg-amber-950/80"
+        className="fixed top-4 left-4 z-[300] flex h-11 w-11 items-center justify-center rounded-full bg-amber-950/60 text-amber-100 shadow-lg backdrop-blur-md transition-transform active:scale-95"
       >
         {muted ? (
           <VolumeX className="h-5 w-5" />

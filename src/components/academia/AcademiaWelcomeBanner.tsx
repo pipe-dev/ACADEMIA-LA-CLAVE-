@@ -71,7 +71,7 @@ export const AcademiaWelcomeBanner: React.FC<AcademiaWelcomeBannerProps> = ({
         className={`backdrop-blur-2xl p-5 sm:p-6 rounded-3xl relative overflow-hidden transition-all cursor-pointer active:scale-[0.98] select-none h-[112px] flex flex-col justify-center group ${
           zenMode
             ? 'bg-[#1f2125] border border-[#2e3138] shadow-[0px_4px_20px_rgba(0,0,0,0.5)]'
-            : 'bg-[#ffffff] dark:bg-[#102034] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.05)] border border-white/80 dark:border-white/10 hover:shadow-[0px_12px_40px_0px_rgba(70,72,212,0.15)]'
+            : 'bg-[#ffffff] dark:bg-[#102034] shadow-[0px_8px_32px_0px_rgba(0,0,0,0.05)] border border-white/80 dark:border-white/10'
         }`}
       >
         {!zenMode && (

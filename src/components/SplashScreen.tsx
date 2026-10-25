@@ -100,6 +100,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   useEffect(() => { onFinishRef.current = onFinish; }, [onFinish]);
   const userNameRef = useRef(userName);
   useEffect(() => { userNameRef.current = userName; }, [userName]);
+  // Bandera de precarga básica del splash (hasta el tope de seguridad de 3 s)
+  const preloadDoneRef = useRef(false);
+  const preloadTimedOutRef = useRef(false);
 
   const [tip] = useState(() => {
     try {
@@ -124,25 +127,52 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   // Pre-carga en segundo plano de recursos offline
   useEffect(() => {
     registerServiceWorker();
-    const songCovers = SONGS_DATABASE.map((s) => s.coverUrl).filter(Boolean);
-    const avatarSvgs = DEFAULT_VOCAL_AVATARS.map((a) => a.url);
-    const appStaticAssets = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/Logo_afinapp.png', ...avatarSvgs, ...songCovers];
+    const isLocalOrDev =
+      typeof window !== 'undefined' && (
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.includes('trycloudflare.com') ||
+        window.location.hostname.startsWith('192.168.') ||
+        window.location.port === '9005'
+      );
+    if (!isLocalOrDev) {
+      const songCovers = SONGS_DATABASE.map((s) => s.coverUrl).filter(Boolean);
+      const avatarSvgs = DEFAULT_VOCAL_AVATARS.map((a) => a.url);
+      const appStaticAssets = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/Logo_afinapp.png', ...avatarSvgs, ...songCovers];
 
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_FULL_APP', urls: appStaticAssets });
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_FULL_APP', urls: appStaticAssets });
+      }
+      cacheAllContentLocally();
     }
-    cacheAllContentLocally();
 
-    // Diferir la importación pesada de módulos para no congelar el hilo principal durante el splash
-    const deferTimer = setTimeout(() => {
-      Promise.allSettled([
-        import('../components/AfinadorView'),
-        import('../components/PracticaView'),
-        import('../components/ProgresoView'),
-        import('../components/LessonModal'),
-        import('../components/SettingsModal'),
-      ]).catch(() => {});
-    }, 350);
+    // Precarga real DURANTE el splash: un módulo a la vez (de a poco) y en orden de uso.
+    // cacheAllContentLocally() sigue corriendo en paralelo, como hasta ahora.
+    const preloadCapTimer = setTimeout(() => { preloadTimedOutRef.current = true; }, 3000);
+    const criticalModules: Array<() => Promise<unknown>> = [
+      () => import('../components/LessonModal'),
+      () => import('../components/AfinadorView'),
+      () => import('../components/PracticaView'),
+      () => import('../components/ProgresoView'),
+      () => import('../components/SettingsModal'),
+    ];
+    let preloadIndex = 0;
+    let nextModuleTimer: NodeJS.Timeout | undefined;
+
+    const loadNextModule = () => {
+      if (preloadIndex >= criticalModules.length) {
+        preloadDoneRef.current = true;
+        return;
+      }
+      const loadModule = criticalModules[preloadIndex++];
+      Promise.resolve(loadModule()).then(() => {
+        nextModuleTimer = setTimeout(loadNextModule, 60);
+      }).catch(() => {
+        // Si un módulo falla (red inestable), seguimos con el siguiente...
+        nextModuleTimer = setTimeout(loadNextModule, 60);
+      });
+    };
+    loadNextModule();
 
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -152,15 +182,22 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         setTimeout(() => { try { tempCtx.close(); } catch {} }, 450);
       }
     } catch {}
-    return () => { clearTimeout(deferTimer); };
+    return () => {
+      clearTimeout(preloadCapTimer);
+      if (nextModuleTimer) clearTimeout(nextModuleTimer);
+    };
   }, []);
 
-  // Timer Modo Normal: 0% -> 100% continuo y ágil (~1.1s)
+  // Timer Modo Normal: 0% -> 100% continuo y ágil (~1.1s); espera la precarga básica (tope 3 s)
   useEffect(() => {
     if (phase !== 'normal_loading') return;
     const timer = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
+          if (!preloadDoneRef.current && !preloadTimedOutRef.current) {
+            // Aprovecha el tiempo del splash esperando la precarga básica...
+            return 100;
+          }
           clearInterval(timer);
           setPhase('completed');
           setIsFullyDownloaded(true);
@@ -168,11 +205,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           setTimeout(() => onFinishRef.current(), 250);
           return 100;
         }
-        const next = Math.min(100, prev + 1);
+        const next = Math.min(100, prev + 3);
         setLoadingText(getStatusText(next, userNameRef.current));
         return next;
       });
-    }, 11);
+    }, 33);
     return () => clearInterval(timer);
   }, [phase]);
 
@@ -187,11 +224,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           setLoadingText('Personalización de perfil...');
           return 85;
         }
-        const next = Math.min(85, prev + 1);
+        const next = Math.min(85, prev + 3);
         setLoadingText(getStatusText(next, userNameRef.current));
         return next;
       });
-    }, 14);
+    }, 33);
     return () => clearInterval(timer);
   }, [phase]);
 
@@ -206,11 +243,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           setLoadingText('Elige tu foto de perfil...');
           return 99;
         }
-        const next = Math.min(99, prev + 1);
+        const next = Math.min(99, prev + 2);
         setLoadingText(getStatusText(next, userNameRef.current));
         return next;
       });
-    }, 16);
+    }, 33);
     return () => clearInterval(timer);
   }, [phase]);
 
@@ -347,7 +384,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 />
                 <button
                   type="submit"
-                  className="w-full py-3 px-5 rounded-xl font-bold bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] text-emerald-950 text-xs sm:text-sm tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 px-5 rounded-xl font-bold bg-emerald-400 active:scale-[0.98] text-emerald-950 text-xs sm:text-sm tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Continuar</span>
                   <ArrowRight className="w-4 h-4" />
@@ -402,7 +439,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                     type="button"
                     disabled={isUploading}
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-400 hover:bg-emerald-300 text-emerald-950 shadow transition-all cursor-pointer disabled:opacity-50"
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-400 text-emerald-950 shadow transition-all cursor-pointer disabled:opacity-50"
                     title="Subir foto desde dispositivo"
                   >
                     <Camera className="w-3.5 h-3.5" />
@@ -418,7 +455,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-xs font-semibold text-emerald-200 hover:text-white underline cursor-pointer"
+                    className="text-xs font-semibold text-emerald-200 underline cursor-pointer"
                   >
                     Subir foto desde tu dispositivo
                   </button>
@@ -437,7 +474,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                       disabled={isUploading}
                       onClick={() => setSelectedAvatar(av.url)}
                       className={`p-0.5 rounded-full transition-all cursor-pointer disabled:opacity-50 ${
-                        selectedAvatar === av.url ? 'ring-2 ring-emerald-300 scale-110' : 'opacity-70 hover:opacity-100'
+                        selectedAvatar === av.url ? 'ring-2 ring-emerald-300 scale-110' : 'opacity-70'
                       }`}
                       title={av.name}
                     >
@@ -454,7 +491,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 className={`w-full py-3 px-5 rounded-xl font-bold text-emerald-950 text-xs sm:text-sm tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2 ${
                   isUploading
                     ? 'bg-emerald-400/60 cursor-not-allowed opacity-80'
-                    : 'bg-emerald-400 hover:bg-emerald-300 active:scale-[0.98] cursor-pointer'
+                    : 'bg-emerald-400  active:scale-[0.98] cursor-pointer'
                 }`}
               >
                 {isUploading ? (

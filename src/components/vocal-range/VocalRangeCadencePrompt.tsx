@@ -46,7 +46,11 @@ export const VocalRangeCadencePrompt: React.FC<VocalRangeCadencePromptProps> = (
         {/* Close / Snooze Button */}
         <button
           onClick={handleSnooze}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+          className={`absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full shadow-xs cursor-pointer active:scale-90 transition-transform ${
+            zenMode
+              ? 'bg-[#26292f] border border-[#2e3138] text-rose-400'
+              : 'bg-rose-50 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/70 text-rose-500 dark:text-rose-400'
+          }`}
           title="Posponer"
         >
           <X className="w-5 h-5" />
@@ -88,8 +92,8 @@ export const VocalRangeCadencePrompt: React.FC<VocalRangeCadencePromptProps> = (
             onClick={handleStart}
             className={`w-full py-3 px-4 rounded-2xl font-heading font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 ${
               zenMode
-                ? 'bg-[#e5b83b] hover:bg-[#d6a930] text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
-                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white hover:shadow-indigo-500/20'
+                ? 'bg-[#e5b83b]  text-[#161719] shadow-[0_4px_0_0_#9a7212] font-black'
+                : 'bg-gradient-to-r from-purple-600 to-indigo-600   text-white '
             }`}
           >
             <span>Evaluar mi Rango Ahora</span>
@@ -100,8 +104,8 @@ export const VocalRangeCadencePrompt: React.FC<VocalRangeCadencePromptProps> = (
             onClick={handleSnooze}
             className={`w-full py-2.5 px-4 rounded-2xl font-heading font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
               zenMode
-                ? 'text-[#8e95a5] hover:text-[#ded9cf] hover:bg-[#26292f]'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                ? 'text-[#8e95a5]'
+                : 'text-slate-500 dark:text-slate-400    '
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
