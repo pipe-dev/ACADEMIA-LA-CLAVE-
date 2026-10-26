@@ -34,6 +34,7 @@ class AudioService {
   private unlockAudioEl: HTMLAudioElement | null = null;
   private isSilentUnlocked: boolean = false;
   public onMicPauseChange?: (isPaused: boolean) => void;
+  public lastMicError: 'denied' | 'unsupported' | 'device_busy' | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -48,6 +49,10 @@ class AudioService {
           navigator.mediaSession.playbackState = 'none';
         } catch {}
       }
+
+      window.addEventListener('pagehide', () => {
+        this.stopMicrophone(true);
+      });
 
       const USER_EVENTS = ['touchstart', 'touchend', 'click', 'mousedown', 'keydown', 'pointerdown'];
       const unlockHandler = () => {
@@ -1203,15 +1208,11 @@ class AudioService {
    */
   public async startMicrophone(onPitchDetected: (pitchHz: number, volume: number) => void): Promise<boolean> {
     try {
+      this.lastMicError = null;
       this.initCtx();
       if (!this.ctx) return false;
       if (this.ctx.state === 'suspended') {
         try { await this.ctx.resume(); } catch {}
-      }
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.warn('Microphone access is not supported or restricted in this environment.');
-        return false;
       }
 
       // Track session and store callback for seamless resumption
@@ -1225,7 +1226,61 @@ class AudioService {
         this.micPauseResumeTimeoutId = null;
       }
 
-      // Clean up any lingering previous source nodes or streams before acquiring new one
+      // 1. Audio Session: MUST BE 'play-and-record' for microphone capture on iOS 17+ / WebKit
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'play-and-record';
+        } catch {}
+      }
+
+      // 2. WARM PERSISTENT STREAM REUSE:
+      // Once permission is granted, NEVER re-prompt or destroy tracks unless the browser/OS ended them.
+      const hasLiveStream = !!(
+        this.micStream &&
+        this.micStream.active &&
+        this.micStream.getAudioTracks().some(track => track.readyState === 'live')
+      );
+
+      if (hasLiveStream && this.micStream) {
+        // Unmute and re-enable existing audio tracks
+        this.micStream.getAudioTracks().forEach(track => {
+          try { track.enabled = true; } catch {}
+        });
+
+        // Ensure nodes exist and are connected
+        if (!this.analyser && this.ctx) {
+          this.analyser = this.ctx.createAnalyser();
+          this.analyser.fftSize = 2048;
+        }
+
+        if (!this.micSourceNode && this.ctx) {
+          try {
+            this.micSourceNode = this.ctx.createMediaStreamSource(this.micStream);
+          } catch {
+            this.micSourceNode = null;
+          }
+        }
+
+        if (this.micSourceNode && this.analyser) {
+          try {
+            this.micSourceNode.disconnect();
+            this.micSourceNode.connect(this.analyser);
+          } catch {}
+        }
+
+        emitMicActive(true);
+        this.detectPitchLoop(onPitchDetected);
+        return true;
+      }
+
+      // 3. First-time or refreshed hardware acquisition
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.warn('Microphone access is not supported or restricted in this environment.');
+        this.lastMicError = 'unsupported';
+        return false;
+      }
+
+      // Clean up previous dead source node or stream before acquiring fresh one
       if (this.micSourceNode) {
         try { this.micSourceNode.disconnect(); } catch {}
         this.micSourceNode = null;
@@ -1235,16 +1290,7 @@ class AudioService {
         this.micStream = null;
       }
 
-      // 1. Mantener Web Audio Session en 'playback' para que la salida de audio
-      // suene por los altavoces estéreo a máximo volumen sin degradarse ni pasar a auricular de llamada
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-        try {
-          (navigator as any).audioSession.type = 'playback';
-        } catch {}
-      }
-
-      // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO
-      // Con echoCancellation ideal: true, el sistema no fuerza ducking ni atenúa el altavoz
+      // 4. Solicitud de micrófono optimizada para MÚSICA y CANTO
       let stream: MediaStream;
       try {
         const audioConstraints: MediaTrackConstraints = {
@@ -1256,35 +1302,46 @@ class AudioService {
           audio: audioConstraints,
           video: false
         });
-      } catch {
+      } catch (err: any) {
+        if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+          throw err;
+        }
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       }
 
-      // 3. CRITICAL RACE CONDITION GUARD:
-      // Si el usuario presionó detener micrófono o inició otra sesión mientras getUserMedia estaba en vuelo:
+      // 5. CRITICAL RACE CONDITION GUARD:
       if (this.micSessionId !== sessionId || !this.isListening) {
         if (stream) {
           stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
         }
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'playback';
-          } catch {}
-        }
-        if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-          try {
-            navigator.mediaSession.playbackState = 'none';
-          } catch {}
+          try { (navigator as any).audioSession.type = 'playback'; } catch {}
         }
         return false;
       }
 
       this.micStream = stream;
 
-      // Asegurar sesión playback
+      // Observe track termination (e.g. cellular call or OS background revocation)
+      this.micStream.getAudioTracks().forEach(track => {
+        track.enabled = true;
+        track.onended = () => {
+          if (this.micStream === stream) {
+            this.micStream = null;
+            this.micSourceNode = null;
+          }
+        };
+      });
+
+      // Persist granted state
+      try {
+        localStorage.setItem('laclave_mic_permission_granted', 'true');
+      } catch {}
+
+      // Keep audioSession in 'play-and-record' while mic is active
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
-          (navigator as any).audioSession.type = 'playback';
+          (navigator as any).audioSession.type = 'play-and-record';
         } catch {}
       }
 
@@ -1301,7 +1358,14 @@ class AudioService {
     } catch (err: any) {
       this.isListening = false;
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        this.lastMicError = 'denied';
         console.warn('Microphone permission denied by user or browser policy.');
+      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+        this.lastMicError = 'unsupported';
+        console.warn('No microphone device found on system.');
+      } else if (err?.name === 'NotReadableError' || err?.name === 'TrackStartError') {
+        this.lastMicError = 'device_busy';
+        console.warn('Microphone is busy or locked by another application.');
       } else {
         console.warn('Could not initialize microphone:', err?.message || err);
       }
@@ -1322,7 +1386,7 @@ class AudioService {
   }
 
   /**
-   * Temporarily releases the microphone hardware so that reference notes
+   * Temporarily releases the microphone hardware audio capture so that reference notes
    * (synthesized piano or real human vocal samples) play through the bottom stereo loudspeaker
    * at 100% full volume with ZERO ducking or earpiece telephony routing.
    * When the note finishes, the microphone automatically resumes listening seamlessly.
@@ -1352,19 +1416,18 @@ class AudioService {
       this.micPauseResumeTimeoutId = null;
     }
 
-    // 1. Liberar físicamente la captura de hardware para que iOS salga de play-and-record
+    // 1. Mute track and disconnect node so hardware capture is silent and doesn't route to earpiece
+    if (this.micStream) {
+      this.micStream.getAudioTracks().forEach(track => {
+        try { track.enabled = false; } catch {}
+      });
+    }
     if (this.micSourceNode) {
       try { this.micSourceNode.disconnect(); } catch {}
       this.micSourceNode = null;
     }
-    if (this.micStream) {
-      this.micStream.getTracks().forEach(track => {
-        try { track.stop(); } catch {}
-      });
-      this.micStream = null;
-    }
 
-    // 2. Restaurar audio a modo playback para permitir sonido en silencio/enfoque
+    // 2. Switch audio to 'playback' so reference note plays at 100% full volume on bottom loudspeaker
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
         (navigator as any).audioSession.type = 'playback';
@@ -1378,7 +1441,7 @@ class AudioService {
 
     const currentSessionId = this.micSessionId;
 
-    // 3. Reanudar micrófono de forma completamente automática y silenciosa al terminar la nota
+    // 3. Re-enable microphone seamlessly when reference note completes (no getUserMedia re-prompt!)
     this.micPauseResumeTimeoutId = setTimeout(async () => {
       this.micPauseResumeTimeoutId = null;
       if (this.isListening && this.isPausedForPlayback && this.micSessionId === currentSessionId) {
@@ -1400,7 +1463,7 @@ class AudioService {
     this.pauseMicrophoneForPlayback(durationMs);
   }
 
-  public stopMicrophone() {
+  public stopMicrophone(forceHardwareRelease: boolean = false) {
     this.micSessionId++;
     this.isListening = false;
     this.isPausedForPlayback = false;
@@ -1414,18 +1477,33 @@ class AudioService {
       try { this.onMicPauseChange(false); } catch {}
     }
 
-    if (this.micSourceNode) {
-      try { this.micSourceNode.disconnect(); } catch {}
-      this.micSourceNode = null;
-    }
-    if (this.micStream) {
-      this.micStream.getTracks().forEach(track => {
-        try { track.stop(); } catch {}
-      });
-      this.micStream = null;
+    if (forceHardwareRelease) {
+      if (this.micSourceNode) {
+        try { this.micSourceNode.disconnect(); } catch {}
+        this.micSourceNode = null;
+      }
+      if (this.micStream) {
+        this.micStream.getTracks().forEach(track => {
+          try { track.stop(); } catch {}
+        });
+        this.micStream = null;
+      }
+    } else {
+      // KEEP PERSISTENT WARM STREAM:
+      // Mute track so it does not capture audio or waste processing,
+      // but retain stream so the browser NEVER prompts the user again.
+      if (this.micStream) {
+        this.micStream.getAudioTracks().forEach(track => {
+          try { track.enabled = false; } catch {}
+        });
+      }
+      if (this.micSourceNode) {
+        try { this.micSourceNode.disconnect(); } catch {}
+        this.micSourceNode = null;
+      }
     }
 
-    // Restaurar sesión de audio a playback para mantener sonido en silencio/enfoque
+    // Switch to playback category so speakers have full volume
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
         (navigator as any).audioSession.type = 'playback';

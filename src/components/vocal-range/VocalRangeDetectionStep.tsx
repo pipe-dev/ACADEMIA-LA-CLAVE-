@@ -104,13 +104,32 @@ export const VocalRangeDetectionStep: React.FC<VocalRangeDetectionStepProps> = (
       </div>
 
       {!isListening ? (
-        <button
-          onClick={onStartMic}
-          className="w-full py-3 sm:py-3.5 px-3 sm:px-4 rounded-2xl tactile-btn-primary font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-lg text-center"
-        >
-          <Mic className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse shrink-0" />
-          <span>{isLowest ? 'Activar Micrófono para Nota Grave' : 'Activar Micrófono para Nota Aguda'}</span>
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={onStartMic}
+            className="w-full py-3 sm:py-3.5 px-3 sm:px-4 rounded-2xl tactile-btn-primary font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-lg text-center"
+          >
+            <Mic className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse shrink-0" />
+            <span>{isLowest ? 'Activar Micrófono para Nota Grave' : 'Activar Micrófono para Nota Aguda'}</span>
+          </button>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <button
+              onClick={onPlayGuide}
+              className="flex-1 py-2.5 sm:py-3 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-heading font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer text-center"
+            >
+              <Volume2 className={`w-4 h-4 shrink-0 ${themeClasses.guideIcon}`} />
+              <span>Oír Guía ({guideNoteLabel})</span>
+            </button>
+
+            <button
+              onClick={onFallback}
+              className={`flex-1 py-2.5 sm:py-3 px-3 rounded-2xl font-heading font-bold text-xs cursor-pointer text-center ${themeClasses.fallbackBg}`}
+            >
+              <span>{fallbackLabel}</span>
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <button

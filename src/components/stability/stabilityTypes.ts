@@ -6,9 +6,16 @@ export interface SavedVocalRangeData {
   minHz?: number;
   maxHz?: number;
   classification?: string;
+  gender?: 'masculino' | 'femenino';
 }
 
 export type StabilityPhase = 'setup' | 'singing' | 'results';
+
+export interface StabilityTrailPoint {
+  time: number;
+  centsOff: number;
+  inTune: boolean;
+}
 
 export interface StabilityChallengeModalProps {
   isOpen?: boolean;

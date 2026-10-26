@@ -20,21 +20,32 @@ export const StabilityChallengeModal: React.FC<StabilityChallengeModalProps> = (
 }) => {
   const {
     phase,
-    setPhase,
     gender,
+    effectiveRangeData,
+    availableOctaves,
+    currentOctave,
+    selectedOctave,
+    setSelectedOctave,
     naturalNotes,
+    sharpNotes,
     selectedNote,
     setSelectedNote,
     isNoteInRange,
     startChallenge,
+    handleRetry,
+    handleChangeNote,
     cleanup,
     timeLeft,
     inTuneSeconds,
     currentPitch,
+    centsOff,
     isCurrentlyInTune,
+    trailPoints,
+    toleranceCents,
     finalScore,
     xpMultiplier,
-    earnedXp
+    earnedXp,
+    stabilityPercent
   } = useStabilityEngine({
     isOpen,
     isEmbeddedView,
@@ -43,15 +54,16 @@ export const StabilityChallengeModal: React.FC<StabilityChallengeModalProps> = (
 
   const innerContent = (
     <div className="bg-white dark:bg-[#102034] w-full rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-[#1b2b3f] shadow-md space-y-5 relative">
-      {/* Navigation Header */}
+      {/* ─── Navigation Header ─── */}
       <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
         <button
+          type="button"
           onClick={() => {
             audioService.playCloseSound();
             cleanup();
             onClose();
           }}
-          className="py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-[11px] sm:text-xs shrink-0"
+          className="py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 font-heading font-bold text-[11px] sm:text-xs shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 dark:text-purple-400" />
           <span className="hidden sm:inline">Volver a Gimnasio Vocal</span>
@@ -63,7 +75,7 @@ export const StabilityChallengeModal: React.FC<StabilityChallengeModalProps> = (
         </span>
       </div>
 
-      {/* Title Header */}
+      {/* ─── Title Header ─── */}
       <div className="flex items-center gap-3">
         <div className="p-3 rounded-2xl bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-300 shrink-0">
           <Target className="w-6 h-6" />
@@ -78,37 +90,49 @@ export const StabilityChallengeModal: React.FC<StabilityChallengeModalProps> = (
         </div>
       </div>
 
-      {/* PHASE: SETUP */}
+      {/* ─── PHASE: SETUP ─── */}
       {phase === 'setup' && (
         <StabilitySetupView
           naturalNotes={naturalNotes}
+          sharpNotes={sharpNotes}
+          availableOctaves={availableOctaves}
+          currentOctave={currentOctave}
+          selectedOctave={selectedOctave}
+          onSelectOctave={setSelectedOctave}
           selectedNote={selectedNote}
           onSelectNote={setSelectedNote}
           isNoteInRange={isNoteInRange}
           gender={gender}
+          effectiveRangeData={effectiveRangeData}
+          toleranceCents={toleranceCents}
           onStartChallenge={startChallenge}
         />
       )}
 
-      {/* PHASE: SINGING / COUNTDOWN */}
+      {/* ─── PHASE: SINGING / COUNTDOWN ─── */}
       {phase === 'singing' && (
         <StabilitySingingView
           timeLeft={timeLeft}
           isCurrentlyInTune={isCurrentlyInTune}
           selectedNote={selectedNote}
           currentPitch={currentPitch}
+          centsOff={centsOff}
           inTuneSeconds={inTuneSeconds}
+          trailPoints={trailPoints}
+          toleranceCents={toleranceCents}
         />
       )}
 
-      {/* PHASE: RESULTS */}
+      {/* ─── PHASE: RESULTS ─── */}
       {phase === 'results' && (
         <StabilityResultsView
           selectedNote={selectedNote}
           finalScore={finalScore}
           xpMultiplier={xpMultiplier}
           earnedXp={earnedXp}
-          onRetry={() => setPhase('setup')}
+          stabilityPercent={stabilityPercent}
+          onRetry={handleRetry}
+          onChangeNote={handleChangeNote}
         />
       )}
     </div>
@@ -120,16 +144,16 @@ export const StabilityChallengeModal: React.FC<StabilityChallengeModalProps> = (
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fadeIn cursor-pointer"
       onClick={() => {
         cleanup();
         onClose();
       }}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.92, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        exit={{ scale: 0.92, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg max-h-[90vh] overflow-y-auto cursor-default"
       >

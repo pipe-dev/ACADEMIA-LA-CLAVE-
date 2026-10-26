@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Mic, ArrowLeft } from 'lucide-react';
+import { Mic, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import { voicePlayback } from '../utils/voicePlaybackService';
 import { calculateRawCentsOff } from '../utils/pitchUtils';
@@ -44,6 +44,8 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
   
   // Hold stability timer for locked note detection
   const [holdProgress, setHoldProgress] = useState<number>(0);
+  const currentTargetModeRef = useRef<'lowest' | 'highest'>('lowest');
+  const [micPermissionDenied, setMicPermissionDenied] = useState<boolean>(false);
   const stablePitchRef = useRef<{ basePitch: number; smoothedPitch: number; startTime: number }>({
     basePitch: 0,
     smoothedPitch: 0,
@@ -69,6 +71,8 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
   const startPitchDetection = async (targetMode: 'lowest' | 'highest') => {
     audioService.playClickSound();
+    currentTargetModeRef.current = targetMode;
+    setMicPermissionDenied(false);
     setCurrentPitch(null);
     setHoldProgress(0);
     stablePitchRef.current = { basePitch: 0, smoothedPitch: 0, startTime: 0 };
@@ -105,12 +109,12 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
               const confirmedHz = Math.round(stablePitchRef.current.smoothedPitch);
               audioService.playSoftDing();
 
-              if (targetMode === 'lowest') {
+              if (currentTargetModeRef.current === 'lowest') {
                 setLowestHz(confirmedHz);
                 audioService.stopMicrophone();
                 setIsListening(false);
                 setStep('highest');
-              } else if (targetMode === 'highest') {
+              } else if (currentTargetModeRef.current === 'highest') {
                 setHighestHz(confirmedHz);
                 audioService.stopMicrophone();
                 setIsListening(false);
@@ -142,6 +146,9 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
 
     if (!ok) {
       setIsListening(false);
+      if (audioService.lastMicError === 'denied') {
+        setMicPermissionDenied(true);
+      }
       return;
     }
 
@@ -318,6 +325,58 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
           </h3>
         </div>
       </div>
+
+      {/* Mic Permission Guidance Banner */}
+      {micPermissionDenied && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 space-y-3 animate-fadeIn">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-heading font-black text-sm text-slate-800 dark:text-slate-100">
+                Acceso al Micrófono Bloqueado
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                El navegador o tu teléfono tiene bloqueado el micrófono para esta app. Sigue estos pasos para activarlo:
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white/80 dark:bg-slate-900/80 p-3 rounded-xl border border-amber-200/60 dark:border-amber-900/40 text-[11px] text-slate-700 dark:text-slate-300 space-y-1.5 font-medium">
+            <div className="flex items-start gap-1.5">
+              <span className="font-bold text-amber-600 dark:text-amber-400">• iPhone (Safari):</span>
+              <span>Toca el icono <strong className="font-bold">aA</strong> en la barra superior → Configuración del sitio web → Micrófono → Permitir.</span>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <span className="font-bold text-amber-600 dark:text-amber-400">• Android (Chrome):</span>
+              <span>Toca el icono de candado o ajustes en la barra web → Permisos → Micrófono → Permitir.</span>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <span className="font-bold text-amber-600 dark:text-amber-400">• App Instalada (PWA):</span>
+              <span>Ajustes del teléfono → AfinApp → Permisos → Micrófono → Permitir.</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => startPitchDetection(step === 'highest' ? 'highest' : 'lowest')}
+              className="flex-1 py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-heading font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Ya lo activé, reintentar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMicPermissionDenied(false)}
+              className="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs cursor-pointer hover:bg-slate-200"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Step 1: Intro */}
       {step === 'intro' && (
