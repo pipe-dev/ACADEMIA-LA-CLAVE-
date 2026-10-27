@@ -2,6 +2,7 @@ export interface VoiceEvalModalProps {
   isOpen?: boolean;
   onClose: () => void;
   isEmbeddedView?: boolean;
+  userStats?: any;
 }
 
 export interface PitchSample {

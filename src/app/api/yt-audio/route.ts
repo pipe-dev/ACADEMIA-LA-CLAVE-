@@ -131,12 +131,7 @@ async function getAudioUrl(videoId: string): Promise<string> {
   // 3. Respaldo local con yt-dlp si child_process y Python están disponibles en el host
   if (typeof execFile === 'function') {
     return new Promise((resolve, reject) => {
-      let pythonExe = 'python';
-      try {
-        if (typeof fs !== 'undefined' && fs.existsSync && fs.existsSync('C:\\Python314\\python.exe')) {
-          pythonExe = 'C:\\Python314\\python.exe';
-        }
-      } catch {}
+      const pythonExe = process.env.PYTHON_PATH || 'python';
 
       const args = [
         '-m', 'yt_dlp',
@@ -146,7 +141,7 @@ async function getAudioUrl(videoId: string): Promise<string> {
         `https://www.youtube.com/watch?v=${videoId}`
       ];
 
-      execFile(pythonExe, args, { timeout: 25000 }, (error, stdout) => {
+      execFile(/*turbopackIgnore: true*/ pythonExe, args, { timeout: 25000 }, (error, stdout) => {
         if (error) {
           return reject(error);
         }

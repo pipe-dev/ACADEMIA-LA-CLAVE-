@@ -49,8 +49,8 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({
 
   // Entrance drop animation
   const [isDroppingIn, setIsDroppingIn] = useState(true);
-  const landingSoundTimerRef = useRef<NodeJS.Timeout>();
-  const dropFinishTimerRef = useRef<NodeJS.Timeout>();
+  const landingSoundTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const dropFinishTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // 2.5D Touch Interactivity
   const [surfaceAngle, setSurfaceAngle] = useState(0);
@@ -64,7 +64,7 @@ export const Unit2CelebrationModal: React.FC<Unit2CelebrationModalProps> = ({
     null
   );
   const isDraggingRef = useRef(false);
-  const jiggleTimeoutRef = useRef<NodeJS.Timeout>();
+  const jiggleTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const onShatter = () => {
     setIsShattered(true);
