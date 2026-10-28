@@ -31,6 +31,7 @@ import {
 } from './practica/pickBestYtMatch';
 import { rankSongSearch } from './practica/songSearchRank';
 import { VideoPickerModal } from './practica/VideoPickerModal';
+import { KaraokeExitConfirmModal } from './practica/KaraokeExitConfirmModal';
 
 export const PracticaView: React.FC<PracticaViewProps> = ({
   userStats,
@@ -116,6 +117,23 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
   }, [selectedTrack]);
+
+  // Al desmontar PracticaView (cambio de pestaña/vista) solo pausar para no dejar audio sonando
+  const pausePlaybackRef = useRef(engine.pausePlayback);
+  useEffect(() => {
+    pausePlaybackRef.current = engine.pausePlayback;
+  }, [engine.pausePlayback]);
+
+  const resetKaraokeSessionRef = useRef(engine.resetKaraokeSession);
+  useEffect(() => {
+    resetKaraokeSessionRef.current = engine.resetKaraokeSession;
+  }, [engine.resetKaraokeSession]);
+
+  useEffect(() => {
+    return () => {
+      pausePlaybackRef.current();
+    };
+  }, []);
 
   // Cargar catálogo desde la API
   // Limpia videoIds viejos guardados sin validar (podrían estar equivocados)
@@ -409,7 +427,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         engine.setIsPlaying(true);
         engine.setAutoplayBlocked(false);
         if (engine.isMicEnabled && !engine.isDetecting && !engine.isPlaybackMode) {
-          engine.startPitchDetection(engine.vocalRemover.getAudioContext());
+          engine.startPitchDetection();
         }
       } else {
         engine.setAutoplayBlocked(true);
@@ -418,7 +436,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     } catch (err) {
       console.warn('Error resolviendo audio oficial:', err);
       engine.setUseYtFallback(true);
-      engine.setActiveVideoId('1q3ND4XPzIg');
+      engine.setActiveVideoId(videoId || '1q3ND4XPzIg');
     } finally {
       setIsLoadingTrack(false);
       setLoadingStatusMsg('');
@@ -478,7 +496,11 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         songArtist = clean.artist;
       }
     }
-    setSelectedTrack({ ...track, title: songTitle, artist: songArtist });
+    const activeTrackData = { ...track, title: songTitle, artist: songArtist };
+    try {
+      sessionStorage.setItem('laclave_karaoke_active_track', JSON.stringify(activeTrackData));
+    } catch {}
+    setSelectedTrack(activeTrackData);
 
     const normArtist = songArtist.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     const normTitle = songTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -559,11 +581,61 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     }
   };
 
-  const handleExitToCatalog = useCallback(() => {
+  // Seguro de salida: confirmación antes de abandonar la canción activa
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState<boolean>(false);
+
+  const handleRequestExit = useCallback(() => {
     audioService.playClickSound();
-    engine.resetKaraokeSession();
+    pausePlaybackRef.current();
+    setShowExitConfirmModal(true);
+  }, []);
+
+  const handleConfirmExit = useCallback(() => {
+    audioService.playClickSound();
+    setShowExitConfirmModal(false);
+    try {
+      sessionStorage.removeItem('laclave_karaoke_active_track');
+    } catch {}
+    resetKaraokeSessionRef.current();
     setSelectedTrack(null);
-  }, [engine]);
+  }, []);
+
+  const handleCancelExit = useCallback(() => {
+    audioService.playClickSound();
+    setShowExitConfirmModal(false);
+  }, []);
+
+  // Interceptar cierre accidental de pestaña y clics en BottomNav mientras se canta
+  useEffect(() => {
+    if (!selectedTrack || engine.isFinished) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    const handleCaptureClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const navEl = target.closest('#tour-bottom-nav');
+      if (navEl) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        pausePlaybackRef.current();
+        setShowExitConfirmModal(true);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleCaptureClick, { capture: true });
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleCaptureClick, { capture: true });
+    };
+  }, [Boolean(selectedTrack), engine.isFinished]);
 
   // Sincronización de Letras de 3 Líneas
   const activeLyricIndex = useMemo(() => {
@@ -623,7 +695,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
           {/* Barra Superior con Regreso y Marcador de Puntos */}
           <div className="flex items-center justify-between gap-2 -mt-2.5 sm:-mt-3">
             <button
-              onClick={handleExitToCatalog}
+              onClick={handleRequestExit}
               className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-white dark:bg-[#102034] border border-slate-200/80 dark:border-[#1b2b3f] text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors shadow-xs cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -691,7 +763,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
             isMicEnabled={engine.isMicEnabled}
             onToggleMic={engine.toggleMic}
             onSetSyncOffset={engine.setSyncOffset}
-            onExitToCatalog={handleExitToCatalog}
+            onExitToCatalog={handleRequestExit}
           />
         </div>
       )}
@@ -716,7 +788,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         audioBlobUrl={engine.audioBlobUrl}
         onPlayRecording={engine.handlePlayRecording}
         onReplaySong={engine.handleReplaySong}
-        onExitToCatalog={handleExitToCatalog}
+        onExitToCatalog={handleConfirmExit}
         onOpenRecoveryExam={onOpenRecoveryExam}
         onOpenStore={onOpenStore}
       />
@@ -748,6 +820,14 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
           engine.resetKaraokeSession();
           setSelectedTrack(null);
         }}
+      />
+
+      {/* ─── MODAL SEGURO DE SALIDA ─── */}
+      <KaraokeExitConfirmModal
+        isOpen={showExitConfirmModal}
+        onContinue={handleCancelExit}
+        onConfirmExit={handleConfirmExit}
+        zenMode={zenMode}
       />
     </div>
   );

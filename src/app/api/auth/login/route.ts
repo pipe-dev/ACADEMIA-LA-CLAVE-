@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { signJwt } from '@/lib/jwt';
+import { signJwt, getJwtSecret } from '@/lib/jwt';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
-import { checkRateLimit, getClientIp, sanitizeEmail } from '@/lib/securityService';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
-const APPS_SCRIPT_URL = process.env.LICENSE_APPS_SCRIPT_URL;
-const SHARED_SECRET = process.env.LICENSE_SHARED_SECRET;
+import { checkRateLimit, getClientIp, sanitizeEmail, timingSafeEqualString } from '@/lib/securityService';
 
 export async function POST(request: NextRequest) {
   try {
     const clientIp = getClientIp(request.headers);
-    const rateLimit = checkRateLimit(`login_${clientIp}`, 10, 60000);
+    const rateLimit = checkRateLimit(`login_${clientIp}`, 15, 60000);
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Demasiados intentos de acceso. Espera 1 minuto antes de reintentar.' },
@@ -30,115 +26,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Look up user in centralized database
+    // 1. Look up user in centralized database (Cloudflare D1)
     let user = await userDb.getUserByEmail(cleanUsername);
 
-    // If not found by email, check if key is the master group key or matched
-    if (!user && cleanKey === 'grupoiglesia') {
+    // If not found by email, check by name
+    if (!user) {
+      user = await userDb.getUserByName(cleanUsername);
+    }
+
+    // If not found by email or name, check if key is the master group key or matched
+    if (!user && (cleanUsername.toLowerCase() === 'grupoiglesia' || cleanKey.toLowerCase() === 'grupoiglesia')) {
       user = await userDb.getUserByKey('grupoiglesia');
     }
 
-    // 2. If user exists in DB, prioritize checking blocked and expired status
-    if (user) {
-      const statusInfo = computeUserEffectiveStatus(user);
-
-      if (statusInfo.isBlocked) {
-        return NextResponse.json(
-          {
-            error: 'Esta cuenta ha sido bloqueada o suspendida por administración. Por favor contacta a la academia para reactivar tu acceso.',
-            code: 'ACCOUNT_BLOCKED',
-            reason: 'blocked',
-          },
-          { status: 403 }
-        );
-      }
-
-      if (statusInfo.isExpired || statusInfo.daysRemaining <= 0) {
-        const formattedExpiry = user.expires_at ? new Date(user.expires_at).toLocaleDateString('es-CO', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        }) : 'fecha no especificada';
-        return NextResponse.json(
-          {
-            error: `Tu periodo de membresía ha expirado (venció el ${formattedExpiry}). Por favor contacta a la academia para renovar tus días de acceso.`,
-            code: 'ACCOUNT_EXPIRED',
-            reason: 'expired',
-            expiresAt: user.expires_at,
-          },
-          { status: 403 }
-        );
-      }
-
-      const userKeyNormalized = (user.access_key || '').trim().toUpperCase();
-      const inputKeyNormalized = cleanKey.trim().toUpperCase();
-      const isMasterGroup = cleanKey.trim().toLowerCase() === 'grupoiglesia';
-
-      if (userKeyNormalized !== inputKeyNormalized && !isMasterGroup) {
-        return NextResponse.json(
-          { error: 'Clave de acceso incorrecta para este usuario.', code: 'INVALID_CREDENTIALS' },
-          { status: 401 }
-        );
-      }
-
-      // Update last login
-      await userDb.updateUser(user.id, { last_login_at: new Date().toISOString() });
-    } else {
-      // 3. Fallback: Check Apps Script for legacy licenses and auto-migrate to database
-      let legacyValid = false;
-      let legacyExpiresAt: string | null = null;
-
-      if (APPS_SCRIPT_URL) {
-        try {
-          const gasRes = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              username: cleanUsername,
-              key: cleanKey,
-              secret: SHARED_SECRET,
-            }),
-            signal: AbortSignal.timeout(6000),
-          });
-
-          if (gasRes.ok) {
-            const data = await gasRes.json();
-            if (data.success && data.expiresAt) {
-              legacyValid = true;
-              legacyExpiresAt = data.expiresAt;
-            }
-          }
-        } catch (e) {
-          console.warn('Fallback Apps Script check error:', e);
-        }
-      }
-
-      if (legacyValid && legacyExpiresAt) {
-        // Auto-provision user into database
-        const expiryDate = new Date(legacyExpiresAt);
-        const daysLeft = Math.max(1, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-        user = await userDb.createUser({
-          name: cleanUsername.split('@')[0],
-          email: cleanUsername,
-          access_key: cleanKey,
-          daysDuration: daysLeft,
-          notes: 'Migrado automaticamente desde Apps Script',
-          role: 'student',
-        });
-      } else {
-        return NextResponse.json(
-          { error: 'Credenciales incorrectas o licencia inexistente.' },
-          { status: 401 }
-        );
-      }
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Usuario no encontrado o credenciales incorrectas.', code: 'INVALID_CREDENTIALS' },
+        { status: 401 }
+      );
     }
 
+    // 2. Prioritize checking blocked and expired status
     const statusInfo = computeUserEffectiveStatus(user);
 
     if (statusInfo.isBlocked) {
       return NextResponse.json(
         {
-          error: 'Tu cuenta ha sido bloqueada o suspendida por administración. Por favor contacta a la academia para reactivar tu acceso.',
+          error: 'Esta cuenta ha sido bloqueada o suspendida por administración. Por favor contacta a la academia para reactivar tu acceso.',
           code: 'ACCOUNT_BLOCKED',
           reason: 'blocked',
         },
@@ -163,6 +77,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userKeyNormalized = (user.access_key || '').trim().toUpperCase();
+    const inputKeyNormalized = cleanKey.trim().toUpperCase();
+
+    if (!timingSafeEqualString(userKeyNormalized, inputKeyNormalized)) {
+      return NextResponse.json(
+        { error: 'Clave de acceso incorrecta para este usuario.', code: 'INVALID_CREDENTIALS' },
+        { status: 401 }
+      );
+    }
+
+    // Update last login asynchronously without delaying the response
+    userDb.updateUser(user.id, { last_login_at: new Date().toISOString() }).catch((err) => {
+      console.warn('Could not update last_login_at:', err);
+    });
+
     const tokenExp = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days
     const tokenPayload = {
       sub: user.email,
@@ -172,7 +101,7 @@ export async function POST(request: NextRequest) {
       expiresAt: user.expires_at,
     };
 
-    const token = await signJwt(tokenPayload, JWT_SECRET);
+    const token = await signJwt(tokenPayload, getJwtSecret());
 
     const response = NextResponse.json({
       success: true,
@@ -186,10 +115,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const proto = request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', '');
+    const isHttps = proto === 'https' || process.env.NODE_ENV === 'production';
+
     // Hardened secure cookie
     response.cookies.set('afinapp_session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       path: '/',
       maxAge: 30 * 24 * 60 * 60,

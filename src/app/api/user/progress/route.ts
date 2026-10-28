@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyJwt } from '@/lib/jwt';
+import { verifyJwt, getJwtSecret } from '@/lib/jwt';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
 import { checkRateLimit } from '@/lib/securityService';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
+
 
 async function getAuthUser(request: NextRequest) {
   const cookie = request.cookies.get('afinapp_session')?.value;
   if (!cookie) return null;
-  const payload = await verifyJwt(cookie, JWT_SECRET);
+  const payload = await verifyJwt(cookie, getJwtSecret());
   if (!payload || !payload.sub) return null;
 
   // Always verify user exists and is not blocked or expired in DB

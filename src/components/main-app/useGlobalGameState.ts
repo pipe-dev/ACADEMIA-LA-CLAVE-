@@ -9,6 +9,7 @@ import {
   isStreakLitToday,
   subscribeStreakEligibleAction,
 } from '../../utils/streakPrompt';
+import { isTourActive, isTourPendingOrActive } from '../../utils/tour';
 import { recordDayPracticeMinutes } from '../../utils/calendarWeekHelper';
 import { recordDailyXpGain, recordDailyXpSnapshot } from '../../utils/xpEvolutionHelper';
 import {
@@ -231,6 +232,18 @@ export function useGlobalGameState({
 
   const openStreakPrompt = useCallback(() => {
     if (isStreakLitToday()) return;
+    if (isTourActive() || isTourPendingOrActive('academia')) {
+      const handleTourEnd = () => {
+        window.removeEventListener('laclave_tour_section_completed', handleTourEnd);
+        setTimeout(() => {
+          if (!isStreakLitToday() && !isTourActive()) {
+            setStreakPromptOpen(true);
+          }
+        }, 1000);
+      };
+      window.addEventListener('laclave_tour_section_completed', handleTourEnd);
+      return;
+    }
     setStreakPromptOpen(true);
   }, []);
 

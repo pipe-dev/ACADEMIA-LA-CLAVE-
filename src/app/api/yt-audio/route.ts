@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import fs from 'fs';
 
-if (typeof process !== 'undefined' && process.env) {
-  try {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  } catch {}
-}
+
 
 // Caché en memoria para enlaces de streaming directos (evita re-extracción en seek o replay)
 const audioUrlCache = new Map<string, { url: string; expire: number }>();
@@ -101,6 +97,9 @@ async function extractAudioUrlPureJs(videoId: string): Promise<string | null> {
 }
 
 async function getAudioUrl(videoId: string): Promise<string> {
+  if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+    throw new Error('Formato de videoId no valido.');
+  }
   const cached = audioUrlCache.get(videoId);
   if (cached && cached.expire > Date.now()) {
     return cached.url;
@@ -179,8 +178,11 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const videoId = searchParams.get('videoId');
-    if (!videoId) {
-      return new NextResponse("Missing videoId", { status: 400 });
+    if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+      return NextResponse.json(
+        { error: "Parametro videoId invalido o ausente. Se requieren 11 caracteres alfanumericos." },
+        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
     }
 
     let audioUrl: string;

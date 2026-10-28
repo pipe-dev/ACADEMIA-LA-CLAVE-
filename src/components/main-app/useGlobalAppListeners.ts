@@ -9,7 +9,7 @@ import {
   enableScreenWakeLock,
   scheduleLocalPracticeAlarm,
 } from '../../utils/pwaFeatures';
-import { triggerSectionTour, isTourActive, TOUR_KEYS } from '../../utils/tour';
+import { triggerSectionTour, isTourActive, isTourPendingOrActive, TOUR_KEYS } from '../../utils/tour';
 import { TabType } from '../../types';
 
 interface UseGlobalAppListenersParams {
@@ -124,7 +124,7 @@ export function useGlobalAppListeners({
       } catch (err) {
         console.warn('[Tour] Ignored section tour initialization error:', err);
       }
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
   }, [showSplash, activeTab]);
 
@@ -149,13 +149,13 @@ export function useGlobalAppListeners({
 
     const isAcademiaTourDone = localStorage.getItem(TOUR_KEYS.academia) === 'true';
 
-    if (isAcademiaTourDone && !isTourActive()) {
-      scheduleInstallPrompt(2000);
+    if (isAcademiaTourDone && !isTourActive() && !isTourPendingOrActive(activeTab)) {
+      scheduleInstallPrompt(3000);
     } else {
       const handleTourCompleted = (e: Event) => {
         const customEvent = e as CustomEvent<{ section: string }>;
         if (customEvent.detail?.section === 'academia') {
-          scheduleInstallPrompt(2500);
+          scheduleInstallPrompt(3500);
         }
       };
 

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { timingSafeEqualString } from './securityService';
 
 export function getAdminSecret(): string {
   let secret = process.env.ADMIN_SECRET;
@@ -31,7 +32,7 @@ export function getAdminSecret(): string {
     }
   }
 
-  return (secret || '5214562Dan').trim();
+  return (secret || '').trim();
 }
 
 export function verifyAdminRequest(request: NextRequest): boolean {
@@ -41,14 +42,14 @@ export function verifyAdminRequest(request: NextRequest): boolean {
   }
 
   const headerKey = request.headers.get('x-admin-key');
-  if (headerKey && headerKey.trim() === secret) {
+  if (headerKey && timingSafeEqualString(headerKey.trim(), secret)) {
     return true;
   }
 
   const authHeader = request.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.replace('Bearer ', '').trim();
-    if (token === secret) {
+    if (timingSafeEqualString(token, secret)) {
       return true;
     }
   }

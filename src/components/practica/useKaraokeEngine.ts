@@ -296,9 +296,22 @@ export function useKaraokeEngine({
       setIsPlaying(vocalRemover.isPlaying);
       if (vocalRemover.isPlaying) {
         setAutoplayBlocked(false);
+        if (isMicEnabled && !isDetecting && !isPlaybackMode) {
+          startPitchDetection();
+        }
+      } else if (!hasCompletedRef.current && !isFinished) {
+        vocalRemover.play().then((started) => {
+          if (started) {
+            setIsPlaying(true);
+            setAutoplayBlocked(false);
+            if (isMicEnabled && !isDetecting && !isPlaybackMode) {
+              startPitchDetection();
+            }
+          }
+        }).catch(() => {});
       }
     }
-  }, [useYtFallback, vocalRemover.isReady, vocalRemover.isPlaying]);
+  }, [useYtFallback, vocalRemover.isReady, vocalRemover.isPlaying, isFinished, isMicEnabled, isDetecting, isPlaybackMode, startPitchDetection, vocalRemover]);
 
   useEffect(() => {
     if (!useYtFallback && vocalRemover.duration > 0) {
@@ -325,9 +338,8 @@ export function useKaraokeEngine({
     try {
       e.target.unMute();
       e.target.setVolume(volume);
-      // Solo importa el AUDIO (reproductor oculto): sugerir 144p para
-      // bajar el consumo de datos/CPU de decodificación
       e.target.setPlaybackQuality?.('tiny');
+      e.target.playVideo();
     } catch {}
     setIsReady(true);
     setDuration(e.target.getDuration() || 0);
@@ -346,7 +358,7 @@ export function useKaraokeEngine({
       } catch {}
 
       if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-        startPitchDetection(vocalRemover.getAudioContext());
+        startPitchDetection();
       }
       if (isPlaybackMode && audioPlaybackRef.current) {
         ensureRecordingBoost();
@@ -386,6 +398,62 @@ export function useKaraokeEngine({
     }
   }, [activeVideoId, selectedTrack]);
 
+  // Pausa segura de todas las fuentes de audio (Web Audio, YouTube, voz grabada y micrófono)
+  const pausePlayback = useCallback(() => {
+    try {
+      vocalRemover.pause();
+      const ctx = vocalRemover.getAudioContext();
+      if (ctx && ctx.state === 'running') {
+        ctx.suspend().catch(() => {});
+      }
+    } catch {}
+
+    if (playerRef.current) {
+      try {
+        playerRef.current.pauseVideo?.();
+      } catch {}
+    }
+
+    if (audioPlaybackRef.current) {
+      try {
+        audioPlaybackRef.current.pause?.();
+      } catch {}
+    }
+
+    try {
+      stopPitchDetection();
+    } catch {}
+
+    setIsPlaying(false);
+
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'paused';
+      } catch {}
+    }
+  }, [vocalRemover, stopPitchDetection]);
+
+  // Pausar inmediatamente cuando el usuario se sale de la app, bloquea la pantalla o cambia de pestaña (igual que en AcademiaView)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        pausePlayback();
+      }
+    };
+
+    const handlePageHide = () => {
+      pausePlayback();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, [pausePlayback]);
+
   // Controles
   const togglePlay = useCallback(async () => {
     audioService.playClickSound();
@@ -395,19 +463,14 @@ export function useKaraokeEngine({
 
     if (!useYtFallback) {
       if (vocalRemover.isPlaying) {
-        vocalRemover.pause();
-        setIsPlaying(false);
-        stopPitchDetection();
-        if (isPlaybackMode && audioPlaybackRef.current) {
-          audioPlaybackRef.current.pause();
-        }
+        pausePlayback();
       } else {
         const started = await vocalRemover.play();
         if (started) {
           setIsPlaying(true);
           setAutoplayBlocked(false);
           if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-            startPitchDetection(vocalRemover.getAudioContext());
+            startPitchDetection();
           }
           if (isPlaybackMode && audioPlaybackRef.current) {
             ensureRecordingBoost();
@@ -423,17 +486,12 @@ export function useKaraokeEngine({
     if (playerRef.current) {
       const state = playerRef.current.getPlayerState();
       if (state === 1) {
-        playerRef.current.pauseVideo();
-        setIsPlaying(false);
-        stopPitchDetection();
-        if (isPlaybackMode && audioPlaybackRef.current) {
-          audioPlaybackRef.current.pause();
-        }
+        pausePlayback();
       } else {
         playerRef.current.playVideo();
         setIsPlaying(true);
         if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-          startPitchDetection(vocalRemover.getAudioContext());
+          startPitchDetection();
         }
         if (isPlaybackMode && audioPlaybackRef.current) {
           ensureRecordingBoost();
@@ -441,7 +499,7 @@ export function useKaraokeEngine({
         }
       }
     }
-  }, [autoplayBlocked, isDetecting, isMicEnabled, isPlaybackMode, startPitchDetection, stopPitchDetection, useYtFallback, vocalRemover]);
+  }, [autoplayBlocked, isDetecting, isMicEnabled, isPlaybackMode, pausePlayback, startPitchDetection, useYtFallback, vocalRemover]);
 
   const toggleMic = useCallback(async () => {
     audioService.playClickSound();
@@ -451,7 +509,7 @@ export function useKaraokeEngine({
     } else {
       setIsMicEnabled(true);
       if (isPlaying) {
-        startPitchDetection(vocalRemover.getAudioContext());
+        startPitchDetection();
       }
     }
   }, [isMicEnabled, isPlaying, startPitchDetection, stopPitchDetection, vocalRemover]);
@@ -492,7 +550,7 @@ export function useKaraokeEngine({
     }
     setIsPlaying(true);
     if (isMicEnabled && !isDetecting) {
-      startPitchDetection(vocalRemover.getAudioContext());
+      startPitchDetection();
     }
   }, [isDetecting, isMicEnabled, scoring, startPitchDetection, useYtFallback, vocalRemover]);
 
@@ -574,6 +632,7 @@ export function useKaraokeEngine({
     failedVideosRef,
     hasCompletedRef,
     togglePlay,
+    pausePlayback,
     toggleMic,
     handleSongCompleted,
     handlePlayRecording,

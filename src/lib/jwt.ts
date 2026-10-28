@@ -3,6 +3,35 @@
  * Avoids heavy node-specific libraries.
  */
 
+export function getJwtSecret(): string {
+  let secret = process.env.JWT_SECRET;
+  if (!secret) {
+    try {
+      const sym = Symbol.for('__cloudflare-context__');
+      const ctx = (globalThis as any)[sym];
+      if (ctx?.env?.JWT_SECRET) {
+        secret = ctx.env.JWT_SECRET;
+      }
+    } catch {}
+  }
+  if (!secret) {
+    const g = globalThis as any;
+    if (g?.JWT_SECRET) {
+      secret = g.JWT_SECRET;
+    }
+  }
+
+  if (secret && secret.trim().length > 0) {
+    return secret.trim();
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('[SECURITY FATAL] JWT_SECRET environment variable is missing in production.');
+  }
+
+  return 'afinapp_dev_local_secret_must_be_set_in_production_32chars!';
+}
+
 // Helper to decode Base64URL to string
 function base64UrlDecode(str: string): string {
   let base64 = str.replace(/-/g, '+').replace(/_/g, '/');

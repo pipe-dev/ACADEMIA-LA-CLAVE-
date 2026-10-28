@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { d1Db, DuelRoomRow, DuelType } from '@/lib/d1Client';
 
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'challengerCode, targetNote y offerSdp son requeridos' }, { status: 400 });
       }
 
-      const roomId = `room_${Math.floor(1000 + Math.random() * 9000)}`;
+      const roomId = `room_${crypto.randomUUID()}`;
       const effectiveType: DuelType = duelType || 'pitch_duel';
 
       const room: DuelRoomRow = {

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
+
 /**
  * Hook DSP Tri-Banda de Alto Rendimiento para Cancelación Vocal y Preservación de Ritmo
  * 
@@ -396,19 +397,28 @@ export function useVocalRemover(initialVideoId?: string) {
       const compressor = ctx.createDynamicsCompressor();
       compressor.threshold.setValueAtTime(-3.0, ctx.currentTime);
       compressor.knee.setValueAtTime(8, ctx.currentTime);
-      compressor.ratio.setValueAtTime(3.0, ctx.currentTime);
-      compressor.attack.setValueAtTime(0.025, ctx.currentTime); // 25ms para no deformar ondas graves de 50-80 Hz
-      compressor.release.setValueAtTime(0.18, ctx.currentTime); // 180ms para evitar bombeo
+      compressor.ratio.setValueAtTime(3.5, ctx.currentTime);
+      compressor.attack.setValueAtTime(0.015, ctx.currentTime);
+      compressor.release.setValueAtTime(0.15, ctx.currentTime);
       compressorRef.current = compressor;
 
       const masterGain = ctx.createGain();
       masterGain.gain.value = 1.0;
       masterGainRef.current = masterGain;
 
+      // Limitador final tipo Brickwall para garantizar CERO distorsión o clipeo aun con el boost de volumen en iOS
+      const brickwallLimiter = ctx.createDynamicsCompressor();
+      brickwallLimiter.threshold.setValueAtTime(-1.0, ctx.currentTime);
+      brickwallLimiter.knee.setValueAtTime(0, ctx.currentTime);
+      brickwallLimiter.ratio.setValueAtTime(20.0, ctx.currentTime);
+      brickwallLimiter.attack.setValueAtTime(0.002, ctx.currentTime);
+      brickwallLimiter.release.setValueAtTime(0.05, ctx.currentTime);
+
       merger.connect(makeupGain);
       makeupGain.connect(compressor);
       compressor.connect(masterGain);
-      masterGain.connect(ctx.destination);
+      masterGain.connect(brickwallLimiter);
+      brickwallLimiter.connect(ctx.destination);
 
       // Aplicar ganancias iniciales exactas
       vocalLevelRef.current = initialVocalLevel;

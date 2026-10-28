@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
 
-if (typeof process !== 'undefined' && process.env) {
-  try {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  } catch {}
-}
+
 
 const badKeywords = [
   "mix", "compilacion", "compilación", "enganchado", "enganchados", "recopilacion", 
@@ -131,7 +127,8 @@ async function searchHtmlScraper(query: string) {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = (searchParams.get('q') || "").trim();
+  const rawQuery = (searchParams.get('q') || "").trim();
+  const query = rawQuery.slice(0, 200).replace(/[<>'"]/g, '').trim();
 
   if (!query) {
     return NextResponse.json({ error: "Missing or empty query" }, { status: 400 });

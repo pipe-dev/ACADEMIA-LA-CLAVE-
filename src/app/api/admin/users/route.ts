@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest, getCorsHeaders } from '@/lib/adminAuth';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     let finalKey = sanitizeAccessKey(access_key);
     if (!finalKey) {
-      finalKey = `CANT-${Math.floor(1000 + Math.random() * 9000)}`;
+      finalKey = `CANT-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     }
 
     const cleanNotes = sanitizeString(notes, 300);

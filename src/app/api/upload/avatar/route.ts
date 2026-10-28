@@ -26,7 +26,6 @@ function uploadToImgBBViaHttps(apiKey: string, base64Data: string, safeName: str
       'https://api.imgbb.com/1/upload',
       {
         method: 'POST',
-        rejectUnauthorized: false,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Content-Length': Buffer.byteLength(postData),

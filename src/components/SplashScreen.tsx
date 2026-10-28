@@ -74,12 +74,20 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const [isFullyDownloaded, setIsFullyDownloaded] = useState(false);
   const [phase, setPhase] = useState<SplashPhase>(() => (isConfigured ? 'normal_loading' : 'loading_to_85'));
 
-  const initialName = userStats?.name || (() => {
+  const initialName = (() => {
+    if (userStats?.name && userStats.name !== 'Alex' && userStats.name.trim() !== '') {
+      return userStats.name;
+    }
     try {
       const s = localStorage.getItem('laclave_user_stats_v6');
-      if (s) return JSON.parse(s).name || 'Alex';
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed.name && parsed.name !== 'Alex' && parsed.name.trim() !== '') {
+          return parsed.name;
+        }
+      }
     } catch {}
-    return 'Alex';
+    return '';
   })();
 
   const initialAvatar = userStats?.avatarUrl || (() => {
@@ -91,7 +99,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   })();
 
   const [userName, setUserName] = useState<string>(initialName);
-  const [nameInput, setNameInput] = useState<string>(initialName);
+  const [nameInput, setNameInput] = useState<string>('');
   const [selectedAvatar, setSelectedAvatar] = useState<string>(initialAvatar);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,8 +128,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   });
 
   const [personalizedTip, setPersonalizedTip] = useState<{ title: string; text: string }>({
-    title: `Preparando tu voz, ${initialName}`,
-    text: `${initialName}, recuerda que el aire es el combustible de tu voz. Antes de emitir cualquier nota, expande tus costillas inferiores y relaja tu mandíbula.`
+    title: `Preparando tu voz, ${initialName || 'Vocalista'}`,
+    text: `${initialName || 'Vocalista'}, recuerda que el aire es el combustible de tu voz. Antes de emitir cualquier nota, expande tus costillas inferiores y relaja tu mandíbula.`
   });
 
   // Pre-carga en segundo plano de recursos offline
@@ -377,10 +385,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   type="text"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="Tu nombre o apodo..."
+                  placeholder="Tu nombre o apodo"
                   maxLength={30}
                   autoFocus
-                  className="w-full bg-emerald-950/60 border border-emerald-400/40 focus:border-emerald-300 rounded-xl px-4 py-2.5 text-white placeholder-emerald-200/40 font-bold text-center text-base focus:outline-none focus:ring-2 focus:ring-emerald-400/40 shadow-inner transition-all"
+                  className="w-full bg-emerald-950/60 border border-emerald-400/40 focus:border-emerald-300 rounded-xl px-4 py-2.5 text-white placeholder:text-gray-400 placeholder:font-normal font-bold text-center text-base focus:outline-none focus:ring-2 focus:ring-emerald-400/40 shadow-inner transition-all"
                 />
                 <button
                   type="submit"

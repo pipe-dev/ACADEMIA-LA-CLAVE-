@@ -27,6 +27,7 @@ import { TunerHistorySection } from './afinador/TunerHistorySection';
 import { TunerSubViewsOrchestrator } from './afinador/TunerSubViewsOrchestrator';
 import { TunerModals } from './afinador/TunerModals';
 import { TunerLivesLockedGate } from './afinador/TunerLivesLockedGate';
+import { isTourActive, isTourPendingOrActive } from '../utils/tour';
 
 export const AfinadorView: React.FC<AfinadorViewProps> = ({
   userStats,
@@ -68,9 +69,40 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     return 'femenino';
   });
 
-  const [isRangeRequiredModalOpen, setIsRangeRequiredModalOpen] = useState<boolean>(
-    !effectiveRangeData
-  );
+  const [isRangeRequiredModalOpen, setIsRangeRequiredModalOpen] = useState<boolean>(false);
+
+  // El modal de calibración de tesitura obligatoria debe salir SOLO DESPUÉS de ver el tutorial guiado de Afinador
+  useEffect(() => {
+    if (effectiveRangeData) {
+      setIsRangeRequiredModalOpen(false);
+      return;
+    }
+
+    if (!isTourPendingOrActive('afinador')) {
+      const timer = setTimeout(() => {
+        if (!effectiveRangeData && !isTourActive()) {
+          setIsRangeRequiredModalOpen(true);
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+
+    const handleTourCompleted = (e: Event) => {
+      const ce = e as CustomEvent<{ section: string }>;
+      if (ce.detail?.section === 'afinador') {
+        setTimeout(() => {
+          if (!effectiveRangeData && !isTourActive()) {
+            setIsRangeRequiredModalOpen(true);
+          }
+        }, 500);
+      }
+    };
+
+    window.addEventListener('laclave_tour_section_completed', handleTourCompleted);
+    return () => {
+      window.removeEventListener('laclave_tour_section_completed', handleTourCompleted);
+    };
+  }, [effectiveRangeData]);
 
   useEffect(() => {
     voicePlayback.preloadNotes(gender);
@@ -343,7 +375,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     <div className="pb-6 pt-0 px-2 sm:px-4 max-w-md mx-auto space-y-2 sm:space-y-2.5 animate-fadeIn relative -mt-4 sm:-mt-3">
       {/* ─── Modals Group (Calibration, Level Select, Win, Defeat, Video) ─── */}
       <TunerModals
-        isRangeRequiredModalOpen={isRangeRequiredModalOpen}
+        isRangeRequiredModalOpen={isRangeRequiredModalOpen && !isTourActive()}
         onStartAssessment={() => {
           setIsRangeRequiredModalOpen(false);
           setActiveSubView('tesitura');

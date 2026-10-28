@@ -136,7 +136,7 @@ export function useAfinadorLevels({
     emitQuestEvent('NOTE_TUNED', 1);
     setCompletedChallengeNotes(prev => new Set(prev).add(challengeIndexRef.current));
     resetTugOfWar(50);
-    setGracePeriod(1400);
+    setGracePeriod(2600);
 
     const now = Date.now();
     if (now - lastMatchTimeRef.current < 4500) {
@@ -190,7 +190,7 @@ export function useAfinadorLevels({
       challengeIndexRef.current = 0;
       resetTugOfWar(50);
       setIsLevelFailed(false);
-      setGracePeriod(1500);
+      setGracePeriod(2800);
 
       const diffArray = difficultyLevels[diff as ChallengeDifficulty];
       const isRhythm = diff !== 'Calentamiento' && diffArray && diffArray[lvl - 1] === 0;

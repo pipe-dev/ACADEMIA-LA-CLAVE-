@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -185,6 +186,25 @@ export const userDb = {
     return state.users.find((u) => u.email.toLowerCase() === normalized) || null;
   },
 
+  async getUserByName(name: string): Promise<UserRecord | null> {
+    const clean = name.trim().toLowerCase();
+    if (!clean) return null;
+    if (isCloudflareConfigured()) {
+      try {
+        const rows = await executeCloudflareQuery(
+          'SELECT * FROM users WHERE LOWER(name) = ? OR LOWER(email) = ? OR LOWER(email) LIKE ? LIMIT 1',
+          [clean, clean, `${clean}@%`]
+        );
+        return rows[0] || null;
+      } catch (e: any) {
+        console.error('Cloudflare getUserByName error:', e);
+      }
+    }
+
+    const state = loadLocalState();
+    return state.users.find((u) => u.name.toLowerCase() === clean || u.email.toLowerCase() === clean || u.email.toLowerCase().startsWith(`${clean}@`)) || null;
+  },
+
   async getUserByKey(key: string): Promise<UserRecord | null> {
     const cleanKey = key.trim();
     if (isCloudflareConfigured()) {
@@ -275,7 +295,7 @@ export const userDb = {
     );
 
     const newUser: UserRecord = {
-      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: `usr_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
       name: data.name.trim(),
       email: normalizedEmail,
       access_key: cleanKey,

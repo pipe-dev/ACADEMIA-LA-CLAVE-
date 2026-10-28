@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyJwt } from './lib/jwt';
+import { verifyJwt, getJwtSecret } from './lib/jwt';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
+
 
 function applySecurityHeaders(res: NextResponse): NextResponse {
   res.headers.set('X-Content-Type-Options', 'nosniff');
@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
   let sessionPayload = null;
 
   if (sessionCookie) {
-    sessionPayload = await verifyJwt(sessionCookie, JWT_SECRET);
+    sessionPayload = await verifyJwt(sessionCookie, getJwtSecret());
   }
 
   // 3. Login page handling

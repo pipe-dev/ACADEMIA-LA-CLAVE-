@@ -243,6 +243,11 @@ export default function LoginPage() {
         setWrong(true);
         wrongTimer.current = setTimeout(() => setWrong(false), 4000);
       });
+      setAccountAlert({
+        type: 'error',
+        title: 'Campos incompletos',
+        message: 'Por favor, ingresa tu correo y contraseña.',
+      });
       toast({
         variant: 'destructive',
         title: 'Campos incompletos',
@@ -297,7 +302,11 @@ export default function LoginPage() {
           return;
         }
 
-        setAccountAlert(null);
+        setAccountAlert({
+          type: 'error',
+          title: 'Credenciales Incorrectas',
+          message: data.error || 'Clave de acceso o correo incorrectos.',
+        });
         throw new Error(data.error || 'Clave de acceso o correo incorrectos.');
       }
 
@@ -318,14 +327,19 @@ export default function LoginPage() {
         duration: 3000,
       });
 
-      router.push('/');
-      router.refresh();
+      window.location.replace('/');
+
     } catch (err: any) {
       if (wrongTimer.current) clearTimeout(wrongTimer.current);
       setWrong(false);
       requestAnimationFrame(() => {
         setWrong(true);
         wrongTimer.current = setTimeout(() => setWrong(false), 4000);
+      });
+      setAccountAlert((prev) => prev || {
+        type: 'error',
+        title: 'Error de Acceso',
+        message: err.message || 'Clave de acceso o correo incorrectos.',
       });
       toast({
         variant: 'destructive',
@@ -383,7 +397,14 @@ export default function LoginPage() {
         {/* LADO IZQUIERDO: Escenario de los 4 Personajes       */}
         {/* ================================================== */}
         <div
-          className={`min-w-0 relative flex flex-col justify-end items-center bg-[#e9e9e9] p-1.5 pb-8 sm:p-10 border-r border-slate-200 overflow-visible touch-none overscroll-none pointer-events-none transition-[z-index] duration-0 ${
+          style={{
+            backgroundColor: wrong ? '#f43f5e' : '#e9e9e9',
+            borderColor: wrong ? '#e11d48' : '#e2e8f0',
+            transition: 'background-color 300ms ease, border-color 300ms ease',
+          }}
+          className={`min-w-0 relative flex flex-col justify-end items-center p-1.5 pb-8 sm:p-10 border-r overflow-visible touch-none overscroll-none pointer-events-none ${
+            wrong ? `${styles.blobsContainerWrong} bg-[#f43f5e]` : `${styles.blobsContainer} bg-[#e9e9e9]`
+          } ${
             blobsReady ? 'z-30' : 'z-10'
           }`}
         >
@@ -426,35 +447,40 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Banner Informativo de Bloqueo o Expiración */}
+            {/* Banner Informativo de Bloqueo, Expiración o Credenciales Incorrectas */}
             {accountAlert && (
               <div
+                style={{
+                  backgroundColor: accountAlert.type === 'expired' ? '#fef3c7' : '#ffe4e6',
+                  borderColor: accountAlert.type === 'expired' ? '#fde68a' : '#fecdd3',
+                }}
                 className={`p-3 sm:p-4 rounded-2xl border text-left space-y-2.5 animate-in fade-in duration-200 shadow-md ${
-                  accountAlert.type === 'blocked'
-                    ? 'bg-rose-500/20 border-rose-500/40 text-rose-950 dark:text-rose-100'
-                    : 'bg-amber-500/20 border-amber-500/40 text-amber-950 dark:text-amber-100'
+                  accountAlert.type === 'expired'
+                    ? 'text-amber-950 dark:text-amber-100'
+                    : 'text-rose-950 dark:text-rose-100'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className={`text-xs font-black uppercase tracking-wider ${
-                    accountAlert.type === 'blocked'
-                      ? 'text-rose-800 dark:text-rose-300'
-                      : 'text-amber-800 dark:text-amber-300'
+                    accountAlert.type === 'expired'
+                      ? 'text-amber-800 dark:text-amber-300'
+                      : 'text-rose-600 dark:text-rose-400'
                   }`}>
                     {accountAlert.title}
                   </span>
                   <button
                     type="button"
                     onClick={() => setAccountAlert(null)}
-                    className="text-xs font-bold text-slate-500 hover:text-slate-900 p-0.5"
+                    className="text-xs font-bold text-rose-500 hover:text-rose-700 dark:text-rose-400 p-0.5 cursor-pointer"
+                    aria-label="Cerrar aviso"
                   >
                     ✕
                   </button>
                 </div>
                 <p className={`text-xs leading-relaxed font-bold ${
-                  accountAlert.type === 'blocked'
-                    ? 'text-rose-900 dark:text-rose-200'
-                    : 'text-amber-950 dark:text-amber-200'
+                  accountAlert.type === 'expired'
+                    ? 'text-amber-950 dark:text-amber-200'
+                    : 'text-rose-900 dark:text-rose-200'
                 }`}>
                   {accountAlert.message}
                 </p>
@@ -485,7 +511,19 @@ export default function LoginPage() {
                     autoComplete="email"
                     type="text"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (wrong) {
+                        setWrong(false);
+                        if (wrongTimer.current) {
+                          clearTimeout(wrongTimer.current);
+                          wrongTimer.current = null;
+                        }
+                      }
+                      if (accountAlert?.type === 'error') {
+                        setAccountAlert(null);
+                      }
+                    }}
                     onFocus={() => handleInputFocus('email')}
                     onBlur={() => handleInputBlur('email')}
                     disabled={isLoading}
@@ -516,6 +554,9 @@ export default function LoginPage() {
                           clearTimeout(wrongTimer.current);
                           wrongTimer.current = null;
                         }
+                      }
+                      if (accountAlert?.type === 'error') {
+                        setAccountAlert(null);
                       }
                     }}
                     onFocus={() => handleInputFocus('password')}

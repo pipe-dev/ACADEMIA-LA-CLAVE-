@@ -5,7 +5,7 @@ import { UserStats, LessonNode, TabType } from '../../types';
 import { ZenOverlay } from '../ZenOverlay';
 import { YouTubeAmbientPlayer } from '../YouTubeAmbientPlayer';
 import { SplashScreen } from '../SplashScreen';
-import { startOnboardingTour } from '../../utils/tour';
+import { startOnboardingTour, isTourActive, isTourPendingOrActive, useTourStatus } from '../../utils/tour';
 import { usePwaInstall } from '../../utils/usePwaInstall';
 import { isVocalRangeCheckDue, snoozeVocalRangeCheck } from '../../utils/vocalRangeHelper';
 import { VocalRangeCadencePrompt } from '../vocal-range/VocalRangeCadencePrompt';
@@ -134,14 +134,38 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
   sessionUser,
   onRefreshSession,
 }) => {
+  const { isTourActive: tourActive } = useTourStatus();
   const [showCadencePrompt, setShowCadencePrompt] = React.useState<boolean>(false);
 
+  // El aviso de evaluación periódica de tesitura debe salir SOLO DESPUÉS de ver el tutorial guiado
   React.useEffect(() => {
-    if (activeTab === 'progreso' || activeTab === 'afinador') {
-      if (isVocalRangeCheckDue()) {
-        setShowCadencePrompt(true);
-      }
+    if (activeTab !== 'progreso' && activeTab !== 'afinador') return;
+    if (!isVocalRangeCheckDue()) return;
+
+    if (!isTourPendingOrActive(activeTab)) {
+      const timer = setTimeout(() => {
+        if (!isTourActive()) {
+          setShowCadencePrompt(true);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
     }
+
+    const handleTourCompleted = (e: Event) => {
+      const ce = e as CustomEvent<{ section: string }>;
+      if (ce.detail?.section === activeTab) {
+        setTimeout(() => {
+          if (isVocalRangeCheckDue() && !isTourActive()) {
+            setShowCadencePrompt(true);
+          }
+        }, 600);
+      }
+    };
+
+    window.addEventListener('laclave_tour_section_completed', handleTourCompleted);
+    return () => {
+      window.removeEventListener('laclave_tour_section_completed', handleTourCompleted);
+    };
   }, [activeTab]);
   return (
     <>
@@ -215,7 +239,7 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
         />
       )}
 
-      {showCadencePrompt && !isVocalRangeOpen && !selectedNode && (
+      {showCadencePrompt && !tourActive && !isVocalRangeOpen && !selectedNode && (
         <VocalRangeCadencePrompt
           isOpen={showCadencePrompt}
           onClose={() => setShowCadencePrompt(false)}
@@ -274,7 +298,7 @@ export const MainAppModals: React.FC<MainAppModalsProps> = ({
         />
       )}
 
-      {pwaInstall.isModalOpen && (
+      {pwaInstall.isModalOpen && !tourActive && (
         <InstallPwaModal
           onClose={pwaInstall.closeModal}
           onTriggerNativeInstall={pwaInstall.triggerNativeInstall}

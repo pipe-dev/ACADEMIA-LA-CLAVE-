@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DEFAULT_SECULAR_TRACKS, DEFAULT_CHRISTIAN_TRACKS, RECOMMENDED_TRACKS } from '@/components/practica/practicaCatalogData';
 
-if (typeof process !== 'undefined' && process.env) {
-  try {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  } catch {}
-}
+
 
 import { CatalogTrack } from '@/components/practica/practicaTypes';
 export type { CatalogTrack };

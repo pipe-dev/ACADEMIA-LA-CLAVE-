@@ -56,6 +56,15 @@ export function useAfinadorPitch({
   const [calentamientoProgress, setCalentamientoProgress] = useState<number>(0);
   const [isLevelFailed, setIsLevelFailed] = useState<boolean>(false);
   const isLevelFailedRef = useRef<boolean>(false);
+
+  const setIsLevelFailedHandler = useCallback((failed: boolean) => {
+    isLevelFailedRef.current = failed;
+    setIsLevelFailed(failed);
+  }, []);
+
+  useEffect(() => {
+    isLevelFailedRef.current = isLevelFailed;
+  }, [isLevelFailed]);
   const noteTransitionUntilRef = useRef<number>(0);
 
   // Combo system
@@ -65,6 +74,7 @@ export function useAfinadorPitch({
 
   // In-tune sustained time tracker
   const inTuneSinceRef = useRef<number | null>(null);
+  const lastInTuneTimeRef = useRef<number>(0);
   const lastVibeTimeRef = useRef<number>(0);
   const lastStateUpdateRef = useRef<number>(0);
 
@@ -291,36 +301,46 @@ export function useAfinadorPitch({
           }
 
           // Level mode progression
+          // REGLA FUNDAMENTAL: Cantar la misma nota en una octava diferente (!isExactOctave)
+          // NO se cuenta como acierto (0 ganancia) pero TAMPOCO como error (0 penalización).
+          // Se mantiene con el aviso preventivo ámbar ("Buen tono, pero...").
+          // Solo la octava exacta (isExactOctave === true) califica como acierto y avanza el nivel.
           if (tunerModeRef.current === 'niveles' && !isLevelFailedRef.current) {
-            if (selectedDifficultyRef.current === 'Calentamiento') {
-              if (!inTuneSinceRef.current) {
-                inTuneSinceRef.current = nowTime;
-                setCalentamientoProgress(15);
+            const isInTransitionGrace = nowTime < noteTransitionUntilRef.current;
+            if (!isInTransitionGrace && isExactOctave) {
+              if (selectedDifficultyRef.current === 'Calentamiento') {
+                lastInTuneTimeRef.current = nowTime;
+                if (!inTuneSinceRef.current) {
+                  inTuneSinceRef.current = nowTime;
+                  setCalentamientoProgress(15);
+                } else {
+                  const elapsed = nowTime - inTuneSinceRef.current;
+                  const p = Math.min(100, Math.round((elapsed / 550) * 100));
+                  setCalentamientoProgress(p);
+                  if (elapsed >= 550) {
+                    inTuneSinceRef.current = null;
+                    setCalentamientoProgress(0);
+                    noteTransitionUntilRef.current = nowTime + 2200;
+                    onNoteCompletedRef.current();
+                  }
+                }
               } else {
-                const elapsed = nowTime - inTuneSinceRef.current;
-                const p = Math.min(100, Math.round((elapsed / 650) * 100));
-                setCalentamientoProgress(p);
-                if (elapsed >= 650) {
+                const gain = selectedDifficultyRef.current === 'Fácil'
+                  ? 3.8
+                  : selectedDifficultyRef.current === 'Medio'
+                  ? 3.2
+                  : selectedDifficultyRef.current === 'Difícil'
+                  ? 2.8
+                  : 2.4;
+                tugOfWarRef.current = Math.min(100, tugOfWarRef.current + gain);
+                setTugOfWarProgress(tugOfWarRef.current);
+                if (tugOfWarRef.current >= 100) {
+                  tugOfWarRef.current = 50;
+                  setTugOfWarProgress(50);
                   inTuneSinceRef.current = null;
-                  setCalentamientoProgress(0);
+                  noteTransitionUntilRef.current = nowTime + 2200;
                   onNoteCompletedRef.current();
                 }
-              }
-            } else if (isExactOctave) {
-              const gain = selectedDifficultyRef.current === 'Fácil'
-                ? 3.2
-                : selectedDifficultyRef.current === 'Medio'
-                ? 2.8
-                : selectedDifficultyRef.current === 'Difícil'
-                ? 2.4
-                : 2.0;
-              tugOfWarRef.current = Math.min(100, tugOfWarRef.current + gain);
-              setTugOfWarProgress(tugOfWarRef.current);
-              if (tugOfWarRef.current >= 100) {
-                tugOfWarRef.current = 50;
-                setTugOfWarProgress(50);
-                inTuneSinceRef.current = null;
-                onNoteCompletedRef.current();
               }
             }
           }
@@ -389,9 +409,12 @@ export function useAfinadorPitch({
           });
         } else {
           setOctaveDisplacement(0);
-          inTuneSinceRef.current = null;
+          const timeSinceLastInTune = nowTime - lastInTuneTimeRef.current;
+          if (timeSinceLastInTune > 250) {
+            inTuneSinceRef.current = null;
+            setCalentamientoProgress(0);
+          }
           inTuneNoteStartTimeRef.current = null;
-          setCalentamientoProgress(0);
           if (currCentsOff < 0) {
             setTuningStatusMsg('Muy grueso ↑ Sube el tono');
           } else {
@@ -431,9 +454,12 @@ export function useAfinadorPitch({
         setIsPitchMatched(false);
         setOctaveDisplacement(0);
         setTuningStatusMsg('Escuchando voz...');
-        inTuneSinceRef.current = null;
+        const timeSinceLastInTune = nowTime - lastInTuneTimeRef.current;
+        if (timeSinceLastInTune > 250) {
+          inTuneSinceRef.current = null;
+          setCalentamientoProgress(0);
+        }
         inTuneNoteStartTimeRef.current = null;
-        setCalentamientoProgress(0);
       }
     });
 
@@ -475,6 +501,8 @@ export function useAfinadorPitch({
   const resetTugOfWar = useCallback((val = 50) => {
     tugOfWarRef.current = val;
     setTugOfWarProgress(val);
+    isLevelFailedRef.current = false;
+    setIsLevelFailed(false);
   }, []);
 
   const clearHistory = useCallback(() => {
@@ -497,7 +525,7 @@ export function useAfinadorPitch({
     calentamientoProgress,
     setCalentamientoProgress,
     isLevelFailed,
-    setIsLevelFailed,
+    setIsLevelFailed: setIsLevelFailedHandler,
     isLevelFailedRef,
     comboCount,
     setComboCount,

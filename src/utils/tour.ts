@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { driver, Driver, DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { TabType } from '../types';
@@ -21,6 +22,71 @@ export function isTourActive(): boolean {
     return Boolean(document.querySelector('.driver-popover') || document.querySelector('.driver-overlay'));
   }
   return false;
+}
+
+/**
+ * Indica si el usuario ya vio el tutorial inicial principal (Academia)
+ */
+export function hasSeenInitialTour(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(TOUR_KEYS.academia) === 'true';
+}
+
+/**
+ * Indica si el usuario ya vio el tutorial de una sección específica
+ */
+export function hasSeenSectionTour(section: keyof typeof TOUR_KEYS): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(TOUR_KEYS[section]) === 'true';
+}
+
+/**
+ * Indica si hay un tour activo O si el usuario aún tiene pendiente ver el tour
+ * de la sección actual (o el inicial), evitando que se disparen modales antes de tiempo.
+ */
+export function isTourPendingOrActive(tab?: TabType): boolean {
+  if (isTourActive()) return true;
+  if (typeof window === 'undefined') return false;
+  if (!tab || tab === 'academia') {
+    return localStorage.getItem(TOUR_KEYS.academia) !== 'true';
+  }
+  const key = TOUR_KEYS[tab as keyof typeof TOUR_KEYS];
+  if (key) {
+    return localStorage.getItem(key) !== 'true';
+  }
+  return false;
+}
+
+/**
+ * Hook reactivo para consultar el estado del tour en componentes React
+ */
+export function useTourStatus() {
+  const [active, setActive] = useState<boolean>(isTourActive);
+
+  useEffect(() => {
+    const handleStart = () => setActive(true);
+    const handleEnd = () => setActive(false);
+
+    window.addEventListener('laclave_tour_section_started', handleStart);
+    window.addEventListener('laclave_tour_section_completed', handleEnd);
+
+    const interval = setInterval(() => {
+      setActive(isTourActive());
+    }, 250);
+
+    return () => {
+      window.removeEventListener('laclave_tour_section_started', handleStart);
+      window.removeEventListener('laclave_tour_section_completed', handleEnd);
+      clearInterval(interval);
+    };
+  }, []);
+
+  return {
+    isTourActive: active,
+    hasSeenInitialTour,
+    hasSeenSectionTour,
+    isTourPendingOrActive,
+  };
 }
 
 /**
@@ -86,6 +152,7 @@ export function startAcademiaTour(onFinish?: () => void) {
   });
 
   isTourRunning = true;
+  window.dispatchEvent(new CustomEvent('laclave_tour_section_started', { detail: { section: 'academia' } }));
   activeDriverInstance = driver({
     showProgress: true,
     animate: true,
@@ -255,6 +322,7 @@ export function startPracticaTour(onFinish?: () => void) {
   });
 
   isTourRunning = true;
+  window.dispatchEvent(new CustomEvent('laclave_tour_section_started', { detail: { section: 'practica' } }));
   activeDriverInstance = driver({
     showProgress: true,
     animate: true,
@@ -339,6 +407,7 @@ export function startProgresoTour(onFinish?: () => void) {
   });
 
   isTourRunning = true;
+  window.dispatchEvent(new CustomEvent('laclave_tour_section_started', { detail: { section: 'progreso' } }));
   activeDriverInstance = driver({
     showProgress: true,
     animate: true,
@@ -392,7 +461,7 @@ export function triggerSectionTour(tab: TabType, isManual = false) {
         startProgresoTour();
         break;
     }
-  }, 400);
+  }, 250);
 }
 
 /**

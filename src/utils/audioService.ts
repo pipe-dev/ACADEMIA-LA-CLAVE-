@@ -1359,6 +1359,11 @@ class AudioService {
       this.isListening = false;
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         this.lastMicError = 'denied';
+        this.micStream = null;
+        this.micSourceNode = null;
+        try {
+          localStorage.removeItem('laclave_mic_permission_granted');
+        } catch {}
         console.warn('Microphone permission denied by user or browser policy.');
       } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
         this.lastMicError = 'unsupported';

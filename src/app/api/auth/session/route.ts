@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyJwt } from '@/lib/jwt';
+import { verifyJwt, getJwtSecret } from '@/lib/jwt';
 import { userDb, computeUserEffectiveStatus } from '@/lib/userDb';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_keep_it_secure_key_123!';
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ authenticated: false, reason: 'no_session' }, { status: 401 });
     }
 
-    const payload = await verifyJwt(sessionCookie, JWT_SECRET);
+    const payload = await verifyJwt(sessionCookie, getJwtSecret());
     if (!payload || !payload.sub) {
       const res = NextResponse.json({ authenticated: false, reason: 'invalid_token' }, { status: 401 });
       res.cookies.delete('afinapp_session');

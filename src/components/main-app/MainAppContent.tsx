@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import dynamic from 'next/dynamic';
 import { TabType, UserStats, Unit, LessonNode, DailyQuest } from '../../types';
 import { AcademiaView } from '../AcademiaView';
+import { isTourActive } from '../../utils/tour';
 
 // Code-split dynamic views with pre-loading fallback
 const AfinadorView = dynamic(() => import('../AfinadorView').then((m) => m.AfinadorView), {
@@ -190,7 +191,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({
       </main>
 
       {/* Fullscreen Streak Flame Overlay */}
-      {(activeTab === 'racha' || streakPromptOpen) && (
+      {(activeTab === 'racha' || (streakPromptOpen && !isTourActive())) && (
         <StreakFlameView
           currentStreak={userStats.streak}
           onBack={() => {

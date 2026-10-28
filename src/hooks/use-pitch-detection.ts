@@ -140,64 +140,67 @@ export const usePitchDetection = () => {
   const bufferRef = useRef<Float32Array | null>(null);
   const isMicEmittedRef = useRef<boolean>(false);
 
-  const start = useCallback(async (externalCtx?: AudioContext | null) => {
+  const start = useCallback(async (_externalCtx?: AudioContext | null) => {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         // 1. AudioSession Preparation (WebKit/iOS):
-        // Primero señalizar 'playback' y luego 'play-and-record' fuerza la salida
-        // al ALTAVOZ PRINCIPAL (evitando el auricular telefónico de llamadas)
-        // a la vez que habilita el acceso de captura de micrófono sin restricciones.
+        // Ajustar a 'auto' antes de pedir permisos para evitar InvalidStateError si estaba en 'playback',
+        // pero NUNCA forzar 'play-and-record' que activa el modo llamada (earpiece, VoiceProcessingIO, Bluetooth SCO mono).
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
           try {
-            (navigator as any).audioSession.type = 'play-and-record';
+            (navigator as any).audioSession.type = 'auto';
           } catch {}
         }
 
-        // 2. Solicitud de micrófono optimizada para MÚSICA y CANTO (NO modo llamada / telefonía)
+        // 2. Solicitud de micrófono estándar y pura para música (sin procesadores destructivos de llamada telefónica)
         let stream: MediaStream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: false,
               noiseSuppression: false,
-              autoGainControl: false
+              autoGainControl: false,
             },
             video: false
           });
         } catch {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: false,
+              },
+              video: false
+            });
+          } catch {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          }
         }
         streamRef.current = stream;
 
-        // 3. Confirmar sesión activa de captura
-        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'play-and-record';
-          } catch {}
-        }
-        
-        // 4. Conexión de AudioContext Compartido o Nuevo:
-        // Compartir el MISMO AudioContext que reproduce la música evita que el S.O.
-        // detecte dos contextos compitiendo y atenúe (duck) la canción de fondo.
-        let context: AudioContext;
-        if (externalCtx && externalCtx.state !== 'closed') {
-          context = externalCtx;
-          isSharedContextRef.current = true;
-        } else {
-          context = new (window.AudioContext || (window as any).webkitAudioContext)();
-          isSharedContextRef.current = false;
-        }
+        // Asegurar que los tracks de audio permanezcan activos
+        stream.getAudioTracks().forEach(t => {
+          t.enabled = true;
+        });
 
+        // 3. AudioContext DEDICADO EXCLUSIVAMENTE al análisis de afinación:
+        // En iOS Safari / WebKit, NUNCA debemos crear un MediaStreamSource sobre el AudioContext
+        // que reproduce la música (vocalRemover). Al mantener un AudioContext aislado que NUNCA
+        // se conecta a destination (solo source -> lowpassFilter -> analyser), iOS reconoce que la música
+        // es reproducción pura en estéreo de alta fidelidad (48kHz/44.1kHz) y NO activa VoiceProcessingIO
+        // ni cancela el fondo como si fuera una llamada telefónica.
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const context = new AudioContextClass();
         if (context.state === 'suspended') {
           await context.resume();
         }
+        isSharedContextRef.current = false;
+        const source = context.createMediaStreamSource(stream);
+
         audioContextRef.current = context;
+        mediaStreamSourceRef.current = source;
 
         analyserRef.current = context.createAnalyser();
         analyserRef.current.fftSize = 2048; // Reducido para óptimo rendimiento móvil
-
-        const source = context.createMediaStreamSource(stream);
-        mediaStreamSourceRef.current = source;
         
         const lowpassFilter = context.createBiquadFilter();
         lowpassFilter.type = 'lowpass';
@@ -249,20 +252,36 @@ export const usePitchDetection = () => {
       } else {
         throw new Error("getUserMedia not supported on your browser!");
       }
-    } catch (err) {
-      console.error(err);
-      const isStandalone =
-        typeof window !== 'undefined' &&
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(display-mode: standalone)').matches;
-      toast({
-        variant: "destructive",
-        title: "Acceso al Micrófono Denegado",
-        description: isStandalone
-          ? 'Ajustes del teléfono → Aplicaciones → AfinApp → Permisos → Micrófono → Permitir, y vuelve a abrir la app.'
-          : 'Por favor permite el acceso al micrófono en la configuración de tu navegador.',
-      });
+    } catch (err: any) {
+      console.error('[usePitchDetection] Error al capturar micrófono:', err);
+      if (streamRef.current) {
+        try {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+        } catch {}
+        streamRef.current = null;
+      }
       setIsDetecting(false);
+
+      // Solo alertar "Acceso al Micrófono Denegado" si el error realmente es de permisos
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        const isStandalone =
+          typeof window !== 'undefined' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(display-mode: standalone)').matches;
+        toast({
+          variant: "destructive",
+          title: "Acceso al Micrófono Denegado",
+          description: isStandalone
+            ? 'Ajustes del teléfono → Aplicaciones → AfinApp → Permisos → Micrófono → Permitir, y vuelve a abrir la app.'
+            : 'Por favor permite el acceso al micrófono en la configuración de tu navegador.',
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error de Micrófono",
+          description: "No se pudo conectar el micrófono. Por favor intenta de nuevo.",
+        });
+      }
     }
   }, [audioBlobUrl, toast]);
 
@@ -308,7 +327,7 @@ export const usePitchDetection = () => {
     // Restaurar sesión de audio a modo playback para mantener sonido con interruptor de silencio o modos de enfoque
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
-        (navigator as any).audioSession.type = 'playback';
+        (navigator as any).audioSession.type = 'auto';
       } catch {}
     }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {

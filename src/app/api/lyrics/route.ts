@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import https from 'https';
 
-if (typeof process !== 'undefined' && process.env) {
-  try {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  } catch {}
-}
+
 
 const LRCLIB_USER_AGENT = 'AfinApp-MusicPlayer/2.0 (https://afinapp.com; contact: soporte@afinapp.com)';
 
@@ -60,8 +56,7 @@ export async function GET(request: Request) {
       if (typeof https !== 'undefined' && typeof https.get === 'function') {
         try {
           return await new Promise((resolve) => {
-            const req = https.get(url, { 
-              rejectUnauthorized: false,
+            const req = https.get(url, {
               timeout: 4500,
               headers: {
                 'User-Agent': LRCLIB_USER_AGENT,
