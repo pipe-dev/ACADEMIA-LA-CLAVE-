@@ -186,7 +186,7 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
   // Real momentary evaluation of the current test session (does NOT overwrite with historical record)
   const evaluatedRange = React.useMemo(() => {
     const vocalEval = classifyVoice(minHzVal, maxHzVal, voiceGender || 'male');
-    const octavesRange = (Math.log2(maxHzVal / minHzVal)).toFixed(1);
+    const octavesRange = minHzVal > 0 && maxHzVal > 0 && maxHzVal >= minHzVal ? (Math.log2(maxHzVal / minHzVal)).toFixed(1) : "0.0";
     const lowestNote = hzToNoteName(minHzVal).fullName;
     const highestNote = hzToNoteName(maxHzVal).fullName;
 
@@ -223,7 +223,7 @@ export const VocalRangeModal: React.FC<VocalRangeModalProps> = ({
     } catch {}
 
     const vocalEval = classifyVoice(finalMinHz, finalMaxHz, voiceGender || 'male');
-    const octavesRange = (Math.log2(finalMaxHz / finalMinHz)).toFixed(1);
+    const octavesRange = finalMinHz > 0 && finalMaxHz > 0 && finalMaxHz >= finalMinHz ? (Math.log2(finalMaxHz / finalMinHz)).toFixed(1) : "0.0";
 
     return {
       minHz: finalMinHz,

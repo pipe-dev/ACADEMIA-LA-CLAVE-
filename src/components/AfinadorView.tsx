@@ -415,6 +415,12 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
           levelsHook.setShowEasyWinVideo(false);
           levelsHook.setIsLevelSelectOpen(true);
         }}
+        isMicBlockedModalOpen={pitchHook.micPermissionError}
+        onCloseMicBlockedModal={() => pitchHook.setMicPermissionError(false)}
+        onRetryMic={() => {
+          pitchHook.setMicPermissionError(false);
+          pitchHook.startTuningMic();
+        }}
         zenMode={zenMode}
       />
 

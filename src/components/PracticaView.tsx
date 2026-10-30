@@ -427,7 +427,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
         engine.setIsPlaying(true);
         engine.setAutoplayBlocked(false);
         if (engine.isMicEnabled && !engine.isDetecting && !engine.isPlaybackMode) {
-          engine.startPitchDetection();
+          engine.startPitchDetection().catch(() => {});
         }
       } else {
         engine.setAutoplayBlocked(true);
@@ -446,6 +446,9 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   // El usuario eligió una de las 2 mejores versiones del picker
   const handleChooseVideo = async (video: YtSearchVideo) => {
     setVideoOptions(null);
+    if (engine.isMicEnabled) {
+      audioService.acquireMicrophoneStream('karaoke').catch(() => {});
+    }
     const cacheKey = videoOptionsCacheKey;
     if (!video?.id || !cacheKey) return;
     try {
@@ -463,6 +466,9 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   // Selección de canción y resolución
   const handleSelectTrack = async (track: CatalogTrack) => {
     audioService.playClickSound();
+    if (engine.isMicEnabled) {
+      audioService.acquireMicrophoneStream('karaoke').catch(() => {});
+    }
 
     if ((userStats.lives ?? 1) <= 0) {
       if (userStats.hasUsedCourtesySong) {
@@ -669,7 +675,15 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
           />
         )}
         {engine.audioBlobUrl && (
-          <audio ref={engine.audioPlaybackRef} src={engine.audioBlobUrl} preload="auto" />
+          <audio
+            ref={engine.audioPlaybackRef}
+            src={engine.audioBlobUrl}
+            preload="auto"
+            onEnded={() => {
+              engine.setIsPlaying(false);
+              engine.setIsPlaybackMode(false);
+            }}
+          />
         )}
       </div>
 

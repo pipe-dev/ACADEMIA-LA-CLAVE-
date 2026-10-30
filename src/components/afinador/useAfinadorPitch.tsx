@@ -49,6 +49,7 @@ export function useAfinadorPitch({
   const [tuningStatusMsg, setTuningStatusMsg] = useState<string>('Escuchando voz...');
   const [isPitchMatched, setIsPitchMatched] = useState<boolean>(false);
   const [octaveDisplacement, setOctaveDisplacement] = useState<number>(0);
+  const [micPermissionError, setMicPermissionError] = useState<boolean>(false);
 
   // Tug of war / level progress states
   const [tugOfWarProgress, setTugOfWarProgress] = useState<number>(50);
@@ -464,9 +465,11 @@ export function useAfinadorPitch({
     });
 
     if (success) {
+      setMicPermissionError(false);
       setIsTuningActive(true);
       return true;
     } else {
+      setMicPermissionError(true);
       setTuningStatusMsg('Permiso de micrófono no otorgado');
       return false;
     }
@@ -544,6 +547,8 @@ export function useAfinadorPitch({
     badgeBorderColor,
     statusTextColor,
     statusIcon,
+    micPermissionError,
+    setMicPermissionError,
     startTuningMic,
     stopTuningMic,
     toggleTuning,

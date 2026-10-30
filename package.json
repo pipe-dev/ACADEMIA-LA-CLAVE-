@@ -13,7 +13,8 @@
     "test": "node scratch/test_suite.mjs",
     "test:unit": "npx tsx src/utils/__tests__/pitchUtils.test.ts && npx tsx src/utils/__tests__/livesEngine.test.ts && npx tsx src/components/__tests__/AuraShieldRing.test.ts && npx tsx src/utils/__tests__/vocalNotePool.test.ts && npx tsx src/components/vocal-range/__tests__/vocalRangeUtils.test.ts && npx tsx src/utils/__tests__/vocalRangeHelper.test.ts && npx tsx src/components/breathing/__tests__/breathingEngine.test.ts",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:touch": "node --use-system-ca scratch/test_bottom_nav_first_touch.mjs"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.2",

@@ -35,6 +35,7 @@ export class VoicePlaybackService {
   private currentBufferSource: AudioBufferSourceNode | null = null;
   private currentGainNode: GainNode | null = null;
   private preloadingPromise: Promise<void> | null = null;
+  private currentPlayRequestId: number = 0;
 
   private constructor() {}
 
@@ -51,19 +52,27 @@ export class VoicePlaybackService {
   }
 
   public stopActiveSound(): void {
+    const ctx = this.getAudioContext();
+    if (this.currentGainNode && ctx) {
+      try {
+        const now = ctx.currentTime;
+        this.currentGainNode.gain.cancelScheduledValues(now);
+        this.currentGainNode.gain.setValueAtTime(this.currentGainNode.gain.value, now);
+        this.currentGainNode.gain.linearRampToValueAtTime(0.0001, now + 0.03);
+      } catch {}
+    }
     if (this.currentBufferSource) {
       try {
-        this.currentBufferSource.stop(0);
-        this.currentBufferSource.disconnect();
+        const src = this.currentBufferSource;
+        const now = ctx ? ctx.currentTime : 0;
+        src.stop(now + 0.035);
+        setTimeout(() => {
+          try { src.disconnect(); } catch {}
+        }, 40);
       } catch {}
       this.currentBufferSource = null;
     }
-    if (this.currentGainNode) {
-      try {
-        this.currentGainNode.disconnect();
-      } catch {}
-      this.currentGainNode = null;
-    }
+    this.currentGainNode = null;
   }
 
   /**
@@ -118,16 +127,22 @@ export class VoicePlaybackService {
   ): Promise<void> {
     if (typeof window === 'undefined') return;
 
-    audioService.unlockForMobileSilentMode();
+    // 1. Token de cancelación único por pulsación
+    const requestId = ++this.currentPlayRequestId;
+
+    // Detener de inmediato cualquier nota anterior
     this.stopActiveSound();
 
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
+    // 2. Si el contexto está suspendido, esperar al resume sin bloquear notas posteriores
     if (ctx.state === 'suspended') {
       try {
         await ctx.resume();
       } catch {}
+      // Descartar si el usuario pulsó otra tecla mientras el hardware despertaba
+      if (requestId !== this.currentPlayRequestId) return;
     }
 
     // Si el micrófono está activo en este momento (ej. en el Afinador), suspenderlo temporalmente
@@ -151,10 +166,10 @@ export class VoicePlaybackService {
     const safeFreq = note.frequency > 20 ? note.frequency : 440;
     const midi = note.midi ?? Math.round(12 * Math.log2(safeFreq / 440) + 69);
 
-    // Guard: si la nota está fuera de las grabaciones físicas reales (Masculino: G2-B4, Femenino: A3-Fs5),
-    // no alterar ni forzar audios fuera de su rango; reproducir tono sintético limpio e inalterado.
+    // Guard: si la nota está fuera de las grabaciones físicas reales, reproducir tono sintético limpio
     const limits = VOCAL_AUDIO_LIMITS[activeGender];
     if (midi < limits.minMidi || midi > limits.maxMidi) {
+      if (requestId !== this.currentPlayRequestId) return;
       audioService.playFrequency(note.frequency, duration);
       return;
     }
@@ -170,19 +185,25 @@ export class VoicePlaybackService {
     let buffer = this.bufferCache.get(audioKey);
     const playbackRate = 1.0;
 
-    // 1. Cargar archivo de audio de la nota exacta
+    // 3. Cargar archivo si no estaba en caché descartando notas obsoletas en cada paso
     if (!buffer) {
       try {
         const res = await fetch(filePath);
+        if (requestId !== this.currentPlayRequestId) return;
         if (res.ok) {
           const ab = await res.arrayBuffer();
+          if (requestId !== this.currentPlayRequestId) return;
           buffer = await ctx.decodeAudioData(ab);
+          if (requestId !== this.currentPlayRequestId) return;
           this.bufferCache.set(audioKey, buffer);
         }
       } catch (err) {
         // Fallback al sintetizador
       }
     }
+
+    // Verificación final del token de solicitud
+    if (requestId !== this.currentPlayRequestId) return;
 
     // 3. Play audio buffer with dynamics compressor and powerful gain envelope
     if (buffer) {

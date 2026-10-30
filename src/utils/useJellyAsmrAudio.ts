@@ -1,6 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useRef} from 'react';
+import { audioService } from './audioService';
 
 export type CharacterId = 'morado' | 'fucsia' | 'amarillo' | 'naranja';
 
@@ -187,7 +188,7 @@ function unlockWebAudio(ctx: AudioContext) {
 function activatePlaybackCategory(ctx?: AudioContext | null) {
   if (typeof window === 'undefined') return;
   try {
-    if ('audioSession' in navigator) {
+    if ('audioSession' in navigator && !audioService.isMicActive()) {
       try {
         (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
       } catch {}
@@ -221,20 +222,12 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
 
 export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
-  if (!globalAudioCtx) {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as {webkitAudioContext: typeof AudioContext})
-        .webkitAudioContext;
-    if (!AudioCtx) return null;
-    globalAudioCtx = new AudioCtx();
+  const ctx = audioService.getSharedContext();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
   }
-  if (globalAudioCtx.state === 'suspended') {
-    globalAudioCtx.resume().catch(() => {});
-  }
-  activatePlaybackCategory(globalAudioCtx);
-  unlockWebAudio(globalAudioCtx);
-  return globalAudioCtx;
+  activatePlaybackCategory(ctx);
+  return ctx;
 }
 
 export function runWithAudioContext(callback: (ctx: AudioContext) => void) {

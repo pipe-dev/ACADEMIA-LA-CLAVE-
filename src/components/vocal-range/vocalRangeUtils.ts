@@ -2,7 +2,7 @@ import { VoiceClassification } from './vocalRangeTypes';
 
 // Convert Hz to Musical Note name + Octave (e.g. 261.6 Hz -> C4 / Do4)
 export function hzToNoteName(freq: number): { noteName: string; octave: number; fullName: string } {
-  if (freq < 30) return { noteName: 'C', octave: 1, fullName: 'Do1' };
+  if (!freq || isNaN(freq) || !isFinite(freq) || freq < 30) return { noteName: 'Do', octave: 1, fullName: 'Do1' };
   
   const noteNamesEs = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
   const midi = Math.round(12 * Math.log2(freq / 440) + 69);
@@ -19,7 +19,11 @@ export function hzToNoteName(freq: number): { noteName: string; octave: number; 
 
 // Determine Vocal Classification based on lowest and highest pitch in Hz and voice gender
 export function classifyVoice(minHz: number, maxHz: number, gender: 'male' | 'female' = 'male'): VoiceClassification {
+  const safeMin = Math.min(minHz || 110, maxHz || 440);
+  const safeMax = Math.max(minHz || 110, maxHz || 440);
   if (gender === 'female') {
+    const minHz = safeMin;
+    const maxHz = safeMax;
     // Canonical presets: Contralto (174-698 Hz), Mezzosoprano (220-880 Hz), Soprano (261-1046 Hz)
     if (minHz >= 240 || (maxHz >= 900 && minHz >= 195)) {
       return {

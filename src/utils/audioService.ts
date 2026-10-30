@@ -1,6 +1,8 @@
 import { logger } from './logger';
 import { emitMicActive } from './micEvents';
 
+export type AudioCaptureMode = 'tuner' | 'karaoke';
+
 /**
  * Web Audio API helper for synthesized piano/vocal notes, button feedback sound effects,
  * and microphone pitch detection using autocorrelation.
@@ -22,8 +24,13 @@ function createSilentWav(sampleRate: number = 44100): string {
 
 class AudioService {
   private ctx: AudioContext | null = null;
+  private isHeadphonesConnected: boolean = false;
   private micStream: MediaStream | null = null;
   private micSourceNode: MediaStreamAudioSourceNode | null = null;
+  private micHighpassFilter: BiquadFilterNode | null = null;
+  private micLowpassFilter: BiquadFilterNode | null = null;
+  private micPreampGain: GainNode | null = null;
+  private micSilentSink: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private isListening: boolean = false;
   private isPausedForPlayback: boolean = false;
@@ -35,6 +42,41 @@ class AudioService {
   private isSilentUnlocked: boolean = false;
   public onMicPauseChange?: (isPaused: boolean) => void;
   public lastMicError: 'denied' | 'unsupported' | 'device_busy' | null = null;
+  private activeMicStreams: Set<MediaStream> = new Set();
+  private currentPlayRequestId: number = 0;
+  private activeFrequencyNodes: {
+    osc: OscillatorNode;
+    oscHarmonic: OscillatorNode;
+    gain: GainNode;
+    harmGain: GainNode;
+  } | null = null;
+  private synthCompressor: DynamicsCompressorNode | null = null;
+
+  public hasLiveMicrophoneStream(): boolean {
+    return !!(
+      this.micStream &&
+      this.micStream.active &&
+      this.micStream.getAudioTracks().some(track => track.readyState === 'live')
+    );
+  }
+
+  public isMicActive(): boolean {
+    if (this.isListening) return true;
+    if (this.activeMicStreams.size > 0) return true;
+    if (this.micStream && this.micStream.active && this.micStream.getAudioTracks().some(t => t.readyState === 'live' && t.enabled)) {
+      return true;
+    }
+    return false;
+  }
+
+  public get isKaraokeSessionActive(): boolean {
+    return this.isMicActive();
+  }
+  public set isKaraokeSessionActive(_val: boolean) {}
+
+  public setKaraokeSessionActive(_active: boolean): void {
+    // No-op intencional: cambiar de pestaña en la Nav Bar nunca debe alterar audioSession.type
+  }
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -71,6 +113,12 @@ class AudioService {
           this.ctx.resume().catch(() => {});
         }
       });
+
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+        navigator.mediaDevices.addEventListener('devicechange', () => {
+          this.refreshAudioDevices().catch(() => {});
+        });
+      }
     }
   }
 
@@ -91,7 +139,7 @@ class AudioService {
     this.isSilentUnlocked = true;
 
     // 1. Audio Session: Playback para permitir sonido con altavoz sin activar la Dynamic Island
-    if ('audioSession' in navigator) {
+    if ('audioSession' in navigator && !this.isMicActive()) {
       try {
         (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
       } catch {}
@@ -120,8 +168,12 @@ class AudioService {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
-        this.ctx = new AudioCtx();
-        logger.info('Audio', 'AudioContext creado correctamente');
+        try {
+          this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+        } catch {
+          this.ctx = new AudioCtx();
+        }
+        logger.info('Audio', 'AudioContext creado correctamente (interactive)');
       }
     }
 
@@ -146,8 +198,12 @@ class AudioService {
     if (!this.ctx) {
       try {
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        this.ctx = new AudioCtx();
-        logger.info('Audio', 'AudioContext creado correctamente');
+        try {
+          this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+        } catch {
+          this.ctx = new AudioCtx();
+        }
+        logger.info('Audio', 'AudioContext creado correctamente (interactive)');
       } catch (err) {
         logger.error('Audio', 'No se pudo crear el AudioContext', err);
         this.ctx = null;
@@ -159,6 +215,158 @@ class AudioService {
       }).catch((err) => {
         logger.warn('Audio', 'Error al reanudar AudioContext', err);
       });
+    }
+  }
+
+  public getSharedContext(): AudioContext {
+    this.initCtx();
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      try {
+        this.ctx = new AudioCtx({ sampleRate: 48000, latencyHint: 'interactive' });
+      } catch {
+        this.ctx = new AudioCtx();
+      }
+    }
+    return this.ctx;
+  }
+
+  public isUsingHeadphones(): boolean {
+    return this.isHeadphonesConnected;
+  }
+
+  public async refreshAudioDevices(): Promise<boolean> {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        this.isHeadphonesConnected = devices.some(d => {
+          const l = (d.label || '').toLowerCase();
+          return (d.kind === 'audiooutput' || d.kind === 'audioinput') &&
+            (l.includes('headphone') || l.includes('headset') || l.includes('airpods') || l.includes('bluetooth') || l.includes('auricular') || l.includes('buds') || l.includes('wireless'));
+        });
+      }
+    } catch {}
+    return this.isHeadphonesConnected;
+  }
+
+  public async acquireMicrophoneStream(mode: AudioCaptureMode = 'karaoke'): Promise<MediaStream> {
+    // 1. Si ya tenemos un warm stream vivo, reactivarlo y retornarlo inmediatamente (0ms latencia)
+    if (this.hasLiveMicrophoneStream() && this.micStream) {
+      this.micStream.getAudioTracks().forEach(t => {
+        try { t.enabled = true; } catch {}
+      });
+      this.activeMicStreams.add(this.micStream);
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'play-and-record';
+        } catch {}
+      }
+      return this.micStream;
+    }
+
+    // 2. CRÍTICO PARA IOS SAFARI / WEBKIT:
+    // En WebKit, si navigator.audioSession.type está en 'playback', llamar a getUserMedia lanza inmediatamente:
+    // DOMException: "AudioSession category is not compatible with audio capture."
+    // Por lo tanto, DEBEMOS conmutar navigator.audioSession.type a 'play-and-record' ANTES de llamar a getUserMedia.
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'play-and-record';
+      } catch {}
+    }
+
+    // 3. Adquisición directa con filtros de voz desactivados desde el inicio (sin applyConstraints en caliente)
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+        video: false,
+      });
+    } catch (err1: any) {
+      if (err1?.name === 'NotAllowedError' || err1?.name === 'PermissionDeniedError') {
+        if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'playback';
+          } catch {}
+        }
+        throw err1;
+      }
+      // Fallback universal si el navegador no acepta constraints avanzadas
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+      } catch (fallbackErr) {
+        if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'playback';
+          } catch {}
+        }
+        throw fallbackErr;
+      }
+    }
+
+    // Guardar referencia en el singleton para reutilización warm instantánea
+    this.micStream = stream;
+    this.activeMicStreams.add(stream);
+    this.isPausedForPlayback = false;
+
+    // 4. Asegurar que los tracks de audio estén habilitados
+    const [track] = stream.getAudioTracks();
+    if (track) {
+      track.enabled = true;
+      track.addEventListener('ended', () => {
+        this.activeMicStreams.delete(stream);
+        if (this.micStream === stream) {
+          this.micStream = null;
+          this.micSourceNode = null;
+        }
+        if (!this.isMicActive()) {
+          this.releaseMicrophoneStream();
+        }
+      });
+    }
+
+    // 6. Confirmar AudioSession en 'play-and-record'
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'play-and-record';
+      } catch {}
+    }
+
+    return stream;
+  }
+
+  public releaseMicrophoneStream(stream?: MediaStream): void {
+    if (stream) {
+      this.activeMicStreams.delete(stream);
+    }
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator && !this.isMicActive()) {
+      try {
+        (navigator as any).audioSession.type = 'playback';
+      } catch {}
+    }
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+        if (navigator.mediaSession.metadata) {
+          navigator.mediaSession.metadata = null;
+        }
+      } catch {}
+    }
+    // Desbloqueo mediante buffer inaudible de 1 muestra para evitar que iOS congele la salida
+    if (this.ctx && this.ctx.state !== 'closed') {
+      try {
+        const buffer = this.ctx.createBuffer(1, 1, 22050);
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.ctx.destination);
+        source.start(0);
+      } catch {}
     }
   }
 
@@ -174,49 +382,92 @@ class AudioService {
    */
   public playFrequency(freq: number, duration: number = 1.0) {
     try {
-      this.unlockForMobileSilentMode();
+      const requestId = ++this.currentPlayRequestId;
       this.initCtx();
       if (!this.ctx) return;
 
-      if (this.isListening && !this.isPausedForPlayback) {
-        this.pauseMicrophoneForPlayback(Math.round(duration * 1000 + 200));
+      const scheduleTone = () => {
+        if (!this.ctx || requestId !== this.currentPlayRequestId) return;
+
+        if (this.isListening && !this.isPausedForPlayback) {
+          this.pauseMicrophoneForPlayback(Math.round(duration * 1000 + 200));
+        }
+
+        const now = this.ctx.currentTime;
+
+        // 1. Control de polifonía limpia: Desvanecer suavemente (fade-out 30ms) la nota anterior
+        if (this.activeFrequencyNodes) {
+          try {
+            const { osc, oscHarmonic, gain, harmGain } = this.activeFrequencyNodes;
+            gain.gain.cancelScheduledValues(now);
+            gain.gain.setValueAtTime(gain.gain.value, now);
+            gain.gain.linearRampToValueAtTime(0.0001, now + 0.03);
+
+            harmGain.gain.cancelScheduledValues(now);
+            harmGain.gain.setValueAtTime(harmGain.gain.value, now);
+            harmGain.gain.linearRampToValueAtTime(0.0001, now + 0.03);
+
+            osc.stop(now + 0.035);
+            oscHarmonic.stop(now + 0.035);
+          } catch {}
+          this.activeFrequencyNodes = null;
+        }
+
+        // 2. Compresor/Limitador del sintetizador para evitar saturación de bus en toques rápidos
+        if (!this.synthCompressor) {
+          this.synthCompressor = this.ctx.createDynamicsCompressor();
+          this.synthCompressor.threshold.setValueAtTime(-12, now);
+          this.synthCompressor.knee.setValueAtTime(10, now);
+          this.synthCompressor.ratio.setValueAtTime(6, now);
+          this.synthCompressor.attack.setValueAtTime(0.003, now);
+          this.synthCompressor.release.setValueAtTime(0.15, now);
+          this.synthCompressor.connect(this.ctx.destination);
+        }
+
+        const osc = this.ctx.createOscillator();
+        const oscHarmonic = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const harmGain = this.ctx.createGain();
+
+        // Fundamental sine
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+
+        // Warm 2nd harmonic for phone speakers
+        oscHarmonic.type = 'triangle';
+        oscHarmonic.frequency.setValueAtTime(freq * 2, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(1.2, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        harmGain.gain.setValueAtTime(0.0001, now);
+        harmGain.gain.linearRampToValueAtTime(0.30, now + 0.03);
+        harmGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.connect(gain);
+        oscHarmonic.connect(harmGain);
+        gain.connect(this.synthCompressor);
+        harmGain.connect(this.synthCompressor);
+
+        osc.start(now);
+        oscHarmonic.start(now);
+        osc.stop(now + duration);
+        oscHarmonic.stop(now + duration);
+
+        this.activeFrequencyNodes = { osc, oscHarmonic, gain, harmGain };
+      };
+
+      if (this.ctx.state === 'running') {
+        // Cero latencia: disparar inmediatamente de forma 100% síncrona
+        scheduleTone();
+      } else {
+        this.ctx.resume().then(() => {
+          if (requestId === this.currentPlayRequestId) {
+            scheduleTone();
+          }
+        }).catch(() => {});
       }
-
-      const osc = this.ctx.createOscillator();
-      const oscHarmonic = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const harmGain = this.ctx.createGain();
-
-      // Fundamental sine
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-
-      // Warm 2nd harmonic for phone speakers
-      oscHarmonic.type = 'triangle';
-      oscHarmonic.frequency.setValueAtTime(freq * 2, this.ctx.currentTime);
-
-      if (this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {});
-      }
-
-      const now = this.ctx.currentTime;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(1.65, now + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-      harmGain.gain.setValueAtTime(0.0001, now);
-      harmGain.gain.linearRampToValueAtTime(0.40, now + 0.04);
-      harmGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-      osc.connect(gain);
-      oscHarmonic.connect(harmGain);
-      gain.connect(this.ctx.destination);
-      harmGain.connect(this.ctx.destination);
-
-      osc.start(now);
-      oscHarmonic.start(now);
-      osc.stop(now + duration);
-      oscHarmonic.stop(now + duration);
     } catch (e) {
       console.warn('Audio playback not allowed yet or failed', e);
     }
@@ -1209,13 +1460,11 @@ class AudioService {
   public async startMicrophone(onPitchDetected: (pitchHz: number, volume: number) => void): Promise<boolean> {
     try {
       this.lastMicError = null;
-      this.initCtx();
-      if (!this.ctx) return false;
-      if (this.ctx.state === 'suspended') {
-        try { await this.ctx.resume(); } catch {}
-      }
 
-      // Track session and store callback for seamless resumption
+      // 1. Adquirir el stream en el PRIMER turno del gesto de usuario (sin awaits previos que maten la activación en iOS)
+      const stream = await this.acquireMicrophoneStream('tuner');
+
+      // 2. Control de sesión y callbacks
       const sessionId = ++this.micSessionId;
       this.lastPitchCallback = onPitchDetected;
       this.isListening = true;
@@ -1226,131 +1475,89 @@ class AudioService {
         this.micPauseResumeTimeoutId = null;
       }
 
-      // 1. Audio Session: MUST BE 'play-and-record' for microphone capture on iOS 17+ / WebKit
+      // 3. Audio Context & AudioSession (ahora que el stream ya está adquirido con éxito)
+      this.initCtx();
+      if (!this.ctx) return false;
+      if (this.ctx.state === 'suspended') {
+        try { await this.ctx.resume(); } catch {}
+      }
+
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
           (navigator as any).audioSession.type = 'play-and-record';
         } catch {}
       }
 
-      // 2. WARM PERSISTENT STREAM REUSE:
-      // Once permission is granted, NEVER re-prompt or destroy tracks unless the browser/OS ended them.
-      const hasLiveStream = !!(
-        this.micStream &&
-        this.micStream.active &&
-        this.micStream.getAudioTracks().some(track => track.readyState === 'live')
-      );
-
-      if (hasLiveStream && this.micStream) {
-        // Unmute and re-enable existing audio tracks
-        this.micStream.getAudioTracks().forEach(track => {
-          try { track.enabled = true; } catch {}
-        });
-
-        // Ensure nodes exist and are connected
-        if (!this.analyser && this.ctx) {
-          this.analyser = this.ctx.createAnalyser();
-          this.analyser.fftSize = 2048;
-        }
-
-        if (!this.micSourceNode && this.ctx) {
-          try {
-            this.micSourceNode = this.ctx.createMediaStreamSource(this.micStream);
-          } catch {
-            this.micSourceNode = null;
-          }
-        }
-
-        if (this.micSourceNode && this.analyser) {
-          try {
-            this.micSourceNode.disconnect();
-            this.micSourceNode.connect(this.analyser);
-          } catch {}
-        }
-
-        emitMicActive(true);
-        this.detectPitchLoop(onPitchDetected);
-        return true;
-      }
-
-      // 3. First-time or refreshed hardware acquisition
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.warn('Microphone access is not supported or restricted in this environment.');
-        this.lastMicError = 'unsupported';
-        return false;
-      }
-
-      // Clean up previous dead source node or stream before acquiring fresh one
-      if (this.micSourceNode) {
-        try { this.micSourceNode.disconnect(); } catch {}
-        this.micSourceNode = null;
-      }
-      if (this.micStream) {
-        this.micStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
-        this.micStream = null;
-      }
-
-      // 4. Solicitud de micrófono optimizada para MÚSICA y CANTO
-      let stream: MediaStream;
-      try {
-        const audioConstraints: MediaTrackConstraints = {
-          echoCancellation: { ideal: true },
-          noiseSuppression: { ideal: false },
-          autoGainControl: { ideal: false }
-        };
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
-          video: false
-        });
-      } catch (err: any) {
-        if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-          throw err;
-        }
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      }
-
-      // 5. CRITICAL RACE CONDITION GUARD:
+      // 4. Guard contra race conditions
       if (this.micSessionId !== sessionId || !this.isListening) {
-        if (stream) {
-          stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
-        }
-        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try { (navigator as any).audioSession.type = 'playback'; } catch {}
-        }
         return false;
       }
 
-      this.micStream = stream;
-
-      // Observe track termination (e.g. cellular call or OS background revocation)
-      this.micStream.getAudioTracks().forEach(track => {
-        track.enabled = true;
-        track.onended = () => {
-          if (this.micStream === stream) {
-            this.micStream = null;
-            this.micSourceNode = null;
-          }
-        };
-      });
-
-      // Persist granted state
-      try {
-        localStorage.setItem('laclave_mic_permission_granted', 'true');
-      } catch {}
-
-      // Keep audioSession in 'play-and-record' while mic is active
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-        try {
-          (navigator as any).audioSession.type = 'play-and-record';
-        } catch {}
-      }
-
-      this.micSourceNode = this.ctx.createMediaStreamSource(this.micStream);
+      // 5. Conectar los nodos de audio
       if (!this.analyser) {
         this.analyser = this.ctx.createAnalyser();
         this.analyser.fftSize = 2048;
       }
-      this.micSourceNode.connect(this.analyser);
+
+      if (this.micSourceNode) {
+        try { this.micSourceNode.disconnect(); } catch {}
+      }
+      try {
+        this.micSourceNode = this.ctx.createMediaStreamSource(stream);
+      } catch (sourceErr) {
+        console.warn('Could not create MediaStreamSource:', sourceErr);
+        this.micSourceNode = null;
+      }
+
+      if (this.micSourceNode && this.analyser) {
+        if (!this.micHighpassFilter) {
+          this.micHighpassFilter = this.ctx.createBiquadFilter();
+          this.micHighpassFilter.type = 'highpass';
+          this.micHighpassFilter.frequency.setValueAtTime(90, this.ctx.currentTime);
+          this.micHighpassFilter.Q.setValueAtTime(0.707, this.ctx.currentTime);
+        }
+        if (!this.micLowpassFilter) {
+          this.micLowpassFilter = this.ctx.createBiquadFilter();
+          this.micLowpassFilter.type = 'lowpass';
+          this.micLowpassFilter.frequency.setValueAtTime(1100, this.ctx.currentTime);
+          this.micLowpassFilter.Q.setValueAtTime(0.707, this.ctx.currentTime);
+        }
+        if (!this.micPreampGain) {
+          this.micPreampGain = this.ctx.createGain();
+        }
+        this.micPreampGain.gain.setValueAtTime(4.0, this.ctx.currentTime);
+
+        if (!this.micSilentSink) {
+          this.micSilentSink = this.ctx.createGain();
+        }
+        this.micSilentSink.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+        try { this.micHighpassFilter.disconnect(); } catch {}
+        try { this.micLowpassFilter.disconnect(); } catch {}
+        try { this.micPreampGain.disconnect(); } catch {}
+        try { this.analyser.disconnect(); } catch {}
+        try { this.micSilentSink.disconnect(); } catch {}
+
+        // Cadena: micSource -> highpass (90Hz) -> lowpass (1100Hz) -> micPreampGain (4x) -> analyser
+        this.micSourceNode.connect(this.micHighpassFilter);
+        this.micHighpassFilter.connect(this.micLowpassFilter);
+        this.micLowpassFilter.connect(this.micPreampGain);
+        this.micPreampGain.connect(this.analyser);
+
+        // Silent sink mudo (0% volumen) hacia destination (soluciona el bug de Dead-End Graph de WebKit)
+        this.analyser.connect(this.micSilentSink);
+        this.micSilentSink.connect(this.ctx.destination);
+      }
+
+      // Reanudar inmediatamente el AudioContext tras getUserMedia si iOS lo suspendió
+      if (this.ctx && this.ctx.state !== 'running') {
+        try { await this.ctx.resume(); } catch {}
+      }
+
+      // Persistir estado de permiso concedido
+      try {
+        localStorage.setItem('laclave_mic_permission_granted', 'true');
+      } catch {}
 
       emitMicActive(true);
       this.detectPitchLoop(onPitchDetected);
@@ -1377,7 +1584,6 @@ class AudioService {
       return false;
     }
   }
-
   public isMicListening(): boolean {
     return this.isListening;
   }
@@ -1398,7 +1604,7 @@ class AudioService {
    */
   public pauseMicrophoneForPlayback(durationMs: number = 2300): void {
     if (!this.isListening) {
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator && !this.isKaraokeSessionActive) {
         try {
           (navigator as any).audioSession.type = 'playback';
         } catch {}
@@ -1421,23 +1627,24 @@ class AudioService {
       this.micPauseResumeTimeoutId = null;
     }
 
-    // 1. Mute track and disconnect node so hardware capture is silent and doesn't route to earpiece
-    if (this.micStream) {
-      this.micStream.getAudioTracks().forEach(track => {
-        try { track.enabled = false; } catch {}
-      });
-    }
-    if (this.micSourceNode) {
-      try { this.micSourceNode.disconnect(); } catch {}
-      this.micSourceNode = null;
+    // Si NO estamos en sesión interactiva (karaoke/afinador activo), permitimos silenciar el track por hardware
+    if (!this.isKaraokeSessionActive) {
+      if (this.micStream) {
+        this.micStream.getAudioTracks().forEach(track => {
+          try { track.enabled = false; } catch {}
+        });
+      }
+      if (this.micSourceNode) {
+        try { this.micSourceNode.disconnect(); } catch {}
+        this.micSourceNode = null;
+      }
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'playback';
+        } catch {}
+      }
     }
 
-    // 2. Switch audio to 'playback' so reference note plays at 100% full volume on bottom loudspeaker
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'playback';
-      } catch {}
-    }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';
@@ -1446,7 +1653,6 @@ class AudioService {
 
     const currentSessionId = this.micSessionId;
 
-    // 3. Re-enable microphone seamlessly when reference note completes (no getUserMedia re-prompt!)
     this.micPauseResumeTimeoutId = setTimeout(async () => {
       this.micPauseResumeTimeoutId = null;
       if (this.isListening && this.isPausedForPlayback && this.micSessionId === currentSessionId) {
@@ -1454,7 +1660,7 @@ class AudioService {
         if (this.onMicPauseChange) {
           try { this.onMicPauseChange(false); } catch {}
         }
-        if (this.lastPitchCallback) {
+        if (!this.isKaraokeSessionActive && this.lastPitchCallback) {
           await this.startMicrophone(this.lastPitchCallback);
         }
       }
@@ -1508,18 +1714,7 @@ class AudioService {
       }
     }
 
-    // Switch to playback category so speakers have full volume
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'playback';
-      } catch {}
-    }
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.playbackState = 'none';
-      } catch {}
-    }
-
+    this.releaseMicrophoneStream();
     emitMicActive(false);
   }
 
@@ -1536,8 +1731,18 @@ class AudioService {
     this.isPitchLoopRunning = true;
 
     const loop = () => {
-      if (!this.isListening || this.isPausedForPlayback || !this.analyser || !this.ctx) {
+      if (!this.isListening || !this.analyser || !this.ctx) {
         this.isPitchLoopRunning = false;
+        return;
+      }
+
+      // Reanudar inmediatamente si iOS Safari suspendió el contexto en segundo plano
+      if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+        this.ctx.resume().catch(() => {});
+      }
+
+      if (this.isPausedForPlayback) {
+        requestAnimationFrame(loop);
         return;
       }
 
@@ -1581,11 +1786,11 @@ class AudioService {
       sumRms += val * val;
     }
     const rms = Math.sqrt(sumRms / SIZE);
-    if (rms < 0.01) return -1; // signal too weak
+    if (rms < 0.002) return -1; // signal too weak (calibrado para micrófono sin AGC de Apple)
 
     // Trim weak edges without array slicing / allocation
     let r1 = 0, r2 = SIZE - 1;
-    const thres = 0.2;
+    const thres = 0.03;
     for (let i = 0; i < SIZE / 2; i++) {
       if (Math.abs(buf[i]) < thres) { r1 = i; break; }
     }

@@ -25,6 +25,28 @@ export function useKaraokeEngine({
   onGainLife,
   onUpdateQuestProgress
 }: UseKaraokeEngineParams) {
+  // ─── Screen Wake Lock API (Evita que el teléfono apague la pantalla cantando) ───
+  const wakeLockRef = useRef<any>(null);
+
+  const requestWakeLock = useCallback(async () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator && !wakeLockRef.current) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current.addEventListener?.('release', () => {
+          wakeLockRef.current = null;
+        });
+      }
+    } catch {}
+  }, []);
+
+  const releaseWakeLock = useCallback(() => {
+    if (wakeLockRef.current) {
+      try {
+        wakeLockRef.current.release?.();
+      } catch {}
+      wakeLockRef.current = null;
+    }
+  }, []);
   // ─── Estado del Reproductor YouTube & Motor Web Audio ───
   const [activeVideoId, setActiveVideoId] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -50,7 +72,15 @@ export function useKaraokeEngine({
   const [useYtFallback, setUseYtFallback] = useState<boolean>(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState<boolean>(false);
   const [isFinished, setIsFinished] = useState<boolean>(false);
-  const [isMicEnabled, setIsMicEnabled] = useState<boolean>(true);
+  const [isMicEnabled, setIsMicEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('laclave_karaoke_mic_enabled');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+    }
+    return true;
+  });
   const [isPlaybackMode, setIsPlaybackMode] = useState<boolean>(false);
 
   const vocalRemover = useVocalRemover();
@@ -114,17 +144,14 @@ export function useKaraokeEngine({
     }
     if (!el) return;
     try {
-      const Ctor: typeof AudioContext | undefined =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) return;
-      const ctx = new Ctor();
+      // Fase 3: Reutilizar el AudioContext singleton unificado a 48000 Hz
+      const ctx = audioService.getSharedContext();
       const source = ctx.createMediaElementSource(el);
       const gain = ctx.createGain();
       gain.gain.value = 4.47; // +13 dB (x4.47)
 
       // Limitador: con +13 dB los picos del mic superan el tope de salida;
-      // el compressor corta solo los crestas (voz normal pasa sin tocar)
+      // el compressor corta solo las crestas (voz normal pasa sin tocar)
       const limiter = ctx.createDynamicsCompressor();
       limiter.threshold.value = -6;
       limiter.knee.value = 4;
@@ -147,9 +174,10 @@ export function useKaraokeEngine({
   // El grafo se libera solo cuando el motor karaoke se desmonta
   useEffect(() => {
     return () => {
+      releaseWakeLock();
       if (recordingBoostRef.current) {
         try {
-          recordingBoostRef.current.ctx.close().catch(() => {});
+          recordingBoostRef.current.gain.disconnect();
         } catch {}
         recordingBoostRef.current = null;
       }
@@ -162,6 +190,7 @@ export function useKaraokeEngine({
     hasCompletedRef.current = true;
 
     setIsPlaying(false);
+      releaseWakeLock();
     setIsFinished(true);
     stopPitchDetection();
 
@@ -233,7 +262,9 @@ export function useKaraokeEngine({
   // ─── Bucle de Tiempo a 60 FPS con requestAnimationFrame ───
   const updatePlaybackTime = useCallback(() => {
     let t = 0;
-    if (!useYtFallback && vocalRemover.isReady) {
+    if (isPlaybackMode && audioPlaybackRef.current) {
+      t = audioPlaybackRef.current.currentTime || 0;
+    } else if (!useYtFallback && vocalRemover.isReady) {
       t = vocalRemover.getCurrentTime() || 0;
     } else if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
       t = playerRef.current.getCurrentTime() || 0;
@@ -241,12 +272,6 @@ export function useKaraokeEngine({
 
     if (t > 0 || isPlaying) {
       setCurrentTime(t);
-
-      if (isPlaybackMode && audioPlaybackRef.current) {
-        if (Math.abs(audioPlaybackRef.current.currentTime - t) > 0.25) {
-          audioPlaybackRef.current.currentTime = t;
-        }
-      }
     }
 
     const trackDur = !useYtFallback ? vocalRemover.duration : duration;
@@ -296,22 +321,17 @@ export function useKaraokeEngine({
       setIsPlaying(vocalRemover.isPlaying);
       if (vocalRemover.isPlaying) {
         setAutoplayBlocked(false);
-        if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-          startPitchDetection();
-        }
       } else if (!hasCompletedRef.current && !isFinished) {
         vocalRemover.play().then((started) => {
           if (started) {
             setIsPlaying(true);
+            requestWakeLock();
             setAutoplayBlocked(false);
-            if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-              startPitchDetection();
-            }
           }
         }).catch(() => {});
       }
     }
-  }, [useYtFallback, vocalRemover.isReady, vocalRemover.isPlaying, isFinished, isMicEnabled, isDetecting, isPlaybackMode, startPitchDetection, vocalRemover]);
+  }, [useYtFallback, vocalRemover.isReady, vocalRemover.isPlaying, isFinished]);
 
   useEffect(() => {
     if (!useYtFallback && vocalRemover.duration > 0) {
@@ -358,7 +378,9 @@ export function useKaraokeEngine({
       } catch {}
 
       if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-        startPitchDetection();
+        if (audioService.hasLiveMicrophoneStream() || audioService.isMicActive()) {
+          startPitchDetection(vocalRemover.getAudioContext(), vocalRemover.getTrackOutputGain?.(), audioService.isUsingHeadphones());
+        }
       }
       if (isPlaybackMode && audioPlaybackRef.current) {
         ensureRecordingBoost();
@@ -461,17 +483,37 @@ export function useKaraokeEngine({
       setAutoplayBlocked(false);
     }
 
+    // Modo autoevaluación: alternar reproducción de la grabación del alumno
+    if (isPlaybackMode && audioPlaybackRef.current) {
+      if (isPlaying) {
+        audioPlaybackRef.current.pause();
+        setIsPlaying(false);
+        releaseWakeLock();
+      } else {
+        ensureRecordingBoost();
+        audioPlaybackRef.current.play().catch(console.error);
+        setIsPlaying(true);
+        requestWakeLock();
+      }
+      return;
+    }
+
     if (!useYtFallback) {
       if (vocalRemover.isPlaying) {
         pausePlayback();
       } else {
+        if (isMicEnabled && !isDetecting && !isPlaybackMode) {
+          startPitchDetection(
+            vocalRemover.getAudioContext(),
+            vocalRemover.getTrackOutputGain?.(),
+            audioService.isUsingHeadphones(),
+            true
+          ).catch(() => {});
+        }
         const started = await vocalRemover.play();
         if (started) {
           setIsPlaying(true);
           setAutoplayBlocked(false);
-          if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-            startPitchDetection();
-          }
           if (isPlaybackMode && audioPlaybackRef.current) {
             ensureRecordingBoost();
             audioPlaybackRef.current.play().catch(console.error);
@@ -488,11 +530,16 @@ export function useKaraokeEngine({
       if (state === 1) {
         pausePlayback();
       } else {
+        if (isMicEnabled && !isDetecting && !isPlaybackMode) {
+          startPitchDetection(
+            vocalRemover.getAudioContext(),
+            vocalRemover.getTrackOutputGain?.(),
+            audioService.isUsingHeadphones(),
+            true
+          ).catch(() => {});
+        }
         playerRef.current.playVideo();
         setIsPlaying(true);
-        if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-          startPitchDetection();
-        }
         if (isPlaybackMode && audioPlaybackRef.current) {
           ensureRecordingBoost();
           audioPlaybackRef.current.play().catch(console.error);
@@ -503,38 +550,60 @@ export function useKaraokeEngine({
 
   const toggleMic = useCallback(async () => {
     audioService.playClickSound();
-    if (isMicEnabled) {
+    if (isDetecting && isMicEnabled) {
       stopPitchDetection();
       setIsMicEnabled(false);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('laclave_karaoke_mic_enabled', 'false');
+      }
     } else {
       setIsMicEnabled(true);
-      if (isPlaying) {
-        startPitchDetection();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('laclave_karaoke_mic_enabled', 'true');
+      }
+      vocalRemover.ensureContextActive?.();
+      const ok = await startPitchDetection(
+        vocalRemover.getAudioContext(),
+        vocalRemover.getTrackOutputGain?.(),
+        audioService.isUsingHeadphones(),
+        true
+      );
+      if (!ok) {
+        setIsMicEnabled(false);
       }
     }
-  }, [isMicEnabled, isPlaying, startPitchDetection, stopPitchDetection, vocalRemover]);
+  }, [isDetecting, isMicEnabled, startPitchDetection, stopPitchDetection, vocalRemover]);
 
   const handlePlayRecording = useCallback(() => {
     audioService.playClickSound();
     setIsPlaybackMode(true);
     hasCompletedRef.current = false;
     setIsFinished(false);
+
+    // Pausar la pista en vivo para evitar duplicar el audio con la grabación
     if (!useYtFallback) {
-      vocalRemover.setTime(0);
-      vocalRemover.play();
+      vocalRemover.pause();
     } else if (playerRef.current) {
-      playerRef.current.seekTo(0);
-      playerRef.current.playVideo();
+      try { playerRef.current.pauseVideo(); } catch {}
     }
+
     setIsPlaying(true);
+    requestWakeLock();
     if (audioPlaybackRef.current) {
       ensureRecordingBoost();
       audioPlaybackRef.current.currentTime = 0;
       audioPlaybackRef.current.play().catch(console.error);
     }
-  }, [ensureRecordingBoost, useYtFallback, vocalRemover]);
+  }, [ensureRecordingBoost, requestWakeLock, useYtFallback, vocalRemover]);
 
   const handleReplaySong = useCallback(() => {
+    setIsPlaybackMode(false);
+    if (audioPlaybackRef.current) {
+      try {
+        audioPlaybackRef.current.pause();
+        audioPlaybackRef.current.currentTime = 0;
+      } catch {}
+    }
     hasCompletedRef.current = false;
     setIsFinished(false);
     scoring.resetScoring();
@@ -550,7 +619,12 @@ export function useKaraokeEngine({
     }
     setIsPlaying(true);
     if (isMicEnabled && !isDetecting) {
-      startPitchDetection();
+      startPitchDetection(
+        vocalRemover.getAudioContext(),
+        vocalRemover.getTrackOutputGain?.(),
+        audioService.isUsingHeadphones(),
+        true
+      ).catch(() => {});
     }
   }, [isDetecting, isMicEnabled, scoring, startPitchDetection, useYtFallback, vocalRemover]);
 

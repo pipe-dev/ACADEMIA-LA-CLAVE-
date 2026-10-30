@@ -1,3 +1,4 @@
+import { audioService } from '@/utils/audioService';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 
@@ -46,6 +47,7 @@ export function useVocalRemover(initialVideoId?: string) {
   const makeupGainRef = useRef<GainNode | null>(null);
   const compressorRef = useRef<DynamicsCompressorNode | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
+  const trackOutputGainRef = useRef<GainNode | null>(null);
 
   // Niveles guardados
   const vocalLevelRef = useRef<number>(0);
@@ -123,10 +125,24 @@ export function useVocalRemover(initialVideoId?: string) {
       audioRef.current.load();
       audioRef.current = null;
     }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
+    // Desconectar los nodos del grafo para liberar recursos en WebKit sin cerrar el singleton
+    try {
+      bassGainRef.current?.disconnect();
+      bassSub80ShelfRef.current?.disconnect();
+      bassSubsonicCutRef.current?.disconnect();
+      midCenterGainRef.current?.disconnect();
+      sideReverbNotchRef.current?.disconnect();
+      sideBusGainRef.current?.disconnect();
+      highGainRef.current?.disconnect();
+      makeupGainRef.current?.disconnect();
+      compressorRef.current?.disconnect();
+      masterGainRef.current?.disconnect();
+      trackOutputGainRef.current?.disconnect();
+    } catch {}
+
+    // El AudioContext es un singleton compartido (audioService.getSharedContext);
+    // no cerrarlo para no afectar otros módulos ni forzar a iOS a reiniciar el hardware
+    audioContextRef.current = null;
     bassGainRef.current = null;
     bassSub80ShelfRef.current = null;
     bassSubsonicCutRef.current = null;
@@ -137,6 +153,7 @@ export function useVocalRemover(initialVideoId?: string) {
     makeupGainRef.current = null;
     compressorRef.current = null;
     masterGainRef.current = null;
+    trackOutputGainRef.current = null;
 
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
@@ -165,7 +182,9 @@ export function useVocalRemover(initialVideoId?: string) {
 
   const setMasterVolume = useCallback((vol: number) => { // 0 a 100
     if (masterGainRef.current) {
-      masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100));
+      const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const scale = isIos ? 1.45 : 1.0;
+      masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * scale;
     }
   }, []);
 
@@ -189,16 +208,19 @@ export function useVocalRemover(initialVideoId?: string) {
       audio.setAttribute('playsinline', 'true');
       audio.setAttribute('webkit-playsinline', 'true');
       audio.src = audioUrl;
+      audio.volume = 1.0;
       audioRef.current = audio;
 
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator && !audioService.isKaraokeSessionActive) {
         try {
           (navigator as any).audioSession.type = 'playback';
         } catch {}
       }
 
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContextClass();
+      const ctx = audioService.getSharedContext();
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
+      }
       audioContextRef.current = ctx;
 
       const source = ctx.createMediaElementSource(audio);
@@ -403,7 +425,8 @@ export function useVocalRemover(initialVideoId?: string) {
       compressorRef.current = compressor;
 
       const masterGain = ctx.createGain();
-      masterGain.gain.value = 1.0;
+      const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      masterGain.gain.value = isIosDevice ? 1.45 : 1.0;
       masterGainRef.current = masterGain;
 
       // Limitador final tipo Brickwall para garantizar CERO distorsión o clipeo aun con el boost de volumen en iOS
@@ -414,11 +437,19 @@ export function useVocalRemover(initialVideoId?: string) {
       brickwallLimiter.attack.setValueAtTime(0.002, ctx.currentTime);
       brickwallLimiter.release.setValueAtTime(0.05, ctx.currentTime);
 
+      const trackOutputGain = ctx.createGain();
+      trackOutputGain.gain.value = 1.0;
+      trackOutputGainRef.current = trackOutputGain;
+
+      // Fase 3: Salida Doble del Procesamiento DSP
+      // Salida A (Bus de Grabación): Pista pura nivelada a ganancia unitaria sin afectarse por el volumen del altavoz
+      // Salida B (Altavoces): Controlada por masterGain del usuario con compensación de potencia para iPhone
       merger.connect(makeupGain);
       makeupGain.connect(compressor);
-      compressor.connect(masterGain);
-      masterGain.connect(brickwallLimiter);
-      brickwallLimiter.connect(ctx.destination);
+      compressor.connect(brickwallLimiter);
+      brickwallLimiter.connect(trackOutputGain); // Bus de grabación (getTrackOutputGain)
+      brickwallLimiter.connect(masterGain);      // Bus de altavoces
+      masterGain.connect(ctx.destination);
 
       // Aplicar ganancias iniciales exactas
       vocalLevelRef.current = initialVocalLevel;
@@ -529,6 +560,18 @@ export function useVocalRemover(initialVideoId?: string) {
     }
   }, []);
 
+  const ensureContextActive = useCallback(async () => {
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      try {
+        await audioContextRef.current.resume();
+      } catch {}
+    }
+  }, []);
+
+  const getTrackOutputGain = useCallback(() => {
+    return trackOutputGainRef.current;
+  }, []);
+
   const getAudioContext = useCallback(() => {
     return audioContextRef.current;
   }, []);
@@ -550,6 +593,8 @@ export function useVocalRemover(initialVideoId?: string) {
     setTime, 
     getCurrentTime, 
     getAudioContext,
+    getTrackOutputGain,
+    ensureContextActive,
     destroy, 
     isPlaying, 
     isReady, 

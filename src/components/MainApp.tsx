@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { TabType, LessonNode } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mic } from 'lucide-react';
@@ -36,13 +36,42 @@ export default function MainApp() {
   const [isRecoveryExamOpen, setIsRecoveryExamOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
-  const handleTabChange = (newTab: TabType) => {
+  const handleTabChange = useCallback((newTab: TabType) => {
     if (newTab === activeTab) return;
     const currentIdx = TAB_ORDER[activeTab];
     const newIdx = TAB_ORDER[newTab];
     setTabDirection(newIdx > currentIdx ? 1 : -1);
-    setActiveTab(newTab);
-  };
+    React.startTransition(() => {
+      setActiveTab(newTab);
+    });
+  }, [activeTab]);
+
+  // Idle prefetch: warm up view modules after initial mount so first tap has 0ms chunk delay
+  useEffect(() => {
+    const prefetchViews = () => {
+      import('./AfinadorView').catch(() => {});
+      import('./PracticaView').catch(() => {});
+      import('./ProgresoView').catch(() => {});
+      import('./StreakFlameView').catch(() => {});
+    };
+
+    if (typeof window === 'undefined') return;
+
+    if ('requestIdleCallback' in window) {
+      const handle = (window as unknown as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback(
+        prefetchViews,
+        { timeout: 3000 }
+      );
+      return () => {
+        if ('cancelIdleCallback' in window) {
+          (window as unknown as { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(handle);
+        }
+      };
+    } else {
+      const timer = setTimeout(prefetchViews, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Theme & Zen State
   const {

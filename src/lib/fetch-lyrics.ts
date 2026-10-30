@@ -112,7 +112,7 @@ function scoreLyricCandidate(targetTitle: string, targetArtist: string, candidat
 
   // Bonificación por letra sincronizada (preferida), pero valorar las estáticas
   if (candidate.syncedLyrics && candidate.syncedLyrics.trim().length > 10) {
-    score += 30;
+    score += 50;
   } else if (candidate.plainLyrics && candidate.plainLyrics.trim().length > 10) {
     score += 15;
   }
@@ -140,21 +140,25 @@ export async function fetchLyrics(titleOrQuery: string, artist?: string): Promis
     const title = stripVideoMarkers(rawTitle);
     const cleanArtist = artist || '';
 
-    // Cache key v4 para invalidar y descartar cachés viejos
-    const cacheKey = `lyrics_v4_${cleanString(title)}_${cleanString(cleanArtist)}`;
+    // Cache key v6 para invalidar y purgar versiones anteriores
+    const cacheKey = `lyrics_v6_${cleanString(title)}_${cleanString(cleanArtist)}`;
     if (typeof window !== 'undefined') {
       try {
-        // Limpieza de claves obsoletas v2 y v3 si existen
-        const v2Key = `lyrics_v2_${cleanString(title)}_${cleanString(cleanArtist)}`;
-        const v3Key = `lyrics_v3_${cleanString(title)}_${cleanString(cleanArtist)}`;
-        if (localStorage.getItem(v2Key)) localStorage.removeItem(v2Key);
-        if (localStorage.getItem(v3Key)) localStorage.removeItem(v3Key);
+        // Limpieza de claves obsoletas v2, v3, v4, v5 si existen
+        for (let v = 2; v <= 5; v++) {
+          const oldKey = `lyrics_v${v}_${cleanString(title)}_${cleanString(cleanArtist)}`;
+          if (localStorage.getItem(oldKey)) localStorage.removeItem(oldKey);
+        }
 
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (scoreLyricCandidate(title, cleanArtist, parsed) > 0) {
+          // Si el caché tiene letra sincronizada válida, aceptarlo de inmediato
+          if (parsed && parsed.syncedLyrics && parsed.parsedLyrics?.length > 0 && scoreLyricCandidate(title, cleanArtist, parsed) > 0) {
             return parsed;
+          } else {
+            // Si el caché solo tenía letra estática, purgarlo para reintentar obtener letra sincronizada
+            localStorage.removeItem(cacheKey);
           }
         }
       } catch(e) {}
@@ -183,7 +187,7 @@ export async function fetchLyrics(titleOrQuery: string, artist?: string): Promis
           const directGet = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
           if (directGet.ok) {
             const single = await directGet.json();
-            if (single && (single.syncedLyrics || single.plainLyrics)) {
+            if (single && single.syncedLyrics && single.syncedLyrics.trim().length > 10) {
               data = [single];
             }
           }

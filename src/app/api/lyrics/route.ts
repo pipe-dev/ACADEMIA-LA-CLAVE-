@@ -88,6 +88,17 @@ export async function GET(request: Request) {
       artistsToTry.push(...splitArtists);
     }
 
+    let plainFallback: any = null;
+
+    // Helper para ordenar candidatos priorizando aquellos con letra sincronizada (syncedLyrics)
+    const prioritizeSynced = (list: any[]): any[] => {
+      return [...list].sort((a, b) => {
+        const aSync = a?.syncedLyrics && a.syncedLyrics.trim().length > 10 ? 1 : 0;
+        const bSync = b?.syncedLyrics && b.syncedLyrics.trim().length > 10 ? 1 : 0;
+        return bSync - aSync;
+      });
+    };
+
     // 2. Intentar coincidencia directa 100% en LRCLIB /api/get
     if (cleanTitle && artistsToTry.length > 0) {
       for (const art of artistsToTry) {
@@ -97,8 +108,13 @@ export async function GET(request: Request) {
         if (getRes.status === 200 && getRes.data) {
           try {
             const exactTrack = JSON.parse(getRes.data);
-            if (exactTrack && (exactTrack.syncedLyrics || exactTrack.plainLyrics)) {
+            if (exactTrack?.syncedLyrics && exactTrack.syncedLyrics.trim().length > 10) {
+              // Si /api/get ya incluye letra sincronizada, es el match perfecto instantáneo
               return NextResponse.json([exactTrack], { headers: cacheHeaders });
+            } else if (exactTrack?.plainLyrics && !plainFallback) {
+              // Si solo tiene letra estática, guardarla como respaldo pero NO detenernos aquí:
+              // buscaremos si en /api/search existe otra versión de la canción con letra sincronizada
+              plainFallback = exactTrack;
             }
           } catch (e) {
             console.error("LRCLIB /api/get parse error", e);
@@ -115,7 +131,11 @@ export async function GET(request: Request) {
           try {
             const json = JSON.parse(specificRes.data);
             if (Array.isArray(json) && json.length > 0) {
-              return NextResponse.json(json, { headers: cacheHeaders });
+              const sorted = prioritizeSynced(json);
+              // Si encontramos candidatos y al menos uno tiene sincronizada (o no teníamos fallback), retornar
+              if (sorted.some((it: any) => it.syncedLyrics && it.syncedLyrics.trim().length > 10) || !plainFallback) {
+                return NextResponse.json(sorted, { headers: cacheHeaders });
+              }
             }
           } catch (e) {
             console.error("LRCLIB specific search error", e);
@@ -132,7 +152,10 @@ export async function GET(request: Request) {
         try {
           const json = JSON.parse(combinedRes.data);
           if (Array.isArray(json) && json.length > 0) {
-            return NextResponse.json(json, { headers: cacheHeaders });
+            const sorted = prioritizeSynced(json);
+            if (sorted.some((it: any) => it.syncedLyrics && it.syncedLyrics.trim().length > 10) || !plainFallback) {
+              return NextResponse.json(sorted, { headers: cacheHeaders });
+            }
           }
         } catch (e) {
           console.error("LRCLIB combined search error", e);
@@ -141,7 +164,6 @@ export async function GET(request: Request) {
     }
 
     // 5. Búsqueda por título si no se proveyó artista O si el título es distintivo
-    // (Permite encontrar alabanzas/himnos/covers internacionales que están grabados por ministerios diferentes)
     if (cleanTitle && (!cleanArtist || isDistinctiveTitle(cleanTitle))) {
       const matchTrackName = (item: any): boolean => {
         if (!item || !item.trackName) return false;
@@ -157,9 +179,11 @@ export async function GET(request: Request) {
         try {
           const json = JSON.parse(lrcRes.data);
           if (Array.isArray(json) && json.length > 0) {
-            const matches = json.filter(matchTrackName);
+            const matches = prioritizeSynced(json.filter(matchTrackName));
             if (matches.length > 0) {
-              return NextResponse.json(matches, { headers: cacheHeaders });
+              if (matches.some((it: any) => it.syncedLyrics && it.syncedLyrics.trim().length > 10) || !plainFallback) {
+                return NextResponse.json(matches, { headers: cacheHeaders });
+              }
             }
           }
         } catch (e) {
@@ -175,15 +199,22 @@ export async function GET(request: Request) {
         try {
           const json = JSON.parse(lrcGenRes.data);
           if (Array.isArray(json) && json.length > 0) {
-            const matches = json.filter(matchTrackName);
+            const matches = prioritizeSynced(json.filter(matchTrackName));
             if (matches.length > 0) {
-              return NextResponse.json(matches, { headers: cacheHeaders });
+              if (matches.some((it: any) => it.syncedLyrics && it.syncedLyrics.trim().length > 10) || !plainFallback) {
+                return NextResponse.json(matches, { headers: cacheHeaders });
+              }
             }
           }
         } catch (e) {
           console.error("LRCLIB general search error", e);
         }
       }
+    }
+
+    // 5.5 Si encontramos una letra estática exacta previa en /api/get y no hubo versión sincronizada, usarla antes de Genius
+    if (plainFallback) {
+      return NextResponse.json([plainFallback], { headers: cacheHeaders });
     }
 
     // 6. Fallback a Genius para letras estáticas (con User-Agent y timeout seguro)

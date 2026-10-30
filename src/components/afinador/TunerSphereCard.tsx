@@ -269,8 +269,8 @@ export const TunerSphereCard: React.FC<TunerSphereCardProps> = ({
               className={`w-22 h-22 rounded-full flex flex-col items-center justify-center text-white shadow-xl transition-all duration-300 relative cursor-pointer ${sphereStyle}`}
               style={{
                 transform:
-                  isTuningActive && volume > 0.02
-                    ? `scale(${1 + Math.min(0.18, volume * 1.5)})`
+                  isTuningActive && volume > 0.003
+                    ? `scale(${1 + Math.min(0.18, volume * 3.5)})`
                     : undefined
               }}
             >
@@ -335,8 +335,8 @@ export const TunerSphereCard: React.FC<TunerSphereCardProps> = ({
         <div className="relative z-10 flex items-end justify-center gap-2 h-12 pt-2">
           {[40, 65, 85, 45, 75, 95, 60].map((baseHeight, i) => {
             const dynamicHeight =
-              isTuningActive && volume > 0.01
-                ? Math.min(100, Math.max(20, baseHeight * (volume * 15)))
+              isTuningActive && volume > 0.002
+                ? Math.min(100, Math.max(20, baseHeight * (volume * 40)))
                 : baseHeight * 0.4;
             return (
               <div

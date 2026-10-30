@@ -415,7 +415,7 @@ export function markVocalRangeCheckCompleted(): void {
 export function getEvaluationComparison(newMinHz: number, newMaxHz: number): EvaluationComparison {
   const minNote = hzToNoteName(newMinHz).fullName;
   const maxNote = hzToNoteName(newMaxHz).fullName;
-  const octavesStr = (Math.log2(newMaxHz / newMinHz)).toFixed(1);
+  const octavesStr = (newMinHz > 0 && newMaxHz > 0 && newMaxHz >= newMinHz) ? (Math.log2(newMaxHz / newMinHz)).toFixed(1) : "0.0";
 
   const createFirstRecord = (): EvaluationComparison => ({
     type: 'first',

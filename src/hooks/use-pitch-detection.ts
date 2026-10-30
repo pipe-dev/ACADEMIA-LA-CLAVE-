@@ -4,6 +4,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useToast } from "./use-toast";
 import { emitMicActive } from "@/utils/micEvents";
+import { audioService } from "@/utils/audioService";
 
 type Note = {
   name: string;
@@ -43,9 +44,8 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   }
   rms = Math.sqrt(rms / SIZE);
 
-  // Ignorar ruido de fondo (Silence threshold)
-  // Bajar un poco el umbral para detectar susurros o voces suaves
-  if (rms < 0.01) {
+  // Ignorar ruido de fondo (Silence threshold calibrado para voz cruda sin AGC de Apple)
+  if (rms < 0.002) {
     return -1;
   }
 
@@ -131,7 +131,11 @@ export const usePitchDetection = () => {
   const isSharedContextRef = useRef<boolean>(false);
   const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const highpassFilterRef = useRef<BiquadFilterNode | null>(null);
   const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const recordDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const vocalRecordNodesRef = useRef<{ pop?: BiquadFilterNode; comp?: DynamicsCompressorNode; gain?: GainNode } | null>(null);
+  const backingNodesRef = useRef<{ delay?: DelayNode; gain?: GainNode } | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameId = useRef<number | null>(null);
   const isSilent = useRef(true);
@@ -139,42 +143,23 @@ export const usePitchDetection = () => {
 
   const bufferRef = useRef<Float32Array | null>(null);
   const isMicEmittedRef = useRef<boolean>(false);
+  const isStartingRef = useRef<boolean>(false);
+  const lastErrorToastTimeRef = useRef<number>(0);
 
-  const start = useCallback(async (_externalCtx?: AudioContext | null) => {
+  const start = useCallback(async (
+    _externalCtx?: AudioContext | null,
+    trackOutputGain?: GainNode | null,
+    isUsingHeadphones?: boolean,
+    userInitiated: boolean = false
+  ): Promise<boolean> => {
+    if (isStartingRef.current || (streamRef.current && isDetecting)) {
+      return isDetecting;
+    }
+    isStartingRef.current = true;
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // 1. AudioSession Preparation (WebKit/iOS):
-        // Ajustar a 'auto' antes de pedir permisos para evitar InvalidStateError si estaba en 'playback',
-        // pero NUNCA forzar 'play-and-record' que activa el modo llamada (earpiece, VoiceProcessingIO, Bluetooth SCO mono).
-        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'auto';
-          } catch {}
-        }
-
-        // 2. Solicitud de micrófono estándar y pura para música (sin procesadores destructivos de llamada telefónica)
-        let stream: MediaStream;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-            },
-            video: false
-          });
-        } catch {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              audio: {
-                echoCancellation: false,
-              },
-              video: false
-            });
-          } catch {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          }
-        }
+      if (navigator.mediaDevices) {
+        // Fase 1: Adquirir stream centralizado sin duplicar getUserMedia ni filtros VoiceProcessingIO
+        const stream = await audioService.acquireMicrophoneStream('karaoke');
         streamRef.current = stream;
 
         // Asegurar que los tracks de audio permanezcan activos
@@ -182,73 +167,131 @@ export const usePitchDetection = () => {
           t.enabled = true;
         });
 
-        // 3. AudioContext DEDICADO EXCLUSIVAMENTE al análisis de afinación:
-        // En iOS Safari / WebKit, NUNCA debemos crear un MediaStreamSource sobre el AudioContext
-        // que reproduce la música (vocalRemover). Al mantener un AudioContext aislado que NUNCA
-        // se conecta a destination (solo source -> lowpassFilter -> analyser), iOS reconoce que la música
-        // es reproducción pura en estéreo de alta fidelidad (48kHz/44.1kHz) y NO activa VoiceProcessingIO
-        // ni cancela el fondo como si fuera una llamada telefónica.
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const context = new AudioContextClass();
+        // Fase 3: AudioContext Unificado a 48000 Hz nativos
+        const context = _externalCtx || audioService.getSharedContext();
         if (context.state === 'suspended') {
           await context.resume();
         }
-        isSharedContextRef.current = false;
-        const source = context.createMediaStreamSource(stream);
-
         audioContextRef.current = context;
+        isSharedContextRef.current = true;
+
+        const source = context.createMediaStreamSource(stream);
         mediaStreamSourceRef.current = source;
 
         analyserRef.current = context.createAnalyser();
-        analyserRef.current.fftSize = 2048; // Reducido para óptimo rendimiento móvil
-        
+        analyserRef.current.fftSize = 2048;
+
+        // Fase 2: Filtro pasa-banda vocal antes del AnalyserNode
+        // 1. High-pass a 90 Hz (Q = 0.707) para cortar el subgrave y el bombo del altavoz
+        const highpassFilter = context.createBiquadFilter();
+        highpassFilter.type = 'highpass';
+        highpassFilter.frequency.setValueAtTime(90, context.currentTime);
+        highpassFilter.Q.setValueAtTime(0.707, context.currentTime);
+        highpassFilterRef.current = highpassFilter;
+
+        // 2. Low-pass a 1100 Hz (Q = 0.707) para cortar platillos y armónicos agudos
         const lowpassFilter = context.createBiquadFilter();
         lowpassFilter.type = 'lowpass';
-        lowpassFilter.frequency.setValueAtTime(800, context.currentTime);
+        lowpassFilter.frequency.setValueAtTime(1100, context.currentTime);
+        lowpassFilter.Q.setValueAtTime(0.707, context.currentTime);
         lowpassFilterRef.current = lowpassFilter;
 
-        // Conectar micrófono SOLO al analizador (NUNCA a destination para evitar feedback acústico)
-        source.connect(lowpassFilter).connect(analyserRef.current);
-        
-        // Setup MediaRecorder for RAM Audio Recording
+        // Pre-amplificador 4x para señal de micrófono sin AGC de Apple
+        const micBoostGain = context.createGain();
+        micBoostGain.gain.setValueAtTime(4.0, context.currentTime);
+
+        // Cadena de análisis: Mic -> HighPass (90Hz) -> LowPass (1100Hz) -> PreAmp (4x) -> Analyser
+        source.connect(highpassFilter).connect(lowpassFilter).connect(micBoostGain).connect(analyserRef.current);
+
+        // Silent sink mudo (0% volumen) hacia destination (soluciona el bug de Dead-End Graph de WebKit en iOS)
+        const silentSink = context.createGain();
+        silentSink.gain.setValueAtTime(0.0, context.currentTime);
+        analyserRef.current.connect(silentSink);
+        silentSink.connect(context.destination);
+
+        if (context.state !== 'running') {
+          await context.resume().catch(() => {});
+        }
+
+        // Fase 4: Bus de Mezcla para Grabación de Estudio (MediaStreamAudioDestinationNode)
         if (audioBlobUrl) {
           URL.revokeObjectURL(audioBlobUrl);
           setAudioBlobUrl(null);
         }
         audioChunksRef.current = [];
+
         try {
-          const mediaRecorder = new MediaRecorder(stream, {
-            mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-          });
-          
+          const recordDestination = context.createMediaStreamDestination();
+          recordDestinationRef.current = recordDestination;
+
+          // Rama vocal para grabación:
+          // Highpass a 80 Hz para eliminar golpes de aire (plosivas P/B) y ruido de sostener el teléfono
+          const vocalPopFilter = context.createBiquadFilter();
+          vocalPopFilter.type = 'highpass';
+          vocalPopFilter.frequency.setValueAtTime(80, context.currentTime);
+          vocalPopFilter.Q.setValueAtTime(0.707, context.currentTime);
+
+          // Compresor suave para nivelar la voz del alumno
+          const vocalCompressor = context.createDynamicsCompressor();
+          vocalCompressor.threshold.setValueAtTime(-24, context.currentTime);
+          vocalCompressor.knee.setValueAtTime(30, context.currentTime);
+          vocalCompressor.ratio.setValueAtTime(4, context.currentTime);
+          vocalCompressor.attack.setValueAtTime(0.005, context.currentTime);
+          vocalCompressor.release.setValueAtTime(0.25, context.currentTime);
+
+          const vocalRecordGain = context.createGain();
+          vocalRecordGain.gain.setValueAtTime(1.4, context.currentTime);
+
+          source.connect(vocalPopFilter);
+          vocalPopFilter.connect(vocalCompressor);
+          vocalCompressor.connect(vocalRecordGain);
+          vocalRecordGain.connect(recordDestination);
+
+          // Rama de la pista (si hay audífonos conectados):
+          const headphonesActive = isUsingHeadphones ?? audioService.isUsingHeadphones();
+          if (headphonesActive && trackOutputGain) {
+            // DelayNode de 35 ms para compensar la latencia de entrada de iOS/Android
+            const latencyDelay = context.createDelay(0.2);
+            latencyDelay.delayTime.setValueAtTime(0.035, context.currentTime);
+
+            const backingRecordGain = context.createGain();
+            backingRecordGain.gain.setValueAtTime(0.65, context.currentTime);
+
+            trackOutputGain.connect(latencyDelay);
+            latencyDelay.connect(backingRecordGain);
+            backingRecordGain.connect(recordDestination);
+            backingNodesRef.current = { delay: latencyDelay, gain: backingRecordGain };
+          }
+          vocalRecordNodesRef.current = { pop: vocalPopFilter, comp: vocalCompressor, gain: vocalRecordGain };
+
+          // MediaRecorder multiplataforma: audio/mp4 en iOS Safari, audio/webm en Android/Chrome
+          const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
+            : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+              ? 'audio/webm;codecs=opus'
+              : 'audio/webm';
+
+          const mediaRecorder = new MediaRecorder(recordDestination.stream, { mimeType });
+
           mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) {
               audioChunksRef.current.push(e.data);
             }
           };
-          
+
           mediaRecorder.onstop = () => {
             const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
             const url = URL.createObjectURL(blob);
             setAudioBlobUrl(url);
           };
-          
-          mediaRecorder.start(1000); // fragmentar cada 1s
+
+          mediaRecorder.start(1000);
           mediaRecorderRef.current = mediaRecorder;
         } catch (recErr) {
           console.warn('[usePitchDetection] MediaRecorder no disponible en este dispositivo:', recErr);
         }
-        
-        isSilent.current = true;
-        smoothedCentsRef.current = 0;
-        lastStateUpdateTime.current = 0;
-        setSmoothedCentsOff(0);
-        setRms(0);
         setIsDetecting(true);
-        if (!isMicEmittedRef.current) {
-          isMicEmittedRef.current = true;
-          emitMicActive(true);
-        }
+        return true;
       } else {
         throw new Error("getUserMedia not supported on your browser!");
       }
@@ -262,28 +305,31 @@ export const usePitchDetection = () => {
       }
       setIsDetecting(false);
 
-      // Solo alertar "Acceso al Micrófono Denegado" si el error realmente es de permisos
-      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-        const isStandalone =
-          typeof window !== 'undefined' &&
-          typeof window.matchMedia === 'function' &&
-          window.matchMedia('(display-mode: standalone)').matches;
-        toast({
-          variant: "destructive",
-          title: "Acceso al Micrófono Denegado",
-          description: isStandalone
-            ? 'Ajustes del teléfono → Aplicaciones → AfinApp → Permisos → Micrófono → Permitir, y vuelve a abrir la app.'
-            : 'Por favor permite el acceso al micrófono en la configuración de tu navegador.',
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error de Micrófono",
-          description: "No se pudo conectar el micrófono. Por favor intenta de nuevo.",
-        });
+      // Solo mostrar toast si fue iniciado explícitamente por el usuario
+      if (userInitiated) {
+        const now = Date.now();
+        if (now - lastErrorToastTimeRef.current > 6000) {
+          lastErrorToastTimeRef.current = now;
+          if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+            const isStandalone =
+              typeof window !== 'undefined' &&
+              typeof window.matchMedia === 'function' &&
+              window.matchMedia('(display-mode: standalone)').matches;
+            toast({
+              variant: "destructive",
+              title: "Acceso al Micrófono Denegado",
+              description: isStandalone
+                ? 'Ajustes del teléfono → Aplicaciones → AfinApp → Permisos → Micrófono → Permitir.'
+                : 'Por favor permite el acceso al micrófono en la barra superior o ajustes de tu navegador.',
+            });
+          }
+        }
       }
+      return false;
+    } finally {
+      isStartingRef.current = false;
     }
-  }, [audioBlobUrl, toast]);
+  }, [audioBlobUrl, isDetecting, toast]);
 
   const stop = useCallback(() => {
     if (animationFrameId.current) {
@@ -308,6 +354,10 @@ export const usePitchDetection = () => {
       try { mediaStreamSourceRef.current.disconnect(); } catch {}
       mediaStreamSourceRef.current = null;
     }
+    if (highpassFilterRef.current) {
+      try { highpassFilterRef.current.disconnect(); } catch {}
+      highpassFilterRef.current = null;
+    }
     if (lowpassFilterRef.current) {
       try { lowpassFilterRef.current.disconnect(); } catch {}
       lowpassFilterRef.current = null;
@@ -316,6 +366,22 @@ export const usePitchDetection = () => {
       try { analyserRef.current.disconnect(); } catch {}
       analyserRef.current = null;
     }
+    if (vocalRecordNodesRef.current) {
+      try {
+        vocalRecordNodesRef.current.pop?.disconnect();
+        vocalRecordNodesRef.current.comp?.disconnect();
+        vocalRecordNodesRef.current.gain?.disconnect();
+      } catch {}
+      vocalRecordNodesRef.current = null;
+    }
+    if (backingNodesRef.current) {
+      try {
+        backingNodesRef.current.delay?.disconnect();
+        backingNodesRef.current.gain?.disconnect();
+      } catch {}
+      backingNodesRef.current = null;
+    }
+    recordDestinationRef.current = null;
 
     // Si el contexto era compartido (p. ej. de vocalRemover), NO cerrarlo para no cortar la música
     if (!isSharedContextRef.current && audioContextRef.current && audioContextRef.current.state !== "closed") {
@@ -324,12 +390,7 @@ export const usePitchDetection = () => {
     audioContextRef.current = null;
     isSharedContextRef.current = false;
     
-    // Restaurar sesión de audio a modo playback para mantener sonido con interruptor de silencio o modos de enfoque
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'auto';
-      } catch {}
-    }
+    audioService.releaseMicrophoneStream();
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';
@@ -364,6 +425,11 @@ export const usePitchDetection = () => {
     if (!analyserRef.current || !audioContextRef.current) {
       animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));
       return;
+    }
+
+    const ctx = audioContextRef.current;
+    if (ctx && (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted')) {
+      ctx.resume().catch(() => {});
     }
 
     // THROTTLE: Only process DSP every ~40ms (25 FPS cap) to save CPU

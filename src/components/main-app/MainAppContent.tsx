@@ -117,6 +117,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({
               exit: (dir: number) => ({
                 x: dir < 0 ? 24 : -24,
                 opacity: 0,
+                pointerEvents: 'none',
               }),
             }}
             initial="enter"

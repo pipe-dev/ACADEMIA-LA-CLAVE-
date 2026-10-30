@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { RotateCcw, Heart, Zap, ArrowRight } from 'lucide-react';
+import { RotateCcw, Heart, Zap, ArrowRight, MicOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TunerRangeRequiredModal } from '../TunerRangeRequiredModal';
 import { TunerLevelSelectModal } from '../TunerLevelSelectModal';
@@ -45,6 +45,10 @@ interface TunerModalsProps {
   showEasyWinVideo: boolean;
   onCloseEasyWinVideo: () => void;
 
+  isMicBlockedModalOpen?: boolean;
+  onCloseMicBlockedModal?: () => void;
+  onRetryMic?: () => void;
+
   zenMode?: boolean;
 }
 
@@ -74,6 +78,9 @@ export const TunerModals: React.FC<TunerModalsProps> = ({
   onOpenStore,
   showEasyWinVideo,
   onCloseEasyWinVideo,
+  isMicBlockedModalOpen = false,
+  onCloseMicBlockedModal,
+  onRetryMic,
   zenMode = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -221,6 +228,60 @@ export const TunerModals: React.FC<TunerModalsProps> = ({
           >
             Siguiente Reto <ArrowRight className="ml-2 w-8 h-8 sm:w-10 sm:h-10" />
           </Button>
+        </div>
+      )}
+
+      {/* ─── Mic Permission Blocked Dialog ─── */}
+      {isMicBlockedModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#102034] rounded-3xl p-5 sm:p-6 w-full max-w-sm space-y-4 shadow-2xl border border-amber-200 dark:border-amber-900/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950/80 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                <MicOff className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-heading font-black text-sm text-slate-800 dark:text-slate-100">
+                  Acceso al Micrófono Bloqueado
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Safari o el teléfono no permitió capturar tu voz
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50/70 dark:bg-slate-900/80 p-3 rounded-2xl border border-amber-200/60 dark:border-amber-900/40 text-[11px] text-slate-700 dark:text-slate-300 space-y-2 font-medium">
+              <div className="flex items-start gap-1.5">
+                <span className="font-bold text-amber-600 dark:text-amber-400 shrink-0">• iPhone:</span>
+                <span>Toca el icono <strong className="font-bold">aA</strong> en la barra de Safari → Configuración del sitio web → Micrófono → <strong className="font-bold text-emerald-600 dark:text-emerald-400">Permitir</strong>.</span>
+              </div>
+              <div className="flex items-start gap-1.5">
+                <span className="font-bold text-amber-600 dark:text-amber-400 shrink-0">• Android:</span>
+                <span>Toca el candado junto al enlace → Permisos → Micrófono → <strong className="font-bold text-emerald-600 dark:text-emerald-400">Permitir</strong>.</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              {onRetryMic && (
+                <button
+                  type="button"
+                  onClick={onRetryMic}
+                  className="flex-1 py-2.5 px-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-heading font-bold text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reintentar</span>
+                </button>
+              )}
+              {onCloseMicBlockedModal && (
+                <button
+                  type="button"
+                  onClick={onCloseMicBlockedModal}
+                  className="py-2.5 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                >
+                  Cerrar
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </>
