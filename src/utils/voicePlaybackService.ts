@@ -212,19 +212,23 @@ export class VoicePlaybackService {
         source.buffer = buffer;
         source.playbackRate.setValueAtTime(playbackRate, ctx.currentTime);
 
-        // Compresor dinámico para evitar saturación y mantener presencia y potencia sonora
+        // Auto-Compensación de Volumen cuando el Micrófono está Activo (+6 dB / 2.0x)
+        const isMicActive = audioService.isMicActive() || audioService.isMicListening();
+        const baseGain = isMicActive ? 4.5 : 2.25;
+
+        // Limitador de estudio para evitar saturación y mantener potencia sin distorsión
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-14, ctx.currentTime);
-        compressor.knee.setValueAtTime(10, ctx.currentTime);
-        compressor.ratio.setValueAtTime(5, ctx.currentTime);
-        compressor.attack.setValueAtTime(0.003, ctx.currentTime);
-        compressor.release.setValueAtTime(0.20, ctx.currentTime);
+        compressor.threshold.setValueAtTime(-2, ctx.currentTime);
+        compressor.knee.setValueAtTime(6, ctx.currentTime);
+        compressor.ratio.setValueAtTime(12, ctx.currentTime);
+        compressor.attack.setValueAtTime(0.002, ctx.currentTime);
+        compressor.release.setValueAtTime(0.1, ctx.currentTime);
 
         const gainNode = ctx.createGain();
-        gainNode.gain.setValueAtTime(2.25, ctx.currentTime);
+        gainNode.gain.setValueAtTime(baseGain, ctx.currentTime);
 
         const playDur = Math.min(buffer.duration / playbackRate, duration);
-        gainNode.gain.setValueAtTime(2.25, ctx.currentTime + Math.max(0, playDur - 0.15));
+        gainNode.gain.setValueAtTime(baseGain, ctx.currentTime + Math.max(0, playDur - 0.15));
         gainNode.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + playDur);
 
         source.connect(gainNode);

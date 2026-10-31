@@ -5,7 +5,14 @@ import { ArrowLeft, ChevronUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { audioService } from '../utils/audioService';
 import { triggerHapticFeedback } from '../utils/pwaFeatures';
-import { getTodayStr } from '../utils/streakPrompt';
+import {
+  getLocalCalendarDate,
+  getYesterdayCalendarDate,
+  isStreakLitToday,
+  claimDailyStreakAtomic,
+  STREAK_CLAIMED_KEY,
+  LEGACY_STREAK_KEY
+} from '../utils/streakPrompt';
 
 interface StreakFlameViewProps {
   currentStreak: number;
@@ -38,9 +45,9 @@ export const StreakFlameView: React.FC<StreakFlameViewProps> = ({
 
   const [dragProgress, setDragProgress] = useState<number>(0); // 0 to 1
   const [isDragging, setIsDragging] = useState<boolean>(false);
-const [isIgnited, setIsIgnited] = useState<boolean>(() => {
+  const [isIgnited, setIsIgnited] = useState<boolean>(() => {
     try {
-      return typeof window !== 'undefined' ? localStorage.getItem('laclave_last_streak_date') === getTodayStr() : false;
+      return typeof window !== 'undefined' ? isStreakLitToday() : false;
     } catch {
       return false;
     }
@@ -76,7 +83,13 @@ const [isIgnited, setIsIgnited] = useState<boolean>(() => {
   const handleIgniteComplete = useCallback(() => {
     if (isIgnited) return;
 
-    const newStreak = currentStreak + 1;
+    // Validación y candado atómico con reinicio a 1 si se rompió la racha
+    const { updated, newStreak } = claimDailyStreakAtomic(currentStreak);
+    if (!updated) {
+      setIsIgnited(true);
+      return;
+    }
+
     setIsIgnited(true);
     setIsDragging(false);
 
@@ -112,10 +125,6 @@ const [isIgnited, setIsIgnited] = useState<boolean>(() => {
     setTimeout(() => {
       audioService.playStreakIgnitionSound();
     }, 300);
-
-    try {
-      localStorage.setItem('laclave_last_streak_date', getTodayStr());
-    } catch {}
 
     triggerHapticFeedback('streak-update');
 

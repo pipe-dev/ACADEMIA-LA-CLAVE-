@@ -274,7 +274,7 @@ class AudioService {
       } catch {}
     }
 
-    // 3. Adquisición directa con filtros de voz desactivados desde el inicio (sin applyConstraints en caliente)
+    // 3. Adquisición directa con filtros de voz desactivados desde el inicio (PROHIBIDO { audio: true } o applyConstraints en caliente)
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -286,28 +286,12 @@ class AudioService {
         video: false,
       });
     } catch (err1: any) {
-      if (err1?.name === 'NotAllowedError' || err1?.name === 'PermissionDeniedError') {
-        if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'playback';
-          } catch {}
-        }
-        throw err1;
+      if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          (navigator as any).audioSession.type = 'playback';
+        } catch {}
       }
-      // Fallback universal si el navegador no acepta constraints avanzadas
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: false,
-        });
-      } catch (fallbackErr) {
-        if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'playback';
-          } catch {}
-        }
-        throw fallbackErr;
-      }
+      throw err1;
     }
 
     // Guardar referencia en el singleton para reutilización warm instantánea

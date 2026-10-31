@@ -49,6 +49,10 @@ export function useVocalRemover(initialVideoId?: string) {
   const masterGainRef = useRef<GainNode | null>(null);
   const trackOutputGainRef = useRef<GainNode | null>(null);
 
+  // Analizador para medir la energía en tiempo real de la pista (Anti-Acople Bleed Gate)
+  const backingAnalyserRef = useRef<AnalyserNode | null>(null);
+  const backingTimeDomainRef = useRef<Float32Array | null>(null);
+
   // Niveles guardados
   const vocalLevelRef = useRef<number>(0);
   const drumBoostRef = useRef<number>(1.0); // 1.0 = ganancia unitaria limpia y balanceada
@@ -424,31 +428,41 @@ export function useVocalRemover(initialVideoId?: string) {
       compressor.release.setValueAtTime(0.15, ctx.currentTime);
       compressorRef.current = compressor;
 
-      const masterGain = ctx.createGain();
       const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      masterGain.gain.value = isIosDevice ? 1.45 : 1.0;
+      const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening();
+      const baseMaster = isIosDevice ? 1.45 : 1.0;
+
+      const masterGain = ctx.createGain();
+      // Auto-compensación +6 dB (2.0x) si el micrófono ya está activo en play-and-record
+      masterGain.gain.value = isMicActiveNow ? baseMaster * 2.0 : baseMaster;
       masterGainRef.current = masterGain;
 
-      // Limitador final tipo Brickwall para garantizar CERO distorsión o clipeo aun con el boost de volumen en iOS
+      // Limitador de estudio tipo Brickwall para garantizar CERO distorsión o clipeo
       const brickwallLimiter = ctx.createDynamicsCompressor();
-      brickwallLimiter.threshold.setValueAtTime(-1.0, ctx.currentTime);
-      brickwallLimiter.knee.setValueAtTime(0, ctx.currentTime);
-      brickwallLimiter.ratio.setValueAtTime(20.0, ctx.currentTime);
+      brickwallLimiter.threshold.setValueAtTime(-2.0, ctx.currentTime);
+      brickwallLimiter.knee.setValueAtTime(6, ctx.currentTime);
+      brickwallLimiter.ratio.setValueAtTime(12.0, ctx.currentTime);
       brickwallLimiter.attack.setValueAtTime(0.002, ctx.currentTime);
-      brickwallLimiter.release.setValueAtTime(0.05, ctx.currentTime);
+      brickwallLimiter.release.setValueAtTime(0.1, ctx.currentTime);
 
       const trackOutputGain = ctx.createGain();
-      trackOutputGain.gain.value = 1.0;
+      trackOutputGain.gain.value = 1.0; // Ganancia unitaria 1.0 fija para el bus de grabación de estudio
       trackOutputGainRef.current = trackOutputGain;
 
+      // Analizador de referencia para Bleed Gate (detector anti-acople en micrófono)
+      const backingAnalyser = ctx.createAnalyser();
+      backingAnalyser.fftSize = 256;
+      backingAnalyserRef.current = backingAnalyser;
+
       // Fase 3: Salida Doble del Procesamiento DSP
-      // Salida A (Bus de Grabación): Pista pura nivelada a ganancia unitaria sin afectarse por el volumen del altavoz
-      // Salida B (Altavoces): Controlada por masterGain del usuario con compensación de potencia para iPhone
+      // Salida A (Bus de Grabación): Pista pura nivelada con compensación
+      // Salida B (Altavoces): Controlada por masterGain con compensación para iPhone
       merger.connect(makeupGain);
       makeupGain.connect(compressor);
       compressor.connect(brickwallLimiter);
       brickwallLimiter.connect(trackOutputGain); // Bus de grabación (getTrackOutputGain)
       brickwallLimiter.connect(masterGain);      // Bus de altavoces
+      brickwallLimiter.connect(backingAnalyser); // Monitor de energía para Bleed Gate
       masterGain.connect(ctx.destination);
 
       // Aplicar ganancias iniciales exactas
@@ -576,6 +590,41 @@ export function useVocalRemover(initialVideoId?: string) {
     return audioContextRef.current;
   }, []);
 
+  // Medición de RMS en tiempo real de la pista musical para la compuerta anti-acople
+  const getBackingRms = useCallback((): number => {
+    if (!backingAnalyserRef.current) return 0;
+    if (!backingTimeDomainRef.current || backingTimeDomainRef.current.length !== backingAnalyserRef.current.fftSize) {
+      backingTimeDomainRef.current = new Float32Array(backingAnalyserRef.current.fftSize);
+    }
+    backingAnalyserRef.current.getFloatTimeDomainData(backingTimeDomainRef.current);
+    let sum = 0;
+    const len = backingTimeDomainRef.current.length;
+    for (let i = 0; i < len; i++) {
+      const v = backingTimeDomainRef.current[i];
+      sum += v * v;
+    }
+    return Math.sqrt(sum / len);
+  }, []);
+
+  // Compensación automática de ganancia en caliente en los altavoces cuando el micrófono se activa/desactiva (+6 dB / 2.0x)
+  useEffect(() => {
+    const handleMicChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ active: boolean }>;
+      const active = !!customEvent.detail?.active;
+      const ctx = audioContextRef.current;
+      if (ctx && masterGainRef.current) {
+        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const base = isIos ? 1.45 : 1.0;
+        // Compensación exacta de +6 dB (2.0x) aplicada ÚNICAMENTE al bus de altavoces (masterGain)
+        const target = active ? base * 2.0 : base;
+        masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.04);
+      }
+    };
+
+    window.addEventListener('laclave_mic_active', handleMicChange);
+    return () => window.removeEventListener('laclave_mic_active', handleMicChange);
+  }, []);
+
   useEffect(() => {
     return () => {
       destroy();
@@ -594,6 +643,7 @@ export function useVocalRemover(initialVideoId?: string) {
     getCurrentTime, 
     getAudioContext,
     getTrackOutputGain,
+    getBackingRms,
     ensureContextActive,
     destroy, 
     isPlaying, 

@@ -14,7 +14,9 @@
     "test:unit": "npx tsx src/utils/__tests__/pitchUtils.test.ts && npx tsx src/utils/__tests__/livesEngine.test.ts && npx tsx src/components/__tests__/AuraShieldRing.test.ts && npx tsx src/utils/__tests__/vocalNotePool.test.ts && npx tsx src/components/vocal-range/__tests__/vocalRangeUtils.test.ts && npx tsx src/utils/__tests__/vocalRangeHelper.test.ts && npx tsx src/components/breathing/__tests__/breathingEngine.test.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:touch": "node --use-system-ca scratch/test_bottom_nav_first_touch.mjs"
+    "test:touch": "node --use-system-ca scratch/test_bottom_nav_first_touch.mjs",
+    "test:chaos": "node scripts/chaos-gremlins-playwright.mjs",
+    "test:chaos:watch": "node scripts/chaos-gremlins-playwright.mjs --headed"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.2",
@@ -46,6 +48,8 @@
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.0",
+    "gremlins.js": "^2.2.0",
+    "playwright": "^1.64.1",
     "postcss": "^8",
     "puppeteer-core": "^25.16.0",
     "tailwindcss": "^4.3.3",

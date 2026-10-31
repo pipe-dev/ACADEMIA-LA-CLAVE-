@@ -42,9 +42,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReset = () => {
-    try {
-      localStorage.removeItem('laclave_last_streak_date');
-    } catch {}
+    // Proteger llaves sagradas de racha y estado de usuario
     window.location.reload();
   };
 

@@ -34,24 +34,29 @@ const centsOffFromPitch = (frequency: number, targetFrequency: number): number =
   return 1200 * Math.log2(frequency / targetFrequency);
 };
 
-const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
+interface AutoCorrelateResult {
+  pitch: number;
+  clarity: number;
+}
+
+const autoCorrelate = (buf: Float32Array, sampleRate: number): AutoCorrelateResult => {
   const SIZE = buf.length;
-  let rms = 0;
+  let sumSquares = 0;
 
   for (let i = 0; i < SIZE; i++) {
     const val = buf[i];
-    rms += val * val;
+    sumSquares += val * val;
   }
-  rms = Math.sqrt(rms / SIZE);
+  const rms = Math.sqrt(sumSquares / SIZE);
 
-  // Ignorar ruido de fondo (Silence threshold calibrado para voz cruda sin AGC de Apple)
+  // Ignorar ruido de fondo mínimo
   if (rms < 0.002) {
-    return -1;
+    return { pitch: -1, clarity: 0 };
   }
 
-  // Restrict lag bounds to human vocal range (~60 Hz to ~1000 Hz)
-  const minLag = Math.floor(sampleRate / 1000); // ~44 samples at 44.1kHz
-  const maxLag = Math.min(SIZE - 2, Math.ceil(sampleRate / 60)); // ~735 samples at 44.1kHz
+  // Restricción a rango vocal (~60 Hz a ~1000 Hz)
+  const minLag = Math.floor(sampleRate / 1000); // ~44 samples a 44.1kHz
+  const maxLag = Math.min(SIZE - 2, Math.ceil(sampleRate / 60)); // ~735 samples a 44.1kHz
 
   let maxval = -1;
   let maxLagIndex = -1;
@@ -71,9 +76,7 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
     }
   }
 
-  // Truco heurístico: en vez del máximo absoluto, buscar el PRIMER pico local
-  // que sea lo suficientemente fuerte (> 90% del máximo).
-  // Esto elimina el "octave error" (detectar un armónico en vez de la voz real).
+  // Heurística de primer pico local fuerte (> 90% del máximo) para evitar saltos de octava
   let bestLag = -1;
   const threshold = maxval * 0.9;
   for (let lag = minLag + 1; lag < maxLag; lag++) {
@@ -88,10 +91,21 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
   }
 
   if (bestLag === -1 || bestLag <= minLag || bestLag >= maxLag) {
-    return -1;
+    return { pitch: -1, clarity: 0 };
   }
 
-  // Parabolic interpolation for fine frequency resolution
+  // Normalización real sin sesgo de ventana (McLeod / NSDF sobre la ventana solapada exacta)
+  // Elimina la penalización matemática en notas graves masculinas (< 200 Hz / lag > 240)
+  let energy1 = 0;
+  let energy2 = 0;
+  for (let j = 0; j < SIZE - bestLag; j++) {
+    energy1 += buf[j] * buf[j];
+    energy2 += buf[j + bestLag] * buf[j + bestLag];
+  }
+  const denom = Math.sqrt(energy1 * energy2);
+  const clarity = denom > 0 ? Math.max(0, Math.min(1, c[bestLag] / denom)) : 0;
+
+  // Interpolación parabólica para afinación continua de alta resolución
   const x1 = c[bestLag - 1];
   const x2 = c[bestLag];
   const x3 = c[bestLag + 1];
@@ -106,8 +120,8 @@ const autoCorrelate = (buf: Float32Array, sampleRate: number): number => {
     }
   }
 
-  if (T0 === 0) return -1;
-  return sampleRate / T0;
+  if (T0 === 0) return { pitch: -1, clarity };
+  return { pitch: sampleRate / T0, clarity };
 };
 
 
@@ -146,16 +160,28 @@ export const usePitchDetection = () => {
   const isStartingRef = useRef<boolean>(false);
   const lastErrorToastTimeRef = useRef<number>(0);
 
+  // Referencias para Bleed Gate y Estabilidad Temporal
+  const isUsingHeadphonesRef = useRef<boolean>(false);
+  const getBackingRmsRef = useRef<(() => number) | null>(null);
+  const stableCandidateNoteRef = useRef<string>('');
+  const stableFramesCountRef = useRef<number>(0);
+
   const start = useCallback(async (
     _externalCtx?: AudioContext | null,
     trackOutputGain?: GainNode | null,
-    isUsingHeadphones?: boolean,
-    userInitiated: boolean = false
+    isUsingHeadphones: boolean = false,
+    userInitiated: boolean = false,
+    getBackingRms?: () => number
   ): Promise<boolean> => {
     if (isStartingRef.current || (streamRef.current && isDetecting)) {
       return isDetecting;
     }
     isStartingRef.current = true;
+    isUsingHeadphonesRef.current = !!isUsingHeadphones;
+    getBackingRmsRef.current = getBackingRms || null;
+    stableFramesCountRef.current = 0;
+    stableCandidateNoteRef.current = '';
+
     try {
       if (navigator.mediaDevices) {
         // Fase 1: Adquirir stream centralizado sin duplicar getUserMedia ni filtros VoiceProcessingIO
@@ -196,9 +222,12 @@ export const usePitchDetection = () => {
         lowpassFilter.Q.setValueAtTime(0.707, context.currentTime);
         lowpassFilterRef.current = lowpassFilter;
 
-        // Pre-amplificador 4x para señal de micrófono sin AGC de Apple
+        // Pre-amplificador diferenciado:
+        // En Karaoke SIN audífonos, bajar a 1.5x para evitar captar el parlante
+        // CON audífonos, 4.0x para máxima sensibilidad vocal
         const micBoostGain = context.createGain();
-        micBoostGain.gain.setValueAtTime(4.0, context.currentTime);
+        const boostVal = isUsingHeadphones ? 4.0 : 1.5;
+        micBoostGain.gain.setValueAtTime(boostVal, context.currentTime);
 
         // Cadena de análisis: Mic -> HighPass (90Hz) -> LowPass (1100Hz) -> PreAmp (4x) -> Analyser
         source.connect(highpassFilter).connect(lowpassFilter).connect(micBoostGain).connect(analyserRef.current);
@@ -402,6 +431,9 @@ export const usePitchDetection = () => {
       emitMicActive(false);
     }
 
+    stableFramesCountRef.current = 0;
+    stableCandidateNoteRef.current = '';
+
     setIsDetecting(false);
     setFrequency(0);
     setNote(EMPTY_NOTE);
@@ -454,36 +486,86 @@ export const usePitchDetection = () => {
 
       setRms(rmsVal);
 
-      const pitch = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
+      const isHeadphones = isUsingHeadphonesRef.current;
+      const backingRms = getBackingRmsRef.current ? getBackingRmsRef.current() : 0;
 
-      if (pitch !== -1 && pitch < 2000) {
-        isSilent.current = false;
-        const detectedNote = noteFromPitch(pitch);
-        const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
-        
-        const SMOOTHING_FACTOR = 0.25;
-        smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
-        
-        setFrequency(pitch);
-        setNote(prevNote => {
-            if (detectedNote.name !== prevNote.name || detectedNote.octave !== prevNote.octave) {
-            return detectedNote;
-            }
-            return prevNote;
-        });
-        setCentsOff(currentCents);
-        setSmoothedCentsOff(smoothedCentsRef.current);
-      } else {
+      // ─── Compuerta Dinámica Anti-Acople (Backing Track Bleed Gate) ───
+      // En Karaoke sin audífonos, la voz cantando cerca del micrófono (>0.035) debe superar
+      // la energía acústica de la canción que sale por el altavoz (Math.max(0.028, backingRms * 1.45)).
+      const dynamicThreshold = isHeadphones ? 0.003 : Math.max(0.028, backingRms * 1.45);
+
+      if (rmsVal < dynamicThreshold) {
+        // La señal es mero sangrado del altavoz o silencio: no premiar ni computar
+        stableFramesCountRef.current = 0;
+        stableCandidateNoteRef.current = '';
         if (!isSilent.current) {
           isSilent.current = true;
           smoothedCentsRef.current = 0;
-          
           setFrequency(0);
           setNote(EMPTY_NOTE);
           setCentsOff(0);
           setSmoothedCentsOff(0);
         }
+        animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));
+        return;
       }
+
+      // ─── Detección de Tono y Coeficiente de Pureza Periódica ───
+      const { pitch, clarity } = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
+
+      // ─── Filtro de Pureza Monofónica (Anti-Acople Polifónico) ───
+      // Los acordes, percusión y armonía de la canción dan baja pureza (< 0.85).
+      // La voz humana cantada a poca distancia produce una onda cuasi-periódica con pureza >= 0.88.
+      const minClarity = isHeadphones ? 0.82 : 0.88;
+
+      if (pitch === -1 || pitch >= 2000 || clarity < minClarity) {
+        stableFramesCountRef.current = 0;
+        stableCandidateNoteRef.current = '';
+        if (!isSilent.current) {
+          isSilent.current = true;
+          smoothedCentsRef.current = 0;
+          setFrequency(0);
+          setNote(EMPTY_NOTE);
+          setCentsOff(0);
+          setSmoothedCentsOff(0);
+        }
+        animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));
+        return;
+      }
+
+      // ─── Filtro de Estabilidad Temporal (Mínimo 3 frames continuos ~50ms) ───
+      const detectedNote = noteFromPitch(pitch);
+      const noteKey = `${detectedNote.name}${detectedNote.octave}`;
+
+      if (stableCandidateNoteRef.current === noteKey) {
+        stableFramesCountRef.current += 1;
+      } else {
+        stableCandidateNoteRef.current = noteKey;
+        stableFramesCountRef.current = 1;
+      }
+
+      const requiredFrames = isHeadphones ? 1 : 3;
+      if (stableFramesCountRef.current < requiredFrames) {
+        // Aún en ventana de confirmación de estabilidad: no proyectar ni sumar puntos espurios
+        animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));
+        return;
+      }
+
+      isSilent.current = false;
+      const currentCents = centsOffFromPitch(pitch, detectedNote.frequency);
+      
+      const SMOOTHING_FACTOR = 0.25;
+      smoothedCentsRef.current = SMOOTHING_FACTOR * currentCents + (1 - SMOOTHING_FACTOR) * smoothedCentsRef.current;
+      
+      setFrequency(pitch);
+      setNote(prevNote => {
+          if (detectedNote.name !== prevNote.name || detectedNote.octave !== prevNote.octave) {
+          return detectedNote;
+          }
+          return prevNote;
+      });
+      setCentsOff(currentCents);
+      setSmoothedCentsOff(smoothedCentsRef.current);
     }
   
     animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));

@@ -379,7 +379,13 @@ export function useKaraokeEngine({
 
       if (isMicEnabled && !isDetecting && !isPlaybackMode) {
         if (audioService.hasLiveMicrophoneStream() || audioService.isMicActive()) {
-          startPitchDetection(vocalRemover.getAudioContext(), vocalRemover.getTrackOutputGain?.(), audioService.isUsingHeadphones());
+          startPitchDetection(
+            vocalRemover.getAudioContext(),
+            vocalRemover.getTrackOutputGain?.(),
+            audioService.isUsingHeadphones(),
+            false,
+            vocalRemover.getBackingRms
+          );
         }
       }
       if (isPlaybackMode && audioPlaybackRef.current) {
@@ -507,7 +513,8 @@ export function useKaraokeEngine({
             vocalRemover.getAudioContext(),
             vocalRemover.getTrackOutputGain?.(),
             audioService.isUsingHeadphones(),
-            true
+            true,
+            vocalRemover.getBackingRms
           ).catch(() => {});
         }
         const started = await vocalRemover.play();
@@ -535,7 +542,8 @@ export function useKaraokeEngine({
             vocalRemover.getAudioContext(),
             vocalRemover.getTrackOutputGain?.(),
             audioService.isUsingHeadphones(),
-            true
+            true,
+            vocalRemover.getBackingRms
           ).catch(() => {});
         }
         playerRef.current.playVideo();
@@ -566,7 +574,8 @@ export function useKaraokeEngine({
         vocalRemover.getAudioContext(),
         vocalRemover.getTrackOutputGain?.(),
         audioService.isUsingHeadphones(),
-        true
+        true,
+        vocalRemover.getBackingRms
       );
       if (!ok) {
         setIsMicEnabled(false);
@@ -623,7 +632,8 @@ export function useKaraokeEngine({
         vocalRemover.getAudioContext(),
         vocalRemover.getTrackOutputGain?.(),
         audioService.isUsingHeadphones(),
-        true
+        true,
+        vocalRemover.getBackingRms
       ).catch(() => {});
     }
   }, [isDetecting, isMicEnabled, scoring, startPitchDetection, useYtFallback, vocalRemover]);

@@ -6,8 +6,11 @@ import { calculatePassiveRecharge } from '../../utils/livesEngine';
 import { getLevelTitle, calculateLevelFromXP } from '../../utils/levelHelper';
 import {
   getTodayStr,
+  getLocalCalendarDate,
   isStreakLitToday,
   subscribeStreakEligibleAction,
+  STREAK_CLAIMED_KEY,
+  LEGACY_STREAK_KEY,
 } from '../../utils/streakPrompt';
 import { isTourActive, isTourPendingOrActive } from '../../utils/tour';
 import { recordDayPracticeMinutes } from '../../utils/calendarWeekHelper';
@@ -227,16 +230,25 @@ export function useGlobalGameState({
     };
   }, []);
 
-  // Streak prompt overlay: appears after an action if streak was not ignited today
+  // Streak prompt overlay: appears strictly ONCE per local calendar day if not ignited
   const [streakPromptOpen, setStreakPromptOpen] = useState<boolean>(false);
 
   const openStreakPrompt = useCallback(() => {
-    if (isStreakLitToday()) return;
+    const today = getLocalCalendarDate();
+    const lastClaimed = typeof window !== 'undefined'
+      ? (localStorage.getItem(STREAK_CLAIMED_KEY) || localStorage.getItem(LEGACY_STREAK_KEY))
+      : null;
+
+    if (lastClaimed === today || isStreakLitToday()) {
+      return;
+    }
+
     if (isTourActive() || isTourPendingOrActive('academia')) {
       const handleTourEnd = () => {
         window.removeEventListener('laclave_tour_section_completed', handleTourEnd);
         setTimeout(() => {
-          if (!isStreakLitToday() && !isTourActive()) {
+          const currentClaimed = localStorage.getItem(STREAK_CLAIMED_KEY) || localStorage.getItem(LEGACY_STREAK_KEY);
+          if (currentClaimed !== today && !isStreakLitToday() && !isTourActive()) {
             setStreakPromptOpen(true);
           }
         }, 1000);
@@ -252,8 +264,10 @@ export function useGlobalGameState({
   }, [openStreakPrompt]);
 
   const handleStreakIgniteComplete = (newStreak: number) => {
+    const today = getLocalCalendarDate();
     try {
-      localStorage.setItem('laclave_last_streak_date', getTodayStr());
+      localStorage.setItem(STREAK_CLAIMED_KEY, today);
+      localStorage.setItem(LEGACY_STREAK_KEY, today);
     } catch {}
     setUserStats((prev) => ({
       ...prev,
