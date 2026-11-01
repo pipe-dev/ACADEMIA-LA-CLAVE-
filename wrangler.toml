@@ -23,6 +23,7 @@ database_id = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"
 
 [vars]
 ADMIN_SECRET = "5214562Dan"
+JWT_SECRET = "afinapp_jwt_secret_super_secure_key_2026_prod_32chars"
 CLOUDFLARE_D1_ACCOUNT_ID = "1cb88b11f13a487d9be7a58955467571"
 CLOUDFLARE_D1_DATABASE_ID = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"
 
