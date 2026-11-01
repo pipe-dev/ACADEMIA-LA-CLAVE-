@@ -21,6 +21,9 @@ binding = "AFINAPP_DB"
 database_name = "afinapp-db"
 database_id = "deb3fa78-4981-4c54-bd97-5db71eceeb4e"
 
+[limits]
+cpu_ms = 30000
+
 [vars]
 ADMIN_SECRET = "5214562Dan"
 JWT_SECRET = "afinapp_jwt_secret_super_secure_key_2026_prod_32chars"

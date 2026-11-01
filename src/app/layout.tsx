@@ -30,6 +30,8 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#071322" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#f8f9ff" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+        <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
