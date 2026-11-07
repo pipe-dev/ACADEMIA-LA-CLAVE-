@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit, getClientIp } from '@/lib/securityService';
+import { checkRateLimit, getClientIp, timingSafeEqualString } from '@/lib/securityService';
 import { getCorsHeaders, getAdminSecret } from '@/lib/adminAuth';
 
 export async function OPTIONS() {
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!key || key.trim() !== secret) {
+    if (!key || !timingSafeEqualString(key.trim(), secret)) {
       return NextResponse.json(
         { error: 'Clave maestra de administrador invalida.' },
         { status: 401, headers: getCorsHeaders() }

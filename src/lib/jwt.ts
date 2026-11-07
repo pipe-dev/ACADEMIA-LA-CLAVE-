@@ -15,6 +15,16 @@ export function getJwtSecret(): string {
     } catch {}
   }
   if (!secret) {
+    try {
+      // @ts-ignore
+      const { getCloudflareContext } = require('@opennextjs/cloudflare');
+      const ctx = getCloudflareContext();
+      if (ctx?.env?.JWT_SECRET) {
+        secret = ctx.env.JWT_SECRET;
+      }
+    } catch {}
+  }
+  if (!secret) {
     const g = globalThis as any;
     if (g?.JWT_SECRET) {
       secret = g.JWT_SECRET;
