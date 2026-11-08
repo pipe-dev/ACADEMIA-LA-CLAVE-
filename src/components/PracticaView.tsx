@@ -77,7 +77,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<CatalogTrack[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Top 100 Global');
   const [top100Tracks, setTop100Tracks] = useState<CatalogTrack[]>(RECOMMENDED_TRACKS);
   const [secularTracks, setSecularTracks] = useState<CatalogTrack[]>(DEFAULT_SECULAR_TRACKS);
   const [christianTracks, setChristianTracks] = useState<CatalogTrack[]>(DEFAULT_CHRISTIAN_TRACKS);
@@ -382,7 +382,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     }
 
     // Modo normal sin búsqueda: filtrar por pestañas de categoría
-    if (selectedCategory === 'Todos') {
+    if (selectedCategory === 'Top 100 Global' || selectedCategory === 'Todos') {
       return top100Tracks;
     }
     if (selectedCategory === 'Del Momento') {

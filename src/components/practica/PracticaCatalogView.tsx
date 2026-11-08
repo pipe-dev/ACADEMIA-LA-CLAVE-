@@ -17,7 +17,7 @@ interface PracticaCatalogViewProps {
 }
 
 const CATEGORIES = [
-  'Todos',
+  'Top 100 Global',
   'Del Momento',
   'Música Cristiana',
   'Pop & Baladas',
@@ -131,10 +131,10 @@ export const PracticaCatalogView: React.FC<PracticaCatalogViewProps> = ({
             <span>
               {searchQuery
                 ? 'Resultados de Búsqueda'
-                : selectedCategory === 'Todos'
-                ? `Top 100 Éxitos (${displayedCatalog.length})`
+                : selectedCategory === 'Top 100 Global' || selectedCategory === 'Todos'
+                ? `Top 100 Global (${displayedCatalog.length})`
                 : selectedCategory === 'Del Momento'
-                ? `Del Momento · 100 Éxitos (${displayedCatalog.length})`
+                ? `Del Momento · Top 100 (${displayedCatalog.length})`
                 : selectedCategory === 'Música Cristiana'
                 ? `Música Cristiana · Top 100 (${displayedCatalog.length})`
                 : `${selectedCategory} (${displayedCatalog.length})`}

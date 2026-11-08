@@ -261,28 +261,13 @@ function isFallbackData(data: TopTracksResponse | null | undefined): boolean {
 }
 
 /**
- * Obtiene el ranking real de las 100 canciones del momento.
- * 1. Intenta desde el endpoint interno `/api/top-tracks`.
- * 2. Si el servidor respondió con el catálogo estático de respaldo (Luis Miguel) o falló,
- *    el navegador consulta directamente los feeds de Apple Music RSS con CORS abierto.
- * 3. Garantiza siempre 100 canciones virales del momento sin depender de servidores intermedios.
+ * Obtiene el ranking real de las canciones del momento (Top 100 Global, Del Momento 100 y Música Cristiana 100).
+ * 1. Consulta DIRECTA desde el navegador del usuario a los feeds RSS de Apple Music (CORS abierto: *).
+ * 2. Si la consulta directa no responde, consulta el endpoint interno `/api/top-tracks`.
+ * 3. Si todo lo anterior falla (offline), entrega el catálogo estático de respaldo.
  */
 export async function fetchLiveTopTracks(): Promise<TopTracksResponse> {
-  // 1. Intentar primero con la ruta de la app
-  try {
-    const res = await fetch('/api/top-tracks');
-    if (res.ok) {
-      const data: TopTracksResponse = await res.json();
-      if (!isFallbackData(data)) {
-        return data;
-      }
-    }
-  } catch (err) {
-    console.warn('[top-tracks] Error en /api/top-tracks, consultando Apple Music directamente:', err);
-  }
-
-  // 2. Si el servidor respondió con el respaldo estático (Luis Miguel) o falló,
-  // el navegador consulta directamente los feeds de Apple Music (sin intermediario)
+  // 1. Consulta DIRECTA desde el navegador del usuario a Apple Music RSS (rápida ~400ms, CORS abierto)
   try {
     const directData = await fetchDirectFromApple();
     if (!isFallbackData(directData)) {
@@ -292,7 +277,20 @@ export async function fetchLiveTopTracks(): Promise<TopTracksResponse> {
     console.warn('[top-tracks] Error en consulta directa a Apple Music:', err);
   }
 
-  // 3. Si todo lo anterior falla (ej. sin conexión a internet), devolver catálogo de respaldo
+  // 2. Respaldo secundario: endpoint interno de la app
+  try {
+    const res = await fetch('/api/top-tracks');
+    if (res.ok) {
+      const data: TopTracksResponse = await res.json();
+      if (!isFallbackData(data)) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('[top-tracks] Error en /api/top-tracks:', err);
+  }
+
+  // 3. Respaldo estático de alta calidad si no hay conexión a internet (modo offline)
   return {
     top100: RECOMMENDED_TRACKS as CatalogTrack[],
     secular100: DEFAULT_SECULAR_TRACKS,
@@ -302,13 +300,34 @@ export async function fetchLiveTopTracks(): Promise<TopTracksResponse> {
 }
 
 /**
- * Búsqueda de canciones con fallback directo en el cliente (Deezer + iTunes).
+ * Búsqueda de canciones directa desde el navegador/teléfono del usuario a Apple iTunes Search API.
+ * Se ejecuta en el cliente con CORS abierto (*), eliminando bloqueos de IP de datacenter en Cloudflare.
  */
 export async function searchTracks(query: string): Promise<CatalogTrack[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // 1. Intentar primero el endpoint local
+  // 1. Consulta DIRECTA desde el navegador del usuario a Apple iTunes Search API (CORS abierto)
+  try {
+    const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=25`;
+    const res = await fetch(directUrl);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.results && Array.isArray(json.results) && json.results.length > 0) {
+        return json.results.map((item: any) => ({
+          id: item.trackId ? String(item.trackId) : String(Math.random()),
+          title: cleanTrackTitle(item.trackName || ''),
+          artist: item.artistName || 'Artista',
+          category: item.primaryGenreName || 'Pop Latino',
+          thumbnail: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '600x600') : ''
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('[search] Error en búsqueda directa a iTunes:', err);
+  }
+
+  // 2. Respaldo secundario: endpoint interno de la app si la consulta directa fallara
   try {
     const res = await fetch(`/api/itunes-search?q=${encodeURIComponent(trimmed)}`);
     if (res.ok) {
@@ -316,7 +335,7 @@ export async function searchTracks(query: string): Promise<CatalogTrack[]> {
       if (Array.isArray(data) && data.length > 0) {
         return data.map((item: any) => ({
           id: item.id ? String(item.id) : String(Math.random()),
-          title: item.title || '',
+          title: cleanTrackTitle(item.title || ''),
           artist: item.artist || 'Artista',
           category: item.category || 'Pop Latino',
           thumbnail: item.thumbnail || ''
@@ -324,46 +343,6 @@ export async function searchTracks(query: string): Promise<CatalogTrack[]> {
       }
     }
   } catch {}
-
-  // 2. Respaldo directo en el cliente vía Deezer (sin bloqueos CORS)
-  try {
-    const dzUrl = `https://api.deezer.com/search?q=${encodeURIComponent(trimmed)}&limit=15`;
-    const res = await fetch(dzUrl);
-    if (res.ok) {
-      const json = await res.json();
-      if (Array.isArray(json.data) && json.data.length > 0) {
-        return json.data.map((item: any) => ({
-          id: `dz_${item.id}`,
-          title: item.title || '',
-          artist: item.artist?.name || 'Artista',
-          category: 'Pop Latino',
-          thumbnail: item.album?.cover_big || item.album?.cover_medium || ''
-        }));
-      }
-    }
-  } catch (dzErr) {
-    console.warn('[search] Error en búsqueda directa en Deezer:', dzErr);
-  }
-
-  // 3. Respaldo directo en el navegador a Apple iTunes API
-  try {
-    const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=15`;
-    const res = await fetch(directUrl);
-    if (res.ok) {
-      const json = await res.json();
-      if (json.results && Array.isArray(json.results)) {
-        return json.results.map((item: any) => ({
-          id: item.trackId ? String(item.trackId) : String(Math.random()),
-          title: item.trackName || '',
-          artist: item.artistName || 'Artista',
-          category: 'Pop Latino',
-          thumbnail: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '600x600') : ''
-        }));
-      }
-    }
-  } catch (err) {
-    console.warn('[search] Error en búsqueda directa en iTunes:', err);
-  }
 
   return [];
 }
