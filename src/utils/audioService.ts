@@ -42,6 +42,7 @@ class AudioService {
   private isSilentUnlocked: boolean = false;
   public onMicPauseChange?: (isPaused: boolean) => void;
   public lastMicError: 'denied' | 'unsupported' | 'device_busy' | null = null;
+  private pendingMicAcquisitionPromise: Promise<MediaStream> | null = null;
   private activeMicStreams: Set<MediaStream> = new Set();
   private currentPlayRequestId: number = 0;
   private activeFrequencyNodes: {
@@ -250,7 +251,7 @@ class AudioService {
   }
 
   public async acquireMicrophoneStream(mode: AudioCaptureMode = 'karaoke'): Promise<MediaStream> {
-    // 1. Si ya tenemos un warm stream vivo, reactivarlo y retornarlo inmediatamente (0ms latencia)
+    // 1. Si ya tenemos un warm stream vivo, reactivarlo y retornarlo inmediatamente (0ms latencia, jamás vuelve a pedir permiso)
     if (this.hasLiveMicrophoneStream() && this.micStream) {
       this.micStream.getAudioTracks().forEach(t => {
         try { t.enabled = true; } catch {}
@@ -264,65 +265,78 @@ class AudioService {
       return this.micStream;
     }
 
-    // 2. CRÍTICO PARA IOS SAFARI / WEBKIT:
-    // En WebKit, si navigator.audioSession.type está en 'playback', llamar a getUserMedia lanza inmediatamente:
-    // DOMException: "AudioSession category is not compatible with audio capture."
-    // Por lo tanto, DEBEMOS conmutar navigator.audioSession.type a 'play-and-record' ANTES de llamar a getUserMedia.
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'play-and-record';
-      } catch {}
+    // 2. Si ya hay una adquisición de micrófono en vuelo, unirse a esa misma promesa para evitar duplicados concurrentes
+    if (this.pendingMicAcquisitionPromise) {
+      return this.pendingMicAcquisitionPromise;
     }
 
-    // 3. Adquisición directa con filtros de voz desactivados desde el inicio (PROHIBIDO { audio: true } o applyConstraints en caliente)
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-        video: false,
-      });
-    } catch (err1: any) {
-      if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+    this.pendingMicAcquisitionPromise = (async () => {
+      try {
+        // CRÍTICO PARA IOS SAFARI / WEBKIT:
+        // En WebKit, si navigator.audioSession.type está en 'playback', llamar a getUserMedia lanza:
+        // DOMException: "AudioSession category is not compatible with audio capture."
+        // Por lo tanto, conmutamos a 'play-and-record' ANTES de llamar a getUserMedia.
+        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'play-and-record';
+          } catch {}
+        }
+
+        // Adquisición directa con filtros de voz desactivados desde el inicio (PROHIBIDO { audio: true } o applyConstraints en caliente)
+        let stream: MediaStream;
         try {
-          (navigator as any).audioSession.type = 'playback';
-        } catch {}
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+            video: false,
+          });
+        } catch (err1: any) {
+          if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+            try {
+              (navigator as any).audioSession.type = 'playback';
+            } catch {}
+          }
+          throw err1;
+        }
+
+        // Guardar referencia en el singleton para reutilización warm instantánea
+        this.micStream = stream;
+        this.activeMicStreams.add(stream);
+        this.isPausedForPlayback = false;
+
+        // Asegurar que los tracks de audio estén habilitados
+        const [track] = stream.getAudioTracks();
+        if (track) {
+          track.enabled = true;
+          track.addEventListener('ended', () => {
+            this.activeMicStreams.delete(stream);
+            if (this.micStream === stream) {
+              this.micStream = null;
+              this.micSourceNode = null;
+            }
+            if (!this.isMicActive()) {
+              this.releaseMicrophoneStream();
+            }
+          });
+        }
+
+        // Confirmar AudioSession en 'play-and-record'
+        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'play-and-record';
+          } catch {}
+        }
+
+        return stream;
+      } finally {
+        this.pendingMicAcquisitionPromise = null;
       }
-      throw err1;
-    }
+    })();
 
-    // Guardar referencia en el singleton para reutilización warm instantánea
-    this.micStream = stream;
-    this.activeMicStreams.add(stream);
-    this.isPausedForPlayback = false;
-
-    // 4. Asegurar que los tracks de audio estén habilitados
-    const [track] = stream.getAudioTracks();
-    if (track) {
-      track.enabled = true;
-      track.addEventListener('ended', () => {
-        this.activeMicStreams.delete(stream);
-        if (this.micStream === stream) {
-          this.micStream = null;
-          this.micSourceNode = null;
-        }
-        if (!this.isMicActive()) {
-          this.releaseMicrophoneStream();
-        }
-      });
-    }
-
-    // 6. Confirmar AudioSession en 'play-and-record'
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'play-and-record';
-      } catch {}
-    }
-
-    return stream;
+    return this.pendingMicAcquisitionPromise;
   }
 
   public releaseMicrophoneStream(stream?: MediaStream): void {
