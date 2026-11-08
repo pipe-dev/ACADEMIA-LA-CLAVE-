@@ -1,4 +1,4 @@
-const CACHE_NAME = 'afinapp-v42';
+const CACHE_NAME = 'afinapp-v43';
 const PRECACHE_URLS = [
   '/',
   '/manifest.json',
