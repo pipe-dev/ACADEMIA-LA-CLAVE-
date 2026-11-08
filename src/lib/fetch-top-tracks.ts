@@ -302,7 +302,7 @@ export async function fetchLiveTopTracks(): Promise<TopTracksResponse> {
 }
 
 /**
- * Búsqueda de canciones en iTunes con fallback directo en el cliente.
+ * Búsqueda de canciones con fallback directo en el cliente (Deezer + iTunes).
  */
 export async function searchTracks(query: string): Promise<CatalogTrack[]> {
   const trimmed = query.trim();
@@ -325,7 +325,27 @@ export async function searchTracks(query: string): Promise<CatalogTrack[]> {
     }
   } catch {}
 
-  // 2. Respaldo directo en el navegador a Apple iTunes API (CORS habilitado por Apple)
+  // 2. Respaldo directo en el cliente vía Deezer (sin bloqueos CORS)
+  try {
+    const dzUrl = `https://api.deezer.com/search?q=${encodeURIComponent(trimmed)}&limit=15`;
+    const res = await fetch(dzUrl);
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.data) && json.data.length > 0) {
+        return json.data.map((item: any) => ({
+          id: `dz_${item.id}`,
+          title: item.title || '',
+          artist: item.artist?.name || 'Artista',
+          category: 'Pop Latino',
+          thumbnail: item.album?.cover_big || item.album?.cover_medium || ''
+        }));
+      }
+    }
+  } catch (dzErr) {
+    console.warn('[search] Error en búsqueda directa en Deezer:', dzErr);
+  }
+
+  // 3. Respaldo directo en el navegador a Apple iTunes API
   try {
     const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=15`;
     const res = await fetch(directUrl);

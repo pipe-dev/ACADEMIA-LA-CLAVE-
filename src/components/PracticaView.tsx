@@ -8,7 +8,7 @@ const YouTube = dynamic<YouTubeProps>(() => import('react-youtube').then((mod) =
 import { ArrowLeft, Zap } from 'lucide-react';
 import { audioService } from '../utils/audioService';
 import { fetchLyrics, TrackLyrics, LyricLine } from '../lib/fetch-lyrics';
-import { fetchLiveTopTracks } from '../lib/fetch-top-tracks';
+import { fetchLiveTopTracks, searchTracks } from '../lib/fetch-top-tracks';
 import { getTimeToNextLife, MAX_LIVES } from '../utils/livesEngine';
 import { CatalogTrack, PracticaViewProps } from './practica/practicaTypes';
 import {
@@ -241,42 +241,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        let mapped: CatalogTrack[] = [];
-        try {
-          const res = await fetch(`/api/itunes-search?q=${encodeURIComponent(trimmed)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data)) {
-              mapped = data.map((item: any) => ({
-                id: item.id || String(Math.random()),
-                title: item.title,
-                artist: item.artist,
-                category: 'Pop Latino',
-                thumbnail: item.thumbnail || ''
-              }));
-            }
-          }
-        } catch {}
-
-        // Respaldo directo en el navegador a Apple iTunes API si el endpoint local falla
-        if (mapped.length === 0) {
-          try {
-            const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=15`;
-            const directRes = await fetch(directUrl);
-            if (directRes.ok) {
-              const directJson = await directRes.json();
-              if (directJson.results && Array.isArray(directJson.results)) {
-                mapped = directJson.results.map((item: any) => ({
-                  id: item.trackId ? String(item.trackId) : String(Math.random()),
-                  title: item.trackName || '',
-                  artist: item.artistName || 'Artista',
-                  category: 'Pop Latino',
-                  thumbnail: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '600x600') : ''
-                }));
-              }
-            }
-          } catch {}
-        }
+        const mapped = await searchTracks(trimmed);
 
         if (mapped.length > 0) {
           // Solo ESA canción: oficial + complemento; nada que sea otra
@@ -289,7 +254,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
           setSearchResults([]);
         }
       } catch (err) {
-        console.warn('Error en búsqueda de iTunes:', err);
+        console.warn('Error en búsqueda de canciones:', err);
       } finally {
         setIsSearching(false);
       }
