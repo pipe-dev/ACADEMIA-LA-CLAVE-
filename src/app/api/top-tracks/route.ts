@@ -131,25 +131,29 @@ export async function GET(req: Request) {
   }
 
   try {
-    const browserHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'application/json, text/plain, */*'
+    const fetchSafe = (url: string) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      return fetch(url, {
+        headers: {
+          'Accept': 'application/json, text/javascript, */*',
+          'User-Agent': 'AfinApp-Music/1.0'
+        },
+        signal: controller.signal
+      })
+        .then(r => r.ok ? r.json() : null)
+        .catch(err => {
+          console.warn(`[top-tracks] Failed fetch ${url}:`, err);
+          return null;
+        })
+        .finally(() => clearTimeout(timer));
     };
 
     // Consultar en paralelo los feeds de Apple Music con timeout seguro
     const [secularRes, usLatinRes, christianRes] = await Promise.all([
-      fetch('https://itunes.apple.com/mx/rss/topsongs/limit=100/json', {
-        headers: browserHeaders,
-        signal: AbortSignal.timeout(6000)
-      }).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('https://itunes.apple.com/us/rss/topsongs/limit=50/genre=1119/json', {
-        headers: browserHeaders,
-        signal: AbortSignal.timeout(6000)
-      }).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('https://itunes.apple.com/mx/rss/topsongs/limit=100/genre=22/json', {
-        headers: browserHeaders,
-        signal: AbortSignal.timeout(6000)
-      }).then(r => r.ok ? r.json() : null).catch(() => null)
+      fetchSafe('https://itunes.apple.com/mx/rss/topsongs/limit=100/json'),
+      fetchSafe('https://itunes.apple.com/us/rss/topsongs/limit=50/genre=1119/json'),
+      fetchSafe('https://itunes.apple.com/mx/rss/topsongs/limit=100/genre=22/json')
     ]);
 
     // 1. Procesar canciones seculares
@@ -280,7 +284,8 @@ export async function GET(req: Request) {
       allTracks
     };
 
-    if (bundle.top100.length > 0) {
+    // Solo guardar en memoria si obtuvimos canciones reales de Apple Music (no el respaldo)
+    if (secularRaw.length > 0 && bundle.top100.length > 0) {
       cachedBundle = bundle;
       lastCacheTime = now;
     }

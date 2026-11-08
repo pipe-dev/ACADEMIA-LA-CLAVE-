@@ -10,14 +10,19 @@ export async function GET(request: Request) {
 
   try {
     const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=15`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "AfinApp v1.0"
-      }
-    });
+        "Accept": "application/json, text/javascript, */*",
+        "User-Agent": "AfinApp-Music/1.0"
+      },
+      signal: controller.signal
+    }).finally(() => clearTimeout(timer));
 
     if (!res.ok) {
-      return NextResponse.json({ error: "Failed to fetch from iTunes" }, { status: 500 });
+      console.warn(`[itunes-search] Status: ${res.status}`);
+      return NextResponse.json({ error: "Failed to fetch from iTunes" }, { status: 502 });
     }
 
     const data = await res.json();
@@ -31,11 +36,11 @@ export async function GET(request: Request) {
       const highResArtwork = item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '600x600') : '';
       
       return {
-        id: item.trackId.toString(),
-        title: item.trackName,
-        artist: item.artistName,
+        id: item.trackId ? item.trackId.toString() : String(Math.random()),
+        title: item.trackName || '',
+        artist: item.artistName || 'Artista',
         thumbnail: highResArtwork,
-        previewUrl: item.previewUrl
+        previewUrl: item.previewUrl || ''
       };
     });
 
