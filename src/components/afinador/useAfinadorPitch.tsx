@@ -469,8 +469,8 @@ export function useAfinadorPitch({
       setIsTuningActive(true);
       return true;
     } else {
-      setMicPermissionError(true);
-      setTuningStatusMsg('Permiso de micrófono no otorgado');
+      setMicPermissionError(false);
+      setTuningStatusMsg('Toca para activar micrófono');
       return false;
     }
   }, [userLives, isTuningActive, onOpenRecoveryExam]);
@@ -490,6 +490,7 @@ export function useAfinadorPitch({
       if (onOpenRecoveryExam) onOpenRecoveryExam();
       return;
     }
+    setMicPermissionError(false);
     if (isTuningActive) {
       stopTuningMic();
     } else {

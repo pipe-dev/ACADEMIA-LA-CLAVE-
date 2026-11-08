@@ -248,7 +248,7 @@ export const VoiceEvalModal: React.FC<VoiceEvalModalProps> = ({
     });
 
     if (!ok) {
-      alert('Se requiere acceso al micrófono para evaluar tu voz.');
+      // Reintento silencioso en la siguiente acción
       return;
     }
 
