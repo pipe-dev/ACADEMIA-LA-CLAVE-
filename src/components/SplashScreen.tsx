@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lightbulb, DownloadCloud, CheckCircle2, User, Camera, ArrowRight, Mic, Loader2 } from 'lucide-react';
-import { cacheAllContentLocally, registerServiceWorker } from '../utils/offlineSync';
+// Caching removed
 import { SONGS_DATABASE } from '../data/academyData';
 import { DEFAULT_VOCAL_AVATARS } from './friends/friendsTypes';
 import { UserStats } from '../types';
@@ -132,27 +132,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     text: `${initialName || 'Vocalista'}, recuerda que el aire es el combustible de tu voz. Antes de emitir cualquier nota, expande tus costillas inferiores y relaja tu mandíbula.`
   });
 
-  // Pre-carga en segundo plano de recursos offline
+  // No caching - direct network always
   useEffect(() => {
-    registerServiceWorker();
-    const isLocalOrDev =
-      typeof window !== 'undefined' && (
-        window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.includes('trycloudflare.com') ||
-        window.location.hostname.startsWith('192.168.') ||
-        window.location.port === '9005'
-      );
-    if (!isLocalOrDev) {
-      const songCovers = SONGS_DATABASE.map((s) => s.coverUrl).filter(Boolean);
-      const avatarSvgs = DEFAULT_VOCAL_AVATARS.map((a) => a.url);
-      const appStaticAssets = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/Logo_afinapp.png', ...avatarSvgs, ...songCovers];
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'PRECACHE_FULL_APP', urls: appStaticAssets });
-      }
-      cacheAllContentLocally();
-    }
 
     // Precarga real DURANTE el splash: un módulo a la vez (de a poco) y en orden de uso.
     // cacheAllContentLocally() sigue corriendo en paralelo, como hasta ahora.

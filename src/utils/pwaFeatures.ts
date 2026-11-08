@@ -371,9 +371,8 @@ export async function startBackgroundFetchDownload(
       return true;
     } else {
       console.log('[PWA] Background Fetch no soportado directamente por el navegador, descargando vía Cache API estándar.');
-      // Fallback: Standard Cache API fetch
-      const cache = await caches.open('laclave-v1-cache');
-      await Promise.all(urls.map((u) => cache.add(u).catch(() => {})));
+      // Zero cache: direct fetch only
+      await Promise.all(urls.map((u) => fetch(u).catch(() => {})));
       return true;
     }
   } catch (err) {

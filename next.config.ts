@@ -52,6 +52,18 @@ const nextConfig: NextConfig = {
             value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
           },
           {
+            key: 'Cloudflare-CDN-Cache-Control',
+            value: 'no-store',
+          },
+          {
+            key: 'CDN-Cache-Control',
+            value: 'no-store',
+          },
+          {
+            key: 'Surrogate-Control',
+            value: 'no-store',
+          },
+          {
             key: 'Pragma',
             value: 'no-cache',
           },

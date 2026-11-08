@@ -59,37 +59,26 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Instantly purge all browser CacheStorage on all client devices
-              if ('caches' in window) {
-                caches.keys().then(function(names) {
-                  for (var name of names) {
-                    caches.delete(name);
-                  }
-                });
-              }
-
-              if ('serviceWorker' in navigator) {
-                const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('trycloudflare.com') || window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.') || window.location.port === '9005';
-                if (isDev) {
+              // ZERO CACHE ENFORCEMENT: Unregister all service workers and wipe CacheStorage
+              if (typeof window !== 'undefined') {
+                if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for (let registration of registrations) {
-                      registration.unregister();
-                    }
-                  });
-                } else {
-                  window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js').then(function(reg) {
-                      reg.update();
-                    });
-                  });
-                  var refreshing = false;
-                  navigator.serviceWorker.addEventListener('controllerchange', function() {
-                    if (!refreshing) {
-                      refreshing = true;
-                      window.location.reload();
+                    for (var i = 0; i < registrations.length; i++) {
+                      registrations[i].unregister();
                     }
                   });
                 }
+                if ('caches' in window) {
+                  caches.keys().then(function(names) {
+                    for (var j = 0; j < names.length; j++) {
+                      caches.delete(names[j]);
+                    }
+                  });
+                }
+                try {
+                  localStorage.removeItem('laclave_offline_content_v1');
+                  localStorage.removeItem('laclave_offline_queue_v1');
+                } catch(e) {}
               }
             `,
           }}
