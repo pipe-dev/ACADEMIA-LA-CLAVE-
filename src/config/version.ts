@@ -4,7 +4,7 @@
  */
 
 export const APP_VERSION = 'v1.0.40';
-export const APP_COMMIT_FALLBACK = 'f2c4dc6';
+export const APP_COMMIT_FALLBACK = '54455ff';
 
 export interface AppBuildInfo {
   version: string;
