@@ -230,13 +230,8 @@ export const usePitchDetection = () => {
         micBoostGain.gain.setValueAtTime(boostVal, context.currentTime);
 
         // Cadena de análisis: Mic -> HighPass (90Hz) -> LowPass (1100Hz) -> PreAmp (4x) -> Analyser
+        // El micrófono NUNCA se conecta a context.destination para evitar que el OS active el modo llamada y ducking.
         source.connect(highpassFilter).connect(lowpassFilter).connect(micBoostGain).connect(analyserRef.current);
-
-        // Silent sink mudo (0% volumen) hacia destination (soluciona el bug de Dead-End Graph de WebKit en iOS)
-        const silentSink = context.createGain();
-        silentSink.gain.setValueAtTime(0.0, context.currentTime);
-        analyserRef.current.connect(silentSink);
-        silentSink.connect(context.destination);
 
         if (context.state !== 'running') {
           await context.resume().catch(() => {});

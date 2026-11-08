@@ -188,9 +188,9 @@ function unlockWebAudio(ctx: AudioContext) {
 function activatePlaybackCategory(ctx?: AudioContext | null) {
   if (typeof window === 'undefined') return;
   try {
-    if ('audioSession' in navigator && !audioService.isMicActive()) {
+    if ('audioSession' in navigator) {
       try {
-        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
+        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'auto';
       } catch {}
     }
     if ('mediaSession' in navigator) {

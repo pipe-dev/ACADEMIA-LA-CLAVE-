@@ -145,13 +145,6 @@ export class VoicePlaybackService {
       if (requestId !== this.currentPlayRequestId) return;
     }
 
-    // Si el micrófono está activo en este momento (ej. en el Afinador), suspenderlo temporalmente
-    // durante la duración de la nota para que el altavoz principal suene a pleno volumen estéreo
-    // sin que iOS/Android aplique ducking telefónico ni el afinador se auto-afine con su propio parlante.
-    if (audioService.isMicListening()) {
-      audioService.pauseMicrophoneForPlayback(((duration || 2.0) * 1000) + 350);
-    }
-
     // Determine target gender: prefer explicitly provided gender, otherwise localStorage
     let activeGender: 'masculino' | 'femenino' = gender || 'femenino';
     try {

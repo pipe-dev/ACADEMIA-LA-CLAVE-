@@ -215,9 +215,9 @@ export function useVocalRemover(initialVideoId?: string) {
       audio.volume = 1.0;
       audioRef.current = audio;
 
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator && !audioService.isKaraokeSessionActive) {
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
-          (navigator as any).audioSession.type = 'playback';
+          (navigator as any).audioSession.type = 'auto';
         } catch {}
       }
 

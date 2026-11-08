@@ -30,7 +30,6 @@ class AudioService {
   private micHighpassFilter: BiquadFilterNode | null = null;
   private micLowpassFilter: BiquadFilterNode | null = null;
   private micPreampGain: GainNode | null = null;
-  private micSilentSink: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private isListening: boolean = false;
   private isPausedForPlayback: boolean = false;
@@ -81,10 +80,10 @@ class AudioService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      // Audio Session Category: Playback (permite sonido con interruptor de silencio y modos de enfoque en iOS/Android)
+      // Audio Session Category: 'auto' para que el sistema operativo NO fuerce el modo llamada (evita ducking telefónico)
       if ('audioSession' in navigator) {
         try {
-          (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
+          (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'auto';
         } catch {}
       }
       if ('mediaSession' in navigator) {
@@ -139,10 +138,10 @@ class AudioService {
     }
     this.isSilentUnlocked = true;
 
-    // 1. Audio Session: Playback para permitir sonido con altavoz sin activar la Dynamic Island
-    if ('audioSession' in navigator && !this.isMicActive()) {
+    // 1. Audio Session: 'auto' para permitir sonido multimedia normal sin ducking ni modo llamada
+    if ('audioSession' in navigator) {
       try {
-        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'playback';
+        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'auto';
       } catch {}
     }
 
@@ -259,7 +258,7 @@ class AudioService {
       this.activeMicStreams.add(this.micStream);
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
-          (navigator as any).audioSession.type = 'play-and-record';
+          (navigator as any).audioSession.type = 'auto';
         } catch {}
       }
       return this.micStream;
@@ -272,17 +271,14 @@ class AudioService {
 
     this.pendingMicAcquisitionPromise = (async () => {
       try {
-        // CRÍTICO PARA IOS SAFARI / WEBKIT:
-        // En WebKit, si navigator.audioSession.type está en 'playback', llamar a getUserMedia lanza:
-        // DOMException: "AudioSession category is not compatible with audio capture."
-        // Por lo tanto, conmutamos a 'play-and-record' ANTES de llamar a getUserMedia.
+        // En WebKit y Android, mantener 'auto' para NO forzar modo llamada telefónica ni ducking:
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
           try {
-            (navigator as any).audioSession.type = 'play-and-record';
+            (navigator as any).audioSession.type = 'auto';
           } catch {}
         }
 
-        // Adquisición directa con filtros de voz desactivados desde el inicio (PROHIBIDO { audio: true } o applyConstraints en caliente)
+        // Adquisición directa con filtros de voz y llamadas desactivados (sin VoiceProcessingIO ni MODE_IN_COMMUNICATION)
         let stream: MediaStream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -290,13 +286,21 @@ class AudioService {
               echoCancellation: false,
               noiseSuppression: false,
               autoGainControl: false,
+              // Desactivar flags de procesamiento de telefonía en Chromium/Android para evitar MODE_IN_COMMUNICATION y ducking
+              ...({
+                googEchoCancellation: false,
+                googAutoGainControl: false,
+                googNoiseSuppression: false,
+                googHighpassFilter: false,
+                googAudioMirroring: false,
+              } as any),
             },
             video: false,
           });
         } catch (err1: any) {
           if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
             try {
-              (navigator as any).audioSession.type = 'playback';
+              (navigator as any).audioSession.type = 'auto';
             } catch {}
           }
           throw err1;
@@ -323,10 +327,10 @@ class AudioService {
           });
         }
 
-        // Confirmar AudioSession en 'play-and-record'
+        // Mantener AudioSession en 'auto' (nunca 'play-and-record' que duckea y activa telefonía)
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
           try {
-            (navigator as any).audioSession.type = 'play-and-record';
+            (navigator as any).audioSession.type = 'auto';
           } catch {}
         }
 
@@ -343,9 +347,9 @@ class AudioService {
     if (stream) {
       this.activeMicStreams.delete(stream);
     }
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator && !this.isMicActive()) {
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
-        (navigator as any).audioSession.type = 'playback';
+        (navigator as any).audioSession.type = 'auto';
       } catch {}
     }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
@@ -386,10 +390,6 @@ class AudioService {
 
       const scheduleTone = () => {
         if (!this.ctx || requestId !== this.currentPlayRequestId) return;
-
-        if (this.isListening && !this.isPausedForPlayback) {
-          this.pauseMicrophoneForPlayback(Math.round(duration * 1000 + 200));
-        }
 
         const now = this.ctx.currentTime;
 
@@ -1482,7 +1482,7 @@ class AudioService {
 
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
-          (navigator as any).audioSession.type = 'play-and-record';
+          (navigator as any).audioSession.type = 'auto';
         } catch {}
       }
 
@@ -1525,26 +1525,17 @@ class AudioService {
         }
         this.micPreampGain.gain.setValueAtTime(4.0, this.ctx.currentTime);
 
-        if (!this.micSilentSink) {
-          this.micSilentSink = this.ctx.createGain();
-        }
-        this.micSilentSink.gain.setValueAtTime(0.0, this.ctx.currentTime);
-
         try { this.micHighpassFilter.disconnect(); } catch {}
         try { this.micLowpassFilter.disconnect(); } catch {}
         try { this.micPreampGain.disconnect(); } catch {}
         try { this.analyser.disconnect(); } catch {}
-        try { this.micSilentSink.disconnect(); } catch {}
 
         // Cadena: micSource -> highpass (90Hz) -> lowpass (1100Hz) -> micPreampGain (4x) -> analyser
+        // El micrófono NUNCA se conecta a destination para evitar que el OS active el modo llamada y ducking.
         this.micSourceNode.connect(this.micHighpassFilter);
         this.micHighpassFilter.connect(this.micLowpassFilter);
         this.micLowpassFilter.connect(this.micPreampGain);
         this.micPreampGain.connect(this.analyser);
-
-        // Silent sink mudo (0% volumen) hacia destination (soluciona el bug de Dead-End Graph de WebKit)
-        this.analyser.connect(this.micSilentSink);
-        this.micSilentSink.connect(this.ctx.destination);
       }
 
       // Reanudar inmediatamente el AudioContext tras getUserMedia si iOS lo suspendió
@@ -1600,76 +1591,21 @@ class AudioService {
    * at 100% full volume with ZERO ducking or earpiece telephony routing.
    * When the note finishes, the microphone automatically resumes listening seamlessly.
    */
-  public pauseMicrophoneForPlayback(durationMs: number = 2300): void {
-    if (!this.isListening) {
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator && !this.isKaraokeSessionActive) {
-        try {
-          (navigator as any).audioSession.type = 'playback';
-        } catch {}
-      }
-      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-        try {
-          navigator.mediaSession.playbackState = 'none';
-        } catch {}
-      }
-      return;
-    }
-
-    this.isPausedForPlayback = true;
-    if (this.onMicPauseChange) {
-      try { this.onMicPauseChange(true); } catch {}
-    }
-
-    if (this.micPauseResumeTimeoutId) {
-      clearTimeout(this.micPauseResumeTimeoutId);
-      this.micPauseResumeTimeoutId = null;
-    }
-
-    // Si NO estamos en sesión interactiva (karaoke/afinador activo), permitimos silenciar el track por hardware
-    if (!this.isKaraokeSessionActive) {
-      if (this.micStream) {
-        this.micStream.getAudioTracks().forEach(track => {
-          try { track.enabled = false; } catch {}
-        });
-      }
-      if (this.micSourceNode) {
-        try { this.micSourceNode.disconnect(); } catch {}
-        this.micSourceNode = null;
-      }
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-        try {
-          (navigator as any).audioSession.type = 'playback';
-        } catch {}
-      }
-    }
-
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.playbackState = 'none';
-      } catch {}
-    }
-
-    const currentSessionId = this.micSessionId;
-
-    this.micPauseResumeTimeoutId = setTimeout(async () => {
-      this.micPauseResumeTimeoutId = null;
-      if (this.isListening && this.isPausedForPlayback && this.micSessionId === currentSessionId) {
-        this.isPausedForPlayback = false;
-        if (this.onMicPauseChange) {
-          try { this.onMicPauseChange(false); } catch {}
-        }
-        if (!this.isKaraokeSessionActive && this.lastPitchCallback) {
-          await this.startMicrophone(this.lastPitchCallback);
-        }
-      }
-    }, durationMs);
+  /**
+   * NO-OP intencional: El micrófono NUNCA debe pausarse, desconectarse ni alterar
+   * la sesión de hardware al reproducir notas de referencia o ejercicios.
+   * La desconexión y reconexión provocaba que el celular entrara y saliera continuamente
+   * del modo llamada, generando ducking severo y cortes de volumen.
+   */
+  public pauseMicrophoneForPlayback(_durationMs: number = 2300): void {
+    // No-op absoluto para garantizar cero ducking y cero interrupciones de hardware.
   }
 
   /**
    * Alias de compatibilidad hacia atrás
    */
-  public muteMicTemporarily(durationMs: number = 2200): void {
-    this.pauseMicrophoneForPlayback(durationMs);
+  public muteMicTemporarily(_durationMs: number = 2200): void {
+    // No-op intencional
   }
 
   public stopMicrophone(forceHardwareRelease: boolean = false) {
