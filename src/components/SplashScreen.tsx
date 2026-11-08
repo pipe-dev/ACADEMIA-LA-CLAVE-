@@ -59,6 +59,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     try {
       if (typeof window === 'undefined') return false;
       if (localStorage.getItem('laclave_profile_configured') === 'true') return true;
+      const cachedSession = localStorage.getItem('laclave_cached_session_user_v1');
+      if (cachedSession) {
+        try {
+          const parsed = JSON.parse(cachedSession);
+          if (parsed?.name && parsed.name !== 'Alex') return true;
+        } catch {}
+      }
       const saved = localStorage.getItem('laclave_user_stats_v6');
       if (saved) {
         const parsed = JSON.parse(saved);

@@ -5,16 +5,8 @@ import { verifyJwt, getJwtSecret } from './lib/jwt';
 
 
 function applySecurityHeaders(res: NextResponse): NextResponse {
-  res.headers.set('X-Content-Type-Options', 'nosniff');
-  res.headers.set('X-Frame-Options', 'DENY');
-  res.headers.set('X-XSS-Protection', '1; mode=block');
-  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.headers.set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
-  res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-  res.headers.set('Pragma', 'no-cache');
-  res.headers.set('Expires', '0');
-  res.headers.set('Cloudflare-CDN-Cache-Control', 'no-store');
-  res.headers.set('CDN-Cache-Control', 'no-store');
+  // Los encabezados de seguridad y anti-caché se configuran de forma única en next.config.ts
+  // para evitar encabezados duplicados separados por coma en OpenNext / Cloudflare Workers.
   return res;
 }
 

@@ -34,7 +34,7 @@ export const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
   if (!isOpen || options.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
       <div
         className={`rounded-3xl p-5 max-w-sm w-full space-y-3 border shadow-2xl ${
           zenMode

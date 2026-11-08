@@ -313,6 +313,15 @@ export default function LoginPage() {
       setAccountAlert(null);
 
       try {
+        if (data.user) {
+          localStorage.setItem('laclave_cached_session_user_v1', JSON.stringify(data.user));
+          localStorage.setItem('laclave_profile_configured', 'true');
+          const savedStats = localStorage.getItem('laclave_user_stats_v6');
+          const parsed = savedStats ? JSON.parse(savedStats) : {};
+          parsed.name = data.user.name || cleanUsername;
+          parsed.isConfigured = true;
+          localStorage.setItem('laclave_user_stats_v6', JSON.stringify(parsed));
+        }
         if (rememberMe) {
           localStorage.setItem('afinapp_remembered_username', cleanUsername);
         } else {
