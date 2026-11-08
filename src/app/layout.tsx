@@ -59,6 +59,15 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Instantly purge all browser CacheStorage on all client devices
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  for (var name of names) {
+                    caches.delete(name);
+                  }
+                });
+              }
+
               if ('serviceWorker' in navigator) {
                 const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('trycloudflare.com') || window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.') || window.location.port === '9005';
                 if (isDev) {
@@ -67,11 +76,6 @@ export default function RootLayout({
                       registration.unregister();
                     }
                   });
-                  if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                      for (let name of names) caches.delete(name);
-                    });
-                  }
                 } else {
                   window.addEventListener('load', function() {
                     navigator.serviceWorker.register('/sw.js').then(function(reg) {

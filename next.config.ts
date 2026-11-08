@@ -1,7 +1,7 @@
 import type {NextConfig} from 'next';
 import { execSync } from 'child_process';
 
-let gitCommit = 'f2c4dc6';
+let gitCommit = 'd3c277e';
 try {
   gitCommit = execSync('git rev-parse --short HEAD').toString().trim();
 } catch {}
@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: 'v1.0.43',
     NEXT_PUBLIC_GIT_COMMIT: gitCommit,
+  },
+  generateBuildId: async () => {
+    return `build-${Date.now()}`;
   },
   /* config options here */
   devIndicators: false,
@@ -42,20 +45,19 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/(sounds|avatars|icons|_next/static)/:path*',
+        source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
           },
-        ],
-      },
-      {
-        source: '/((?!sounds|avatars|icons|_next/static).*)',
-        headers: [
           {
-            key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate, max-age=0',
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
           },
           {
             key: 'X-Content-Type-Options',

@@ -1,118 +1,26 @@
-const CACHE_NAME = 'afinapp-v43';
-const PRECACHE_URLS = [
-  '/',
-  '/manifest.json',
-  '/duck.png',
-  '/trollface.png'
-];
+/**
+ * AfinApp Service Worker - Zero Cache & Push Notification Engine
+ * All HTTP caching is disabled so users immediately receive code updates.
+ */
+const CACHE_NAME = 'afinapp-nocache-v43';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
-  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      // Wipe ALL old caches to immediately eradicate stale JS chunks & old APIs
+      // Force delete EVERY SINGLE CACHE from previous versions
       Promise.all(keys.map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
+// PASS-THROUGH ONLY: Zero caching for all requests
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Check if we are in a development or tunnel environment
-  const isLocalOrTunnelDev = url.hostname === 'localhost' || 
-                             url.hostname === '127.0.0.1' || 
-                             url.hostname.includes('trycloudflare.com') ||
-                             url.hostname.startsWith('192.168.') ||
-                             url.hostname.startsWith('10.');
-
-  // For dev / tunnel, ALWAYS bypass service worker cache completely
-  if (isLocalOrTunnelDev) {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  // 1. CRITICAL: API requests (/api/*) must NEVER be cached by the Service Worker!
-  // This guarantees live data for /api/top-tracks, /api/auth/*, /api/user/*, etc.
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  // 2. Navigation requests: Network-First, fallback to cached root if offline
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
-    );
-    return;
-  }
-
-  // 3. Next.js chunks & dynamic scripts (/_next/*): ALWAYS Network-First
-  // Guarantees that code updates (tuner audio, karaoke, UI) are served immediately from production!
-  if (url.pathname.startsWith('/_next/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok && url.pathname.startsWith('/_next/static/')) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
-  // 4. Vocal sound files (/sounds/*): Cache-First for instant offline practice
-  if (url.pathname.startsWith('/sounds/')) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        });
-      })
-    );
-    return;
-  }
-
-  // 5. Static media assets (images, fonts): Stale-While-Revalidate
-  if (/\.(png|jpg|jpeg|svg|webp|ico|woff2|woff|ttf)$/i.test(url.pathname)) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        const fetchPromise = fetch(request)
-          .then((response) => {
-            if (response.ok) {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            }
-            return response;
-          })
-          .catch(() => cached);
-
-        return cached || fetchPromise;
-      })
-    );
-    return;
-  }
-
-  // 6. Default: Network first, fallback to cache
-  event.respondWith(
-    fetch(request).catch(() => caches.match(request))
-  );
+  event.respondWith(fetch(event.request));
 });
 
 // Background Practice Reminder Scheduler
