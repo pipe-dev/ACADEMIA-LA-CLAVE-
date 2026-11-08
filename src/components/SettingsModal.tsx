@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { audioService } from '../utils/audioService';
 import { X, Sliders, Check } from 'lucide-react';
 import {
@@ -22,6 +22,7 @@ import { SettingsProfileForm } from './settings/SettingsProfileForm';
 import { SettingsOfflineCard } from './settings/SettingsOfflineCard';
 import { SettingsTogglesList } from './settings/SettingsTogglesList';
 import { SettingsDiagnosticLogs } from './settings/SettingsDiagnosticLogs';
+import { getAppBuildInfo } from '../config/version';
 
 export type { SettingsModalProps };
 
@@ -97,6 +98,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showLogs, setShowLogs] = useState<boolean>(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [logsCopied, setLogsCopied] = useState<boolean>(false);
+  const buildInfo = useMemo(() => getAppBuildInfo(), []);
 
   const hasMountedRef = useRef<boolean>(false);
 
@@ -380,6 +382,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           Cerrar Sesion
         </button>
+
+        {/* Minimalist Build & Version Footer */}
+        <div className="pt-3 pb-1 text-center select-none">
+          <p className="text-[10px] font-mono tracking-wider text-slate-400 dark:text-slate-500 uppercase flex items-center justify-center gap-1.5 opacity-80">
+            <span>AfinApp {buildInfo.version}</span>
+            <span className="text-slate-300 dark:text-slate-600">•</span>
+            <span className="bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded font-mono font-medium text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50">
+              #{buildInfo.commit}
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );

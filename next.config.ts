@@ -1,6 +1,16 @@
 import type {NextConfig} from 'next';
+import { execSync } from 'child_process';
+
+let gitCommit = 'f2c4dc6';
+try {
+  gitCommit = execSync('git rev-parse --short HEAD').toString().trim();
+} catch {}
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: 'v1.0.40',
+    NEXT_PUBLIC_GIT_COMMIT: gitCommit,
+  },
   /* config options here */
   devIndicators: false,
   productionBrowserSourceMaps: false,
