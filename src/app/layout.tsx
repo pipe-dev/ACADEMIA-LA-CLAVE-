@@ -74,7 +74,16 @@ export default function RootLayout({
                   }
                 } else {
                   window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js');
+                    navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                      reg.update();
+                    });
+                  });
+                  var refreshing = false;
+                  navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (!refreshing) {
+                      refreshing = true;
+                      window.location.reload();
+                    }
                   });
                 }
               }

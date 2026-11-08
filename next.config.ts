@@ -8,7 +8,7 @@ try {
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_APP_VERSION: 'v1.0.41',
+    NEXT_PUBLIC_APP_VERSION: 'v1.0.42',
     NEXT_PUBLIC_GIT_COMMIT: gitCommit,
   },
   /* config options here */
