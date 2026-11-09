@@ -188,6 +188,19 @@ export const usePitchDetection = () => {
         const stream = await audioService.acquireMicrophoneStream('karaoke');
         streamRef.current = stream;
 
+        // Emitir evento de micrófono activo para que los reproductores apliquen compensación anti-ducking inmediata
+        if (!isMicEmittedRef.current) {
+          isMicEmittedRef.current = true;
+          emitMicActive(true);
+        }
+
+        // WebKit AudioSession: 'play-and-record' para modo dual multimedia + micrófono sin bloqueo telefónico
+        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+          try {
+            (navigator as any).audioSession.type = 'play-and-record';
+          } catch {}
+        }
+
         // Asegurar que los tracks de audio permanezcan activos
         stream.getAudioTracks().forEach(t => {
           t.enabled = true;
@@ -197,6 +210,13 @@ export const usePitchDetection = () => {
         const context = _externalCtx || audioService.getSharedContext();
         if (context.state === 'suspended') {
           await context.resume();
+        } else if (context.state === 'running') {
+          // WebKit Bug 218012 Workaround: ciclo rápido suspend/resume para forzar a WebKit a recalcular
+          // las rutas de audio y evitar que el DAC de iOS baje el volumen a nivel de auricular telefónico
+          try {
+            await context.suspend();
+            await context.resume();
+          } catch {}
         }
         audioContextRef.current = context;
         isSharedContextRef.current = true;
@@ -321,6 +341,10 @@ export const usePitchDetection = () => {
       }
     } catch (err: any) {
       console.error('[usePitchDetection] Error al capturar micrófono:', err);
+      if (isMicEmittedRef.current) {
+        isMicEmittedRef.current = false;
+        emitMicActive(false);
+      }
       if (streamRef.current) {
         try {
           streamRef.current.getTracks().forEach((track) => track.stop());
@@ -415,6 +439,12 @@ export const usePitchDetection = () => {
     isSharedContextRef.current = false;
     
     audioService.releaseMicrophoneStream();
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'playback';
+        (navigator as any).audioSession.type = 'auto';
+      } catch {}
+    }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';

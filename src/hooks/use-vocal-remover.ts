@@ -1,4 +1,5 @@
 import { audioService } from '@/utils/audioService';
+import { subscribeMicActive, isMicActiveGlobal } from '@/utils/micEvents';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 
@@ -187,9 +188,10 @@ export function useVocalRemover(initialVideoId?: string) {
   const setMasterVolume = useCallback((vol: number) => { // 0 a 100
     if (masterGainRef.current) {
       const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening();
+      const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
       const baseScale = isIos ? 1.45 : 1.0;
-      const micCompensation = isMicActiveNow ? 2.0 : 1.0;
+      const boostMultiplier = isIos ? 2.8 : 2.0;
+      const micCompensation = isMicActiveNow ? boostMultiplier : 1.0;
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * baseScale * micCompensation;
     }
   }, []);
@@ -431,12 +433,13 @@ export function useVocalRemover(initialVideoId?: string) {
       compressorRef.current = compressor;
 
       const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening();
+      const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
       const baseMaster = isIosDevice ? 1.45 : 1.0;
+      const boostMultiplier = isIosDevice ? 2.8 : 2.0;
 
       const masterGain = ctx.createGain();
-      // Auto-compensación +6 dB (2.0x) si el micrófono ya está activo en play-and-record
-      masterGain.gain.value = isMicActiveNow ? baseMaster * 2.0 : baseMaster;
+      // Auto-compensación (+9 dB en iOS / +6 dB en Android) respaldada por brickwall limiter
+      masterGain.gain.value = isMicActiveNow ? baseMaster * boostMultiplier : baseMaster;
       masterGainRef.current = masterGain;
 
       // Limitador de estudio tipo Brickwall para garantizar CERO distorsión o clipeo
@@ -608,23 +611,36 @@ export function useVocalRemover(initialVideoId?: string) {
     return Math.sqrt(sum / len);
   }, []);
 
-  // Compensación automática de ganancia en caliente en los altavoces cuando el micrófono se activa/desactiva (+6 dB / 2.0x)
+  // Compensación automática de ganancia en caliente en los altavoces cuando el micrófono se activa/desactiva
   useEffect(() => {
-    const handleMicChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ active: boolean }>;
-      const active = !!customEvent.detail?.active;
+    const handleMicState = (active: boolean) => {
       const ctx = audioContextRef.current;
       if (ctx && masterGainRef.current) {
         const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
         const base = isIos ? 1.45 : 1.0;
-        // Compensación exacta de +6 dB (2.0x) aplicada ÚNICAMENTE al bus de altavoces (masterGain)
-        const target = active ? base * 2.0 : base;
-        masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.04);
+        // En iOS compensar con 2.8x (aprox +9 dB) respaldada por brickwall limiter para neutralizar el ducking de hardware
+        const boostMultiplier = isIos ? 2.8 : 2.0;
+        const target = active ? base * boostMultiplier : base;
+        masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
+
+        // Si el contexto está corriendo en iOS, un pulso rápido suspend/resume restablece la salida a los parlantes estéreo
+        if (isIos && active && ctx.state === 'running') {
+          ctx.suspend().then(() => ctx.resume()).catch(() => {});
+        }
       }
     };
 
-    window.addEventListener('laclave_mic_active', handleMicChange);
-    return () => window.removeEventListener('laclave_mic_active', handleMicChange);
+    const unsubscribe = subscribeMicActive(handleMicState);
+    const windowHandler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ active: boolean }>;
+      handleMicState(!!customEvent.detail?.active);
+    };
+    window.addEventListener('laclave_mic_active', windowHandler);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('laclave_mic_active', windowHandler);
+    };
   }, []);
 
   useEffect(() => {

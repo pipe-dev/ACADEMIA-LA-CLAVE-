@@ -1,6 +1,7 @@
 'use client';
 
 import { audioService } from './audioService';
+import { isMicActiveGlobal } from './micEvents';
 import {
   NoteInfo,
   ChromaticNoteButtonInfo,
@@ -205,9 +206,10 @@ export class VoicePlaybackService {
         source.buffer = buffer;
         source.playbackRate.setValueAtTime(playbackRate, ctx.currentTime);
 
-        // Auto-Compensación de Volumen cuando el Micrófono está Activo (+6 dB / 2.0x)
-        const isMicActive = audioService.isMicActive() || audioService.isMicListening();
-        const baseGain = isMicActive ? 4.5 : 2.25;
+        // Auto-Compensación de Volumen cuando el Micrófono está Activo (+6 dB Android / +8 dB iOS)
+        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isMicActive = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
+        const baseGain = isMicActive ? (isIos ? 5.8 : 4.5) : 2.25;
 
         // Limitador de estudio para evitar saturación y mantener potencia sin distorsión
         const compressor = ctx.createDynamicsCompressor();

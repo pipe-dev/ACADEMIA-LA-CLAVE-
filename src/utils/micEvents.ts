@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 type MicListener = (active: boolean) => void;
 const listeners = new Set<MicListener>();
@@ -20,6 +20,24 @@ export function emitMicActive(active: boolean): void {
       console.warn('[MicEvents] Listener error:', err);
     }
   });
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('laclave_mic_active', { detail: { active: isAnyMicActive } }));
+    } catch {}
+  }
+}
+
+export function resetMicActiveGlobal(): void {
+  activeCount = 0;
+  listeners.forEach(fn => {
+    try { fn(false); } catch {}
+  });
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('laclave_mic_active', { detail: { active: false } }));
+    } catch {}
+  }
 }
 
 export function isMicActiveGlobal(): boolean {

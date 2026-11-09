@@ -327,10 +327,18 @@ class AudioService {
           });
         }
 
-        // Mantener AudioSession en 'auto' (nunca 'play-and-record' que duckea y activa telefonía)
+        // WebKit AudioSession: activar 'play-and-record' inmediatamente tras adquirir stream
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
           try {
-            (navigator as any).audioSession.type = 'auto';
+            (navigator as any).audioSession.type = 'play-and-record';
+          } catch {}
+        }
+
+        // WebKit Bug 218012 Workaround: ciclo rápido suspend/resume en el contexto para restaurar la ruta al parlante
+        if (this.ctx && this.ctx.state === 'running') {
+          try {
+            await this.ctx.suspend();
+            await this.ctx.resume();
           } catch {}
         }
 
@@ -349,6 +357,7 @@ class AudioService {
     }
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
+        (navigator as any).audioSession.type = 'playback';
         (navigator as any).audioSession.type = 'auto';
       } catch {}
     }
@@ -435,12 +444,16 @@ class AudioService {
         oscHarmonic.type = 'triangle';
         oscHarmonic.frequency.setValueAtTime(freq * 2, now);
 
+        const isMicActiveNow = this.isMicActive() || this.isListening;
+        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const micBoost = isMicActiveNow ? (isIos ? 2.5 : 1.8) : 1.0;
+
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.linearRampToValueAtTime(1.2, now + 0.03);
+        gain.gain.linearRampToValueAtTime(1.2 * micBoost, now + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
         harmGain.gain.setValueAtTime(0.0001, now);
-        harmGain.gain.linearRampToValueAtTime(0.30, now + 0.03);
+        harmGain.gain.linearRampToValueAtTime(0.30 * micBoost, now + 0.03);
         harmGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
         osc.connect(gain);
