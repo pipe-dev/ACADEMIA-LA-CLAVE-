@@ -206,20 +206,12 @@ export const usePitchDetection = () => {
           t.enabled = true;
         });
 
-        // Fase 3: AudioContext dedicado y aislado para el micrófono
-        // AISLAMIENTO TOTAL: NUNCA conectar el micrófono al AudioContext de la música.
-        // Esto garantiza que iOS CoreAudio JAMÁS aplique filtros de llamada telefónica (VoiceProcessingIO) a la canción.
-        let context = audioContextRef.current;
-        if (!context || context.state === 'closed') {
-          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          try {
-            context = new AudioCtx({ latencyHint: 'interactive' });
-          } catch {
-            context = new AudioCtx();
-          }
-          audioContextRef.current = context;
-          isSharedContextRef.current = false;
-        }
+        // Fase 3: AudioContext Único Compartido en Toda la App
+        // Unificación total en el singleton audioService.getSharedContext().
+        // Evita que iOS CoreAudio y Android AudioFlinger detecten contextos compitiendo y apliquen ducking.
+        const context = audioService.getSharedContext();
+        audioContextRef.current = context;
+        isSharedContextRef.current = true;
         if (context.state === 'suspended') {
           await context.resume().catch(() => {});
         }
@@ -295,11 +287,9 @@ export const usePitchDetection = () => {
           vocalRecordGain.connect(recordDestination);
 
           // Rama de la pista (si hay audífonos conectados):
-          // En arquitecturas con AudioContext aislado (v1.0.50+), trackOutputGain pertenece al contexto de la música.
-          // Web Audio prohíbe conectar nodos entre distintos AudioContext (InvalidAccessError).
-          // Se valida contexto idéntico y se aísla en try/catch para jamás abortar la inicialización de MediaRecorder.
+          // En arquitectura de AudioContext único compartido (v1.0.52+), trackOutputGain pertenece al mismo contexto.
           const headphonesActive = isUsingHeadphones ?? audioService.isUsingHeadphones();
-          if (headphonesActive && trackOutputGain && (trackOutputGain as any).context === context) {
+          if (headphonesActive && trackOutputGain) {
             try {
               // DelayNode de 35 ms para compensar la latencia de entrada de iOS/Android
               const latencyDelay = context.createDelay(0.2);
@@ -313,7 +303,7 @@ export const usePitchDetection = () => {
               backingRecordGain.connect(recordDestination);
               backingNodesRef.current = { delay: latencyDelay, gain: backingRecordGain };
             } catch (backingErr) {
-              console.warn('[usePitchDetection] No se pudo mezclar pista en grabación (contextos aislados):', backingErr);
+              console.warn('[usePitchDetection] No se pudo mezclar pista en grabación:', backingErr);
             }
           }
           vocalRecordNodesRef.current = { pop: vocalPopFilter, comp: vocalCompressor, gain: vocalRecordGain };
@@ -441,22 +431,14 @@ export const usePitchDetection = () => {
     }
     recordDestinationRef.current = null;
 
-    // Si el contexto era compartido (p. ej. de vocalRemover), NO cerrarlo para no cortar la música
-    if (!isSharedContextRef.current && audioContextRef.current && audioContextRef.current.state !== "closed") {
-      audioContextRef.current.close().catch(() => {});
-    }
+    // En arquitectura de AudioContext único compartido, NO cerrar el contexto para no cortar la música
     audioContextRef.current = null;
-    isSharedContextRef.current = false;
+    isSharedContextRef.current = true;
     
     audioService.releaseMicrophoneStream();
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
-        (navigator as any).audioSession.type = 'playback';
-        setTimeout(() => {
-          try {
-            (navigator as any).audioSession.type = 'auto';
-          } catch {}
-        }, 50);
+        (navigator as any).audioSession.type = 'auto';
       } catch {}
     }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {

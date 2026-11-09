@@ -281,23 +281,25 @@ class AudioService {
 
         // Adquisición directa con filtros de voz y llamadas desactivados (sin VoiceProcessingIO ni MODE_IN_COMMUNICATION)
         let stream: MediaStream;
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            // Desactivar flags de procesamiento de telefonía en Chromium/Android para evitar MODE_IN_COMMUNICATION y ducking
+            googEchoCancellation: false,
+            googAutoGainControl: false,
+            googAutoGainControl2: false,
+            googNoiseSuppression: false,
+            googNoiseSuppression2: false,
+            googHighpassFilter: false,
+            googTypingNoiseDetection: false,
+            googAudioMirroring: false,
+          } as MediaTrackConstraints,
+          video: false,
+        };
         try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-              // Desactivar flags de procesamiento de telefonía en Chromium/Android para evitar MODE_IN_COMMUNICATION y ducking
-              ...({
-                googEchoCancellation: false,
-                googAutoGainControl: false,
-                googNoiseSuppression: false,
-                googHighpassFilter: false,
-                googAudioMirroring: false,
-              } as any),
-            },
-            video: false,
-          });
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err1: any) {
           if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
             try {
@@ -312,10 +314,14 @@ class AudioService {
         this.activeMicStreams.add(stream);
         this.isPausedForPlayback = false;
 
-        // Asegurar que los tracks de audio estén habilitados
+        // Asegurar que los tracks de audio estén habilitados e inspeccionar configuración real
         const [track] = stream.getAudioTracks();
         if (track) {
           track.enabled = true;
+          try {
+            const settings = track.getSettings();
+            logger.info('Audio', 'Micrófono adquirido con ajustes reales:', settings);
+          } catch {}
           track.addEventListener('ended', () => {
             this.activeMicStreams.delete(stream);
             if (this.micStream === stream) {
@@ -360,22 +366,11 @@ class AudioService {
       this.micStream = null;
       this.micSourceNode = null;
     }
-    if (this.micCtx && this.micCtx.state !== 'closed') {
-      try {
-        this.micCtx.close().catch(() => {});
-      } catch {}
-      this.micCtx = null;
-    }
+    // En arquitectura de AudioContext único, no cerrar el contexto compartido
+    this.micCtx = null;
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
-        (navigator as any).audioSession.type = 'playback';
-        setTimeout(() => {
-          try {
-            if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-              (navigator as any).audioSession.type = 'auto';
-            }
-          } catch {}
-        }, 50);
+        (navigator as any).audioSession.type = 'auto';
       } catch {}
     }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
@@ -1503,17 +1498,8 @@ class AudioService {
         this.micPauseResumeTimeoutId = null;
       }
 
-      // 3. Audio Context dedicado al micrófono (latencyHint: 'interactive' y 100% AISLADO de this.ctx)
-      // AISLAMIENTO TOTAL: NUNCA conectar MediaStreamSource a this.ctx ni a un AudioContext con salida a destination.
-      // Esto impide que iOS CoreAudio / WebKit activen VoiceProcessingIO o traten la salida como llamada telefónica.
-      if (!this.micCtx || this.micCtx.state === 'closed') {
-        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        try {
-          this.micCtx = new AudioCtx({ latencyHint: 'interactive' });
-        } catch {
-          this.micCtx = new AudioCtx();
-        }
-      }
+      // 3. Audio Context Único Compartido en Toda la App
+      this.micCtx = this.getSharedContext();
       if (this.micCtx.state === 'suspended') {
         try { await this.micCtx.resume(); } catch {}
       }
@@ -1670,10 +1656,8 @@ class AudioService {
       });
       this.micStream = null;
     }
-    if (this.micCtx && this.micCtx.state !== 'closed') {
-      try { this.micCtx.close().catch(() => {}); } catch {}
-      this.micCtx = null;
-    }
+    // NO cerrar el AudioContext compartido al detener el micrófono
+    this.micCtx = null;
     this.analyser = null;
     this.micHighpassFilter = null;
     this.micLowpassFilter = null;
