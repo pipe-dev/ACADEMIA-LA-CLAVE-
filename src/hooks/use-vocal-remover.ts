@@ -17,8 +17,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
  *        extinguiendo la cola de reverb y coros laterales, y abriéndose suavemente hacia el 50%.
  * 3. Banda de Brillo (> 6.500 Hz): Platillos, hi-hats y aire estéreo preservados al 100%.
  * 4. Masterización: Makeup Gain dinámico (+3.8 dB a voz 0%) y compresor de estudio anti-distorsión.
- * 5. Motor de Reproducción Nativo en Memoria: AudioBufferSourceNode decodificado directamente
- *    en el AudioContext único compartido (evita el ducking por hardware del demonio multimedia móvil sobre <audio>).
+ * 5. AudioContext de Reproducción Aislado: latencyHint: 'playback' dedicado exclusivamente
+ *    a la salida musical hacia altavoces/auriculares, sin MediaStreamSource conectado,
+ *    evitando que el sistema operativo móvil active el modo llamada y ducking.
  */
 export function useVocalRemover(initialVideoId?: string) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -28,19 +29,8 @@ export function useVocalRemover(initialVideoId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [isFinished, setIsFinished] = useState(false);
   
-  // Elemento HTMLAudioElement conservado exclusivamente como fallback
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaElementSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-
-  // AudioBuffer nativo en RAM (reproducción sin ducking de medios de iOS/Android)
-  const audioBufferRef = useRef<AudioBuffer | null>(null);
-  const bufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const isBufferModeRef = useRef<boolean>(false);
-  const startTimeRef = useRef<number>(0);
-  const pausedAtRef = useRef<number>(0);
-  const fetchAbortControllerRef = useRef<AbortController | null>(null);
-
-  // AudioContext único compartido en toda la aplicación
   const audioContextRef = useRef<AudioContext | null>(null);
 
   // ─── Nodos DSP Tri-Banda ───
@@ -136,29 +126,10 @@ export function useVocalRemover(initialVideoId?: string) {
   }, []);
 
   const destroy = useCallback(() => {
-    // 1. Cancelar peticiones fetch en vuelo
-    if (fetchAbortControllerRef.current) {
-      try { fetchAbortControllerRef.current.abort(); } catch {}
-      fetchAbortControllerRef.current = null;
-    }
-
-    // 2. Detener y desconectar AudioBufferSourceNode
-    if (bufferSourceRef.current) {
-      try {
-        bufferSourceRef.current.onended = null;
-        bufferSourceRef.current.stop();
-        bufferSourceRef.current.disconnect();
-      } catch {}
-      bufferSourceRef.current = null;
-    }
-    audioBufferRef.current = null;
-    isBufferModeRef.current = false;
-    pausedAtRef.current = 0;
-    startTimeRef.current = 0;
-
-    // 3. Desconectar fallback HTMLAudioElement si existiera
     if (mediaElementSourceRef.current) {
-      try { mediaElementSourceRef.current.disconnect(); } catch {}
+      try {
+        mediaElementSourceRef.current.disconnect();
+      } catch {}
       mediaElementSourceRef.current = null;
     }
     if (audioRef.current) {
@@ -168,7 +139,7 @@ export function useVocalRemover(initialVideoId?: string) {
       audioRef.current = null;
     }
 
-    // 4. Desconectar nodos del grafo DSP para liberar recursos (sin cerrar el singleton)
+    // Desconectar los nodos del grafo para liberar recursos sin cerrar el AudioContext singleton
     try {
       splitterRef.current?.disconnect();
       bassGainRef.current?.disconnect();
@@ -185,8 +156,6 @@ export function useVocalRemover(initialVideoId?: string) {
       backingAnalyserRef.current?.disconnect();
     } catch {}
 
-    // En arquitectura de AudioContext único compartido, NO llamar a ctx.close()
-    audioContextRef.current = null;
     splitterRef.current = null;
     bassGainRef.current = null;
     bassSub80ShelfRef.current = null;
@@ -200,6 +169,7 @@ export function useVocalRemover(initialVideoId?: string) {
     masterGainRef.current = null;
     trackOutputGainRef.current = null;
     backingAnalyserRef.current = null;
+    audioContextRef.current = null;
 
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
@@ -230,219 +200,10 @@ export function useVocalRemover(initialVideoId?: string) {
     if (masterGainRef.current) {
       const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseScale = isIos ? 1.25 : 1.0;
-      const boostMultiplier = isIos ? 1.75 : 1.35;
+      const baseScale = isIos ? 1.15 : 1.0;
+      const boostMultiplier = isIos ? 1.35 : 1.2;
       const micCompensation = isMicActiveNow ? boostMultiplier : 1.0;
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * baseScale * micCompensation;
-    }
-  }, []);
-
-  // Lectura continua de tiempo a 60 FPS para el bucle de animación
-  const getCurrentTime = useCallback(() => {
-    if (isBufferModeRef.current && audioBufferRef.current && audioContextRef.current) {
-      if (isPlaying) {
-        const elapsed = audioContextRef.current.currentTime - startTimeRef.current;
-        return Math.max(0, Math.min(audioBufferRef.current.duration, elapsed));
-      }
-      return pausedAtRef.current;
-    }
-    return audioRef.current ? audioRef.current.currentTime : 0;
-  }, [isPlaying]);
-
-  const play = useCallback(async (): Promise<boolean> => {
-    const ctx = audioContextRef.current || audioService.getSharedContext();
-    audioContextRef.current = ctx;
-    try {
-      if (ctx.state === 'suspended') {
-        await ctx.resume().catch(() => {});
-      }
-
-      if (isBufferModeRef.current && audioBufferRef.current && splitterRef.current) {
-        if (bufferSourceRef.current) {
-          try {
-            bufferSourceRef.current.onended = null;
-            bufferSourceRef.current.stop();
-            bufferSourceRef.current.disconnect();
-          } catch {}
-          bufferSourceRef.current = null;
-        }
-
-        const source = ctx.createBufferSource();
-        source.buffer = audioBufferRef.current;
-        source.connect(splitterRef.current);
-
-        const totalDur = audioBufferRef.current.duration;
-        const offset = Math.max(0, Math.min(Math.max(0, totalDur - 0.05), pausedAtRef.current));
-        startTimeRef.current = ctx.currentTime - offset;
-
-        source.onended = () => {
-          if (bufferSourceRef.current === source) {
-            bufferSourceRef.current = null;
-            setIsPlaying(false);
-            setIsFinished(true);
-            pausedAtRef.current = 0;
-            setCurrentTime(totalDur);
-          }
-        };
-
-        source.start(0, offset);
-        bufferSourceRef.current = source;
-        setIsPlaying(true);
-        setIsFinished(false);
-        return true;
-      } else if (audioRef.current) {
-        await audioRef.current.play();
-        setIsPlaying(true);
-        setIsFinished(false);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.warn('Autoplay bloqueado por el navegador (requiere interacción táctil):', err);
-      return false;
-    }
-  }, []);
-
-  const pause = useCallback(() => {
-    const ctx = audioContextRef.current;
-    if (isBufferModeRef.current && bufferSourceRef.current && ctx && audioBufferRef.current) {
-      const elapsed = ctx.currentTime - startTimeRef.current;
-      pausedAtRef.current = Math.max(0, Math.min(audioBufferRef.current.duration, elapsed));
-      try {
-        bufferSourceRef.current.onended = null;
-        bufferSourceRef.current.stop();
-        bufferSourceRef.current.disconnect();
-      } catch {}
-      bufferSourceRef.current = null;
-      setCurrentTime(pausedAtRef.current);
-      setIsPlaying(false);
-    } else if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  }, []);
-
-  const togglePlay = useCallback(async () => {
-    if (isPlaying) {
-      pause();
-    } else {
-      await play();
-    }
-  }, [isPlaying, play, pause]);
-  
-  const setTime = useCallback((time: number) => {
-    const ctx = audioContextRef.current || audioService.getSharedContext();
-    if (isBufferModeRef.current && audioBufferRef.current && splitterRef.current) {
-      const totalDur = audioBufferRef.current.duration;
-      const clamped = Math.max(0, Math.min(totalDur, time));
-      pausedAtRef.current = clamped;
-      setCurrentTime(clamped);
-      if (clamped < totalDur - 0.5) {
-        setIsFinished(false);
-      }
-      if (isPlaying) {
-        if (bufferSourceRef.current) {
-          try {
-            bufferSourceRef.current.onended = null;
-            bufferSourceRef.current.stop();
-            bufferSourceRef.current.disconnect();
-          } catch {}
-          bufferSourceRef.current = null;
-        }
-        const source = ctx.createBufferSource();
-        source.buffer = audioBufferRef.current;
-        source.connect(splitterRef.current);
-        startTimeRef.current = ctx.currentTime - clamped;
-        source.onended = () => {
-          if (bufferSourceRef.current === source) {
-            bufferSourceRef.current = null;
-            setIsPlaying(false);
-            setIsFinished(true);
-            pausedAtRef.current = 0;
-            setCurrentTime(totalDur);
-          }
-        };
-        source.start(0, clamped);
-        bufferSourceRef.current = source;
-      }
-    } else if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
-      if (audioRef.current.duration && time < audioRef.current.duration - 0.5) {
-        setIsFinished(false);
-      }
-    }
-  }, [isPlaying]);
-
-  // Fallback con elemento HTMLAudioElement si decodeAudioData fallara
-  const setupAudioElementFallback = useCallback((
-    audioUrl: string, 
-    ctx: AudioContext, 
-    splitter: ChannelSplitterNode, 
-    autoPlay: boolean
-  ) => {
-    try {
-      isBufferModeRef.current = false;
-      const audio = new Audio();
-      audio.crossOrigin = "anonymous";
-      audio.preload = "auto";
-      audio.setAttribute('playsinline', 'true');
-      audio.setAttribute('webkit-playsinline', 'true');
-      audio.src = audioUrl;
-      audio.volume = 1.0;
-      audioRef.current = audio;
-
-      const source = ctx.createMediaElementSource(audio);
-      mediaElementSourceRef.current = source;
-      source.connect(splitter);
-
-      audio.addEventListener('loadedmetadata', () => {
-        if (audio.duration && !isNaN(audio.duration)) {
-          setDuration(audio.duration);
-        }
-      });
-      audio.addEventListener('durationchange', () => {
-        if (audio.duration && !isNaN(audio.duration)) {
-          setDuration(audio.duration);
-        }
-      });
-      audio.addEventListener('canplay', () => setIsReady(true));
-      audio.addEventListener('canplaythrough', () => setIsReady(true));
-      audio.addEventListener('loadeddata', () => setIsReady(true));
-      audio.addEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
-      audio.addEventListener('play', () => {
-        setIsPlaying(true);
-        setIsFinished(false);
-      });
-      audio.addEventListener('pause', () => {
-        setIsPlaying(false);
-      });
-      audio.addEventListener('ended', () => { 
-        setIsPlaying(false); 
-        setIsFinished(true); 
-      });
-      audio.addEventListener('error', () => {
-        const mediaErr = audio.error;
-        console.error('Error en elemento Audio Web Audio:', {
-          code: mediaErr?.code,
-          message: mediaErr?.message,
-          src: audio.src
-        });
-        setError('No se pudo transmitir el audio sin procesar; conmutando al reproductor alternativo.');
-      });
-      
-      audio.load();
-
-      if (autoPlay) {
-        audio.play().then(() => {
-          setIsPlaying(true);
-          setIsFinished(false);
-        }).catch((err) => {
-          console.warn('Autoplay bloqueado por el navegador (requiere interacción táctil):', err);
-        });
-      }
-    } catch (fallbackErr: any) {
-      setError(fallbackErr?.message || 'Error al inicializar audio fallback');
     }
   }, []);
 
@@ -458,23 +219,37 @@ export function useVocalRemover(initialVideoId?: string) {
     destroy();
 
     try {
+      const audioUrl = `/api/yt-audio?videoId=${vid}`;
+
+      const audio = new Audio();
+      audio.crossOrigin = "anonymous";
+      audio.preload = "auto";
+      audio.setAttribute('playsinline', 'true');
+      audio.setAttribute('webkit-playsinline', 'true');
+      audio.src = audioUrl;
+      audio.volume = 1.0;
+      audioRef.current = audio;
+
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
         try {
           (navigator as any).audioSession.type = 'auto';
         } catch {}
       }
 
-      // AudioContext ÚNICO compartido en toda la app (singleton de audioService).
-      // Al no crear un segundo contexto 'playback', el OS móvil no interpreta que una llamada
-      // interrumpe la música y mantiene el volumen y ecualización estéreo al 100%.
-      const ctx = audioService.getSharedContext();
+      // AudioContext dedicado exclusivamente a la reproducción musical ({ latencyHint: 'playback' }).
+      // AISLAMIENTO TOTAL: Este contexto jamás se conecta al micrófono, garantizando que el OS móvil
+      // no detecte un grafo bidireccional y preserve el volumen y ecualización estéreo al 100%.
+      const ctx = audioService.getPlaybackContext();
       if (ctx.state === 'suspended') {
         await ctx.resume().catch(() => {});
       }
       audioContextRef.current = ctx;
 
+      const source = ctx.createMediaElementSource(audio);
+      mediaElementSourceRef.current = source;
       const splitter = ctx.createChannelSplitter(2);
       splitterRef.current = splitter;
+      source.connect(splitter);
 
       const merger = ctx.createChannelMerger(2);
 
@@ -674,18 +449,18 @@ export function useVocalRemover(initialVideoId?: string) {
 
       const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseMaster = isIosDevice ? 1.25 : 1.0;
-      const boostMultiplier = isIosDevice ? 1.75 : 1.35;
+      const baseMaster = isIosDevice ? 1.15 : 1.0;
+      const boostMultiplier = isIosDevice ? 1.35 : 1.2;
 
       const masterGain = ctx.createGain();
       masterGain.gain.value = isMicActiveNow ? baseMaster * boostMultiplier : baseMaster;
       masterGainRef.current = masterGain;
 
-      // Limitador de estudio tipo Brickwall como ÚLTIMO ESLABÓN antes de destination para garantizar CERO clipeo o distorsión DAC
+      // Limitador de estudio tipo Brickwall en -0.5 dB con ratio 12 para cortar picos extremos sin aplastar la música
       const brickwallLimiter = ctx.createDynamicsCompressor();
-      brickwallLimiter.threshold.setValueAtTime(-1.5, ctx.currentTime);
+      brickwallLimiter.threshold.setValueAtTime(-0.5, ctx.currentTime);
       brickwallLimiter.knee.setValueAtTime(4, ctx.currentTime);
-      brickwallLimiter.ratio.setValueAtTime(16.0, ctx.currentTime);
+      brickwallLimiter.ratio.setValueAtTime(12.0, ctx.currentTime);
       brickwallLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
       brickwallLimiter.release.setValueAtTime(0.08, ctx.currentTime);
 
@@ -713,62 +488,114 @@ export function useVocalRemover(initialVideoId?: string) {
       drumBoostRef.current = initialDrumBoost;
       updateMix(initialVocalLevel, initialDrumBoost);
 
-      // Reproducción nativa mediante AudioBufferSourceNode (sin etiquetas <audio> que activen ducking de hardware)
-      const audioUrl = `/api/yt-audio?videoId=${vid}`;
-      const controller = new AbortController();
-      fetchAbortControllerRef.current = controller;
-
-      try {
-        const res = await fetch(audioUrl, { signal: controller.signal });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+      // Eventos de estado del elemento Audio
+      audio.addEventListener('loadedmetadata', () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+          setDuration(audio.duration);
         }
-        const arrayBuffer = await res.arrayBuffer();
-        const decodedBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-
-        audioBufferRef.current = decodedBuffer;
-        isBufferModeRef.current = true;
-        setDuration(decodedBuffer.duration);
-        setIsReady(true);
-        pausedAtRef.current = 0;
-
-        if (autoPlay) {
-          await play();
+      });
+      audio.addEventListener('durationchange', () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+          setDuration(audio.duration);
         }
-      } catch (bufErr: any) {
-        if (bufErr?.name === 'AbortError') return;
-        console.warn('[useVocalRemover] decodeAudioData falló o no soportado, usando fallback HTMLAudioElement:', bufErr);
-        setupAudioElementFallback(audioUrl, ctx, splitter, autoPlay);
+      });
+      audio.addEventListener('canplay', () => setIsReady(true));
+      audio.addEventListener('canplaythrough', () => setIsReady(true));
+      audio.addEventListener('loadeddata', () => setIsReady(true));
+      audio.addEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
+      audio.addEventListener('play', () => {
+        setIsPlaying(true);
+        setIsFinished(false);
+      });
+      audio.addEventListener('pause', () => {
+        setIsPlaying(false);
+      });
+      audio.addEventListener('ended', () => { 
+        setIsPlaying(false); 
+        setIsFinished(true); 
+      });
+      audio.addEventListener('error', () => {
+        const mediaErr = audio.error;
+        console.error('Error en elemento Audio Web Audio:', {
+          code: mediaErr?.code,
+          message: mediaErr?.message,
+          src: audio.src
+        });
+        setError('No se pudo transmitir el audio sin procesar; conmutando al reproductor alternativo.');
+      });
+      
+      audio.load();
+
+      if (autoPlay) {
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+        audio.play().then(() => {
+          setIsPlaying(true);
+          setIsFinished(false);
+        }).catch((err) => {
+          console.warn('Autoplay bloqueado por el navegador (requiere interacción táctil):', err);
+        });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al inicializar Web Audio');
     }
-  }, [initialVideoId, destroy, updateMix, play, setupAudioElementFallback]);
+  }, [initialVideoId, destroy, updateMix]);
 
-  // Sincronización continua de currentTime para la interfaz y letras de karaoke en modo AudioBuffer
-  useEffect(() => {
-    if (!isPlaying || !isBufferModeRef.current) return;
-    let animId: number;
-    let lastTick = 0;
-    const tick = (now: number) => {
-      if (now - lastTick > 45) { // ~22 fps React state sync para animaciones fluidas
-        lastTick = now;
-        const t = getCurrentTime();
-        setCurrentTime(t);
+  // Lectura continua de tiempo a 60 FPS para el bucle de animación
+  const getCurrentTime = useCallback(() => {
+    return audioRef.current ? audioRef.current.currentTime : 0;
+  }, []);
+
+  const play = useCallback(async (): Promise<boolean> => {
+    if (!audioRef.current || !audioContextRef.current) return false;
+    try {
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
       }
-      animId = requestAnimationFrame(tick);
-    };
-    animId = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, [isPlaying, getCurrentTime]);
+      await audioRef.current.play();
+      setIsPlaying(true);
+      setIsFinished(false);
+      return true;
+    } catch (err) {
+      console.warn('Autoplay bloqueado por el navegador (requiere interacción táctil):', err);
+      return false;
+    }
+  }, []);
+
+  const pause = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setIsPlaying(false);
+  }, []);
+
+  const togglePlay = useCallback(async () => {
+    if (!audioRef.current || !audioContextRef.current) return;
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
+    if (isPlaying) {
+      pause();
+    } else {
+      await play();
+    }
+  }, [isPlaying, play, pause]);
+  
+  const setTime = useCallback((time: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
+      if (audioRef.current.duration && time < audioRef.current.duration - 0.5) {
+        setIsFinished(false);
+      }
+    }
+  }, []);
 
   const ensureContextActive = useCallback(async () => {
-    const ctx = audioContextRef.current || audioService.getSharedContext();
-    if (ctx && ctx.state === 'suspended') {
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
       try {
-        await ctx.resume();
+        await audioContextRef.current.resume();
       } catch {}
     }
   }, []);
@@ -778,7 +605,7 @@ export function useVocalRemover(initialVideoId?: string) {
   }, []);
 
   const getAudioContext = useCallback(() => {
-    return audioContextRef.current || audioService.getSharedContext();
+    return audioContextRef.current || audioService.getPlaybackContext();
   }, []);
 
   // Medición de RMS en tiempo real de la pista musical para la compuerta anti-acople
@@ -800,11 +627,11 @@ export function useVocalRemover(initialVideoId?: string) {
   // Compensación automática de ganancia en caliente en los altavoces cuando el micrófono se activa/desactiva
   useEffect(() => {
     const handleMicState = (active: boolean) => {
-      const ctx = audioContextRef.current || audioService.getSharedContext();
+      const ctx = audioContextRef.current || audioService.getPlaybackContext();
       if (ctx && masterGainRef.current) {
         const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const base = isIos ? 1.25 : 1.0;
-        const boostMultiplier = isIos ? 1.75 : 1.35;
+        const base = isIos ? 1.15 : 1.0;
+        const boostMultiplier = isIos ? 1.35 : 1.2;
         const target = active ? base * boostMultiplier : base;
         masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
       }

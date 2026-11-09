@@ -213,7 +213,7 @@ export class VoicePlaybackService {
 
         // Limitador de estudio para evitar saturación y mantener potencia sin distorsión
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-2, ctx.currentTime);
+        compressor.threshold.setValueAtTime(-0.5, ctx.currentTime);
         compressor.knee.setValueAtTime(6, ctx.currentTime);
         compressor.ratio.setValueAtTime(12, ctx.currentTime);
         compressor.attack.setValueAtTime(0.002, ctx.currentTime);

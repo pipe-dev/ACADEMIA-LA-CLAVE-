@@ -170,11 +170,11 @@ class AudioService {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         try {
-          this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+          this.ctx = new AudioCtx({ latencyHint: 'playback' });
         } catch {
           this.ctx = new AudioCtx();
         }
-        logger.info('Audio', 'AudioContext creado correctamente (interactive)');
+        logger.info('Audio', 'Playback AudioContext creado correctamente (playback)');
       }
     }
 
@@ -200,36 +200,63 @@ class AudioService {
       try {
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         try {
-          this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+          this.ctx = new AudioCtx({ latencyHint: 'playback' });
         } catch {
           this.ctx = new AudioCtx();
         }
-        logger.info('Audio', 'AudioContext creado correctamente (interactive)');
+        logger.info('Audio', 'Playback AudioContext creado correctamente (playback)');
       } catch (err) {
-        logger.error('Audio', 'No se pudo crear el AudioContext', err);
+        logger.error('Audio', 'No se pudo crear el AudioContext de reproducción', err);
         this.ctx = null;
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().then(() => {
-        logger.info('Audio', 'AudioContext reanudado');
+        logger.info('Audio', 'Playback AudioContext reanudado');
       }).catch((err) => {
-        logger.warn('Audio', 'Error al reanudar AudioContext', err);
+        logger.warn('Audio', 'Error al reanudar Playback AudioContext', err);
       });
     }
   }
 
-  public getSharedContext(): AudioContext {
+  public getPlaybackContext(): AudioContext {
     this.initCtx();
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       try {
-        this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+        this.ctx = new AudioCtx({ latencyHint: 'playback' });
       } catch {
         this.ctx = new AudioCtx();
       }
     }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
     return this.ctx;
+  }
+
+  public getMicAnalysisContext(): AudioContext {
+    if (!this.micCtx || this.micCtx.state === 'closed') {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      try {
+        this.micCtx = new AudioCtx({ latencyHint: 'interactive' });
+      } catch {
+        this.micCtx = new AudioCtx();
+      }
+      logger.info('Audio', 'MicAnalysis AudioContext creado correctamente (interactive)');
+    }
+    if (this.micCtx && this.micCtx.state === 'suspended') {
+      this.micCtx.resume().catch(() => {});
+    }
+    return this.micCtx;
+  }
+
+  public getSharedContext(): AudioContext {
+    return this.getPlaybackContext();
+  }
+
+  public getAudioContext(): AudioContext | null {
+    return this.getPlaybackContext();
   }
 
   public isUsingHeadphones(): boolean {
@@ -352,22 +379,22 @@ class AudioService {
     return this.pendingMicAcquisitionPromise;
   }
 
-  public releaseMicrophoneStream(stream?: MediaStream): void {
-    if (stream) {
-      try {
-        stream.getTracks().forEach(track => track.stop());
-      } catch {}
-      this.activeMicStreams.delete(stream);
+  public releaseMicrophoneStream(stream?: MediaStream, forceHardwareStop: boolean = false): void {
+    if (forceHardwareStop) {
+      if (stream) {
+        try {
+          stream.getTracks().forEach(track => track.stop());
+        } catch {}
+        this.activeMicStreams.delete(stream);
+      }
+      if (this.micStream) {
+        try {
+          this.micStream.getTracks().forEach(track => track.stop());
+        } catch {}
+        this.micStream = null;
+        this.micSourceNode = null;
+      }
     }
-    if (this.micStream) {
-      try {
-        this.micStream.getTracks().forEach(track => track.stop());
-      } catch {}
-      this.micStream = null;
-      this.micSourceNode = null;
-    }
-    // En arquitectura de AudioContext único, no cerrar el contexto compartido
-    this.micCtx = null;
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
         (navigator as any).audioSession.type = 'auto';
@@ -381,22 +408,8 @@ class AudioService {
         }
       } catch {}
     }
-    // Desbloqueo mediante buffer inaudible de 1 muestra para evitar que iOS congele la salida
-    if (this.ctx && this.ctx.state !== 'closed') {
-      try {
-        const buffer = this.ctx.createBuffer(1, 1, 22050);
-        const source = this.ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(this.ctx.destination);
-        source.start(0);
-      } catch {}
-    }
   }
 
-  public getAudioContext(): AudioContext | null {
-    this.initCtx();
-    return this.ctx;
-  }
 
   /**
    * Play a musical frequency note with pleasant harmonic synthesizer envelope.
@@ -1498,8 +1511,8 @@ class AudioService {
         this.micPauseResumeTimeoutId = null;
       }
 
-      // 3. Audio Context Único Compartido en Toda la App
-      this.micCtx = this.getSharedContext();
+      // 3. Audio Context Exclusivo para Análisis de Micrófono (sin salida a destination)
+      this.micCtx = this.getMicAnalysisContext();
       if (this.micCtx.state === 'suspended') {
         try { await this.micCtx.resume(); } catch {}
       }
@@ -1547,14 +1560,15 @@ class AudioService {
         if (!this.micPreampGain) {
           this.micPreampGain = this.micCtx.createGain();
         }
-        this.micPreampGain.gain.setValueAtTime(4.0, this.micCtx.currentTime);
+        // Ganancia calibrada a 5.5x para afinador y academia sin autoGainControl
+        this.micPreampGain.gain.setValueAtTime(5.5, this.micCtx.currentTime);
 
         try { this.micHighpassFilter.disconnect(); } catch {}
         try { this.micLowpassFilter.disconnect(); } catch {}
         try { this.micPreampGain.disconnect(); } catch {}
         try { this.analyser.disconnect(); } catch {}
 
-        // Cadena: micSource -> highpass (90Hz) -> lowpass (1100Hz) -> micPreampGain (4x) -> analyser
+        // Cadena: micSource -> highpass (90Hz) -> lowpass (1100Hz) -> micPreampGain (5.5x) -> analyser
         // El micrófono NUNCA se conecta a destination para evitar que el OS active el modo llamada y ducking.
         this.micSourceNode.connect(this.micHighpassFilter);
         this.micHighpassFilter.connect(this.micLowpassFilter);
@@ -1632,7 +1646,7 @@ class AudioService {
     // No-op intencional
   }
 
-  public stopMicrophone(forceHardwareRelease: boolean = true) {
+  public stopMicrophone(forceHardwareRelease: boolean = false) {
     this.micSessionId++;
     this.isListening = false;
     this.isPausedForPlayback = false;
@@ -1650,20 +1664,35 @@ class AudioService {
       try { this.micSourceNode.disconnect(); } catch {}
       this.micSourceNode = null;
     }
-    if (this.micStream) {
-      this.micStream.getTracks().forEach(track => {
-        try { track.stop(); } catch {}
-      });
-      this.micStream = null;
+    if (this.micHighpassFilter) {
+      try { this.micHighpassFilter.disconnect(); } catch {}
+      this.micHighpassFilter = null;
     }
-    // NO cerrar el AudioContext compartido al detener el micrófono
-    this.micCtx = null;
-    this.analyser = null;
-    this.micHighpassFilter = null;
-    this.micLowpassFilter = null;
-    this.micPreampGain = null;
+    if (this.micLowpassFilter) {
+      try { this.micLowpassFilter.disconnect(); } catch {}
+      this.micLowpassFilter = null;
+    }
+    if (this.micPreampGain) {
+      try { this.micPreampGain.disconnect(); } catch {}
+      this.micPreampGain = null;
+    }
+    if (this.analyser) {
+      try { this.analyser.disconnect(); } catch {}
+      this.analyser = null;
+    }
 
-    this.releaseMicrophoneStream();
+    if (forceHardwareRelease) {
+      if (this.micStream) {
+        this.micStream.getTracks().forEach(track => {
+          try { track.stop(); } catch {}
+        });
+        this.micStream = null;
+      }
+      this.releaseMicrophoneStream(undefined, true);
+    } else {
+      this.releaseMicrophoneStream(undefined, false);
+    }
+
     emitMicActive(false);
   }
 

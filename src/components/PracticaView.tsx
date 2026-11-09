@@ -412,6 +412,12 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     try {
       engine.setActiveVideoId(videoId);
 
+      // Pre-calentar el hardware de entrada de audio antes de arrancar la pista musical
+      // para evitar que el sistema operativo reconfigure la ruta de audio en mitad de la canción (ducking)
+      if (engine.isMicEnabled && !engine.isPlaybackMode && !engine.isDetecting) {
+        engine.startPitchDetection().catch(() => {});
+      }
+
       await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.0, true);
       engine.vocalRemover.setMasterVolume(engine.volume);
 
@@ -441,6 +447,10 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     setVideoOptions(null);
     const cacheKey = videoOptionsCacheKey;
     if (!video?.id || !cacheKey) return;
+    // Pre-activación inmediata de micrófono en el gesto de selección
+    if (engine.isMicEnabled && !engine.isPlaybackMode) {
+      audioService.acquireMicrophoneStream('karaoke').catch(() => {});
+    }
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem(cacheKey, video.id);
@@ -456,6 +466,11 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   // Selección de canción y resolución
   const handleSelectTrack = async (track: CatalogTrack) => {
     audioService.playClickSound();
+
+    // Pre-activar el hardware de micrófono directamente en el gesto táctil del usuario
+    if (engine.isMicEnabled && !engine.isPlaybackMode) {
+      audioService.acquireMicrophoneStream('karaoke').catch(() => {});
+    }
 
     if ((userStats.lives ?? 1) <= 0) {
       if (userStats.hasUsedCourtesySong) {
