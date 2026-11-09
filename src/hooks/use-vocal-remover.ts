@@ -630,10 +630,7 @@ export function useVocalRemover(initialVideoId?: string) {
         const target = active ? base * boostMultiplier : base;
         masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
 
-        // Si el contexto está corriendo en iOS, un pulso rápido suspend/resume restablece la salida a los parlantes estéreo
-        if (isIos && active && ctx.state === 'running') {
-          ctx.suspend().then(() => ctx.resume()).catch(() => {});
-        }
+        // Ajuste de ganancia suave con rampa exponencial sin interrumpir el contexto (cero micro-cortes)
       }
     };
 

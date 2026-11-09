@@ -295,19 +295,26 @@ export const usePitchDetection = () => {
           vocalRecordGain.connect(recordDestination);
 
           // Rama de la pista (si hay audífonos conectados):
+          // En arquitecturas con AudioContext aislado (v1.0.50+), trackOutputGain pertenece al contexto de la música.
+          // Web Audio prohíbe conectar nodos entre distintos AudioContext (InvalidAccessError).
+          // Se valida contexto idéntico y se aísla en try/catch para jamás abortar la inicialización de MediaRecorder.
           const headphonesActive = isUsingHeadphones ?? audioService.isUsingHeadphones();
-          if (headphonesActive && trackOutputGain) {
-            // DelayNode de 35 ms para compensar la latencia de entrada de iOS/Android
-            const latencyDelay = context.createDelay(0.2);
-            latencyDelay.delayTime.setValueAtTime(0.035, context.currentTime);
+          if (headphonesActive && trackOutputGain && (trackOutputGain as any).context === context) {
+            try {
+              // DelayNode de 35 ms para compensar la latencia de entrada de iOS/Android
+              const latencyDelay = context.createDelay(0.2);
+              latencyDelay.delayTime.setValueAtTime(0.035, context.currentTime);
 
-            const backingRecordGain = context.createGain();
-            backingRecordGain.gain.setValueAtTime(0.65, context.currentTime);
+              const backingRecordGain = context.createGain();
+              backingRecordGain.gain.setValueAtTime(0.65, context.currentTime);
 
-            trackOutputGain.connect(latencyDelay);
-            latencyDelay.connect(backingRecordGain);
-            backingRecordGain.connect(recordDestination);
-            backingNodesRef.current = { delay: latencyDelay, gain: backingRecordGain };
+              trackOutputGain.connect(latencyDelay);
+              latencyDelay.connect(backingRecordGain);
+              backingRecordGain.connect(recordDestination);
+              backingNodesRef.current = { delay: latencyDelay, gain: backingRecordGain };
+            } catch (backingErr) {
+              console.warn('[usePitchDetection] No se pudo mezclar pista en grabación (contextos aislados):', backingErr);
+            }
           }
           vocalRecordNodesRef.current = { pop: vocalPopFilter, comp: vocalCompressor, gain: vocalRecordGain };
 
