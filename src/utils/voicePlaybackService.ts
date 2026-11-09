@@ -206,16 +206,18 @@ export class VoicePlaybackService {
         source.buffer = buffer;
         source.playbackRate.setValueAtTime(playbackRate, ctx.currentTime);
 
-        // Auto-Compensación de Volumen cuando el Micrófono está Activo (+6 dB Android / +8 dB iOS)
+        // Auto-Compensación de Volumen cuando el Micrófono está Activo (~+7.7 dB iOS / +3.2 dB Android)
         const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
         const isMicActive = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-        const baseGain = isMicActive ? (isIos ? 5.8 : 4.5) : 2.25;
+        const baseGainValue = 2.5;
+        const boostMultiplier = isIos ? 1.95 : 1.45;
+        const baseGain = isMicActive ? baseGainValue * boostMultiplier : baseGainValue;
 
         // Limitador de estudio para evitar saturación y mantener potencia sin distorsión
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-0.5, ctx.currentTime);
-        compressor.knee.setValueAtTime(6, ctx.currentTime);
-        compressor.ratio.setValueAtTime(12, ctx.currentTime);
+        compressor.threshold.setValueAtTime(-0.2, ctx.currentTime);
+        compressor.knee.setValueAtTime(3, ctx.currentTime);
+        compressor.ratio.setValueAtTime(16, ctx.currentTime);
         compressor.attack.setValueAtTime(0.002, ctx.currentTime);
         compressor.release.setValueAtTime(0.1, ctx.currentTime);
 

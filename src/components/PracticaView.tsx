@@ -467,11 +467,6 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const handleSelectTrack = async (track: CatalogTrack) => {
     audioService.playClickSound();
 
-    // Pre-activar el hardware de micrófono directamente en el gesto táctil del usuario
-    if (engine.isMicEnabled && !engine.isPlaybackMode) {
-      audioService.acquireMicrophoneStream('karaoke').catch(() => {});
-    }
-
     if ((userStats.lives ?? 1) <= 0) {
       if (userStats.hasUsedCourtesySong) {
         audioService.playSadDefeatSound();
@@ -489,7 +484,14 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     setIsLoadingTrack(true);
     setLoadingStatusMsg('Buscando pista de estudio...');
     setStageImageFailed(false);
+
+    // 1. Reset de la sesión previa ANTES de pre-activar el micrófono para no cerrar el stream cálido
     engine.resetKaraokeSession();
+
+    // 2. Pre-activar el hardware de micrófono directamente en el gesto táctil del usuario
+    if (engine.isMicEnabled && !engine.isPlaybackMode) {
+      audioService.acquireMicrophoneStream('karaoke').catch(() => {});
+    }
 
     // Tarjetas de YouTube: la etapa, el cache y las letras se muestran con
     // el título/artista LIMPIOS de la canción real (sin "|| arisa (letra)"

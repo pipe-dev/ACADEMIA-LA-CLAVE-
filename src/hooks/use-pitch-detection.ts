@@ -237,10 +237,10 @@ export const usePitchDetection = () => {
         lowpassFilterRef.current = lowpassFilter;
 
         // Pre-amplificador diferenciado:
-        // En Karaoke SIN audífonos, 4.5x para captar voz natural sin gritar
+        // En Karaoke SIN audífonos, 2.6x (punto dulce acústico: la música queda bajo 0.032 y la voz normal entra entre 0.045 y 0.150)
         // CON audífonos, 6.0x para máxima sensibilidad vocal
         const micBoostGain = context.createGain();
-        const boostVal = isUsingHeadphones ? 6.0 : 4.5;
+        const boostVal = isUsingHeadphones ? 6.0 : 2.6;
         micBoostGain.gain.setValueAtTime(boostVal, context.currentTime);
 
         // Cadena de análisis: Mic -> HighPass (90Hz) -> LowPass (1100Hz) -> PreAmp (4x) -> Analyser
@@ -392,7 +392,6 @@ export const usePitchDetection = () => {
     }
     
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
 
@@ -510,11 +509,10 @@ export const usePitchDetection = () => {
       const backingRms = getBackingRmsRef.current ? getBackingRmsRef.current() : 0;
 
       // ─── Compuerta Dinámica Anti-Acople Calibrada a Escala Acústica Real ───
-      // El sangrado acústico del altavoz tras el filtro pasa-banda es ~4.5% del RMS digital de la pista.
-      // dynamicThreshold en [0.0045, 0.015] permite cantar suave a 30-40cm de distancia sin gritar.
+      // Con 2.6x de ganancia, la canción en altavoces se mantiene < 0.032, mientras la voz cantada entra en 0.045 - 0.150
       const dynamicThreshold = isHeadphones
         ? 0.0025
-        : Math.max(0.0045, Math.min(0.015, backingRms * 0.045));
+        : Math.max(0.036, Math.min(0.080, backingRms * 0.26));
 
       if (rmsVal < dynamicThreshold) {
         // La señal es mero sangrado del altavoz o silencio: no premiar ni computar
@@ -536,8 +534,8 @@ export const usePitchDetection = () => {
       const { pitch, clarity } = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
 
       // ─── Filtro de Pureza Monofónica Calibrado ───
-      // 0.72 con audífonos, 0.78 sin audífonos para voz natural cantada
-      const minClarity = isHeadphones ? 0.72 : 0.78;
+      // 0.74 con audífonos, 0.85 sin audífonos para voz natural cantada y bloqueo de música ambiental
+      const minClarity = isHeadphones ? 0.74 : 0.85;
 
       if (pitch === -1 || pitch >= 2000 || clarity < minClarity) {
         stableFramesCountRef.current = 0;
@@ -554,7 +552,7 @@ export const usePitchDetection = () => {
         return;
       }
 
-      // ─── Filtro de Estabilidad Temporal (1 frame en audífonos, 2 frames en altavoz ~25-50ms) ───
+      // ─── Filtro de Estabilidad Temporal (1 frame en audífonos, 3 frames en altavoz ~75ms) ───
       const detectedNote = noteFromPitch(pitch);
       const noteKey = `${detectedNote.name}${detectedNote.octave}`;
 
@@ -565,7 +563,7 @@ export const usePitchDetection = () => {
         stableFramesCountRef.current = 1;
       }
 
-      const requiredFrames = isHeadphones ? 1 : 2;
+      const requiredFrames = isHeadphones ? 1 : 3;
       if (stableFramesCountRef.current < requiredFrames) {
         // Aún en ventana de confirmación de estabilidad: no proyectar ni sumar puntos espurios
         animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));

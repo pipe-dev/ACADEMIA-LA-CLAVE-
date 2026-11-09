@@ -427,13 +427,10 @@ export function useKaraokeEngine({
   }, [activeVideoId, selectedTrack]);
 
   // Pausa segura de todas las fuentes de audio (Web Audio, YouTube, voz grabada y micrófono)
+  // Se conserva el PlaybackContext activo (sin ctx.suspend()) para evitar reconfiguración de hardware
   const pausePlayback = useCallback(() => {
     try {
       vocalRemover.pause();
-      const ctx = vocalRemover.getAudioContext();
-      if (ctx && ctx.state === 'running') {
-        ctx.suspend().catch(() => {});
-      }
     } catch {}
 
     if (playerRef.current) {

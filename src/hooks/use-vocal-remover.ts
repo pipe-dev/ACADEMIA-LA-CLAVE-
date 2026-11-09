@@ -200,8 +200,8 @@ export function useVocalRemover(initialVideoId?: string) {
     if (masterGainRef.current) {
       const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseScale = isIos ? 1.15 : 1.0;
-      const boostMultiplier = isIos ? 1.35 : 1.2;
+      const baseScale = isIos ? 1.25 : 1.05;
+      const boostMultiplier = isIos ? 1.95 : 1.45;
       const micCompensation = isMicActiveNow ? boostMultiplier : 1.0;
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * baseScale * micCompensation;
     }
@@ -449,18 +449,18 @@ export function useVocalRemover(initialVideoId?: string) {
 
       const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseMaster = isIosDevice ? 1.15 : 1.0;
-      const boostMultiplier = isIosDevice ? 1.35 : 1.2;
+      const baseMaster = isIosDevice ? 1.25 : 1.05;
+      const boostMultiplier = isIosDevice ? 1.95 : 1.45;
 
       const masterGain = ctx.createGain();
       masterGain.gain.value = isMicActiveNow ? baseMaster * boostMultiplier : baseMaster;
       masterGainRef.current = masterGain;
 
-      // Limitador de estudio tipo Brickwall en -0.5 dB con ratio 12 para cortar picos extremos sin aplastar la música
+      // Limitador de estudio tipo Brickwall en -0.2 dB con ratio 16 para permitir máximo volumen limpio
       const brickwallLimiter = ctx.createDynamicsCompressor();
-      brickwallLimiter.threshold.setValueAtTime(-0.5, ctx.currentTime);
-      brickwallLimiter.knee.setValueAtTime(4, ctx.currentTime);
-      brickwallLimiter.ratio.setValueAtTime(12.0, ctx.currentTime);
+      brickwallLimiter.threshold.setValueAtTime(-0.2, ctx.currentTime);
+      brickwallLimiter.knee.setValueAtTime(3, ctx.currentTime);
+      brickwallLimiter.ratio.setValueAtTime(16.0, ctx.currentTime);
       brickwallLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
       brickwallLimiter.release.setValueAtTime(0.08, ctx.currentTime);
 
@@ -630,8 +630,8 @@ export function useVocalRemover(initialVideoId?: string) {
       const ctx = audioContextRef.current || audioService.getPlaybackContext();
       if (ctx && masterGainRef.current) {
         const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const base = isIos ? 1.15 : 1.0;
-        const boostMultiplier = isIos ? 1.35 : 1.2;
+        const base = isIos ? 1.25 : 1.05;
+        const boostMultiplier = isIos ? 1.95 : 1.45;
         const target = active ? base * boostMultiplier : base;
         masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
       }

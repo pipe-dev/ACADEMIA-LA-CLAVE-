@@ -128,7 +128,7 @@ export function PolygraphCanvas({
 
         // Ventana deslizante para calcular la dispersión tonal (canto vs habla)
         pitchBufferRef.current.push(rawMidi);
-        if (pitchBufferRef.current.length > 7) {
+        if (pitchBufferRef.current.length > 8) {
           pitchBufferRef.current.shift();
         }
 
@@ -140,7 +140,7 @@ export function PolygraphCanvas({
         }
         const pitchSpread = maxM - minM;
         // Canto sostenido: el pitch no salta bruscamente como en el habla (dispersión < 1.8 semitonos, permite vibrato natural)
-        const isSingingSustained = pitchBufferRef.current.length >= 4 && pitchSpread < 1.8;
+        const isSingingSustained = pitchBufferRef.current.length >= 6 && pitchSpread < 0.85;
 
         // Verificar si hay una nota objetivo en la melodía en el segundo actual
         const activeNote = melody.find(
