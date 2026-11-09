@@ -561,6 +561,7 @@ export function useKaraokeEngine({
     if (isDetecting && isMicEnabled) {
       stopPitchDetection();
       setIsMicEnabled(false);
+      vocalRemover.setMasterVolume(volume);
       if (typeof window !== 'undefined') {
         localStorage.setItem('laclave_karaoke_mic_enabled', 'false');
       }
@@ -580,8 +581,9 @@ export function useKaraokeEngine({
       if (!ok) {
         setIsMicEnabled(false);
       }
+      vocalRemover.setMasterVolume(volume);
     }
-  }, [isDetecting, isMicEnabled, startPitchDetection, stopPitchDetection, vocalRemover]);
+  }, [isDetecting, isMicEnabled, startPitchDetection, stopPitchDetection, vocalRemover, volume]);
 
   const handlePlayRecording = useCallback(() => {
     audioService.playClickSound();

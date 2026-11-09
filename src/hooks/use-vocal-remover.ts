@@ -187,8 +187,10 @@ export function useVocalRemover(initialVideoId?: string) {
   const setMasterVolume = useCallback((vol: number) => { // 0 a 100
     if (masterGainRef.current) {
       const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const scale = isIos ? 1.45 : 1.0;
-      masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * scale;
+      const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening();
+      const baseScale = isIos ? 1.45 : 1.0;
+      const micCompensation = isMicActiveNow ? 2.0 : 1.0;
+      masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * baseScale * micCompensation;
     }
   }, []);
 

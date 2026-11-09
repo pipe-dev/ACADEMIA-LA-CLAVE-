@@ -260,17 +260,48 @@ function isFallbackData(data: TopTracksResponse | null | undefined): boolean {
   return false;
 }
 
+const TOP_TRACKS_CACHE_KEY = 'afinapp_apple_top_tracks_cache';
+const TOP_TRACKS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutos
+
 /**
  * Obtiene el ranking real de las canciones del momento (Top 100 Global, Del Momento 100 y Música Cristiana 100).
+ * 0. Carga instantánea desde sessionStorage si fue descargado hace menos de 30 minutos (0 ms).
  * 1. Consulta DIRECTA desde el navegador del usuario a los feeds RSS de Apple Music (CORS abierto: *).
  * 2. Si la consulta directa no responde, consulta el endpoint interno `/api/top-tracks`.
  * 3. Si todo lo anterior falla (offline), entrega el catálogo estático de respaldo.
  */
 export async function fetchLiveTopTracks(): Promise<TopTracksResponse> {
+  // 0. Caché de sesión en memoria/sessionStorage (carga instantánea entre pestañas)
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = sessionStorage.getItem(TOP_TRACKS_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          parsed.timestamp &&
+          (Date.now() - parsed.timestamp < TOP_TRACKS_CACHE_TTL_MS) &&
+          parsed.data &&
+          !isFallbackData(parsed.data)
+        ) {
+          return parsed.data;
+        }
+      }
+    } catch {}
+  }
+
   // 1. Consulta DIRECTA desde el navegador del usuario a Apple Music RSS (rápida ~400ms, CORS abierto)
   try {
     const directData = await fetchDirectFromApple();
     if (!isFallbackData(directData)) {
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem(TOP_TRACKS_CACHE_KEY, JSON.stringify({
+            timestamp: Date.now(),
+            data: directData
+          }));
+        } catch {}
+      }
       return directData;
     }
   } catch (err) {
@@ -283,6 +314,14 @@ export async function fetchLiveTopTracks(): Promise<TopTracksResponse> {
     if (res.ok) {
       const data: TopTracksResponse = await res.json();
       if (!isFallbackData(data)) {
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(TOP_TRACKS_CACHE_KEY, JSON.stringify({
+              timestamp: Date.now(),
+              data
+            }));
+          } catch {}
+        }
         return data;
       }
     }
