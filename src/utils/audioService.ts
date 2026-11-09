@@ -223,7 +223,7 @@ class AudioService {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       try {
-        this.ctx = new AudioCtx({ sampleRate: 48000, latencyHint: 'interactive' });
+        this.ctx = new AudioCtx({ latencyHint: 'interactive' });
       } catch {
         this.ctx = new AudioCtx();
       }
@@ -327,10 +327,10 @@ class AudioService {
           });
         }
 
-        // WebKit AudioSession: activar 'play-and-record' inmediatamente tras adquirir stream
+        // WebKit AudioSession: mantener 'auto' para que iOS no active VoiceProcessingIO ni filtros de telefonía
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
           try {
-            (navigator as any).audioSession.type = 'play-and-record';
+            (navigator as any).audioSession.type = 'auto';
           } catch {}
         }
 

@@ -194,10 +194,10 @@ export const usePitchDetection = () => {
           emitMicActive(true);
         }
 
-        // WebKit AudioSession: 'play-and-record' para modo dual multimedia + micrófono sin bloqueo telefónico
+        // WebKit AudioSession: 'auto' evita que iOS imponga el perfil VoiceChat o filtre el audio
         if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
           try {
-            (navigator as any).audioSession.type = 'play-and-record';
+            (navigator as any).audioSession.type = 'auto';
           } catch {}
         }
 
@@ -206,20 +206,23 @@ export const usePitchDetection = () => {
           t.enabled = true;
         });
 
-        // Fase 3: AudioContext Unificado a 48000 Hz nativos
-        const context = _externalCtx || audioService.getSharedContext();
-        if (context.state === 'suspended') {
-          await context.resume();
-        } else if (context.state === 'running') {
-          // WebKit Bug 218012 Workaround: ciclo rápido suspend/resume para forzar a WebKit a recalcular
-          // las rutas de audio y evitar que el DAC de iOS baje el volumen a nivel de auricular telefónico
+        // Fase 3: AudioContext dedicado y aislado para el micrófono
+        // AISLAMIENTO TOTAL: NUNCA conectar el micrófono al AudioContext de la música.
+        // Esto garantiza que iOS CoreAudio JAMÁS aplique filtros de llamada telefónica (VoiceProcessingIO) a la canción.
+        let context = audioContextRef.current;
+        if (!context || context.state === 'closed') {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
           try {
-            await context.suspend();
-            await context.resume();
-          } catch {}
+            context = new AudioCtx({ latencyHint: 'interactive' });
+          } catch {
+            context = new AudioCtx();
+          }
+          audioContextRef.current = context;
+          isSharedContextRef.current = false;
         }
-        audioContextRef.current = context;
-        isSharedContextRef.current = true;
+        if (context.state === 'suspended') {
+          await context.resume().catch(() => {});
+        }
 
         const source = context.createMediaStreamSource(stream);
         mediaStreamSourceRef.current = source;

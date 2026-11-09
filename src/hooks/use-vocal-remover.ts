@@ -76,32 +76,29 @@ export function useVocalRemover(initialVideoId?: string) {
       else midCenterGainRef.current.gain.value = targetMidGain;
     }
 
-    // 2. Filtro dinámico de reverberación lateral (Opción C)
-    // Atenúa hasta -18 dB en 1.800 Hz cuando la voz está en 0%, apagando el eco residual.
-    // Entre 0% y 50% de voz se abre gradualmente hasta 0 dB (plano e inalterado de 50% a 100%).
+    // 2. Filtro dinámico de reverberación lateral
+    // Atenuación suave (-2.5 dB máx en 1.800 Hz) para no vaciar el cuerpo instrumental ni sonar filtrado
     if (sideReverbNotchRef.current) {
       let targetReverbGain = 0;
       if (clampedVocal < 0.5) {
-        const factor = (0.5 - clampedVocal) / 0.5; // 1.0 en 0%, 0.0 en 50%
-        targetReverbGain = -18.0 * factor;
+        const factor = (0.5 - clampedVocal) / 0.5;
+        targetReverbGain = -2.5 * factor;
       }
       if (ctx) sideReverbNotchRef.current.gain.setTargetAtTime(targetReverbGain, now, 0.02);
       else sideReverbNotchRef.current.gain.value = targetReverbGain;
     }
 
     // 3. Ganancia del canal lateral Side (Guitarras, teclados y ambiente estéreo)
-    // A 0% de voz eleva sutilmente los instrumentos laterales (+2.5 dB) para sostener la presencia
     if (sideBusGainRef.current) {
-      const targetSideGain = 1.0 + (0.35 * suppression);
+      const targetSideGain = 1.0 + (0.25 * suppression);
       if (ctx) sideBusGainRef.current.gain.setTargetAtTime(targetSideGain, now, 0.02);
       else sideBusGainRef.current.gain.value = targetSideGain;
     }
 
     // 4. Pegada del bombo y bajo eléctrico (Graves mono < 200 Hz)
-    // Control dinámico Low-Shelf a 80 Hz: al suprimir la voz, atenúa suavemente hasta -3.5 dB
-    // en frecuencias < 80 Hz para que el subgrave no sature el altavoz ni distorsione el compresor.
+    // Preservar 100% de graves y pegada (0 dB de atenuación) para evitar que suene enlatado como llamada
     if (bassSub80ShelfRef.current) {
-      const targetShelfGain = -3.5 * suppression; // 0 dB a voz normal, -3.5 dB a voz 0%
+      const targetShelfGain = 0; // Respuesta de graves completa y cálida
       if (ctx) bassSub80ShelfRef.current.gain.setTargetAtTime(targetShelfGain, now, 0.02);
       else bassSub80ShelfRef.current.gain.value = targetShelfGain;
     }
@@ -189,8 +186,8 @@ export function useVocalRemover(initialVideoId?: string) {
     if (masterGainRef.current) {
       const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseScale = isIos ? 1.45 : 1.0;
-      const boostMultiplier = isIos ? 2.8 : 2.0;
+      const baseScale = isIos ? 1.25 : 1.0;
+      const boostMultiplier = isIos ? 1.75 : 1.35;
       const micCompensation = isMicActiveNow ? boostMultiplier : 1.0;
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * baseScale * micCompensation;
     }
@@ -368,16 +365,16 @@ export function useVocalRemover(initialVideoId?: string) {
       sideLp.frequency.value = 6500;
       sideLp.Q.value = 0.707;
 
-      // Filtro dinámico de reverberación (Opción C)
+      // Filtro dinámico de reverberación
       const sideReverbNotch = ctx.createBiquadFilter();
       sideReverbNotch.type = 'peaking';
       sideReverbNotch.frequency.value = 1800;
-      sideReverbNotch.Q.value = 1.0;
-      sideReverbNotch.gain.value = initialVocalLevel < 0.5 ? -14.0 * ((0.5 - initialVocalLevel) / 0.5) : 0;
+      sideReverbNotch.Q.value = 0.707;
+      sideReverbNotch.gain.value = 0; // Inicial plano sin mutilar frecuencias medias
       sideReverbNotchRef.current = sideReverbNotch;
 
       const sideBusGain = ctx.createGain();
-      sideBusGain.gain.value = 1.0 + (0.35 * (1.0 - initialVocalLevel));
+      sideBusGain.gain.value = 1.0 + (0.25 * (1.0 - initialVocalLevel));
       sideBusGainRef.current = sideBusGain;
 
       sideBus.connect(sideHp);
@@ -385,16 +382,15 @@ export function useVocalRemover(initialVideoId?: string) {
       sideLp.connect(sideReverbNotch);
       sideReverbNotch.connect(sideBusGain);
 
-      // Salida Side Mono-Compatible:
+      // Salida Side Estéreo Limpia (CERO retardo, CERO filtro peine):
       // Canal L recibe Side directo en fase (+1.0)
       sideBusGain.connect(merger, 0, 0);
 
-      // Canal R recibe Side decorrelado sutilmente con 6ms (Efecto Haas)
-      // En audífonos suena amplio y estéreo; en altavoz de celular (mono) suma en fase sin cancelarse
-      const sideDecorrelator = ctx.createDelay();
-      sideDecorrelator.delayTime.value = 0.006; // 6 ms
-      sideBusGain.connect(sideDecorrelator);
-      sideDecorrelator.connect(merger, 0, 1);
+      // Canal R recibe Side invertido (-1.0) para restaurar la imagen estéreo nativa y natural
+      const sideInvertR = ctx.createGain();
+      sideInvertR.gain.value = -1.0;
+      sideBusGain.connect(sideInvertR);
+      sideInvertR.connect(merger, 0, 1);
 
       // ═════════════════════════════════════════════════════════════════
       // 3. RUTA DE AGUDOS Y AIRE (> 6.500 Hz): Platillos, Hi-Hats y Sizzle
@@ -418,7 +414,7 @@ export function useVocalRemover(initialVideoId?: string) {
 
       // ═════════════════════════════════════════════════════════════════
       // 4. CADENA DE MASTERIZACIÓN Y CONTROL DINÁMICO
-      // merger -> makeupGain -> compressor -> masterGain -> destination
+      // merger -> makeupGain -> compressor -> masterGain -> brickwallLimiter -> destination
       // ═════════════════════════════════════════════════════════════════
       const makeupGain = ctx.createGain();
       makeupGain.gain.value = 1.0 + (0.20 * (1.0 - initialVocalLevel));
@@ -434,21 +430,20 @@ export function useVocalRemover(initialVideoId?: string) {
 
       const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseMaster = isIosDevice ? 1.45 : 1.0;
-      const boostMultiplier = isIosDevice ? 2.8 : 2.0;
+      const baseMaster = isIosDevice ? 1.25 : 1.0;
+      const boostMultiplier = isIosDevice ? 1.75 : 1.35;
 
       const masterGain = ctx.createGain();
-      // Auto-compensación (+9 dB en iOS / +6 dB en Android) respaldada por brickwall limiter
       masterGain.gain.value = isMicActiveNow ? baseMaster * boostMultiplier : baseMaster;
       masterGainRef.current = masterGain;
 
-      // Limitador de estudio tipo Brickwall para garantizar CERO distorsión o clipeo
+      // Limitador de estudio tipo Brickwall como ÚLTIMO ESLABÓN antes de destination para garantizar CERO clipeo o distorsión DAC
       const brickwallLimiter = ctx.createDynamicsCompressor();
-      brickwallLimiter.threshold.setValueAtTime(-2.0, ctx.currentTime);
-      brickwallLimiter.knee.setValueAtTime(6, ctx.currentTime);
-      brickwallLimiter.ratio.setValueAtTime(12.0, ctx.currentTime);
-      brickwallLimiter.attack.setValueAtTime(0.002, ctx.currentTime);
-      brickwallLimiter.release.setValueAtTime(0.1, ctx.currentTime);
+      brickwallLimiter.threshold.setValueAtTime(-1.5, ctx.currentTime);
+      brickwallLimiter.knee.setValueAtTime(4, ctx.currentTime);
+      brickwallLimiter.ratio.setValueAtTime(16.0, ctx.currentTime);
+      brickwallLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
+      brickwallLimiter.release.setValueAtTime(0.08, ctx.currentTime);
 
       const trackOutputGain = ctx.createGain();
       trackOutputGain.gain.value = 1.0; // Ganancia unitaria 1.0 fija para el bus de grabación de estudio
@@ -459,16 +454,15 @@ export function useVocalRemover(initialVideoId?: string) {
       backingAnalyser.fftSize = 256;
       backingAnalyserRef.current = backingAnalyser;
 
-      // Fase 3: Salida Doble del Procesamiento DSP
-      // Salida A (Bus de Grabación): Pista pura nivelada con compensación
-      // Salida B (Altavoces): Controlada por masterGain con compensación para iPhone
+      // Fase 3: Salida del Procesamiento DSP
+      // merger -> makeupGain -> compressor -> masterGain -> brickwallLimiter -> destination
       merger.connect(makeupGain);
       makeupGain.connect(compressor);
-      compressor.connect(brickwallLimiter);
-      brickwallLimiter.connect(trackOutputGain); // Bus de grabación (getTrackOutputGain)
-      brickwallLimiter.connect(masterGain);      // Bus de altavoces
-      brickwallLimiter.connect(backingAnalyser); // Monitor de energía para Bleed Gate
-      masterGain.connect(ctx.destination);
+      compressor.connect(trackOutputGain); // Bus de grabación (getTrackOutputGain)
+      compressor.connect(backingAnalyser); // Monitor de energía para Bleed Gate
+      compressor.connect(masterGain);      // Bus de altavoces
+      masterGain.connect(brickwallLimiter); // El limitador va AL FINAL para evitar sobrecargar el DAC
+      brickwallLimiter.connect(ctx.destination);
 
       // Aplicar ganancias iniciales exactas
       vocalLevelRef.current = initialVocalLevel;
@@ -617,9 +611,8 @@ export function useVocalRemover(initialVideoId?: string) {
       const ctx = audioContextRef.current;
       if (ctx && masterGainRef.current) {
         const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const base = isIos ? 1.45 : 1.0;
-        // En iOS compensar con 2.8x (aprox +9 dB) respaldada por brickwall limiter para neutralizar el ducking de hardware
-        const boostMultiplier = isIos ? 2.8 : 2.0;
+        const base = isIos ? 1.25 : 1.0;
+        const boostMultiplier = isIos ? 1.75 : 1.35;
         const target = active ? base * boostMultiplier : base;
         masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
 

@@ -380,7 +380,7 @@ export function useKaraokeEngine({
       if (isMicEnabled && !isDetecting && !isPlaybackMode) {
         if (audioService.hasLiveMicrophoneStream() || audioService.isMicActive()) {
           startPitchDetection(
-            vocalRemover.getAudioContext(),
+            null,
             vocalRemover.getTrackOutputGain?.(),
             audioService.isUsingHeadphones(),
             false,
@@ -510,7 +510,7 @@ export function useKaraokeEngine({
       } else {
         if (isMicEnabled && !isDetecting && !isPlaybackMode) {
           startPitchDetection(
-            vocalRemover.getAudioContext(),
+            null,
             vocalRemover.getTrackOutputGain?.(),
             audioService.isUsingHeadphones(),
             true,
@@ -539,7 +539,7 @@ export function useKaraokeEngine({
       } else {
         if (isMicEnabled && !isDetecting && !isPlaybackMode) {
           startPitchDetection(
-            vocalRemover.getAudioContext(),
+            null,
             vocalRemover.getTrackOutputGain?.(),
             audioService.isUsingHeadphones(),
             true,
@@ -572,7 +572,7 @@ export function useKaraokeEngine({
       }
       vocalRemover.ensureContextActive?.();
       const ok = await startPitchDetection(
-        vocalRemover.getAudioContext(),
+        null,
         vocalRemover.getTrackOutputGain?.(),
         audioService.isUsingHeadphones(),
         true,
@@ -631,7 +631,7 @@ export function useKaraokeEngine({
     setIsPlaying(true);
     if (isMicEnabled && !isDetecting) {
       startPitchDetection(
-        vocalRemover.getAudioContext(),
+        null,
         vocalRemover.getTrackOutputGain?.(),
         audioService.isUsingHeadphones(),
         true,
