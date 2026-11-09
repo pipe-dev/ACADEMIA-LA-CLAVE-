@@ -445,7 +445,11 @@ export const usePitchDetection = () => {
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
         (navigator as any).audioSession.type = 'playback';
-        (navigator as any).audioSession.type = 'auto';
+        setTimeout(() => {
+          try {
+            (navigator as any).audioSession.type = 'auto';
+          } catch {}
+        }, 50);
       } catch {}
     }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {

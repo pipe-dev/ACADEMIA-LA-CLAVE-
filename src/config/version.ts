@@ -3,7 +3,7 @@
  * Single source of truth for the app version and git commit hash.
  */
 
-export const APP_VERSION = 'v1.0.49';
+export const APP_VERSION = 'v1.0.50';
 export const APP_COMMIT_FALLBACK = '78ad1b3';
 
 export interface AppBuildInfo {

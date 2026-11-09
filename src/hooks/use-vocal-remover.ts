@@ -142,8 +142,12 @@ export function useVocalRemover(initialVideoId?: string) {
       trackOutputGainRef.current?.disconnect();
     } catch {}
 
-    // El AudioContext es un singleton compartido (audioService.getSharedContext);
-    // no cerrarlo para no afectar otros módulos ni forzar a iOS a reiniciar el hardware
+    // Cerrar el AudioContext dedicado al destruir para liberar recursos del hardware
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close().catch(() => {});
+      } catch {}
+    }
     audioContextRef.current = null;
     bassGainRef.current = null;
     bassSub80ShelfRef.current = null;
@@ -222,7 +226,17 @@ export function useVocalRemover(initialVideoId?: string) {
         } catch {}
       }
 
-      const ctx = audioService.getSharedContext();
+      // AudioContext 100% dedicado exclusivamente a la reproducción musical con latencyHint: 'playback'.
+      // AISLAMIENTO TOTAL: Este contexto JAMÁS se conecta a un MediaStreamSource ni comparte recursos
+      // con el micrófono. Esto impide que iOS CoreAudio / WebKit activen AUVoiceProcessingIO o degraden
+      // la música al modo llamada telefónica, conservando el espectro completo (20 Hz - 20 kHz) y altavoces estéreo.
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      let ctx: AudioContext;
+      try {
+        ctx = new AudioCtx({ latencyHint: 'playback' });
+      } catch {
+        ctx = new AudioCtx();
+      }
       if (ctx.state === 'suspended') {
         await ctx.resume().catch(() => {});
       }

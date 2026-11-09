@@ -24,6 +24,7 @@ function createSilentWav(sampleRate: number = 44100): string {
 
 class AudioService {
   private ctx: AudioContext | null = null;
+  private micCtx: AudioContext | null = null;
   private isHeadphonesConnected: boolean = false;
   private micStream: MediaStream | null = null;
   private micSourceNode: MediaStreamAudioSourceNode | null = null;
@@ -334,13 +335,7 @@ class AudioService {
           } catch {}
         }
 
-        // WebKit Bug 218012 Workaround: ciclo rápido suspend/resume en el contexto para restaurar la ruta al parlante
-        if (this.ctx && this.ctx.state === 'running') {
-          try {
-            await this.ctx.suspend();
-            await this.ctx.resume();
-          } catch {}
-        }
+        // Fin de adquisición: no alterar el contexto de reproducción para evitar cortes o degradación
 
         return stream;
       } finally {
@@ -353,12 +348,34 @@ class AudioService {
 
   public releaseMicrophoneStream(stream?: MediaStream): void {
     if (stream) {
+      try {
+        stream.getTracks().forEach(track => track.stop());
+      } catch {}
       this.activeMicStreams.delete(stream);
+    }
+    if (this.micStream) {
+      try {
+        this.micStream.getTracks().forEach(track => track.stop());
+      } catch {}
+      this.micStream = null;
+      this.micSourceNode = null;
+    }
+    if (this.micCtx && this.micCtx.state !== 'closed') {
+      try {
+        this.micCtx.close().catch(() => {});
+      } catch {}
+      this.micCtx = null;
     }
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
         (navigator as any).audioSession.type = 'playback';
-        (navigator as any).audioSession.type = 'auto';
+        setTimeout(() => {
+          try {
+            if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+              (navigator as any).audioSession.type = 'auto';
+            }
+          } catch {}
+        }, 50);
       } catch {}
     }
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
@@ -1486,11 +1503,19 @@ class AudioService {
         this.micPauseResumeTimeoutId = null;
       }
 
-      // 3. Audio Context & AudioSession (ahora que el stream ya está adquirido con éxito)
-      this.initCtx();
-      if (!this.ctx) return false;
-      if (this.ctx.state === 'suspended') {
-        try { await this.ctx.resume(); } catch {}
+      // 3. Audio Context dedicado al micrófono (latencyHint: 'interactive' y 100% AISLADO de this.ctx)
+      // AISLAMIENTO TOTAL: NUNCA conectar MediaStreamSource a this.ctx ni a un AudioContext con salida a destination.
+      // Esto impide que iOS CoreAudio / WebKit activen VoiceProcessingIO o traten la salida como llamada telefónica.
+      if (!this.micCtx || this.micCtx.state === 'closed') {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        try {
+          this.micCtx = new AudioCtx({ latencyHint: 'interactive' });
+        } catch {
+          this.micCtx = new AudioCtx();
+        }
+      }
+      if (this.micCtx.state === 'suspended') {
+        try { await this.micCtx.resume(); } catch {}
       }
 
       if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
@@ -1504,9 +1529,9 @@ class AudioService {
         return false;
       }
 
-      // 5. Conectar los nodos de audio
+      // 5. Conectar los nodos de audio en this.micCtx
       if (!this.analyser) {
-        this.analyser = this.ctx.createAnalyser();
+        this.analyser = this.micCtx.createAnalyser();
         this.analyser.fftSize = 2048;
       }
 
@@ -1514,7 +1539,7 @@ class AudioService {
         try { this.micSourceNode.disconnect(); } catch {}
       }
       try {
-        this.micSourceNode = this.ctx.createMediaStreamSource(stream);
+        this.micSourceNode = this.micCtx.createMediaStreamSource(stream);
       } catch (sourceErr) {
         console.warn('Could not create MediaStreamSource:', sourceErr);
         this.micSourceNode = null;
@@ -1522,21 +1547,21 @@ class AudioService {
 
       if (this.micSourceNode && this.analyser) {
         if (!this.micHighpassFilter) {
-          this.micHighpassFilter = this.ctx.createBiquadFilter();
+          this.micHighpassFilter = this.micCtx.createBiquadFilter();
           this.micHighpassFilter.type = 'highpass';
-          this.micHighpassFilter.frequency.setValueAtTime(90, this.ctx.currentTime);
-          this.micHighpassFilter.Q.setValueAtTime(0.707, this.ctx.currentTime);
+          this.micHighpassFilter.frequency.setValueAtTime(90, this.micCtx.currentTime);
+          this.micHighpassFilter.Q.setValueAtTime(0.707, this.micCtx.currentTime);
         }
         if (!this.micLowpassFilter) {
-          this.micLowpassFilter = this.ctx.createBiquadFilter();
+          this.micLowpassFilter = this.micCtx.createBiquadFilter();
           this.micLowpassFilter.type = 'lowpass';
-          this.micLowpassFilter.frequency.setValueAtTime(1100, this.ctx.currentTime);
-          this.micLowpassFilter.Q.setValueAtTime(0.707, this.ctx.currentTime);
+          this.micLowpassFilter.frequency.setValueAtTime(1100, this.micCtx.currentTime);
+          this.micLowpassFilter.Q.setValueAtTime(0.707, this.micCtx.currentTime);
         }
         if (!this.micPreampGain) {
-          this.micPreampGain = this.ctx.createGain();
+          this.micPreampGain = this.micCtx.createGain();
         }
-        this.micPreampGain.gain.setValueAtTime(4.0, this.ctx.currentTime);
+        this.micPreampGain.gain.setValueAtTime(4.0, this.micCtx.currentTime);
 
         try { this.micHighpassFilter.disconnect(); } catch {}
         try { this.micLowpassFilter.disconnect(); } catch {}
@@ -1551,9 +1576,9 @@ class AudioService {
         this.micPreampGain.connect(this.analyser);
       }
 
-      // Reanudar inmediatamente el AudioContext tras getUserMedia si iOS lo suspendió
-      if (this.ctx && this.ctx.state !== 'running') {
-        try { await this.ctx.resume(); } catch {}
+      // Reanudar inmediatamente el micCtx tras getUserMedia si iOS lo suspendió
+      if (this.micCtx && this.micCtx.state !== 'running') {
+        try { await this.micCtx.resume(); } catch {}
       }
 
       // Persistir estado de permiso concedido
@@ -1621,7 +1646,7 @@ class AudioService {
     // No-op intencional
   }
 
-  public stopMicrophone(forceHardwareRelease: boolean = false) {
+  public stopMicrophone(forceHardwareRelease: boolean = true) {
     this.micSessionId++;
     this.isListening = false;
     this.isPausedForPlayback = false;
@@ -1635,31 +1660,24 @@ class AudioService {
       try { this.onMicPauseChange(false); } catch {}
     }
 
-    if (forceHardwareRelease) {
-      if (this.micSourceNode) {
-        try { this.micSourceNode.disconnect(); } catch {}
-        this.micSourceNode = null;
-      }
-      if (this.micStream) {
-        this.micStream.getTracks().forEach(track => {
-          try { track.stop(); } catch {}
-        });
-        this.micStream = null;
-      }
-    } else {
-      // KEEP PERSISTENT WARM STREAM:
-      // Mute track so it does not capture audio or waste processing,
-      // but retain stream so the browser NEVER prompts the user again.
-      if (this.micStream) {
-        this.micStream.getAudioTracks().forEach(track => {
-          try { track.enabled = false; } catch {}
-        });
-      }
-      if (this.micSourceNode) {
-        try { this.micSourceNode.disconnect(); } catch {}
-        this.micSourceNode = null;
-      }
+    if (this.micSourceNode) {
+      try { this.micSourceNode.disconnect(); } catch {}
+      this.micSourceNode = null;
     }
+    if (this.micStream) {
+      this.micStream.getTracks().forEach(track => {
+        try { track.stop(); } catch {}
+      });
+      this.micStream = null;
+    }
+    if (this.micCtx && this.micCtx.state !== 'closed') {
+      try { this.micCtx.close().catch(() => {}); } catch {}
+      this.micCtx = null;
+    }
+    this.analyser = null;
+    this.micHighpassFilter = null;
+    this.micLowpassFilter = null;
+    this.micPreampGain = null;
 
     this.releaseMicrophoneStream();
     emitMicActive(false);
@@ -1678,14 +1696,15 @@ class AudioService {
     this.isPitchLoopRunning = true;
 
     const loop = () => {
-      if (!this.isListening || !this.analyser || !this.ctx) {
+      const activeCtx = this.micCtx || this.ctx;
+      if (!this.isListening || !this.analyser || !activeCtx) {
         this.isPitchLoopRunning = false;
         return;
       }
 
       // Reanudar inmediatamente si iOS Safari suspendió el contexto en segundo plano
-      if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
-        this.ctx.resume().catch(() => {});
+      if (activeCtx.state === 'suspended' || (activeCtx.state as string) === 'interrupted') {
+        activeCtx.resume().catch(() => {});
       }
 
       if (this.isPausedForPlayback) {
@@ -1713,7 +1732,7 @@ class AudioService {
         const rms = Math.sqrt(sum / len);
 
         // Autocorrelation pitch detection
-        const pitch = this.autoCorrelate(this.timeDomainBuffer, this.ctx.sampleRate);
+        const pitch = this.autoCorrelate(this.timeDomainBuffer, activeCtx.sampleRate);
 
         callback(pitch, rms);
       }
