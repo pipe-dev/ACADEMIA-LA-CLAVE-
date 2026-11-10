@@ -91,11 +91,28 @@ export function useKaraokeEngine({
     note,
     smoothedCentsOff,
     isDetecting,
-    start: startPitchDetection,
+    start: rawStartPitchDetection,
     stop: stopPitchDetection,
     audioBlobUrl,
     clearAudio
   } = usePitchDetection();
+
+  // Envoltorio seguro que garantiza inyección de backingAnalyser (Bleed Gate) y salida a grabación
+  // incluso si startPitchDetection se invoca sin argumentos desde la vista
+  const startPitchDetection = useCallback(async (
+    externalCtx?: AudioContext | null,
+    trackOutputGain?: GainNode | null,
+    isHeadphones?: boolean,
+    userInitiated?: boolean,
+    getBackingRms?: () => number
+  ) => {
+    const finalCtx = externalCtx !== undefined ? externalCtx : vocalRemover.getAudioContext();
+    const finalTrackOutputGain = trackOutputGain !== undefined ? trackOutputGain : vocalRemover.getTrackOutputGain?.();
+    const finalIsHeadphones = isHeadphones !== undefined ? isHeadphones : audioService.isUsingHeadphones();
+    const finalUserInitiated = userInitiated !== undefined ? userInitiated : false;
+    const finalGetBackingRms = getBackingRms !== undefined ? getBackingRms : vocalRemover.getBackingRms;
+    return rawStartPitchDetection(finalCtx, finalTrackOutputGain, finalIsHeadphones, finalUserInitiated, finalGetBackingRms);
+  }, [rawStartPitchDetection, vocalRemover]);
 
   // Refs de sincronización
   const playerRef = useRef<YouTubePlayer | null>(null);
@@ -661,6 +678,7 @@ export function useKaraokeEngine({
       } catch {}
     }
     stopPitchDetection();
+    audioService.stopMicrophone(true);
     clearAudio();
     scoring.resetScoring();
     hasCompletedRef.current = false;

@@ -76,17 +76,27 @@ class AudioService {
   public set isKaraokeSessionActive(_val: boolean) {}
 
   public setKaraokeSessionActive(_active: boolean): void {
-    // No-op intencional: cambiar de pestaña en la Nav Bar nunca debe alterar audioSession.type
+    // No-op intencional
   }
+
+  public syncAudioSessionMode(micActive: boolean): void {
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        const targetType = micActive ? 'play-and-record' : 'playback';
+        const currentType = (navigator as any).audioSession.type;
+        if (currentType !== targetType) {
+          (navigator as any).audioSession.type = targetType;
+          logger.info('Audio', `audioSession.type sincronizado a: ${targetType}`);
+        }
+      } catch {}
+    }
+  }
+
 
   constructor() {
     if (typeof window !== 'undefined') {
-      // Audio Session Category: 'auto' para que el sistema operativo NO fuerce el modo llamada (evita ducking telefónico)
-      if ('audioSession' in navigator) {
-        try {
-          (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'auto';
-        } catch {}
-      }
+      // Audio Session: 'playback' para sonar sin ducking e ignorar el interruptor físico de silencio del teléfono
+      this.syncAudioSessionMode(false);
       if ('mediaSession' in navigator) {
         try {
           navigator.mediaSession.playbackState = 'none';
@@ -139,12 +149,8 @@ class AudioService {
     }
     this.isSilentUnlocked = true;
 
-    // 1. Audio Session: 'auto' para permitir sonido multimedia normal sin ducking ni modo llamada
-    if ('audioSession' in navigator) {
-      try {
-        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'auto';
-      } catch {}
-    }
+    // 1. Audio Session: 'playback' para ignorar el botón físico de silencio y sonar al 100% de calidad
+    this.syncAudioSessionMode(this.isMicActive());
 
     // 2. Bloquear cualquier registro en la Dynamic Island o pantalla de bloqueo de iOS/Android
     if ('mediaSession' in navigator) {
@@ -156,14 +162,26 @@ class AudioService {
       } catch {}
     }
 
-    // 3. Destruir cualquier elemento HTML <audio> residual si existiera
-    if (this.unlockAudioEl) {
-      try {
-        this.unlockAudioEl.pause();
-        this.unlockAudioEl.remove();
-      } catch {}
-      this.unlockAudioEl = null;
-    }
+    // 3. Reproducir pulso inaudible createSilentWav() en <audio playsinline> para forzar la ruta multimedia
+    // en iOS Safari incluso cuando el interruptor físico de silencio (mute switch) esté activado.
+    try {
+      if (!this.unlockAudioEl) {
+        const el = document.createElement('audio');
+        el.setAttribute('playsinline', 'true');
+        el.setAttribute('webkit-playsinline', 'true');
+        el.preload = 'auto';
+        el.src = createSilentWav(44100);
+        el.volume = 0.001;
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        this.unlockAudioEl = el;
+      }
+      this.unlockAudioEl.play().then(() => {
+        if (this.unlockAudioEl) {
+          this.unlockAudioEl.pause();
+        }
+      }).catch(() => {});
+    } catch {}
 
     // 4. Inicializar y desbloquear Web Audio Context mediante un buffer nativo inaudible de 1 muestra (CERO etiquetas <audio>)
     if (!this.ctx) {
@@ -284,11 +302,7 @@ class AudioService {
         try { t.enabled = true; } catch {}
       });
       this.activeMicStreams.add(this.micStream);
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-        try {
-          (navigator as any).audioSession.type = 'auto';
-        } catch {}
-      }
+      this.syncAudioSessionMode(true);
       return this.micStream;
     }
 
@@ -299,12 +313,7 @@ class AudioService {
 
     this.pendingMicAcquisitionPromise = (async () => {
       try {
-        // En WebKit y Android, mantener 'auto' para NO forzar modo llamada telefónica ni ducking:
-        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'auto';
-          } catch {}
-        }
+        this.syncAudioSessionMode(true);
 
         // Adquisición directa con filtros de voz y llamadas desactivados (sin VoiceProcessingIO ni MODE_IN_COMMUNICATION)
         let stream: MediaStream;
@@ -328,10 +337,8 @@ class AudioService {
         try {
           stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err1: any) {
-          if (!this.isMicActive() && typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-            try {
-              (navigator as any).audioSession.type = 'auto';
-            } catch {}
+          if (!this.isMicActive()) {
+            this.syncAudioSessionMode(false);
           }
           throw err1;
         }
@@ -361,12 +368,7 @@ class AudioService {
           });
         }
 
-        // WebKit AudioSession: mantener 'auto' para que iOS no active VoiceProcessingIO ni filtros de telefonía
-        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'auto';
-          } catch {}
-        }
+        this.syncAudioSessionMode(true);
 
         // Fin de adquisición: no alterar el contexto de reproducción para evitar cortes o degradación
 
@@ -379,27 +381,38 @@ class AudioService {
     return this.pendingMicAcquisitionPromise;
   }
 
-  public releaseMicrophoneStream(stream?: MediaStream, forceHardwareStop: boolean = false): void {
-    if (forceHardwareStop) {
-      if (stream) {
-        try {
-          stream.getTracks().forEach(track => track.stop());
-        } catch {}
-        this.activeMicStreams.delete(stream);
-      }
+  public releaseMicrophoneStream(stream?: MediaStream, forceHardwareStop: boolean = true): void {
+    if (stream) {
+      try {
+        stream.getTracks().forEach(track => {
+          try { track.stop(); } catch {}
+        });
+      } catch {}
+      this.activeMicStreams.delete(stream);
+    }
+    if (forceHardwareStop || this.activeMicStreams.size === 0) {
       if (this.micStream) {
         try {
-          this.micStream.getTracks().forEach(track => track.stop());
+          this.micStream.getTracks().forEach(track => {
+            try { track.stop(); } catch {}
+          });
         } catch {}
         this.micStream = null;
         this.micSourceNode = null;
       }
+      this.activeMicStreams.forEach(s => {
+        try {
+          s.getTracks().forEach(t => {
+            try { t.stop(); } catch {}
+          });
+        } catch {}
+      });
+      this.activeMicStreams.clear();
+      if (this.micCtx) {
+        this.micCtx.suspend().catch(() => {});
+      }
     }
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'auto';
-      } catch {}
-    }
+    this.syncAudioSessionMode(this.isMicActive());
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';
@@ -1517,11 +1530,7 @@ class AudioService {
         try { await this.micCtx.resume(); } catch {}
       }
 
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-        try {
-          (navigator as any).audioSession.type = 'auto';
-        } catch {}
-      }
+      this.syncAudioSessionMode(this.isMicActive());
 
       // 4. Guard contra race conditions
       if (this.micSessionId !== sessionId || !this.isListening) {
@@ -1646,7 +1655,7 @@ class AudioService {
     // No-op intencional
   }
 
-  public stopMicrophone(forceHardwareRelease: boolean = false) {
+  public stopMicrophone(forceHardwareRelease: boolean = true) {
     this.micSessionId++;
     this.isListening = false;
     this.isPausedForPlayback = false;
@@ -1681,18 +1690,29 @@ class AudioService {
       this.analyser = null;
     }
 
-    if (forceHardwareRelease) {
-      if (this.micStream) {
+    if (this.micStream) {
+      try {
         this.micStream.getTracks().forEach(track => {
           try { track.stop(); } catch {}
         });
-        this.micStream = null;
-      }
-      this.releaseMicrophoneStream(undefined, true);
-    } else {
-      this.releaseMicrophoneStream(undefined, false);
+      } catch {}
+      this.micStream = null;
     }
 
+    this.activeMicStreams.forEach(s => {
+      try {
+        s.getTracks().forEach(t => {
+          try { t.stop(); } catch {}
+        });
+      } catch {}
+    });
+    this.activeMicStreams.clear();
+
+    if (this.micCtx) {
+      this.micCtx.suspend().catch(() => {});
+    }
+
+    this.syncAudioSessionMode(false);
     emitMicActive(false);
   }
 

@@ -81,6 +81,11 @@ const AcademiaViewComponent: React.FC<AcademiaViewProps> = ({
   const onClearRef = useRef(onClearUnlockedUnitAnimation);
   onClearRef.current = onClearUnlockedUnitAnimation;
 
+  // Garantizar que el micrófono esté 100% apagado en hardware en Academia (videoclases Unidades 1 y 2)
+  useEffect(() => {
+    audioService.stopMicrophone(true);
+  }, []);
+
   // Auto-scroll journey and celebratory unlock sequence
   useEffect(() => {
     if (unlockedUnitAnimationId) {

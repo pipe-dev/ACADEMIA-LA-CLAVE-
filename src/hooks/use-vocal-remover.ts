@@ -53,6 +53,8 @@ export function useVocalRemover(initialVideoId?: string) {
   const makeupGainRef = useRef<GainNode | null>(null);
   const compressorRef = useRef<DynamicsCompressorNode | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
+  const presenceFilterRef = useRef<BiquadFilterNode | null>(null);
+  const presenceLowShelfRef = useRef<BiquadFilterNode | null>(null);
   const trackOutputGainRef = useRef<GainNode | null>(null);
 
   // Analizador para medir la energía en tiempo real de la pista (Anti-Acople Bleed Gate)
@@ -87,7 +89,7 @@ export function useVocalRemover(initialVideoId?: string) {
       let targetReverbGain = 0;
       if (clampedVocal < 0.5) {
         const factor = (0.5 - clampedVocal) / 0.5;
-        targetReverbGain = -2.5 * factor;
+        targetReverbGain = -18.0 * factor;
       }
       if (ctx) sideReverbNotchRef.current.gain.setTargetAtTime(targetReverbGain, now, 0.02);
       else sideReverbNotchRef.current.gain.value = targetReverbGain;
@@ -95,7 +97,7 @@ export function useVocalRemover(initialVideoId?: string) {
 
     // 3. Ganancia del canal lateral Side (Guitarras, teclados y ambiente estéreo)
     if (sideBusGainRef.current) {
-      const targetSideGain = 1.0 + (0.25 * suppression);
+      const targetSideGain = 1.0 + (0.45 * suppression);
       if (ctx) sideBusGainRef.current.gain.setTargetAtTime(targetSideGain, now, 0.02);
       else sideBusGainRef.current.gain.value = targetSideGain;
     }
@@ -110,7 +112,7 @@ export function useVocalRemover(initialVideoId?: string) {
 
     // Ganancia de graves desacoplada del makeup general para mantener un nivel neto estable (1.0x) sin clipping
     if (bassGainRef.current) {
-      const targetMakeupFactor = 1.0 + (0.20 * suppression);
+      const targetMakeupFactor = 1.0 + (0.55 * suppression);
       const targetBass = clampedDrum / targetMakeupFactor;
       if (ctx) bassGainRef.current.gain.setTargetAtTime(targetBass, now, 0.02);
       else bassGainRef.current.gain.value = targetBass;
@@ -119,7 +121,7 @@ export function useVocalRemover(initialVideoId?: string) {
     // 5. Compensador de ganancia adaptativo moderado (Makeup Gain)
     // Compensación suave (+1.6 dB máx) para los medios/estéreo instrumentales sin distorsión
     if (makeupGainRef.current) {
-      const targetMakeup = 1.0 + (0.20 * suppression);
+      const targetMakeup = 1.0 + (0.55 * suppression);
       if (ctx) makeupGainRef.current.gain.setTargetAtTime(targetMakeup, now, 0.02);
       else makeupGainRef.current.gain.value = targetMakeup;
     }
@@ -152,6 +154,8 @@ export function useVocalRemover(initialVideoId?: string) {
       makeupGainRef.current?.disconnect();
       compressorRef.current?.disconnect();
       masterGainRef.current?.disconnect();
+      presenceFilterRef.current?.disconnect();
+      presenceLowShelfRef.current?.disconnect();
       trackOutputGainRef.current?.disconnect();
       backingAnalyserRef.current?.disconnect();
     } catch {}
@@ -167,6 +171,8 @@ export function useVocalRemover(initialVideoId?: string) {
     makeupGainRef.current = null;
     compressorRef.current = null;
     masterGainRef.current = null;
+    presenceFilterRef.current = null;
+    presenceLowShelfRef.current = null;
     trackOutputGainRef.current = null;
     backingAnalyserRef.current = null;
     audioContextRef.current = null;
@@ -259,22 +265,22 @@ export function useVocalRemover(initialVideoId?: string) {
       // ═════════════════════════════════════════════════════════════════
       const bassLp1L = ctx.createBiquadFilter();
       bassLp1L.type = 'lowpass';
-      bassLp1L.frequency.value = 200;
+      bassLp1L.frequency.value = 115;
       bassLp1L.Q.value = 0.707;
 
       const bassLp2L = ctx.createBiquadFilter();
       bassLp2L.type = 'lowpass';
-      bassLp2L.frequency.value = 200;
+      bassLp2L.frequency.value = 115;
       bassLp2L.Q.value = 0.707;
 
       const bassLp1R = ctx.createBiquadFilter();
       bassLp1R.type = 'lowpass';
-      bassLp1R.frequency.value = 200;
+      bassLp1R.frequency.value = 115;
       bassLp1R.Q.value = 0.707;
 
       const bassLp2R = ctx.createBiquadFilter();
       bassLp2R.type = 'lowpass';
-      bassLp2R.frequency.value = 200;
+      bassLp2R.frequency.value = 115;
       bassLp2R.Q.value = 0.707;
 
       splitter.connect(bassLp1L, 0);
@@ -338,11 +344,16 @@ export function useVocalRemover(initialVideoId?: string) {
       midSumL.connect(midBus);
       midSumR.connect(midBus);
 
-      // Filtros pasa-banda vocal para Mid
-      const midHp = ctx.createBiquadFilter();
-      midHp.type = 'highpass';
-      midHp.frequency.value = 200;
-      midHp.Q.value = 0.707;
+      // Filtros pasa-banda vocal para Mid (Cascada 4º orden Linkwitz-Riley a 115 Hz)
+      const midHp1 = ctx.createBiquadFilter();
+      midHp1.type = 'highpass';
+      midHp1.frequency.value = 115;
+      midHp1.Q.value = 0.707;
+
+      const midHp2 = ctx.createBiquadFilter();
+      midHp2.type = 'highpass';
+      midHp2.frequency.value = 115;
+      midHp2.Q.value = 0.707;
 
       const midLp = ctx.createBiquadFilter();
       midLp.type = 'lowpass';
@@ -353,8 +364,9 @@ export function useVocalRemover(initialVideoId?: string) {
       midCenterGain.gain.value = initialVocalLevel === 0 ? 0 : Math.pow(initialVocalLevel, 1.8) * 0.985 + 0.015;
       midCenterGainRef.current = midCenterGain;
 
-      midBus.connect(midHp);
-      midHp.connect(midLp);
+      midBus.connect(midHp1);
+      midHp1.connect(midHp2);
+      midHp2.connect(midLp);
       midLp.connect(midCenterGain);
 
       // Enrutamiento del centro atenuado a L y R
@@ -373,43 +385,49 @@ export function useVocalRemover(initialVideoId?: string) {
       sideSubL.connect(sideBus);
       sideSubR.connect(sideBus);
 
-      // Filtros pasa-banda para Side
-      const sideHp = ctx.createBiquadFilter();
-      sideHp.type = 'highpass';
-      sideHp.frequency.value = 200;
-      sideHp.Q.value = 0.707;
+      // Filtros pasa-banda para Side (Cascada 4º orden Linkwitz-Riley a 115 Hz)
+      const sideHp1 = ctx.createBiquadFilter();
+      sideHp1.type = 'highpass';
+      sideHp1.frequency.value = 115;
+      sideHp1.Q.value = 0.707;
+
+      const sideHp2 = ctx.createBiquadFilter();
+      sideHp2.type = 'highpass';
+      sideHp2.frequency.value = 115;
+      sideHp2.Q.value = 0.707;
 
       const sideLp = ctx.createBiquadFilter();
       sideLp.type = 'lowpass';
       sideLp.frequency.value = 6500;
       sideLp.Q.value = 0.707;
 
-      // Filtro dinámico de reverberación
+      // Filtro dinámico de reverberación (Q = 1.2, 1800 Hz)
       const sideReverbNotch = ctx.createBiquadFilter();
       sideReverbNotch.type = 'peaking';
       sideReverbNotch.frequency.value = 1800;
-      sideReverbNotch.Q.value = 0.707;
-      sideReverbNotch.gain.value = 0; // Inicial plano sin mutilar frecuencias medias
+      sideReverbNotch.Q.value = 1.2;
+      sideReverbNotch.gain.value = 0; // Inicial plano
       sideReverbNotchRef.current = sideReverbNotch;
 
       const sideBusGain = ctx.createGain();
-      sideBusGain.gain.value = 1.0 + (0.25 * (1.0 - initialVocalLevel));
+      sideBusGain.gain.value = 1.0 + (0.45 * (1.0 - initialVocalLevel));
       sideBusGainRef.current = sideBusGain;
 
-      sideBus.connect(sideHp);
-      sideHp.connect(sideLp);
+      sideBus.connect(sideHp1);
+      sideHp1.connect(sideHp2);
+      sideHp2.connect(sideLp);
       sideLp.connect(sideReverbNotch);
       sideReverbNotch.connect(sideBusGain);
 
-      // Salida Side Estéreo Limpia (CERO retardo, CERO filtro peine):
-      // Canal L recibe Side directo en fase (+1.0)
+      // Salida Side Mono-Compatible y Amplitud Haas:
+      // Canal L recibe Side directo en fase positiva (+1.0)
       sideBusGain.connect(merger, 0, 0);
 
-      // Canal R recibe Side invertido (-1.0) para restaurar la imagen estéreo nativa y natural
-      const sideInvertR = ctx.createGain();
-      sideInvertR.gain.value = -1.0;
-      sideBusGain.connect(sideInvertR);
-      sideInvertR.connect(merger, 0, 1);
+      // Canal R recibe Side en fase positiva con decorrelación Haas de 6ms (cero cancelación en parlantes)
+      const sideHaasDelayR = ctx.createDelay(0.05);
+      sideHaasDelayR.delayTime.setValueAtTime(0.006, ctx.currentTime);
+      sideBusGain.connect(sideHaasDelayR);
+      sideHaasDelayR.connect(merger, 0, 1);
 
       // ═════════════════════════════════════════════════════════════════
       // 3. RUTA DE AGUDOS Y AIRE (> 6.500 Hz): Platillos, Hi-Hats y Sizzle
@@ -436,7 +454,7 @@ export function useVocalRemover(initialVideoId?: string) {
       // merger -> makeupGain -> compressor -> masterGain -> brickwallLimiter -> destination
       // ═════════════════════════════════════════════════════════════════
       const makeupGain = ctx.createGain();
-      makeupGain.gain.value = 1.0 + (0.20 * (1.0 - initialVocalLevel));
+      makeupGain.gain.value = 1.0 + (0.55 * (1.0 - initialVocalLevel));
       makeupGainRef.current = makeupGain;
 
       const compressor = ctx.createDynamicsCompressor();
@@ -473,14 +491,32 @@ export function useVocalRemover(initialVideoId?: string) {
       backingAnalyser.fftSize = 256;
       backingAnalyserRef.current = backingAnalyser;
 
+      // Filtros psicoacústicos anti-ducking:
+      // Realce de presencia (950 Hz peaking +4.5 dB) y cuerpo (130 Hz lowshelf +3.0 dB)
+      // para compensar volumen percibido (LUFS) al activar el micrófono sin saturar el DAC digital
+      const presenceFilter = ctx.createBiquadFilter();
+      presenceFilter.type = 'peaking';
+      presenceFilter.frequency.value = 950;
+      presenceFilter.Q.value = 0.8;
+      presenceFilter.gain.value = isMicActiveNow ? 4.5 : 0;
+      presenceFilterRef.current = presenceFilter;
+
+      const presenceLowShelf = ctx.createBiquadFilter();
+      presenceLowShelf.type = 'lowshelf';
+      presenceLowShelf.frequency.value = 130;
+      presenceLowShelf.gain.value = isMicActiveNow ? 3.0 : 0;
+      presenceLowShelfRef.current = presenceLowShelf;
+
       // Fase 3: Salida del Procesamiento DSP
-      // merger -> makeupGain -> compressor -> masterGain -> brickwallLimiter -> destination
+      // merger -> makeupGain -> compressor -> masterGain -> presenceFilter -> presenceLowShelf -> brickwallLimiter -> destination
       merger.connect(makeupGain);
       makeupGain.connect(compressor);
       compressor.connect(trackOutputGain); // Bus de grabación (getTrackOutputGain)
       compressor.connect(backingAnalyser); // Monitor de energía para Bleed Gate
       compressor.connect(masterGain);      // Bus de altavoces
-      masterGain.connect(brickwallLimiter); // El limitador va AL FINAL para evitar sobrecargar el DAC
+      masterGain.connect(presenceFilter);
+      presenceFilter.connect(presenceLowShelf);
+      presenceLowShelf.connect(brickwallLimiter);
       brickwallLimiter.connect(ctx.destination);
 
       // Aplicar ganancias iniciales exactas
@@ -628,12 +664,20 @@ export function useVocalRemover(initialVideoId?: string) {
   useEffect(() => {
     const handleMicState = (active: boolean) => {
       const ctx = audioContextRef.current || audioService.getPlaybackContext();
-      if (ctx && masterGainRef.current) {
-        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const base = isIos ? 1.25 : 1.05;
-        const boostMultiplier = isIos ? 1.95 : 1.45;
-        const target = active ? base * boostMultiplier : base;
-        masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
+      if (ctx) {
+        if (masterGainRef.current) {
+          const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          const base = isIos ? 1.25 : 1.05;
+          const boostMultiplier = isIos ? 1.95 : 1.45;
+          const target = active ? base * boostMultiplier : base;
+          masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
+        }
+        if (presenceFilterRef.current) {
+          presenceFilterRef.current.gain.setTargetAtTime(active ? 4.5 : 0, ctx.currentTime, 0.03);
+        }
+        if (presenceLowShelfRef.current) {
+          presenceLowShelfRef.current.gain.setTargetAtTime(active ? 3.0 : 0, ctx.currentTime, 0.03);
+        }
       }
     };
 

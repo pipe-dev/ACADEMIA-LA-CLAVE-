@@ -133,6 +133,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   useEffect(() => {
     return () => {
       pausePlaybackRef.current();
+      audioService.stopMicrophone(true);
     };
   }, []);
 
@@ -406,28 +407,25 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     ytComplement
   ]);
 
-  // Arranca la reproducción con el videoId ya elegido (mismo flujo que
-  // siempre: initAudio → play → detección de tono → melodía).
+  // Arranca la reproducción con el videoId ya elegido (initAudio → detección con backingAnalyser → play único)
   const startKaraokePlayback = async (videoId: string) => {
     try {
       engine.setActiveVideoId(videoId);
 
-      // Pre-calentar el hardware de entrada de audio antes de arrancar la pista musical
-      // para evitar que el sistema operativo reconfigure la ruta de audio en mitad de la canción (ducking)
+      // 1. Inicializar la pista y crear el grafo DSP (autoPlay = false para evitar doble llamada a audio.play)
+      await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.0, false);
+      engine.vocalRemover.setMasterVolume(engine.volume);
+
+      // 2. Iniciar detección de tono DESPUÉS de initAudio para que backingAnalyser exista y Bleed Gate lea el RMS real
       if (engine.isMicEnabled && !engine.isPlaybackMode && !engine.isDetecting) {
         engine.startPitchDetection().catch(() => {});
       }
 
-      await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.0, true);
-      engine.vocalRemover.setMasterVolume(engine.volume);
-
+      // 3. Reproducción única y controlada
       const started = await engine.vocalRemover.play();
       if (started) {
         engine.setIsPlaying(true);
         engine.setAutoplayBlocked(false);
-        if (engine.isMicEnabled && !engine.isDetecting && !engine.isPlaybackMode) {
-          engine.startPitchDetection().catch(() => {});
-        }
       } else {
         engine.setAutoplayBlocked(true);
       }

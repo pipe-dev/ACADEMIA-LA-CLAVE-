@@ -392,6 +392,9 @@ export const usePitchDetection = () => {
     }
     
     if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        try { track.stop(); } catch {}
+      });
       streamRef.current = null;
     }
 
@@ -433,12 +436,7 @@ export const usePitchDetection = () => {
     audioContextRef.current = null;
     isSharedContextRef.current = true;
     
-    audioService.releaseMicrophoneStream(undefined, false);
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'auto';
-      } catch {}
-    }
+    audioService.releaseMicrophoneStream(undefined, true);
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';

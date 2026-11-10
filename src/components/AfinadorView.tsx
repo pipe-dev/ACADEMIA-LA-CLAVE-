@@ -324,7 +324,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   useEffect(() => {
     return () => {
-      audioService.stopMicrophone();
+      audioService.stopMicrophone(true);
       voicePlayback.stopActiveSound();
     };
   }, []);

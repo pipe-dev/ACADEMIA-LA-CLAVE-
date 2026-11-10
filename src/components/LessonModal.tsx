@@ -95,7 +95,17 @@ export const LessonModal: React.FC<LessonModalProps> = ({
 
   useEffect(() => {
     audioService.playOpenSound();
+    audioService.stopMicrophone(true);
+    return () => {
+      audioService.stopMicrophone(true);
+    };
   }, []);
+
+  useEffect(() => {
+    if (step === 'intro' || step === 'video' || step === 'success') {
+      audioService.stopMicrophone(true);
+    }
+  }, [step]);
 
   // Fullscreen change listener to unlock orientation on exit
   useEffect(() => {
@@ -114,6 +124,7 @@ export const LessonModal: React.FC<LessonModalProps> = ({
 
   const handleAttemptClose = () => {
     userRequestedPlayRef.current = false;
+    audioService.stopMicrophone(true);
     audioService.playCloseSound();
     unlockOrientation();
     onClose();

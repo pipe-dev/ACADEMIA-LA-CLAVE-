@@ -46,6 +46,11 @@ const BottomNavComponent: React.FC<BottomNavProps> = ({
     // 2. Propagate tab change to parent
     onChangeTab(tab);
 
+    // Apagar micrófono en hardware al salir a pestañas de contenido multimedia o progreso
+    if (tab === 'academia' || tab === 'progreso') {
+      audioService.stopMicrophone(true);
+    }
+
     // 3. Audio feedback executed non-blockingly AFTER initiating view transition
     try {
       if (tab !== activeTab) {
