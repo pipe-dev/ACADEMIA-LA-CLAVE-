@@ -236,11 +236,9 @@ export function useVocalRemover(initialVideoId?: string) {
       audio.volume = 1.0;
       audioRef.current = audio;
 
-      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-        try {
-          (navigator as any).audioSession.type = 'auto';
-        } catch {}
-      }
+      // Sincronizar audioSession en 'playback' (o 'play-and-record' si el mic está activo)
+      // para ignorar el botón físico lateral de silencio en iPhone y entregar calidad completa
+      audioService.syncAudioSessionMode(audioService.isMicActive());
 
       // AudioContext dedicado exclusivamente a la reproducción musical ({ latencyHint: 'playback' }).
       // AISLAMIENTO TOTAL: Este contexto jamás se conecta al micrófono, garantizando que el OS móvil

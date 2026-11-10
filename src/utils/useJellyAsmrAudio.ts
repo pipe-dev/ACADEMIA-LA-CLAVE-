@@ -188,11 +188,7 @@ function unlockWebAudio(ctx: AudioContext) {
 function activatePlaybackCategory(ctx?: AudioContext | null) {
   if (typeof window === 'undefined') return;
   try {
-    if ('audioSession' in navigator) {
-      try {
-        (navigator as unknown as { audioSession: { type: string } }).audioSession.type = 'auto';
-      } catch {}
-    }
+    audioService.syncAudioSessionMode(false);
     if ('mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = 'none';

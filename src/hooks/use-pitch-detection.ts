@@ -194,12 +194,8 @@ export const usePitchDetection = () => {
           emitMicActive(true);
         }
 
-        // WebKit AudioSession: 'auto' evita que iOS imponga el perfil VoiceChat o filtre el audio
-        if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-          try {
-            (navigator as any).audioSession.type = 'auto';
-          } catch {}
-        }
+        // WebKit AudioSession: 'play-and-record' mantiene el sonido activo ignorando el interruptor de silencio
+        audioService.syncAudioSessionMode(true);
 
         // Asegurar que los tracks de audio permanezcan activos
         stream.getAudioTracks().forEach(t => {
