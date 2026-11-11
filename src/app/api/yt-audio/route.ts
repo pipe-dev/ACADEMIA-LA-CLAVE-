@@ -22,14 +22,14 @@ const INNERTUBE_CLIENTS = [
     clientNumber: '101'
   },
   {
-    clientName: 'IOS',
-    clientVersion: '19.45.4',
+    clientName: 'MWEB',
+    clientVersion: '2.20240410.01.00',
     deviceMake: 'Apple',
-    deviceModel: 'iPhone16,2',
-    userAgent: 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1 like Mac OS X; en_US)',
+    deviceModel: 'iPhone',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1',
     osName: 'iOS',
-    osVersion: '18.1.0.22B83',
-    clientNumber: '5'
+    osVersion: '17.4.1',
+    clientNumber: '2'
   },
   {
     clientName: 'ANDROID_VR',
@@ -49,7 +49,7 @@ const INNERTUBE_CLIENTS = [
  */
 async function extractAudioUrlPureJs(videoId: string): Promise<{ url: string; userAgent: string } | null> {
   try {
-    const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+    const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&bpctr=9999999999&has_verified=1`;
     const watchRes = await fetch(watchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
@@ -60,11 +60,12 @@ async function extractAudioUrlPureJs(videoId: string): Promise<{ url: string; us
     if (!watchRes.ok) return null;
     const html = await watchRes.text();
 
-    const visitorMatch = html.match(/visitorData["']?\s*:\s*["']([^"']+)["']/);
-    const visitorId = visitorMatch ? visitorMatch[1] : '';
+    const visitorHeader = watchRes.headers.get('x-goog-visitor-id');
+    const visitorMatch = html.match(/"VISITOR_DATA":\s*"([^"]+)"/) || html.match(/visitorData["']?\s*:\s*["']([^"']+)["']/);
+    const visitorId = visitorHeader || (visitorMatch ? visitorMatch[1] : '');
 
     const stsMatch = html.match(/"signatureTimestamp":\s*(\d+)/);
-    const sts = stsMatch ? parseInt(stsMatch[1], 10) : 20739;
+    const sts = stsMatch ? parseInt(stsMatch[1], 10) : 20767;
 
     for (const client of INNERTUBE_CLIENTS) {
       try {
@@ -73,11 +74,11 @@ async function extractAudioUrlPureJs(videoId: string): Promise<{ url: string; us
             client: {
               clientName: client.clientName,
               clientVersion: client.clientVersion,
-              deviceMake: client.deviceMake,
-              deviceModel: client.deviceModel,
+              ...(client.deviceMake ? { deviceMake: client.deviceMake } : {}),
+              ...(client.deviceModel ? { deviceModel: client.deviceModel } : {}),
               userAgent: client.userAgent,
-              osName: client.osName,
-              osVersion: client.osVersion,
+              ...(client.osName ? { osName: client.osName } : {}),
+              ...(client.osVersion ? { osVersion: client.osVersion } : {}),
               hl: 'en',
               timeZone: 'UTC',
               utcOffsetMinutes: 0
@@ -105,7 +106,7 @@ async function extractAudioUrlPureJs(videoId: string): Promise<{ url: string; us
           headers['X-Goog-Visitor-Id'] = visitorId;
         }
 
-        const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+        const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player', {
           method: 'POST',
           headers,
           body: JSON.stringify(playerPayload),
@@ -143,13 +144,15 @@ async function extractAudioUrlPureJs(videoId: string): Promise<{ url: string; us
   }
 }
 
-async function getAudioUrl(videoId: string): Promise<{ url: string; userAgent: string }> {
+async function getAudioUrl(videoId: string, forceRefresh = false): Promise<{ url: string; userAgent: string }> {
   if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
     throw new Error('Formato de videoId no valido.');
   }
-  const cached = audioUrlCache.get(videoId);
-  if (cached && cached.expire > Date.now()) {
-    return cached;
+  if (!forceRefresh) {
+    const cached = audioUrlCache.get(videoId);
+    if (cached && cached.expire > Date.now()) {
+      return cached;
+    }
   }
 
   // 1. Extractor nativo en JavaScript (funciona en Cloudflare Workers y Edge sin requerir Python)
@@ -271,13 +274,27 @@ export async function GET(req: Request) {
       fetchHeaders['Range'] = rangeHeader;
     }
 
-    const upstreamRes = await fetch(audioInfo.url, {
+    let upstreamRes = await fetch(audioInfo.url, {
       headers: fetchHeaders,
       redirect: 'follow'
     });
 
     if (upstreamRes.status === 403) {
       audioUrlCache.delete(videoId);
+      try {
+        const refreshed = await getAudioUrl(videoId, true);
+        const retryHeaders: Record<string, string> = {
+          'User-Agent': refreshed.userAgent || fetchHeaders['User-Agent']
+        };
+        if (rangeHeader) retryHeaders['Range'] = rangeHeader;
+        const retryRes = await fetch(refreshed.url, {
+          headers: retryHeaders,
+          redirect: 'follow'
+        });
+        if (retryRes.ok) {
+          upstreamRes = retryRes;
+        }
+      } catch {}
     }
 
     const responseHeaders = new Headers();

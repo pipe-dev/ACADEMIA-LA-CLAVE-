@@ -15,6 +15,7 @@ interface VideoPlayerControlsProps {
   onSeekForward: (e: React.MouseEvent) => void;
   onSeekChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBackClick: (e: React.MouseEvent) => void;
+  onManualAdvanceLoop?: () => void;
 }
 
 export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
@@ -29,7 +30,8 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
   onSeekBackward,
   onSeekForward,
   onSeekChange,
-  onBackClick
+  onBackClick,
+  onManualAdvanceLoop
 }) => {
   const formatTime = (time: number) => {
     if (!time || isNaN(time)) return '0:00';
@@ -75,12 +77,20 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
         </div>
 
         {targetLoopCount > 1 && (
-          <div className="pointer-events-auto bg-indigo-600/90 backdrop-blur-md border border-indigo-300/40 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl shadow-lg flex items-center gap-1.5 text-white shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onManualAdvanceLoop) onManualAdvanceLoop();
+            }}
+            className="pointer-events-auto bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 transition-all backdrop-blur-md border border-indigo-300/40 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl shadow-lg flex items-center gap-1.5 text-white shrink-0 cursor-pointer"
+            title="Toca para avanzar de bucle manualmente"
+          >
             <RotateCw className="w-3.5 h-3.5 text-indigo-200" />
             <span className="text-[10px] md:text-xs font-black tracking-wide">
               Bucle {currentLoop}/{targetLoopCount}
             </span>
-          </div>
+          </button>
         )}
       </div>
 

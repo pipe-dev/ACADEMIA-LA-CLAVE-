@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { LessonNode } from '../../types';
 import { audioService } from '../../utils/audioService';
@@ -52,6 +52,81 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
 
   const targetLoopCount = getTargetLoopCount(node);
   const [currentLoop, setCurrentLoop] = useState<number>(1);
+  const currentLoopRef = useRef<number>(1);
+  const loopTriggerLockRef = useRef<boolean>(false);
+  const lastProgressTimeRef = useRef<number>(0);
+
+  const handleLoopOrComplete = useCallback((isManual: boolean = false) => {
+    if (loopTriggerLockRef.current && !isManual) return;
+    loopTriggerLockRef.current = true;
+    setTimeout(() => {
+      loopTriggerLockRef.current = false;
+    }, 2200);
+
+    if (currentLoopRef.current < targetLoopCount) {
+      const completedNum = currentLoopRef.current;
+      const nextLoop = currentLoopRef.current + 1;
+      currentLoopRef.current = nextLoop;
+      setCurrentLoop(nextLoop);
+      lastProgressTimeRef.current = 0;
+      setIsPlaying(true);
+      audioService.playSoftDing();
+      audioService.vibrate([20, 30, 20]);
+      fireVideoConfetti(confettiCanvasRef.current, 50);
+
+      if (targetLoopCount > 1) {
+        setLoopToastMsg(`BUCLE ${completedNum} DE ${targetLoopCount} COMPLETADO`);
+        setTimeout(() => setLoopToastMsg(null), 2400);
+      }
+
+      if (playerRef.current) {
+        try {
+          playerRef.current.seekTo(0, true);
+          playerRef.current.playVideo();
+        } catch {}
+      }
+    } else {
+      setIsPlaying(false);
+      audioService.playLessonCompleteSound();
+      audioService.vibrate([40, 60, 40, 100]);
+
+      if (targetLoopCount > 1) {
+        setLoopToastMsg(`¡${targetLoopCount} DE ${targetLoopCount} BUCLES COMPLETADOS! LECCIÓN DOMINADA`);
+      }
+
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          fireVideoConfetti(confettiCanvasRef.current, 70);
+          audioService.playXpGainSound();
+        }, i * 280);
+      }
+
+      if (node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')) {
+        userRequestedPlayRef.current = false;
+        setTimeout(() => {
+          unlockOrientation();
+          onTransitionToVocalDiagnostic();
+        }, 1200);
+      } else if (node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')) {
+        userRequestedPlayRef.current = false;
+        setTimeout(() => {
+          unlockOrientation();
+          if (!quizResolved) {
+            onTransitionToQuiz();
+          } else {
+            onClose();
+          }
+        }, 1200);
+      } else {
+        userRequestedPlayRef.current = false;
+        setTimeout(() => {
+          unlockOrientation();
+          onCompleteNode(node.id, node.xpReward);
+          onClose();
+        }, 2400);
+      }
+    }
+  }, [targetLoopCount, node.id, node.title, node.xpReward, onCompleteNode, onTransitionToQuiz, onTransitionToVocalDiagnostic, onClose, quizResolved, userRequestedPlayRef]);
 
   const resetControlsTimeout = () => {
     setShowControls(true);
@@ -163,13 +238,23 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
               if (typeof dur === 'number' && !isNaN(dur) && dur > 0) {
                 setDuration(dur);
 
+                // Detección proactiva de fin o reinicio en videos con bucle o lecciones
+                if (dur > 2) {
+                  const reachedEnd = (time >= dur - 0.75);
+                  const wrappedAround = (lastProgressTimeRef.current >= dur - 3.0 && time < 1.5 && time >= 0);
+                  if (reachedEnd || wrappedAround) {
+                    handleLoopOrComplete();
+                  }
+                }
+
                 if (dur - (typeof time === 'number' ? time : 0) <= 3.2 && !isVideoFadingOut) {
-                  if (currentLoop >= targetLoopCount) {
+                  if (currentLoopRef.current >= targetLoopCount) {
                     setIsVideoFadingOut(true);
                   }
                 }
               }
             }
+            lastProgressTimeRef.current = time;
           } catch (e) {}
         }
       }, 500);
@@ -234,66 +319,10 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
     }
 
     if (event.data === 0) {
-      if (currentLoop < targetLoopCount) {
-        const completedNum = currentLoop;
-        const nextLoop = currentLoop + 1;
-        setCurrentLoop(nextLoop);
-        setIsPlaying(true);
-        audioService.playSoftDing();
-        audioService.vibrate([20, 30, 20]);
-        fireVideoConfetti(confettiCanvasRef.current, 50);
-
-        if (targetLoopCount > 1) {
-          setLoopToastMsg(`BUCLE ${completedNum} DE ${targetLoopCount} COMPLETADO`);
-          setTimeout(() => setLoopToastMsg(null), 2400);
-        }
-
-        if (playerRef.current) {
-          try {
-            playerRef.current.seekTo(0, true);
-            playerRef.current.playVideo();
-          } catch {}
-        }
-      } else {
-        setIsPlaying(false);
-        audioService.playLessonCompleteSound();
-        audioService.vibrate([40, 60, 40, 100]);
-
-        if (targetLoopCount > 1) {
-          setLoopToastMsg(`¡${targetLoopCount} DE ${targetLoopCount} BUCLES COMPLETADOS! LECCIÓN DOMINADA`);
-        }
-
-        for (let i = 0; i < 5; i++) {
-          setTimeout(() => {
-            fireVideoConfetti(confettiCanvasRef.current, 70);
-            audioService.playXpGainSound();
-          }, i * 280);
-        }
-
-        if (node.id === 'u1-node7' || node.title?.includes('Fisiología Vocal')) {
-          userRequestedPlayRef.current = false;
-          setTimeout(() => {
-            unlockOrientation();
-            onTransitionToVocalDiagnostic();
-          }, 1200);
-        } else if (node.id === 'u1-node1' || node.title?.includes('Introducción al Canto')) {
-          userRequestedPlayRef.current = false;
-          setTimeout(() => {
-            unlockOrientation();
-            if (!quizResolved) {
-              onTransitionToQuiz();
-            } else {
-              onClose();
-            }
-          }, 1200);
-        } else {
-          userRequestedPlayRef.current = false;
-          setTimeout(() => {
-            unlockOrientation();
-            onCompleteNode(node.id, node.xpReward);
-            onClose();
-          }, 2400);
-        }
+      handleLoopOrComplete();
+    } else if (event.data === 2) {
+      if (duration > 2 && currentTime >= duration - 1.5) {
+        handleLoopOrComplete();
       }
     }
   };
@@ -494,6 +523,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
           onSeekForward={seekForward}
           onSeekChange={handleSeek}
           onBackClick={handleBackClick}
+          onManualAdvanceLoop={() => handleLoopOrComplete(true)}
         />
       </div>
     </div>
