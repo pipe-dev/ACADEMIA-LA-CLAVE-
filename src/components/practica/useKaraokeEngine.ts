@@ -363,17 +363,11 @@ export function useKaraokeEngine({
   }, [useYtFallback, vocalRemover.isFinished, isFinished, handleSongCompleted]);
 
   useEffect(() => {
-    if (vocalRemover.error && !useYtFallback) {
-      console.warn('Fallo en Web Audio:', vocalRemover.error, 'Conmutando a YouTube fallback');
-      setUseYtFallback(true);
+    if (vocalRemover.error) {
+      console.warn('[KaraokeEngine] Aviso en Web Audio:', vocalRemover.error);
+      // Erradicado fallback a YouTube para preservar 100% el motor DSP y la cancelación vocal
     }
-  }, [vocalRemover.error, useYtFallback]);
-
-  useEffect(() => {
-    if (vocalRemover.isReady && useYtFallback && !vocalRemover.error) {
-      setUseYtFallback(false);
-    }
-  }, [vocalRemover.isReady, useYtFallback, vocalRemover.error]);
+  }, [vocalRemover.error]);
 
   // Manejo de YouTube
   const handlePlayerReady = useCallback((e: YouTubeEvent) => {

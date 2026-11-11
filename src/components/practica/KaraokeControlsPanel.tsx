@@ -83,12 +83,7 @@ export const KaraokeControlsPanel: React.FC<KaraokeControlsPanelProps> = ({
         </button>
 
         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
-          Voz{' '}
-          {useYtFallback && (
-            <span className="text-[10px] text-amber-500 dark:text-amber-400 font-normal">
-              (Respaldo)
-            </span>
-          )}
+          Voz
         </span>
 
         <input

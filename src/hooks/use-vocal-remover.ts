@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 /**
  * Hook DSP Tri-Banda de Alto Rendimiento para Cancelación Vocal y Preservación de Ritmo
  * 
- * Arquitectura Linkwitz-Riley de 3 bandas restaurada fielmente de v1.0.41:
+ * Arquitectura DSP restaurada fielmente de v1.0.53 (Cero Respaldo):
  * 1. Banda de Graves (< 200 Hz): Bombo y bajo eléctrico sumados a mono con fase 100% positiva
  *    (Linkwitz-Riley 24 dB/octava a 200 Hz, Q = 0.707).
  *    Inmune a la cancelación de fase; máxima pegada rítmica en la batería y bajo sin pérdida de cuerpo.
@@ -206,9 +206,13 @@ export function useVocalRemover(initialVideoId?: string) {
 
   const setMasterVolume = useCallback((vol: number) => { // 0 a 100
     if (masterGainRef.current) {
+      const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isHeadphones = audioService.isUsingHeadphones();
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const targetGain = isHeadphones ? 1.0 : (isMicActiveNow ? 1.85 : 0.75);
+      const baseScale = isIos ? 1.15 : 1.0;
+      const boostMultiplier = isIos ? 1.35 : 1.2;
+      const micCompensation = isMicActiveNow ? boostMultiplier : 1.0;
+      const targetGain = isHeadphones ? 1.0 : (baseScale * micCompensation);
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * targetGain;
     }
   }, []);
@@ -444,26 +448,29 @@ export function useVocalRemover(initialVideoId?: string) {
       makeupGainRef.current = makeupGain;
 
       const compressor = ctx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-0.8, ctx.currentTime);
+      compressor.threshold.setValueAtTime(-3.0, ctx.currentTime);
       compressor.knee.setValueAtTime(8, ctx.currentTime);
-      compressor.ratio.setValueAtTime(2.0, ctx.currentTime);
+      compressor.ratio.setValueAtTime(3.5, ctx.currentTime);
       compressor.attack.setValueAtTime(0.015, ctx.currentTime);
       compressor.release.setValueAtTime(0.15, ctx.currentTime);
       compressorRef.current = compressor;
 
+      const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isHeadphones = audioService.isUsingHeadphones();
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseMaster = isHeadphones ? 1.0 : (isMicActiveNow ? 1.85 : 0.75);
+      const baseMaster = isIosDevice ? 1.15 : 1.0;
+      const boostMultiplier = isIosDevice ? 1.35 : 1.2;
+      const targetGain = isHeadphones ? 1.0 : (isMicActiveNow ? baseMaster * boostMultiplier : baseMaster);
 
       const masterGain = ctx.createGain();
-      masterGain.gain.value = baseMaster;
+      masterGain.gain.value = targetGain;
       masterGainRef.current = masterGain;
 
-      // Limitador de estudio tipo Brickwall en -0.1 dB con ratio 16 para máxima protección limpia
+      // Limitador de estudio tipo Brickwall en -0.5 dB con ratio 12 fiel a v1.0.53
       const brickwallLimiter = ctx.createDynamicsCompressor();
-      brickwallLimiter.threshold.setValueAtTime(-0.1, ctx.currentTime);
-      brickwallLimiter.knee.setValueAtTime(3, ctx.currentTime);
-      brickwallLimiter.ratio.setValueAtTime(16.0, ctx.currentTime);
+      brickwallLimiter.threshold.setValueAtTime(-0.5, ctx.currentTime);
+      brickwallLimiter.knee.setValueAtTime(4, ctx.currentTime);
+      brickwallLimiter.ratio.setValueAtTime(12.0, ctx.currentTime);
       brickwallLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
       brickwallLimiter.release.setValueAtTime(0.08, ctx.currentTime);
 
@@ -533,15 +540,24 @@ export function useVocalRemover(initialVideoId?: string) {
         setIsPlaying(false); 
         setIsFinished(true); 
       });
+      let retryCount = 0;
       audio.addEventListener('error', () => {
         if (audioRef.current !== audio) return;
         const mediaErr = audio.error;
-        console.error('Error en elemento Audio Web Audio:', {
+        console.warn('Aviso en elemento Audio Web Audio:', {
           code: mediaErr?.code,
           message: mediaErr?.message,
           src: audio.src
         });
-        setError('No se pudo transmitir el audio sin procesar; conmutando al reproductor alternativo.');
+        if (retryCount < 2) {
+          retryCount++;
+          console.info(`[Audio DSP] Reintentando transmisión directa (${retryCount}/2)...`);
+          audio.src = `/api/yt-audio?videoId=${vid}&retry=${retryCount}&t=${Date.now()}`;
+          audio.load();
+          audio.play().catch(() => {});
+          return;
+        }
+        setError('Error al transmitir el audio en el motor DSP.');
       });
       
       audio.load();
@@ -625,7 +641,7 @@ export function useVocalRemover(initialVideoId?: string) {
   }, []);
 
   const getAudioContext = useCallback(() => {
-    return audioContextRef.current;
+    return audioContextRef.current || audioService.getPlaybackContext();
   }, []);
 
   // Medición de RMS en tiempo real de la pista musical para la compuerta anti-acople
@@ -644,13 +660,16 @@ export function useVocalRemover(initialVideoId?: string) {
     return Math.sqrt(sum / len);
   }, []);
 
-  // Compensación automática de ganancia en caliente en los altavoces cuando el micrófono se activa/desactiva
+  // Compensación automática de ganancia en caliente en los altavoces cuando el micrófono se activa/desactiva (v1.0.53)
   useEffect(() => {
     const handleMicState = (active: boolean) => {
       const ctx = audioContextRef.current || audioService.getPlaybackContext();
       if (ctx && masterGainRef.current) {
+        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
         const isHeadphones = audioService.isUsingHeadphones();
-        const target = isHeadphones ? 1.0 : (active ? 1.85 : 0.75);
+        const base = isIos ? 1.15 : 1.0;
+        const boostMultiplier = isIos ? 1.35 : 1.2;
+        const target = isHeadphones ? 1.0 : (active ? base * boostMultiplier : base);
         masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
       }
     };

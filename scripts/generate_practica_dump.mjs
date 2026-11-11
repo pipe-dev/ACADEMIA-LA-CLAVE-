@@ -9,7 +9,7 @@ const FILES = [
   { path: 'src/components/practica/polygraph-canvas.tsx', cat: '1. UI y Escenario', desc: 'Lienzo gráfico a 60 FPS con filtro anti-puntaje fantasma (dispersión < 0.85 semitonos)' },
   { path: 'src/components/practica/useKaraokeEngine.ts', cat: '2. Motores de Estado y Puntos', desc: 'Máquina de estados orquestadora con auto-recuperación de fallback cuando Web Audio está listo' },
   { path: 'src/components/practica/useKaraokeScoring.ts', cat: '2. Motores de Estado y Puntos', desc: 'Motor de evaluación de entonación, combos x1 a x4, racha y cálculo de 1 a 5 estrellas' },
-  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley tri-banda fiel a v1.0.41 con modo directo 1.0x plano con audífonos/Bluetooth (A2DP) y nivelación 0.75/1.85 en altavoces móviles' },
+  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley de v1.0.53 con cancelación vocal exacta, cero respaldo y modo directo 1.0x con audífonos' },
   { path: 'src/hooks/use-pitch-detection.ts', cat: '3. Motor DSP y Afinación', desc: 'Detector de afinación con auto-detección de audífonos Bluetooth, punto dulce de Bleed Gate (preamp 2.6x altavoces / 6.0x audífonos) y apagado físico de hardware' },
   { path: 'src/utils/audioService.ts', cat: '3. Motor DSP y Afinación', desc: 'Arquitectura Web Audio con enrutamiento inteligente anti-HFP: selección de micrófono interno físico con audífonos Bluetooth (preservando A2DP estéreo 44.1/48 kHz) y modo directo 1.0x' },
   { path: 'src/utils/voicePlaybackService.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor de reproducción de notas vocales reales con modo directo 1.0x con audífonos y compensación dinámica 0.75x/1.85x en altavoces' },
@@ -48,11 +48,11 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.59)\n\n`;
-out += `> **Versión**: v1.0.59  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.60)\n\n`;
+out += `> **Versión**: v1.0.60  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
-out += `> **Arquitectura de Audio**: Enrutamiento Inteligente Bluetooth A2DP + Micrófono Integrado y Modo Directo 1.0x: Aislamiento total de salida Bluetooth en perfil musical A2DP de alta fidelidad (44.1/48 kHz estéreo) forzando la entrada por el micrófono físico del teléfono para erradicar el perfil telefónico HFP/SCO (8/16 kHz mono con ducking). Ganancia plana directa 1.0x con audífonos sin compresión forzada, conservando la compensación acústica de altavoces (0.75x sin mic / 1.85x con mic) y el motor DSP acústico exacto de v1.0.41 (crossover 200 Hz, notch 1.800 Hz a -2.5 dB, matriz estéreo limpia L=+Side / R=-Side).\n\n`;
+out += `> **Arquitectura de Audio**: Motor DSP de Cancelación Vocal exacto de v1.0.53 y Erradicación Total del Respaldo: Preservación al 100% del procesamiento Web Audio con eliminación del YouTube fallback y de la etiqueta '(Respaldo)'. Matriz Mid/Side quirúrgica (crossover 200 Hz, notch dinámico 1.800 Hz a -2.5 dB, Side L=+Side / R=-Side), compresor máster en -3.0 dB (ratio 3.5), brickwallLimiter en -0.5 dB (ratio 12), retransmisión automática y modo directo 1.0x con audífonos Bluetooth.\n\n`;
 out += `---\n\n`;
 out += `## Índice General de Archivos\n\n`;
 out += `| N° | Categoría | Archivo | Líneas | Descripción |\n`;

@@ -433,7 +433,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
 
     } catch (err) {
       console.warn('Error resolviendo audio oficial:', err);
-      engine.setUseYtFallback(true);
+      // Erradicado fallback a YouTube para preservar 100% el motor DSP
       engine.setActiveVideoId(videoId || '1q3ND4XPzIg');
     } finally {
       setIsLoadingTrack(false);
@@ -582,7 +582,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       await startKaraokePlayback('1q3ND4XPzIg');
     } catch (err) {
       console.warn('Error resolviendo audio oficial:', err);
-      engine.setUseYtFallback(true);
+      // Erradicado fallback a YouTube para preservar 100% el motor DSP
       engine.setActiveVideoId('1q3ND4XPzIg');
     } finally {
       setIsLoadingTrack(false);
