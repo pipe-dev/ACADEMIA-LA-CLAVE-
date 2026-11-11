@@ -82,7 +82,7 @@ class AudioService {
   public syncAudioSessionMode(micActive: boolean): void {
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
-        const targetType = micActive ? 'play-and-record' : 'playback';
+        const targetType = micActive ? 'auto' : 'playback';
         const currentType = (navigator as any).audioSession.type;
         if (currentType !== targetType) {
           (navigator as any).audioSession.type = targetType;
@@ -461,9 +461,9 @@ class AudioService {
         // 2. Compresor/Limitador del sintetizador para evitar saturación de bus en toques rápidos
         if (!this.synthCompressor) {
           this.synthCompressor = this.ctx.createDynamicsCompressor();
-          this.synthCompressor.threshold.setValueAtTime(-12, now);
-          this.synthCompressor.knee.setValueAtTime(10, now);
-          this.synthCompressor.ratio.setValueAtTime(6, now);
+          this.synthCompressor.threshold.setValueAtTime(-0.5, now);
+          this.synthCompressor.knee.setValueAtTime(2, now);
+          this.synthCompressor.ratio.setValueAtTime(12, now);
           this.synthCompressor.attack.setValueAtTime(0.003, now);
           this.synthCompressor.release.setValueAtTime(0.15, now);
           this.synthCompressor.connect(this.ctx.destination);
@@ -484,14 +484,14 @@ class AudioService {
 
         const isMicActiveNow = this.isMicActive() || this.isListening;
         const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const micBoost = isMicActiveNow ? (isIos ? 2.5 : 1.8) : 1.0;
+        const micBoost = isMicActiveNow ? (isIos ? 3.2 : 2.4) : 1.0;
 
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.linearRampToValueAtTime(1.2 * micBoost, now + 0.03);
+        gain.gain.linearRampToValueAtTime(1.0 * micBoost, now + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
         harmGain.gain.setValueAtTime(0.0001, now);
-        harmGain.gain.linearRampToValueAtTime(0.30 * micBoost, now + 0.03);
+        harmGain.gain.linearRampToValueAtTime(0.25 * micBoost, now + 0.03);
         harmGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
         osc.connect(gain);

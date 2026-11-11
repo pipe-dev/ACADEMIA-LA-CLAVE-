@@ -2,16 +2,52 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import fs from 'fs';
 
-
-
 // Caché en memoria para enlaces de streaming directos (evita re-extracción en seek o replay)
-const audioUrlCache = new Map<string, { url: string; expire: number }>();
+interface CachedAudio {
+  url: string;
+  userAgent: string;
+  expire: number;
+}
+const audioUrlCache = new Map<string, CachedAudio>();
+
+const INNERTUBE_CLIENTS = [
+  {
+    clientName: 'VISIONOS',
+    clientVersion: '1.02',
+    deviceMake: 'Apple',
+    deviceModel: 'RealityDevice17,1',
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
+    osName: 'visionOS',
+    osVersion: '26.5.23O471',
+    clientNumber: '101'
+  },
+  {
+    clientName: 'IOS',
+    clientVersion: '19.45.4',
+    deviceMake: 'Apple',
+    deviceModel: 'iPhone16,2',
+    userAgent: 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1 like Mac OS X; en_US)',
+    osName: 'iOS',
+    osVersion: '18.1.0.22B83',
+    clientNumber: '5'
+  },
+  {
+    clientName: 'ANDROID_VR',
+    clientVersion: '1.60.19',
+    deviceMake: 'Oculus',
+    deviceModel: 'Quest 3',
+    userAgent: 'Mozilla/5.0 (Linux; Android 12; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    osName: 'Android',
+    osVersion: '12',
+    clientNumber: '28'
+  }
+];
 
 /**
  * Extractor nativo en JavaScript / Web Standards compatible con Cloudflare Workers, Edge y Node.js.
- * Utiliza el cliente VISIONOS de YouTube Innertube para obtener URLs directas de audio sin cifrado JS.
+ * Utiliza clientes de YouTube Innertube para obtener URLs directas de audio sin cifrado JS.
  */
-async function extractAudioUrlPureJs(videoId: string): Promise<string | null> {
+async function extractAudioUrlPureJs(videoId: string): Promise<{ url: string; userAgent: string } | null> {
   try {
     const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
     const watchRes = await fetch(watchUrl, {
@@ -30,86 +66,102 @@ async function extractAudioUrlPureJs(videoId: string): Promise<string | null> {
     const stsMatch = html.match(/"signatureTimestamp":\s*(\d+)/);
     const sts = stsMatch ? parseInt(stsMatch[1], 10) : 20739;
 
-    const playerPayload = {
-      context: {
-        client: {
-          clientName: 'VISIONOS',
-          clientVersion: '1.02',
-          deviceMake: 'Apple',
-          deviceModel: 'RealityDevice17,1',
-          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
-          osName: 'visionOS',
-          osVersion: '26.5.23O471',
-          hl: 'en',
-          timeZone: 'UTC',
-          utcOffsetMinutes: 0
-        }
-      },
-      videoId,
-      playbackContext: {
-        contentPlaybackContext: {
-          html5Preference: 'HTML5_PREF_WANTS',
-          signatureTimestamp: sts
-        }
-      },
-      contentCheckOk: true,
-      racyCheckOk: true
-    };
+    for (const client of INNERTUBE_CLIENTS) {
+      try {
+        const playerPayload = {
+          context: {
+            client: {
+              clientName: client.clientName,
+              clientVersion: client.clientVersion,
+              deviceMake: client.deviceMake,
+              deviceModel: client.deviceModel,
+              userAgent: client.userAgent,
+              osName: client.osName,
+              osVersion: client.osVersion,
+              hl: 'en',
+              timeZone: 'UTC',
+              utcOffsetMinutes: 0
+            }
+          },
+          videoId,
+          playbackContext: {
+            contentPlaybackContext: {
+              html5Preference: 'HTML5_PREF_WANTS',
+              signatureTimestamp: sts
+            }
+          },
+          contentCheckOk: true,
+          racyCheckOk: true
+        };
 
-    const headers: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
-      'Content-Type': 'application/json',
-      'X-YouTube-Client-Name': '101',
-      'X-YouTube-Client-Version': '1.02',
-      'Origin': 'https://www.youtube.com'
-    };
-    if (visitorId) {
-      headers['X-Goog-Visitor-Id'] = visitorId;
+        const headers: Record<string, string> = {
+          'User-Agent': client.userAgent,
+          'Content-Type': 'application/json',
+          'X-YouTube-Client-Name': client.clientNumber,
+          'X-YouTube-Client-Version': client.clientVersion,
+          'Origin': 'https://www.youtube.com'
+        };
+        if (visitorId) {
+          headers['X-Goog-Visitor-Id'] = visitorId;
+        }
+
+        const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(playerPayload),
+          signal: AbortSignal.timeout(10000)
+        });
+
+        if (!playerRes.ok) continue;
+        const data = await playerRes.json();
+
+        const formats = data.streamingData?.adaptiveFormats || [];
+        const audioFormats = formats.filter((f: any) => f.mimeType?.includes('audio') && f.url);
+
+        if (!audioFormats || audioFormats.length === 0) continue;
+
+        // Priorizar itag 140 (audio/mp4 - 128kbps AAC) para compatibilidad total con Safari/iOS y Chrome/Android
+        audioFormats.sort((a: any, b: any) => {
+          if (a.itag === 140) return -1;
+          if (b.itag === 140) return 1;
+          return (b.bitrate || 0) - (a.bitrate || 0);
+        });
+
+        return {
+          url: audioFormats[0].url,
+          userAgent: client.userAgent
+        };
+      } catch {
+        // Probar siguiente cliente
+      }
     }
 
-    const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(playerPayload),
-      signal: AbortSignal.timeout(10000)
-    });
-
-    if (!playerRes.ok) return null;
-    const data = await playerRes.json();
-
-    const formats = data.streamingData?.adaptiveFormats || [];
-    const audioFormats = formats.filter((f: any) => f.mimeType?.includes('audio') && f.url);
-
-    if (!audioFormats || audioFormats.length === 0) return null;
-
-    // Priorizar itag 140 (audio/mp4 - 128kbps AAC) para compatibilidad total con Safari/iOS y Chrome/Android
-    audioFormats.sort((a: any, b: any) => {
-      if (a.itag === 140) return -1;
-      if (b.itag === 140) return 1;
-      return (b.bitrate || 0) - (a.bitrate || 0);
-    });
-
-    return audioFormats[0].url;
+    return null;
   } catch (err) {
     console.warn('[yt-audio] Error en extractor pure JS:', err);
     return null;
   }
 }
 
-async function getAudioUrl(videoId: string): Promise<string> {
+async function getAudioUrl(videoId: string): Promise<{ url: string; userAgent: string }> {
   if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
     throw new Error('Formato de videoId no valido.');
   }
   const cached = audioUrlCache.get(videoId);
   if (cached && cached.expire > Date.now()) {
-    return cached.url;
+    return cached;
   }
 
   // 1. Extractor nativo en JavaScript (funciona en Cloudflare Workers y Edge sin requerir Python)
-  const pureJsUrl = await extractAudioUrlPureJs(videoId);
-  if (pureJsUrl) {
-    audioUrlCache.set(videoId, { url: pureJsUrl, expire: Date.now() + 2 * 3600 * 1000 });
-    return pureJsUrl;
+  const pureJsResult = await extractAudioUrlPureJs(videoId);
+  if (pureJsResult) {
+    const entry: CachedAudio = {
+      url: pureJsResult.url,
+      userAgent: pureJsResult.userAgent,
+      expire: Date.now() + 2 * 3600 * 1000
+    };
+    audioUrlCache.set(videoId, entry);
+    return entry;
   }
 
   // 2. Soporte para microservicio / proxy extractor externo si está configurado en env
@@ -120,8 +172,13 @@ async function getAudioUrl(videoId: string): Promise<string> {
       if (res.ok) {
         const data = await res.json();
         if (data.url) {
-          audioUrlCache.set(videoId, { url: data.url, expire: Date.now() + 2 * 3600 * 1000 });
-          return data.url;
+          const entry: CachedAudio = {
+            url: data.url,
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
+            expire: Date.now() + 2 * 3600 * 1000
+          };
+          audioUrlCache.set(videoId, entry);
+          return entry;
         }
       }
     } catch {}
@@ -149,8 +206,13 @@ async function getAudioUrl(videoId: string): Promise<string> {
         if (!url || !url.startsWith('http')) {
           return reject(new Error('No valid direct audio URL extracted'));
         }
-        audioUrlCache.set(videoId, { url, expire: Date.now() + 2 * 3600 * 1000 });
-        resolve(url);
+        const entry: CachedAudio = {
+          url,
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          expire: Date.now() + 2 * 3600 * 1000
+        };
+        audioUrlCache.set(videoId, entry);
+        resolve(entry);
       });
     });
   }
@@ -185,9 +247,9 @@ export async function GET(req: Request) {
       );
     }
 
-    let audioUrl: string;
+    let audioInfo: { url: string; userAgent: string };
     try {
-      audioUrl = await getAudioUrl(videoId);
+      audioInfo = await getAudioUrl(videoId);
     } catch (extractErr: any) {
       return NextResponse.json(
         { error: extractErr.message || "Extraction unavailable", fallback: true },
@@ -203,13 +265,13 @@ export async function GET(req: Request) {
 
     const rangeHeader = req.headers.get('range');
     const fetchHeaders: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'User-Agent': audioInfo.userAgent || 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
     };
     if (rangeHeader) {
       fetchHeaders['Range'] = rangeHeader;
     }
 
-    const upstreamRes = await fetch(audioUrl, {
+    const upstreamRes = await fetch(audioInfo.url, {
       headers: fetchHeaders,
       redirect: 'follow'
     });

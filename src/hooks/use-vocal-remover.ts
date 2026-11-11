@@ -135,10 +135,18 @@ export function useVocalRemover(initialVideoId?: string) {
       mediaElementSourceRef.current = null;
     }
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.removeAttribute('src');
-      audioRef.current.load();
+      const oldAudio = audioRef.current;
       audioRef.current = null;
+      oldAudio.onerror = null;
+      oldAudio.onended = null;
+      oldAudio.onpause = null;
+      oldAudio.onplay = null;
+      oldAudio.oncanplay = null;
+      oldAudio.ontimeupdate = null;
+      try {
+        oldAudio.pause();
+        oldAudio.src = '';
+      } catch {}
     }
 
     // Desconectar los nodos del grafo para liberar recursos sin cerrar el AudioContext singleton
@@ -206,8 +214,8 @@ export function useVocalRemover(initialVideoId?: string) {
     if (masterGainRef.current) {
       const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseScale = isIos ? 1.25 : 1.05;
-      const boostMultiplier = isIos ? 1.95 : 1.45;
+      const baseScale = 1.0;
+      const boostMultiplier = isIos ? 2.8 : 2.0;
       const micCompensation = isMicActiveNow ? boostMultiplier : 1.0;
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * baseScale * micCompensation;
     }
@@ -456,25 +464,25 @@ export function useVocalRemover(initialVideoId?: string) {
       makeupGainRef.current = makeupGain;
 
       const compressor = ctx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-3.0, ctx.currentTime);
+      compressor.threshold.setValueAtTime(-0.8, ctx.currentTime);
       compressor.knee.setValueAtTime(8, ctx.currentTime);
-      compressor.ratio.setValueAtTime(3.5, ctx.currentTime);
+      compressor.ratio.setValueAtTime(2.0, ctx.currentTime);
       compressor.attack.setValueAtTime(0.015, ctx.currentTime);
       compressor.release.setValueAtTime(0.15, ctx.currentTime);
       compressorRef.current = compressor;
 
       const isIosDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseMaster = isIosDevice ? 1.25 : 1.05;
-      const boostMultiplier = isIosDevice ? 1.95 : 1.45;
+      const baseMaster = 1.0;
+      const boostMultiplier = isIosDevice ? 2.8 : 2.0;
 
       const masterGain = ctx.createGain();
       masterGain.gain.value = isMicActiveNow ? baseMaster * boostMultiplier : baseMaster;
       masterGainRef.current = masterGain;
 
-      // Limitador de estudio tipo Brickwall en -0.2 dB con ratio 16 para permitir máximo volumen limpio
+      // Limitador de estudio tipo Brickwall en -0.1 dB con ratio 16 para permitir máximo volumen limpio
       const brickwallLimiter = ctx.createDynamicsCompressor();
-      brickwallLimiter.threshold.setValueAtTime(-0.2, ctx.currentTime);
+      brickwallLimiter.threshold.setValueAtTime(-0.1, ctx.currentTime);
       brickwallLimiter.knee.setValueAtTime(3, ctx.currentTime);
       brickwallLimiter.ratio.setValueAtTime(16.0, ctx.currentTime);
       brickwallLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
@@ -490,19 +498,19 @@ export function useVocalRemover(initialVideoId?: string) {
       backingAnalyserRef.current = backingAnalyser;
 
       // Filtros psicoacústicos anti-ducking:
-      // Realce de presencia (950 Hz peaking +4.5 dB) y cuerpo (130 Hz lowshelf +3.0 dB)
+      // Realce de presencia (950 Hz peaking +5.0 dB) y cuerpo (130 Hz lowshelf +3.5 dB)
       // para compensar volumen percibido (LUFS) al activar el micrófono sin saturar el DAC digital
       const presenceFilter = ctx.createBiquadFilter();
       presenceFilter.type = 'peaking';
       presenceFilter.frequency.value = 950;
       presenceFilter.Q.value = 0.8;
-      presenceFilter.gain.value = isMicActiveNow ? 4.5 : 0;
+      presenceFilter.gain.value = isMicActiveNow ? 5.0 : 0;
       presenceFilterRef.current = presenceFilter;
 
       const presenceLowShelf = ctx.createBiquadFilter();
       presenceLowShelf.type = 'lowshelf';
       presenceLowShelf.frequency.value = 130;
-      presenceLowShelf.gain.value = isMicActiveNow ? 3.0 : 0;
+      presenceLowShelf.gain.value = isMicActiveNow ? 3.5 : 0;
       presenceLowShelfRef.current = presenceLowShelf;
 
       // Fase 3: Salida del Procesamiento DSP
@@ -524,31 +532,49 @@ export function useVocalRemover(initialVideoId?: string) {
 
       // Eventos de estado del elemento Audio
       audio.addEventListener('loadedmetadata', () => {
+        if (audioRef.current !== audio) return;
         if (audio.duration && !isNaN(audio.duration)) {
           setDuration(audio.duration);
         }
       });
       audio.addEventListener('durationchange', () => {
+        if (audioRef.current !== audio) return;
         if (audio.duration && !isNaN(audio.duration)) {
           setDuration(audio.duration);
         }
       });
-      audio.addEventListener('canplay', () => setIsReady(true));
-      audio.addEventListener('canplaythrough', () => setIsReady(true));
-      audio.addEventListener('loadeddata', () => setIsReady(true));
-      audio.addEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
+      audio.addEventListener('canplay', () => {
+        if (audioRef.current !== audio) return;
+        setIsReady(true);
+      });
+      audio.addEventListener('canplaythrough', () => {
+        if (audioRef.current !== audio) return;
+        setIsReady(true);
+      });
+      audio.addEventListener('loadeddata', () => {
+        if (audioRef.current !== audio) return;
+        setIsReady(true);
+      });
+      audio.addEventListener('timeupdate', () => {
+        if (audioRef.current !== audio) return;
+        setCurrentTime(audio.currentTime);
+      });
       audio.addEventListener('play', () => {
+        if (audioRef.current !== audio) return;
         setIsPlaying(true);
         setIsFinished(false);
       });
       audio.addEventListener('pause', () => {
+        if (audioRef.current !== audio) return;
         setIsPlaying(false);
       });
       audio.addEventListener('ended', () => { 
+        if (audioRef.current !== audio) return;
         setIsPlaying(false); 
         setIsFinished(true); 
       });
       audio.addEventListener('error', () => {
+        if (audioRef.current !== audio) return;
         const mediaErr = audio.error;
         console.error('Error en elemento Audio Web Audio:', {
           code: mediaErr?.code,
@@ -665,16 +691,16 @@ export function useVocalRemover(initialVideoId?: string) {
       if (ctx) {
         if (masterGainRef.current) {
           const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-          const base = isIos ? 1.25 : 1.05;
-          const boostMultiplier = isIos ? 1.95 : 1.45;
+          const base = 1.0;
+          const boostMultiplier = isIos ? 2.8 : 2.0;
           const target = active ? base * boostMultiplier : base;
           masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
         }
         if (presenceFilterRef.current) {
-          presenceFilterRef.current.gain.setTargetAtTime(active ? 4.5 : 0, ctx.currentTime, 0.03);
+          presenceFilterRef.current.gain.setTargetAtTime(active ? 5.0 : 0, ctx.currentTime, 0.03);
         }
         if (presenceLowShelfRef.current) {
-          presenceLowShelfRef.current.gain.setTargetAtTime(active ? 3.0 : 0, ctx.currentTime, 0.03);
+          presenceLowShelfRef.current.gain.setTargetAtTime(active ? 3.5 : 0, ctx.currentTime, 0.03);
         }
       }
     };

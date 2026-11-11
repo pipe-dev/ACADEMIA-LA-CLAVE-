@@ -194,7 +194,7 @@ export const usePitchDetection = () => {
           emitMicActive(true);
         }
 
-        // WebKit AudioSession: 'play-and-record' mantiene el sonido activo ignorando el interruptor de silencio
+        // WebKit AudioSession: 'auto' mantiene el sonido activo sin forzar tubería de llamada telefónica
         audioService.syncAudioSessionMode(true);
 
         // Asegurar que los tracks de audio permanezcan activos
