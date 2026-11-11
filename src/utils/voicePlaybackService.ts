@@ -55,7 +55,8 @@ export class VoicePlaybackService {
   private handleMicStateChange(active: boolean): void {
     const ctx = this.getAudioContext();
     if (!ctx || !this.currentGainNode) return;
-    const targetGain = active ? 1.85 : 0.75;
+    const isHeadphones = audioService.isUsingHeadphones();
+    const targetGain = isHeadphones ? 1.0 : (active ? 1.85 : 0.75);
     try {
       this.currentGainNode.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.02);
     } catch {}
@@ -229,13 +230,14 @@ export class VoicePlaybackService {
         source.buffer = buffer;
         source.playbackRate.setValueAtTime(playbackRate, ctx.currentTime);
 
-        // Auto-Compensación de Volumen cuando el Micrófono está Activo (0.75 sin mic / 1.85 con mic)
+        // Auto-Compensación de Volumen cuando el Micrófono está Activo (Modo directo 1.0 con audífonos / 0.75 sin mic / 1.85 con mic)
+        const isHeadphones = audioService.isUsingHeadphones();
         const isMicActive = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-        const baseGain = isMicActive ? 1.85 : 0.75;
+        const baseGain = isHeadphones ? 1.0 : (isMicActive ? 1.85 : 0.75);
 
-        // Limitador de estudio transparente en -0.1 dB para evitar saturación y proteger de clipping en 0 dBFS
+        // Limitador de estudio transparente en -0.5 dB (audífonos/modo directo) o -0.1 dB (altavoces)
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-0.1, ctx.currentTime);
+        compressor.threshold.setValueAtTime(isHeadphones ? -0.5 : -0.1, ctx.currentTime);
         compressor.knee.setValueAtTime(3, ctx.currentTime);
         compressor.ratio.setValueAtTime(16, ctx.currentTime);
         compressor.attack.setValueAtTime(0.002, ctx.currentTime);

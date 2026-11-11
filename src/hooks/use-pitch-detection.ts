@@ -177,7 +177,8 @@ export const usePitchDetection = () => {
       return isDetecting;
     }
     isStartingRef.current = true;
-    isUsingHeadphonesRef.current = !!isUsingHeadphones;
+    const effectiveHeadphones = !!isUsingHeadphones || audioService.isUsingHeadphones();
+    isUsingHeadphonesRef.current = effectiveHeadphones;
     getBackingRmsRef.current = getBackingRms || null;
     stableFramesCountRef.current = 0;
     stableCandidateNoteRef.current = '';
@@ -236,7 +237,7 @@ export const usePitchDetection = () => {
         // En Karaoke SIN audífonos, 2.6x (punto dulce acústico: la música queda bajo 0.032 y la voz normal entra entre 0.045 y 0.150)
         // CON audífonos, 6.0x para máxima sensibilidad vocal
         const micBoostGain = context.createGain();
-        const boostVal = isUsingHeadphones ? 6.0 : 2.6;
+        const boostVal = effectiveHeadphones ? 6.0 : 2.6;
         micBoostGain.gain.setValueAtTime(boostVal, context.currentTime);
 
         // Cadena de análisis: Mic -> HighPass (90Hz) -> LowPass (1100Hz) -> PreAmp (4x) -> Analyser
@@ -283,7 +284,7 @@ export const usePitchDetection = () => {
 
           // Rama de la pista (si hay audífonos conectados):
           // En arquitectura de AudioContext único compartido (v1.0.52+), trackOutputGain pertenece al mismo contexto.
-          const headphonesActive = isUsingHeadphones ?? audioService.isUsingHeadphones();
+          const headphonesActive = effectiveHeadphones;
           if (headphonesActive && trackOutputGain) {
             try {
               // DelayNode de 35 ms para compensar la latencia de entrada de iOS/Android

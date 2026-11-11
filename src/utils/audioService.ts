@@ -285,14 +285,62 @@ class AudioService {
     try {
       if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
         const devices = await navigator.mediaDevices.enumerateDevices();
+        const BT_OR_HP_REGEX = /bluetooth|airpods|buds|headset|hands-free|hfp|sco|wireless|freebuds|sony|jbl|bose|headphone|auricular/i;
         this.isHeadphonesConnected = devices.some(d => {
           const l = (d.label || '').toLowerCase();
-          return (d.kind === 'audiooutput' || d.kind === 'audioinput') &&
-            (l.includes('headphone') || l.includes('headset') || l.includes('airpods') || l.includes('bluetooth') || l.includes('auricular') || l.includes('buds') || l.includes('wireless'));
+          return (d.kind === 'audiooutput' || d.kind === 'audioinput') && BT_OR_HP_REGEX.test(l);
         });
       }
     } catch {}
     return this.isHeadphonesConnected;
+  }
+
+  /**
+   * Identifica el deviceId del micrófono físico integrado del dispositivo (teléfono/tablet/laptop).
+   * Al conectar audífonos Bluetooth (AirPods, Galaxy Buds, etc.), el sistema operativo tiende a conmutar
+   * la entrada de audio al micrófono del audífono, lo cual fuerza al chip Bluetooth a degradar la salida
+   * del perfil estéreo A2DP (44.1/48 kHz) al perfil telefónico HFP/SCO (8/16 kHz mono enlatado).
+   * Al forzar la captura por el micrófono interno del teléfono, Bluetooth conserva A2DP en alta fidelidad estéreo.
+   */
+  public async getPreferredBuiltInMicDeviceId(): Promise<string | undefined> {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+        return undefined;
+      }
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const BT_HEADSET_REGEX = /bluetooth|airpods|buds|headset|hands-free|hfp|sco|wireless|freebuds|sony|jbl|bose|auricular/i;
+      const BUILTIN_MIC_REGEX = /iphone|ipad|micr[oó]fono del dispositivo|built-in|internal|integrado|bottom|inferior|predeterminado|default|phone|system/i;
+
+      // Actualizar estado de audífonos si encontramos algún dispositivo Bluetooth o auriculares
+      const hasBtOrHeadphones = devices.some(d => {
+        const l = (d.label || '').toLowerCase();
+        return (d.kind === 'audiooutput' || d.kind === 'audioinput') && BT_HEADSET_REGEX.test(l);
+      });
+      if (hasBtOrHeadphones) {
+        this.isHeadphonesConnected = true;
+      }
+
+      const audioInputs = devices.filter(d => d.kind === 'audioinput' && d.deviceId);
+      if (audioInputs.length === 0) return undefined;
+
+      // 1. Filtrar los micrófonos que NO sean Bluetooth ni auriculares
+      const nonBtInputs = audioInputs.filter(d => !BT_HEADSET_REGEX.test(d.label || ''));
+
+      // Si todos son Bluetooth o no hay distinción por etiqueta vacía, retornar undefined para fallback seguro
+      if (nonBtInputs.length === 0) return undefined;
+
+      // 2. Prioridad máxima: micrófono interno identificado por palabras clave
+      const builtInMatch = nonBtInputs.find(d => BUILTIN_MIC_REGEX.test(d.label || ''));
+      if (builtInMatch) {
+        return builtInMatch.deviceId;
+      }
+
+      // 3. Fallback: el primer micrófono de entrada no-Bluetooth
+      return nonBtInputs[0].deviceId;
+    } catch {
+      return undefined;
+    }
   }
 
   public async acquireMicrophoneStream(mode: AudioCaptureMode = 'karaoke'): Promise<MediaStream> {
@@ -315,9 +363,14 @@ class AudioService {
       try {
         this.syncAudioSessionMode(true);
 
+        const BT_HEADSET_REGEX = /bluetooth|airpods|buds|headset|hands-free|hfp|sco|wireless|freebuds|sony|jbl|bose|auricular/i;
+
+        // Intentar obtener el deviceId del micrófono interno físico del teléfono
+        const preferredMicId = await this.getPreferredBuiltInMicDeviceId();
+
         // Adquisición directa con filtros de voz y llamadas desactivados (sin VoiceProcessingIO ni MODE_IN_COMMUNICATION)
         let stream: MediaStream;
-        const constraints: MediaStreamConstraints = {
+        const buildConstraints = (deviceId?: string): MediaStreamConstraints => ({
           audio: {
             echoCancellation: false,
             noiseSuppression: false,
@@ -331,16 +384,48 @@ class AudioService {
             googHighpassFilter: false,
             googTypingNoiseDetection: false,
             googAudioMirroring: false,
+            ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
           } as MediaTrackConstraints,
           video: false,
-        };
+        });
+
         try {
-          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          stream = await navigator.mediaDevices.getUserMedia(buildConstraints(preferredMicId));
         } catch (err1: any) {
-          if (!this.isMicActive()) {
-            this.syncAudioSessionMode(false);
+          // Si falló por constraint de deviceId (OverconstrainedError), reintentar sin forzar deviceId
+          if (preferredMicId) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia(buildConstraints(undefined));
+            } catch (err2: any) {
+              if (!this.isMicActive()) {
+                this.syncAudioSessionMode(false);
+              }
+              throw err2;
+            }
+          } else {
+            if (!this.isMicActive()) {
+              this.syncAudioSessionMode(false);
+            }
+            throw err1;
           }
-          throw err1;
+        }
+
+        // Inspeccionar si el track capturado es Bluetooth (ocurre comúnmente en el primer permiso cuando labels estaban vacías)
+        const [initialTrack] = stream.getAudioTracks();
+        if (initialTrack && initialTrack.label && BT_HEADSET_REGEX.test(initialTrack.label)) {
+          this.isHeadphonesConnected = true;
+          // Ahora que se otorgó permiso, enumerateDevices tiene labels completas
+          const resolvedBuiltInMicId = await this.getPreferredBuiltInMicDeviceId();
+          if (resolvedBuiltInMicId) {
+            try {
+              const directStream = await navigator.mediaDevices.getUserMedia(buildConstraints(resolvedBuiltInMicId));
+              initialTrack.stop();
+              stream = directStream;
+              logger.info('Audio', 'Micrófono conmutado exitosamente de Bluetooth a micrófono físico integrado:', resolvedBuiltInMicId);
+            } catch (switchErr) {
+              logger.warn('Audio', 'No se pudo conmutar al micrófono físico integrado, manteniendo stream actual:', switchErr);
+            }
+          }
         }
 
         // Guardar referencia en el singleton para reutilización warm instantánea
@@ -354,7 +439,11 @@ class AudioService {
           track.enabled = true;
           try {
             const settings = track.getSettings();
-            logger.info('Audio', 'Micrófono adquirido con ajustes reales:', settings);
+            logger.info('Audio', 'Micrófono adquirido con ajustes reales:', {
+              label: track.label,
+              settings,
+              isHeadphonesConnected: this.isHeadphonesConnected,
+            });
           } catch {}
           track.addEventListener('ended', () => {
             this.activeMicStreams.delete(stream);
@@ -458,15 +547,21 @@ class AudioService {
           this.activeFrequencyNodes = null;
         }
 
-        // 2. Compresor/Limitador del sintetizador transparente en -0.1 dB para proteger de clipping en 0 dBFS
+        const isHeadphones = this.isUsingHeadphones();
+        const isMicActiveNow = this.isMicActive() || this.isListening;
+        const micBoost = isHeadphones ? 1.0 : (isMicActiveNow ? 1.85 : 0.75);
+
+        // 2. Compresor/Limitador del sintetizador transparente en -0.5 dB (audífonos/modo directo) o -0.1 dB (altavoces)
         if (!this.synthCompressor) {
           this.synthCompressor = this.ctx.createDynamicsCompressor();
-          this.synthCompressor.threshold.setValueAtTime(-0.1, now);
+          this.synthCompressor.threshold.setValueAtTime(isHeadphones ? -0.5 : -0.1, now);
           this.synthCompressor.knee.setValueAtTime(2, now);
           this.synthCompressor.ratio.setValueAtTime(16, now);
           this.synthCompressor.attack.setValueAtTime(0.003, now);
           this.synthCompressor.release.setValueAtTime(0.15, now);
           this.synthCompressor.connect(this.ctx.destination);
+        } else {
+          this.synthCompressor.threshold.setValueAtTime(isHeadphones ? -0.5 : -0.1, now);
         }
 
         const osc = this.ctx.createOscillator();
@@ -481,9 +576,6 @@ class AudioService {
         // Warm 2nd harmonic for phone speakers
         oscHarmonic.type = 'triangle';
         oscHarmonic.frequency.setValueAtTime(freq * 2, now);
-
-        const isMicActiveNow = this.isMicActive() || this.isListening;
-        const micBoost = isMicActiveNow ? 1.85 : 0.75;
 
         gain.gain.setValueAtTime(0.0001, now);
         gain.gain.linearRampToValueAtTime(1.0 * micBoost, now + 0.03);

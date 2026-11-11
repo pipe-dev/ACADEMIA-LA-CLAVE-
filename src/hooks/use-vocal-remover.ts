@@ -20,7 +20,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
  *    (highpass estéreo a 6.500 Hz, Q = 0.707).
  * 4. Masterización Transparente: Makeup Gain dinámico suave (+1.6 dB máx), compresor y limitador brickwall
  *    en -0.1 dB sin filtros de coloración EQ (sin presenceFilter ni presenceLowShelf).
- * 5. Nivelación Limpia de Volumen: Ganancia base de 0.75 sin micrófono y 1.85 con micrófono activo.
+ * 5. Nivelación Limpia de Volumen: Modo directo 1.0x plano con audífonos/Bluetooth (A2DP); ganancia base de 0.75 sin micrófono y 1.85 con micrófono en altavoces móviles.
  * 6. AudioContext de Reproducción Aislado: latencyHint: 'playback' dedicado exclusivamente a la música.
  */
 export function useVocalRemover(initialVideoId?: string) {
@@ -206,8 +206,9 @@ export function useVocalRemover(initialVideoId?: string) {
 
   const setMasterVolume = useCallback((vol: number) => { // 0 a 100
     if (masterGainRef.current) {
+      const isHeadphones = audioService.isUsingHeadphones();
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const targetGain = isMicActiveNow ? 1.85 : 0.75;
+      const targetGain = isHeadphones ? 1.0 : (isMicActiveNow ? 1.85 : 0.75);
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * targetGain;
     }
   }, []);
@@ -450,8 +451,9 @@ export function useVocalRemover(initialVideoId?: string) {
       compressor.release.setValueAtTime(0.15, ctx.currentTime);
       compressorRef.current = compressor;
 
+      const isHeadphones = audioService.isUsingHeadphones();
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-      const baseMaster = isMicActiveNow ? 1.85 : 0.75;
+      const baseMaster = isHeadphones ? 1.0 : (isMicActiveNow ? 1.85 : 0.75);
 
       const masterGain = ctx.createGain();
       masterGain.gain.value = baseMaster;
@@ -647,7 +649,8 @@ export function useVocalRemover(initialVideoId?: string) {
     const handleMicState = (active: boolean) => {
       const ctx = audioContextRef.current || audioService.getPlaybackContext();
       if (ctx && masterGainRef.current) {
-        const target = active ? 1.85 : 0.75;
+        const isHeadphones = audioService.isUsingHeadphones();
+        const target = isHeadphones ? 1.0 : (active ? 1.85 : 0.75);
         masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
       }
     };

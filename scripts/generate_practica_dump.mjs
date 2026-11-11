@@ -9,10 +9,10 @@ const FILES = [
   { path: 'src/components/practica/polygraph-canvas.tsx', cat: '1. UI y Escenario', desc: 'Lienzo gráfico a 60 FPS con filtro anti-puntaje fantasma (dispersión < 0.85 semitonos)' },
   { path: 'src/components/practica/useKaraokeEngine.ts', cat: '2. Motores de Estado y Puntos', desc: 'Máquina de estados orquestadora con auto-recuperación de fallback cuando Web Audio está listo' },
   { path: 'src/components/practica/useKaraokeScoring.ts', cat: '2. Motores de Estado y Puntos', desc: 'Motor de evaluación de entonación, combos x1 a x4, racha y cálculo de 1 a 5 estrellas' },
-  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley tri-banda fiel a v1.0.41 (crossover 200 Hz, notch 1800 Hz a -2.5 dB, matriz estéreo L=+Side / R=-Side limpia sin retardos y nivelación 0.75/1.85 con limitador -0.1 dB)' },
-  { path: 'src/hooks/use-pitch-detection.ts', cat: '3. Motor DSP y Afinación', desc: 'Detector de afinación con punto dulce de Bleed Gate (preamp 2.6x, umbral 0.036-0.080, claridad 0.85) y apagado físico de hardware' },
-  { path: 'src/utils/audioService.ts', cat: '3. Motor DSP y Afinación', desc: 'Arquitectura de doble motor Web Audio, sync de audioSession en auto con mic y playback sin mic, synthCompressor -0.5 dB y nivelación de volumen' },
-  { path: 'src/utils/voicePlaybackService.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor de reproducción de notas vocales reales con compensación en vivo vía subscribeMicActive, presence filter 1000 Hz (+4.5 dB), lowshelf 150 Hz (+3.0 dB) y limiter -0.2 dB' },
+  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley tri-banda fiel a v1.0.41 con modo directo 1.0x plano con audífonos/Bluetooth (A2DP) y nivelación 0.75/1.85 en altavoces móviles' },
+  { path: 'src/hooks/use-pitch-detection.ts', cat: '3. Motor DSP y Afinación', desc: 'Detector de afinación con auto-detección de audífonos Bluetooth, punto dulce de Bleed Gate (preamp 2.6x altavoces / 6.0x audífonos) y apagado físico de hardware' },
+  { path: 'src/utils/audioService.ts', cat: '3. Motor DSP y Afinación', desc: 'Arquitectura Web Audio con enrutamiento inteligente anti-HFP: selección de micrófono interno físico con audífonos Bluetooth (preservando A2DP estéreo 44.1/48 kHz) y modo directo 1.0x' },
+  { path: 'src/utils/voicePlaybackService.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor de reproducción de notas vocales reales con modo directo 1.0x con audífonos y compensación dinámica 0.75x/1.85x en altavoces' },
   { path: 'src/components/practica/KaraokeResultsModal.tsx', cat: '4. Modales de Usuario', desc: 'Modal de resultados finales, estrellas, XP ganado y audio playback de la grabación' },
   { path: 'src/components/practica/KaraokeExitConfirmModal.tsx', cat: '4. Modales de Usuario', desc: 'Modal de confirmación contra salidas accidentales de la canción en curso' },
   { path: 'src/components/practica/KaraokeLoadingOverlay.tsx', cat: '4. Modales de Usuario', desc: 'Pantalla de carga estilizada con barra de progreso y consejos vocales pedagógicos' },
@@ -48,11 +48,11 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.58)\n\n`;
-out += `> **Versión**: v1.0.58  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.59)\n\n`;
+out += `> **Versión**: v1.0.59  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
-out += `> **Arquitectura de Audio**: Motor DSP acústico restaurado exactamente de v1.0.41: Crossover de graves Linkwitz-Riley a 200 Hz sumado en mono positivo (protección total de batería, caja y bajo), Mid/Side de medios (200 Hz - 6.500 Hz) con salida estéreo limpia (L = +Side, R = -Side) sin retardo Haas, filtro dinámico de reverberación peaking 1.800 Hz (-2.5 dB máx), agudos limpios (> 6.500 Hz), sin ecualización residual en master, nivelación transparente 0.75x sin mic / 1.85x con mic y limitador brickwall en -0.1 dB.\n\n`;
+out += `> **Arquitectura de Audio**: Enrutamiento Inteligente Bluetooth A2DP + Micrófono Integrado y Modo Directo 1.0x: Aislamiento total de salida Bluetooth en perfil musical A2DP de alta fidelidad (44.1/48 kHz estéreo) forzando la entrada por el micrófono físico del teléfono para erradicar el perfil telefónico HFP/SCO (8/16 kHz mono con ducking). Ganancia plana directa 1.0x con audífonos sin compresión forzada, conservando la compensación acústica de altavoces (0.75x sin mic / 1.85x con mic) y el motor DSP acústico exacto de v1.0.41 (crossover 200 Hz, notch 1.800 Hz a -2.5 dB, matriz estéreo limpia L=+Side / R=-Side).\n\n`;
 out += `---\n\n`;
 out += `## Índice General de Archivos\n\n`;
 out += `| N° | Categoría | Archivo | Líneas | Descripción |\n`;
