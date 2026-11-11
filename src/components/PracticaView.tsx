@@ -411,6 +411,7 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
   const startKaraokePlayback = async (videoId: string) => {
     try {
       engine.setActiveVideoId(videoId);
+      engine.setUseYtFallback(false);
 
       // 1. Inicializar la pista y crear el grafo DSP (autoPlay = false para evitar doble llamada a audio.play)
       await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.0, false);

@@ -6,17 +6,19 @@ import { useState, useRef, useEffect, useCallback } from 'react';
  * Hook DSP Tri-Banda de Alto Rendimiento para Cancelación Vocal y Preservación de Ritmo
  * 
  * Arquitectura Linkwitz-Riley de 3 bandas:
- * 1. Banda de Graves (< 200 Hz): Bombo y bajo eléctrico sumados a mono con fase 100% positiva.
- *    Inmune a la cancelación de fase; máxima pegada rítmica en altavoces de celular y audífonos.
- * 2. Banda Vocal Media (200 Hz – 6.500 Hz):
- *    - Mid (0.5 * (L + R)): Voz frontal seca, atenuada quirúrgicamente hasta -36 dB en modo Karaoke.
+ * 1. Banda de Graves (< 115 Hz): Bombo y bajo eléctrico sumados a mono con fase 100% positiva.
+ *    Inmune a la cancelación de fase; máxima pegada rítmica sin fuga de fundamentales vocales.
+ * 2. Banda Vocal Media (115 Hz – 7.500 Hz):
+ *    - Mid (0.5 * (L + R)): Voz frontal seca, atenuada a 0.0x en modo Karaoke (0% de voz).
  *    - Side (0.5 * (L - R)): Estéreo y ambiente instrumental.
- *      * Modo mono-compatible: Ambos canales reciben fase positiva (cero cancelación en celular).
- *      * Decorrelación Haas de 6ms para audífonos (amplitud tridimensional sin fatiga).
- *      * Filtro dinámico de reverberación (Opción C): Atenúa -14 dB en 1.800 Hz a 0% de voz,
+ *      * Matriz de fase diferencial estéreo simétrica: Canal L (+Side), Canal R (-Side).
+ *        La voz central (V) se anula por diferencia de fase exacta (V - V = 0) en ambos canales.
+ *      * Filtro dinámico de reverberación: Atenúa -18 dB en 1.800 Hz (Q = 1.2) a 0% de voz,
  *        extinguiendo la cola de reverb y coros laterales, y abriéndose suavemente hacia el 50%.
- * 3. Banda de Brillo (> 6.500 Hz): Platillos, hi-hats y aire estéreo preservados al 100%.
- * 4. Masterización: Makeup Gain dinámico (+3.8 dB a voz 0%) y compresor de estudio anti-distorsión.
+ * 3. Banda de Agudos y Aire (> 7.500 Hz):
+ *    - Control dinámico de sibilancia vocal: Atenúa frecuencias agudas al 20% (-14 dB) a 0% de voz,
+ *      eliminando el siseo y consonantes de la voz del cantante pero preservando los platillos.
+ * 4. Masterización: Makeup Gain adaptativo (+1.9 dB a voz 0%), compresor y limitador brickwall en -0.1 dB.
  * 5. AudioContext de Reproducción Aislado: latencyHint: 'playback' dedicado exclusivamente
  *    a la salida musical hacia altavoces/auriculares, sin MediaStreamSource conectado,
  *    evitando que el sistema operativo móvil active el modo llamada y ducking.
@@ -41,13 +43,15 @@ export function useVocalRemover(initialVideoId?: string) {
   const bassSub80ShelfRef = useRef<BiquadFilterNode | null>(null);
   const bassSubsonicCutRef = useRef<BiquadFilterNode | null>(null);
 
-  // 2. Medios (200 Hz - 6.500 Hz)
+  // 2. Medios (115 Hz - 7.500 Hz)
   const midCenterGainRef = useRef<GainNode | null>(null);
   const sideReverbNotchRef = useRef<BiquadFilterNode | null>(null);
   const sideBusGainRef = useRef<GainNode | null>(null);
+  const sideInvertRRef = useRef<GainNode | null>(null);
 
-  // 3. Agudos (> 6.500 Hz)
-  const highGainRef = useRef<GainNode | null>(null);
+  // 3. Agudos (> 7.500 Hz)
+  const highGainLRef = useRef<GainNode | null>(null);
+  const highGainRRef = useRef<GainNode | null>(null);
 
   // 4. Masterización
   const makeupGainRef = useRef<GainNode | null>(null);
@@ -97,12 +101,12 @@ export function useVocalRemover(initialVideoId?: string) {
 
     // 3. Ganancia del canal lateral Side (Guitarras, teclados y ambiente estéreo)
     if (sideBusGainRef.current) {
-      const targetSideGain = 1.0 + (0.45 * suppression);
+      const targetSideGain = 1.0 + (0.15 * suppression);
       if (ctx) sideBusGainRef.current.gain.setTargetAtTime(targetSideGain, now, 0.02);
       else sideBusGainRef.current.gain.value = targetSideGain;
     }
 
-    // 4. Pegada del bombo y bajo eléctrico (Graves mono < 200 Hz)
+    // 4. Pegada del bombo y bajo eléctrico (Graves mono < 115 Hz)
     // Preservar 100% de graves y pegada (0 dB de atenuación) para evitar que suene enlatado como llamada
     if (bassSub80ShelfRef.current) {
       const targetShelfGain = 0; // Respuesta de graves completa y cálida
@@ -112,18 +116,31 @@ export function useVocalRemover(initialVideoId?: string) {
 
     // Ganancia de graves desacoplada del makeup general para mantener un nivel neto estable (1.0x) sin clipping
     if (bassGainRef.current) {
-      const targetMakeupFactor = 1.0 + (0.55 * suppression);
+      const targetMakeupFactor = 1.0 + (0.25 * suppression);
       const targetBass = clampedDrum / targetMakeupFactor;
       if (ctx) bassGainRef.current.gain.setTargetAtTime(targetBass, now, 0.02);
       else bassGainRef.current.gain.value = targetBass;
     }
 
     // 5. Compensador de ganancia adaptativo moderado (Makeup Gain)
-    // Compensación suave (+1.6 dB máx) para los medios/estéreo instrumentales sin distorsión
+    // Compensación suave (+1.9 dB máx) para los medios/estéreo instrumentales sin distorsión
     if (makeupGainRef.current) {
-      const targetMakeup = 1.0 + (0.55 * suppression);
+      const targetMakeup = 1.0 + (0.25 * suppression);
       if (ctx) makeupGainRef.current.gain.setTargetAtTime(targetMakeup, now, 0.02);
       else makeupGainRef.current.gain.value = targetMakeup;
+    }
+
+    // 6. Ganancia de agudos y sibilancia (> 7.500 Hz)
+    // Reduce sibilancia y armónicos superiores de la voz al 20% (-14 dB) cuando se silencia la voz,
+    // preservando el brillo de los platillos sin dejar escapar la voz del cantante.
+    const targetHighGain = 0.20 + (0.80 * clampedVocal);
+    if (highGainLRef.current) {
+      if (ctx) highGainLRef.current.gain.setTargetAtTime(targetHighGain, now, 0.02);
+      else highGainLRef.current.gain.value = targetHighGain;
+    }
+    if (highGainRRef.current) {
+      if (ctx) highGainRRef.current.gain.setTargetAtTime(targetHighGain, now, 0.02);
+      else highGainRRef.current.gain.value = targetHighGain;
     }
   }, []);
 
@@ -158,7 +175,9 @@ export function useVocalRemover(initialVideoId?: string) {
       midCenterGainRef.current?.disconnect();
       sideReverbNotchRef.current?.disconnect();
       sideBusGainRef.current?.disconnect();
-      highGainRef.current?.disconnect();
+      sideInvertRRef.current?.disconnect();
+      highGainLRef.current?.disconnect();
+      highGainRRef.current?.disconnect();
       makeupGainRef.current?.disconnect();
       compressorRef.current?.disconnect();
       masterGainRef.current?.disconnect();
@@ -175,7 +194,9 @@ export function useVocalRemover(initialVideoId?: string) {
     midCenterGainRef.current = null;
     sideReverbNotchRef.current = null;
     sideBusGainRef.current = null;
-    highGainRef.current = null;
+    sideInvertRRef.current = null;
+    highGainLRef.current = null;
+    highGainRRef.current = null;
     makeupGainRef.current = null;
     compressorRef.current = null;
     masterGainRef.current = null;
@@ -335,8 +356,8 @@ export function useVocalRemover(initialVideoId?: string) {
       bassGain.connect(merger, 0, 1); // Canal R
 
       // ═════════════════════════════════════════════════════════════════
-      // 2. RUTA VOCAL MEDIA (200 Hz – 6.500 Hz)
-      // Matriz Mid/Side quirúrgica con cancelación mono-compatible
+      // 2. RUTA VOCAL MEDIA (115 Hz – 7.500 Hz)
+      // Matriz Mid/Side quirúrgica con cancelación diferencial
       // ═════════════════════════════════════════════════════════════════
       // A) Extracción Mid = 0.5 * (L + R) (Voz frontal y centro instrumental)
       const midSumL = ctx.createGain();
@@ -363,7 +384,7 @@ export function useVocalRemover(initialVideoId?: string) {
 
       const midLp = ctx.createBiquadFilter();
       midLp.type = 'lowpass';
-      midLp.frequency.value = 6500;
+      midLp.frequency.value = 7500;
       midLp.Q.value = 0.707;
 
       const midCenterGain = ctx.createGain();
@@ -404,7 +425,7 @@ export function useVocalRemover(initialVideoId?: string) {
 
       const sideLp = ctx.createBiquadFilter();
       sideLp.type = 'lowpass';
-      sideLp.frequency.value = 6500;
+      sideLp.frequency.value = 7500;
       sideLp.Q.value = 0.707;
 
       // Filtro dinámico de reverberación (Q = 1.2, 1800 Hz)
@@ -416,7 +437,7 @@ export function useVocalRemover(initialVideoId?: string) {
       sideReverbNotchRef.current = sideReverbNotch;
 
       const sideBusGain = ctx.createGain();
-      sideBusGain.gain.value = 1.0 + (0.45 * (1.0 - initialVocalLevel));
+      sideBusGain.gain.value = 1.0 + (0.15 * (1.0 - initialVocalLevel));
       sideBusGainRef.current = sideBusGain;
 
       sideBus.connect(sideHp1);
@@ -425,42 +446,59 @@ export function useVocalRemover(initialVideoId?: string) {
       sideLp.connect(sideReverbNotch);
       sideReverbNotch.connect(sideBusGain);
 
-      // Salida Side Mono-Compatible y Amplitud Haas:
+      // Salida Side con Matriz de Fase Diferencial Estéreo:
       // Canal L recibe Side directo en fase positiva (+1.0)
       sideBusGain.connect(merger, 0, 0);
 
-      // Canal R recibe Side en fase positiva con decorrelación Haas de 6ms (cero cancelación en parlantes)
-      const sideHaasDelayR = ctx.createDelay(0.05);
-      sideHaasDelayR.delayTime.setValueAtTime(0.006, ctx.currentTime);
-      sideBusGain.connect(sideHaasDelayR);
-      sideHaasDelayR.connect(merger, 0, 1);
+      // Canal R recibe Side con inversión de fase (-1.0) para completar la matriz Mid/Side:
+      // L = Mid + Side
+      // R = Mid - Side
+      // A 0% voz: L = +Side = 0.5*(L-R), R = -Side = 0.5*(R-L).
+      // La voz central (V) se anula al 100%: (V - V = 0) en ambos oídos.
+      const sideInvertR = ctx.createGain();
+      sideInvertR.gain.value = -1.0;
+      sideInvertRRef.current = sideInvertR;
+      sideBusGain.connect(sideInvertR);
+      sideInvertR.connect(merger, 0, 1);
 
       // ═════════════════════════════════════════════════════════════════
-      // 3. RUTA DE AGUDOS Y AIRE (> 6.500 Hz): Platillos, Hi-Hats y Sizzle
-      // Preservación estéreo nítida y cristalina
+      // 3. RUTA DE AGUDOS Y AIRE (> 7.500 Hz): Platillos, Hi-Hats y Sizzle
+      // Con control dinámico de atenuación de sibilancia vocal
       // ═════════════════════════════════════════════════════════════════
       const highHpL = ctx.createBiquadFilter();
       highHpL.type = 'highpass';
-      highHpL.frequency.value = 6500;
+      highHpL.frequency.value = 7500;
       highHpL.Q.value = 0.707;
 
       const highHpR = ctx.createBiquadFilter();
       highHpR.type = 'highpass';
-      highHpR.frequency.value = 6500;
+      highHpR.frequency.value = 7500;
       highHpR.Q.value = 0.707;
+
+      const initialHighGain = 0.20 + (0.80 * initialVocalLevel);
+      const highGainL = ctx.createGain();
+      highGainL.gain.value = initialHighGain;
+      highGainLRef.current = highGainL;
+
+      const highGainR = ctx.createGain();
+      highGainR.gain.value = initialHighGain;
+      highGainRRef.current = highGainR;
 
       splitter.connect(highHpL, 0);
       splitter.connect(highHpR, 1);
 
-      highHpL.connect(merger, 0, 0);
-      highHpR.connect(merger, 0, 1);
+      highHpL.connect(highGainL);
+      highHpR.connect(highGainR);
+
+      highGainL.connect(merger, 0, 0);
+      highGainR.connect(merger, 0, 1);
 
       // ═════════════════════════════════════════════════════════════════
       // 4. CADENA DE MASTERIZACIÓN Y CONTROL DINÁMICO
       // merger -> makeupGain -> compressor -> masterGain -> brickwallLimiter -> destination
       // ═════════════════════════════════════════════════════════════════
       const makeupGain = ctx.createGain();
-      makeupGain.gain.value = 1.0 + (0.55 * (1.0 - initialVocalLevel));
+      makeupGain.gain.value = 1.0 + (0.25 * (1.0 - initialVocalLevel));
       makeupGainRef.current = makeupGain;
 
       const compressor = ctx.createDynamicsCompressor();

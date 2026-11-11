@@ -369,6 +369,12 @@ export function useKaraokeEngine({
     }
   }, [vocalRemover.error, useYtFallback]);
 
+  useEffect(() => {
+    if (vocalRemover.isReady && useYtFallback && !vocalRemover.error) {
+      setUseYtFallback(false);
+    }
+  }, [vocalRemover.isReady, useYtFallback, vocalRemover.error]);
+
   // Manejo de YouTube
   const handlePlayerReady = useCallback((e: YouTubeEvent) => {
     playerRef.current = e.target;
