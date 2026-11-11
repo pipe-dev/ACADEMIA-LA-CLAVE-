@@ -9,7 +9,7 @@ const FILES = [
   { path: 'src/components/practica/polygraph-canvas.tsx', cat: '1. UI y Escenario', desc: 'Lienzo gráfico a 60 FPS con filtro anti-puntaje fantasma (dispersión < 0.85 semitonos)' },
   { path: 'src/components/practica/useKaraokeEngine.ts', cat: '2. Motores de Estado y Puntos', desc: 'Máquina de estados orquestadora con auto-recuperación de fallback cuando Web Audio está listo' },
   { path: 'src/components/practica/useKaraokeScoring.ts', cat: '2. Motores de Estado y Puntos', desc: 'Motor de evaluación de entonación, combos x1 a x4, racha y cálculo de 1 a 5 estrellas' },
-  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley tri-banda con matriz Mid/Side diferencial (L=+Side, R=-Side), atenuación de sibilancia aguda al 20% (-14 dB) y crossover a 7.500 Hz' },
+  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley tri-banda fiel a v1.0.41 (crossover 200 Hz, notch 1800 Hz a -2.5 dB, matriz estéreo L=+Side / R=-Side limpia sin retardos y nivelación 0.75/1.85 con limitador -0.1 dB)' },
   { path: 'src/hooks/use-pitch-detection.ts', cat: '3. Motor DSP y Afinación', desc: 'Detector de afinación con punto dulce de Bleed Gate (preamp 2.6x, umbral 0.036-0.080, claridad 0.85) y apagado físico de hardware' },
   { path: 'src/utils/audioService.ts', cat: '3. Motor DSP y Afinación', desc: 'Arquitectura de doble motor Web Audio, sync de audioSession en auto con mic y playback sin mic, synthCompressor -0.5 dB y nivelación de volumen' },
   { path: 'src/utils/voicePlaybackService.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor de reproducción de notas vocales reales con compensación en vivo vía subscribeMicActive, presence filter 1000 Hz (+4.5 dB), lowshelf 150 Hz (+3.0 dB) y limiter -0.2 dB' },
@@ -48,11 +48,11 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.57)\n\n`;
-out += `> **Versión**: v1.0.57  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.58)\n\n`;
+out += `> **Versión**: v1.0.58  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
-out += `> **Arquitectura de Audio**: Cancelación Vocal Linkwitz-Riley Tri-Banda (115 Hz - 7.500 Hz) con Matriz Mid/Side Diferencial Simétrica (L = +Side, R = -Side, V - V = 0), Atenuación Dinámica de Sibilancia Aguda (> 7.500 Hz) al 20% (-14 dB a voz 0%), Filtro Peaking Reverb a 1.800 Hz (-18 dB) y Desbloqueo Automático de Fallback de YouTube.\n\n`;
+out += `> **Arquitectura de Audio**: Motor DSP acústico restaurado exactamente de v1.0.41: Crossover de graves Linkwitz-Riley a 200 Hz sumado en mono positivo (protección total de batería, caja y bajo), Mid/Side de medios (200 Hz - 6.500 Hz) con salida estéreo limpia (L = +Side, R = -Side) sin retardo Haas, filtro dinámico de reverberación peaking 1.800 Hz (-2.5 dB máx), agudos limpios (> 6.500 Hz), sin ecualización residual en master, nivelación transparente 0.75x sin mic / 1.85x con mic y limitador brickwall en -0.1 dB.\n\n`;
 out += `---\n\n`;
 out += `## Índice General de Archivos\n\n`;
 out += `| N° | Categoría | Archivo | Líneas | Descripción |\n`;

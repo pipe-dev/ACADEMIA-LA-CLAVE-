@@ -458,12 +458,12 @@ class AudioService {
           this.activeFrequencyNodes = null;
         }
 
-        // 2. Compresor/Limitador del sintetizador para evitar saturación de bus en toques rápidos
+        // 2. Compresor/Limitador del sintetizador transparente en -0.1 dB para proteger de clipping en 0 dBFS
         if (!this.synthCompressor) {
           this.synthCompressor = this.ctx.createDynamicsCompressor();
-          this.synthCompressor.threshold.setValueAtTime(-0.5, now);
+          this.synthCompressor.threshold.setValueAtTime(-0.1, now);
           this.synthCompressor.knee.setValueAtTime(2, now);
-          this.synthCompressor.ratio.setValueAtTime(12, now);
+          this.synthCompressor.ratio.setValueAtTime(16, now);
           this.synthCompressor.attack.setValueAtTime(0.003, now);
           this.synthCompressor.release.setValueAtTime(0.15, now);
           this.synthCompressor.connect(this.ctx.destination);
@@ -483,8 +483,7 @@ class AudioService {
         oscHarmonic.frequency.setValueAtTime(freq * 2, now);
 
         const isMicActiveNow = this.isMicActive() || this.isListening;
-        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const micBoost = isMicActiveNow ? (isIos ? 3.2 : 2.4) : 1.0;
+        const micBoost = isMicActiveNow ? 1.85 : 0.75;
 
         gain.gain.setValueAtTime(0.0001, now);
         gain.gain.linearRampToValueAtTime(1.0 * micBoost, now + 0.03);

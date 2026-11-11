@@ -55,16 +55,9 @@ export class VoicePlaybackService {
   private handleMicStateChange(active: boolean): void {
     const ctx = this.getAudioContext();
     if (!ctx || !this.currentGainNode) return;
-    const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const targetGain = active ? (isIos ? 3.2 : 2.4) : 1.0;
+    const targetGain = active ? 1.85 : 0.75;
     try {
       this.currentGainNode.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.02);
-      if (this.currentPresencePeaking) {
-        this.currentPresencePeaking.gain.setTargetAtTime(active ? 4.5 : 0, ctx.currentTime, 0.02);
-      }
-      if (this.currentPresenceLowShelf) {
-        this.currentPresenceLowShelf.gain.setTargetAtTime(active ? 3.0 : 0, ctx.currentTime, 0.02);
-      }
     } catch {}
   }
 
@@ -236,14 +229,13 @@ export class VoicePlaybackService {
         source.buffer = buffer;
         source.playbackRate.setValueAtTime(playbackRate, ctx.currentTime);
 
-        // Auto-Compensación de Volumen cuando el Micrófono está Activo (~+10 dB iOS / +7.6 dB Android)
-        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        // Auto-Compensación de Volumen cuando el Micrófono está Activo (0.75 sin mic / 1.85 con mic)
         const isMicActive = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
-        const baseGain = isMicActive ? (isIos ? 3.2 : 2.4) : 1.0;
+        const baseGain = isMicActive ? 1.85 : 0.75;
 
-        // Limitador de estudio para evitar saturación y mantener potencia sin distorsión
+        // Limitador de estudio transparente en -0.1 dB para evitar saturación y proteger de clipping en 0 dBFS
         const compressor = ctx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-0.2, ctx.currentTime);
+        compressor.threshold.setValueAtTime(-0.1, ctx.currentTime);
         compressor.knee.setValueAtTime(3, ctx.currentTime);
         compressor.ratio.setValueAtTime(16, ctx.currentTime);
         compressor.attack.setValueAtTime(0.002, ctx.currentTime);
@@ -252,31 +244,18 @@ export class VoicePlaybackService {
         const gainNode = ctx.createGain();
         gainNode.gain.setValueAtTime(baseGain, ctx.currentTime);
 
-        const presencePeaking = ctx.createBiquadFilter();
-        presencePeaking.type = 'peaking';
-        presencePeaking.frequency.value = 1000;
-        presencePeaking.Q.value = 0.8;
-        presencePeaking.gain.value = isMicActive ? 4.5 : 0;
-
-        const presenceLowShelf = ctx.createBiquadFilter();
-        presenceLowShelf.type = 'lowshelf';
-        presenceLowShelf.frequency.value = 150;
-        presenceLowShelf.gain.value = isMicActive ? 3.0 : 0;
-
         const playDur = Math.min(buffer.duration / playbackRate, duration);
         gainNode.gain.setValueAtTime(baseGain, ctx.currentTime + Math.max(0, playDur - 0.15));
         gainNode.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + playDur);
 
         source.connect(gainNode);
-        gainNode.connect(presencePeaking);
-        presencePeaking.connect(presenceLowShelf);
-        presenceLowShelf.connect(compressor);
+        gainNode.connect(compressor);
         compressor.connect(ctx.destination);
 
         this.currentBufferSource = source;
         this.currentGainNode = gainNode;
-        this.currentPresencePeaking = presencePeaking;
-        this.currentPresenceLowShelf = presenceLowShelf;
+        this.currentPresencePeaking = null;
+        this.currentPresenceLowShelf = null;
 
         source.onended = () => {
           if (this.currentBufferSource === source) {
