@@ -56,6 +56,7 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
         <div className="flex items-center gap-2.5 md:gap-3.5 pointer-events-auto">
           <button
             onClick={onBackClick}
+            onPointerDown={(e) => e.stopPropagation()}
             className="organic-shape w-11 h-11 md:w-14 md:h-14 flex items-center justify-center text-white cursor-pointer transition-all duration-300 press-effect shrink-0"
             style={{
               backgroundColor: '#ef4444',
@@ -79,6 +80,7 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
         {targetLoopCount > 1 && (
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               if (onManualAdvanceLoop) onManualAdvanceLoop();
@@ -102,9 +104,13 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
             : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
-        <div className="bg-surface-container-high/30 dark:bg-slate-800/40 rounded-[2rem] p-3 sm:p-4 md:p-8 flex items-center justify-center gap-4 sm:gap-6 md:gap-12 backdrop-blur-xs">
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-surface-container-high/30 dark:bg-slate-800/40 rounded-[2rem] p-3 sm:p-4 md:p-8 flex items-center justify-center gap-4 sm:gap-6 md:gap-12 backdrop-blur-xs">
           <button
             onClick={onSeekBackward}
+            onPointerDown={(e) => e.stopPropagation()}
             className="organic-shape w-12 h-12 sm:w-14 sm:h-14 md:w-28 md:h-28 bg-surface-container-high dark:bg-slate-800 text-slate-700 dark:text-[#c0c1ff] flex items-center justify-center press-effect transition-all duration-300 shadow-[0_4px_0_0_#c7c4d7] md:shadow-[0_8px_0_0_#c7c4d7] dark:shadow-[0_4px_0_0_#1b2b3f] dark:md:shadow-[0_8px_0_0_#1b2b3f] cursor-pointer"
             title="Retroceder 10s"
           >
@@ -112,7 +118,8 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
           </button>
 
           <button
-            onClick={onTogglePlay}
+            onClick={(e) => { e.stopPropagation(); onTogglePlay(e); }}
+            onPointerDown={(e) => e.stopPropagation()}
             className="organic-shape w-16 h-16 sm:w-20 sm:h-20 md:w-40 md:h-40 bg-[#4648d4] text-white flex items-center justify-center press-effect transition-all duration-300 shadow-[0_6px_0_0_#282a9e] md:shadow-[0_12px_0_0_#282a9e] group cursor-pointer"
             title={isPlaying ? 'Pausar' : 'Reproducir'}
           >
@@ -125,6 +132,7 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
 
           <button
             onClick={onSeekForward}
+            onPointerDown={(e) => e.stopPropagation()}
             className="organic-shape w-12 h-12 sm:w-14 sm:h-14 md:w-28 md:h-28 bg-surface-container-high dark:bg-slate-800 text-slate-700 dark:text-[#c0c1ff] flex items-center justify-center press-effect transition-all duration-300 shadow-[0_4px_0_0_#c7c4d7] md:shadow-[0_8px_0_0_#c7c4d7] dark:shadow-[0_4px_0_0_#1b2b3f] dark:md:shadow-[0_8px_0_0_#1b2b3f] cursor-pointer"
             title="Adelantar 10s"
           >
@@ -141,6 +149,8 @@ export const VideoPlayerControls: React.FC<VideoPlayerControlsProps> = ({
           paddingRight: 'calc(max(env(safe-area-inset-right, 0px), 0px) + 1.25rem)',
           paddingTop: '1.5rem',
         }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
         className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent z-20 transition-opacity duration-300 ${
           showControls || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}

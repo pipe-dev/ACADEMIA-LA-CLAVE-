@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
+import { FastForward } from 'lucide-react';
 import { LessonNode } from '../../types';
 import { audioService } from '../../utils/audioService';
 import { VideoPlayerControls } from './VideoPlayerControls';
@@ -38,7 +39,10 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [isVideoFadingOut, setIsVideoFadingOut] = useState<boolean>(false);
+  const [isFastForwarding, setIsFastForwarding] = useState<boolean>(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isHolding2xRef = useRef<boolean>(false);
+  const pointerStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const [node1CompletedTriggered, setNode1CompletedTriggered] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
   const [loopToastMsg, setLoopToastMsg] = useState<string | null>(null);
@@ -128,7 +132,123 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
     }
   }, [targetLoopCount, node.id, node.title, node.xpReward, onCompleteNode, onTransitionToQuiz, onTransitionToVocalDiagnostic, onClose, quizResolved, userRequestedPlayRef]);
 
-  const resetControlsTimeout = () => {
+  const startFastForward = useCallback(() => {
+    isHolding2xRef.current = true;
+    setIsFastForwarding(true);
+    setShowControls(false);
+    if (hideControlsTimer.current) {
+      clearTimeout(hideControlsTimer.current);
+      hideControlsTimer.current = null;
+    }
+    audioService.vibrate(22);
+    if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
+      try {
+        playerRef.current.setPlaybackRate(2);
+      } catch {}
+    }
+  }, []);
+
+  const stopFastForward = useCallback(() => {
+    if (isHolding2xRef.current) {
+      isHolding2xRef.current = false;
+      setIsFastForwarding(false);
+      audioService.vibrate(10);
+      if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
+        try {
+          playerRef.current.setPlaybackRate(1);
+        } catch {}
+      }
+    }
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    pointerStartPosRef.current = { x: e.clientX, y: e.clientY };
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    const rect = videoContainerRef.current?.getBoundingClientRect();
+    const isRightSide = rect ? (e.clientX - rect.left) >= rect.width * 0.42 : false;
+
+    if (isRightSide && isPlaying) {
+      longPressTimerRef.current = setTimeout(() => {
+        startFastForward();
+      }, 260);
+    }
+  }, [isPlaying, startFastForward]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerStartPosRef.current && !isHolding2xRef.current) {
+      const dx = Math.abs(e.clientX - pointerStartPosRef.current.x);
+      const dy = Math.abs(e.clientY - pointerStartPosRef.current.y);
+      if (dx > 25 || dy > 25) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }
+    }
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (isHolding2xRef.current) {
+      stopFastForward();
+      pointerStartPosRef.current = null;
+      return;
+    }
+
+    if (pointerStartPosRef.current) {
+      const dx = Math.abs(e.clientX - pointerStartPosRef.current.x);
+      const dy = Math.abs(e.clientY - pointerStartPosRef.current.y);
+      pointerStartPosRef.current = null;
+      if (dx <= 25 && dy <= 25) {
+        setShowControls(prev => {
+          const next = !prev;
+          if (hideControlsTimer.current) {
+            clearTimeout(hideControlsTimer.current);
+            hideControlsTimer.current = null;
+          }
+          if (next && isPlaying) {
+            hideControlsTimer.current = setTimeout(() => {
+              setShowControls(false);
+            }, 3200);
+          }
+          return next;
+        });
+      }
+    }
+  }, [isPlaying, stopFastForward]);
+
+  const handlePointerCancel = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (isHolding2xRef.current) {
+      stopFastForward();
+    }
+    pointerStartPosRef.current = null;
+  }, [stopFastForward]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+      if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
+        try { playerRef.current.setPlaybackRate(1); } catch {}
+      }
+    };
+  }, []);
+
+  const resetControlsTimeout = useCallback(() => {
+    if (isHolding2xRef.current) return;
     setShowControls(true);
     if (hideControlsTimer.current) {
       clearTimeout(hideControlsTimer.current);
@@ -136,22 +256,16 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
     if (isPlaying) {
       hideControlsTimer.current = setTimeout(() => {
         setShowControls(false);
-      }, 2800);
+      }, 3200);
     }
-  };
+  }, [isPlaying]);
 
   useEffect(() => {
     resetControlsTimeout();
     return () => {
       if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
     };
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (step === 'video') {
-      setIsVideoFadingOut(false);
-    }
-  }, [step]);
+  }, [isPlaying, resetControlsTimeout]);
 
   useEffect(() => {
     if (step !== 'video') {
@@ -247,11 +361,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
                   }
                 }
 
-                if (dur - (typeof time === 'number' ? time : 0) <= 3.2 && !isVideoFadingOut) {
-                  if (currentLoopRef.current >= targetLoopCount) {
-                    setIsVideoFadingOut(true);
-                  }
-                }
+
               }
             }
             lastProgressTimeRef.current = time;
@@ -260,7 +370,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
       }, 500);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, step, node1CompletedTriggered, isVideoFadingOut, currentLoop, targetLoopCount, node.id, node.title, node.xpReward, onCompleteNode]);
+  }, [isPlaying, step, node1CompletedTriggered, currentLoop, targetLoopCount, node.id, node.title, node.xpReward, onCompleteNode]);
 
   const onPlayerReady: YouTubeProps['onReady'] = (event) => {
     playerRef.current = event.target;
@@ -464,12 +574,7 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
     >
       <div
         ref={videoContainerRef}
-        onMouseMove={resetControlsTimeout}
-        onTouchStart={resetControlsTimeout}
-        onClick={resetControlsTimeout}
-        className={`relative w-full h-full flex items-center justify-center overflow-hidden bg-black select-none transition-all duration-[3000ms] ease-out ${
-          isVideoFadingOut ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-        }`}
+        className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black select-none"
       >
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
           <YouTube
@@ -497,7 +602,24 @@ export const LessonVideoPlayer: React.FC<LessonVideoPlayerProps> = ({
 
         <canvas ref={confettiCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-35" />
 
-        <div className="absolute inset-0 z-10 cursor-pointer" onClick={togglePlay} />
+        {/* Capa de detección de toque (toggle controles) y pulsación larga en el lado derecho (2x) */}
+        <div
+          className="absolute inset-0 z-10 cursor-pointer touch-none"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+        />
+
+        {/* Insignia visual 2X RÁPIDO cuando se mantiene pulsado */}
+        {isFastForwarding && (
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none select-none flex items-center gap-2.5 bg-black/85 backdrop-blur-md border border-amber-400/80 px-6 py-2 rounded-full shadow-[0_0_30px_rgba(251,191,36,0.6)] animate-pulse">
+            <FastForward className="w-5 h-5 text-amber-400" />
+            <span className="text-xs sm:text-sm font-black text-amber-300 tracking-wider font-mono">
+              2X RÁPIDO »
+            </span>
+          </div>
+        )}
 
         {loopToastMsg && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#0b1c30]/95 backdrop-blur-2xl border-2 border-[#4648d4] px-8 py-5 rounded-3xl shadow-[0px_16px_40px_rgba(70,72,212,0.6)] flex flex-col items-center justify-center text-center animate-scaleIn pointer-events-none select-none max-w-xs sm:max-w-md">

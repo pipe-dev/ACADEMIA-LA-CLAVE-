@@ -248,7 +248,7 @@ export function useVocalRemover(initialVideoId?: string) {
       // AISLAMIENTO TOTAL: Este contexto jamás se conecta al micrófono, garantizando que el OS móvil
       // no detecte un grafo bidireccional y preserve el volumen y ecualización estéreo al 100%.
       const ctx = audioService.getPlaybackContext();
-      if (ctx.state === 'suspended') {
+      if (ctx.state !== 'running' && ctx.state !== 'closed') {
         await ctx.resume().catch(() => {});
       }
       audioContextRef.current = ctx;
@@ -563,7 +563,7 @@ export function useVocalRemover(initialVideoId?: string) {
       audio.load();
 
       if (autoPlay) {
-        if (ctx.state === 'suspended') {
+        if (ctx.state !== 'running' && ctx.state !== 'closed') {
           ctx.resume().catch(() => {});
         }
         audio.play().then(() => {
@@ -586,7 +586,7 @@ export function useVocalRemover(initialVideoId?: string) {
   const play = useCallback(async (): Promise<boolean> => {
     if (!audioRef.current || !audioContextRef.current) return false;
     try {
-      if (audioContextRef.current.state === 'suspended') {
+      if (audioContextRef.current.state !== 'running' && audioContextRef.current.state !== 'closed') {
         await audioContextRef.current.resume();
       }
       await audioRef.current.play();
@@ -608,7 +608,7 @@ export function useVocalRemover(initialVideoId?: string) {
 
   const togglePlay = useCallback(async () => {
     if (!audioRef.current || !audioContextRef.current) return;
-    if (audioContextRef.current.state === 'suspended') {
+    if (audioContextRef.current.state !== 'running' && audioContextRef.current.state !== 'closed') {
       await audioContextRef.current.resume();
     }
     if (isPlaying) {
@@ -629,7 +629,7 @@ export function useVocalRemover(initialVideoId?: string) {
   }, []);
 
   const ensureContextActive = useCallback(async () => {
-    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+    if (audioContextRef.current && audioContextRef.current.state !== 'running' && audioContextRef.current.state !== 'closed') {
       try {
         await audioContextRef.current.resume();
       } catch {}

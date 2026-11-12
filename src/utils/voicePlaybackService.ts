@@ -161,8 +161,8 @@ export class VoicePlaybackService {
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
-    // 2. Si el contexto está suspendido, esperar al resume sin bloquear notas posteriores
-    if (ctx.state === 'suspended') {
+    // 2. Si el contexto no está corriendo (suspended o interrupted), esperar al resume sin bloquear notas posteriores
+    if (ctx.state !== 'running' && ctx.state !== 'closed') {
       try {
         await ctx.resume();
       } catch {}

@@ -107,22 +107,42 @@ class AudioService {
         this.stopMicrophone(true);
       });
 
+      // Mantener SIEMPRE activo un listener global de gestos de usuario (touchstart, click, pointerdown)
+      // para reanimar el AudioContext o recrearlo si el sistema operativo lo suspendió/interrumpió al salir y volver a la app.
       const USER_EVENTS = ['touchstart', 'touchend', 'click', 'mousedown', 'keydown', 'pointerdown'];
-      const unlockHandler = () => {
-        this.unlockForMobileSilentMode();
-        USER_EVENTS.forEach(ev => {
-          window.removeEventListener(ev, unlockHandler, { capture: true });
-        });
+      const resumeAudioOnGesture = () => {
+        if (!this.isSilentUnlocked) {
+          this.unlockForMobileSilentMode();
+        }
+        if (!this.ctx || this.ctx.state === 'closed') {
+          this.initCtx();
+        } else if (this.ctx.state !== 'running') {
+          this.ctx.resume().catch(() => {});
+        }
+        this.syncAudioSessionMode(this.isMicActive());
       };
 
       USER_EVENTS.forEach(ev => {
-        window.addEventListener(ev, unlockHandler, { capture: true, passive: true });
+        window.addEventListener(ev, resumeAudioOnGesture, { capture: true, passive: true });
       });
 
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && this.ctx && this.ctx.state === 'suspended') {
+      const handleAppForeground = () => {
+        this.syncAudioSessionMode(this.isMicActive());
+        if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
           this.ctx.resume().catch(() => {});
         }
+      };
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          handleAppForeground();
+        }
+      });
+      window.addEventListener('pageshow', () => {
+        handleAppForeground();
+      });
+      window.addEventListener('focus', () => {
+        handleAppForeground();
       });
 
       if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
@@ -142,7 +162,9 @@ class AudioService {
     if (typeof window === 'undefined') return;
 
     if (this.isSilentUnlocked) {
-      if (this.ctx && this.ctx.state === 'suspended') {
+      if (!this.ctx || this.ctx.state === 'closed') {
+        this.initCtx();
+      } else if (this.ctx && this.ctx.state !== 'running') {
         this.ctx.resume().catch(() => {});
       }
       return;
@@ -184,7 +206,7 @@ class AudioService {
     } catch {}
 
     // 4. Inicializar y desbloquear Web Audio Context mediante un buffer nativo inaudible de 1 muestra (CERO etiquetas <audio>)
-    if (!this.ctx) {
+    if (!this.ctx || this.ctx.state === 'closed') {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         try {
@@ -192,12 +214,14 @@ class AudioService {
         } catch {
           this.ctx = new AudioCtx();
         }
+        this.synthCompressor = null;
+        this.activeFrequencyNodes = null;
         logger.info('Audio', 'Playback AudioContext creado correctamente (playback)');
       }
     }
 
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') {
+      if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
         this.ctx.resume().catch(() => {});
       }
       try {
@@ -214,7 +238,7 @@ class AudioService {
     if (!this.isSilentUnlocked) {
       this.unlockForMobileSilentMode();
     }
-    if (!this.ctx) {
+    if (!this.ctx || this.ctx.state === 'closed') {
       try {
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         try {
@@ -222,13 +246,15 @@ class AudioService {
         } catch {
           this.ctx = new AudioCtx();
         }
+        this.synthCompressor = null;
+        this.activeFrequencyNodes = null;
         logger.info('Audio', 'Playback AudioContext creado correctamente (playback)');
       } catch (err) {
         logger.error('Audio', 'No se pudo crear el AudioContext de reproducción', err);
         this.ctx = null;
       }
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
+    if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
       this.ctx.resume().then(() => {
         logger.info('Audio', 'Playback AudioContext reanudado');
       }).catch((err) => {
@@ -239,15 +265,17 @@ class AudioService {
 
   public getPlaybackContext(): AudioContext {
     this.initCtx();
-    if (!this.ctx) {
+    if (!this.ctx || this.ctx.state === 'closed') {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       try {
         this.ctx = new AudioCtx({ latencyHint: 'playback' });
       } catch {
         this.ctx = new AudioCtx();
       }
+      this.synthCompressor = null;
+      this.activeFrequencyNodes = null;
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
+    if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
       this.ctx.resume().catch(() => {});
     }
     return this.ctx;
@@ -263,7 +291,7 @@ class AudioService {
       }
       logger.info('Audio', 'MicAnalysis AudioContext creado correctamente (interactive)');
     }
-    if (this.micCtx && this.micCtx.state === 'suspended') {
+    if (this.micCtx && this.micCtx.state !== 'running' && this.micCtx.state !== 'closed') {
       this.micCtx.resume().catch(() => {});
     }
     return this.micCtx;
