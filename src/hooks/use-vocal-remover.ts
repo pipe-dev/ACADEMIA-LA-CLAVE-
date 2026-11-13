@@ -34,6 +34,8 @@ export function useVocalRemover(initialVideoId?: string) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaElementSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const isUserPausedRef = useRef<boolean>(true);
+  const isFinishedRef = useRef<boolean>(false);
 
   // ─── Nodos DSP Tri-Banda (v1.0.41) ───
   const splitterRef = useRef<ChannelSplitterNode | null>(null);
@@ -126,6 +128,7 @@ export function useVocalRemover(initialVideoId?: string) {
   }, []);
 
   const destroy = useCallback(() => {
+    isUserPausedRef.current = true;
     if (mediaElementSourceRef.current) {
       try {
         mediaElementSourceRef.current.disconnect();
@@ -227,6 +230,8 @@ export function useVocalRemover(initialVideoId?: string) {
     if (!vid) return;
 
     destroy();
+    isUserPausedRef.current = !autoPlay;
+    isFinishedRef.current = false;
 
     try {
       const audioUrl = `/api/yt-audio?videoId=${vid}`;
@@ -528,15 +533,33 @@ export function useVocalRemover(initialVideoId?: string) {
       });
       audio.addEventListener('play', () => {
         if (audioRef.current !== audio) return;
+        isUserPausedRef.current = false;
         setIsPlaying(true);
         setIsFinished(false);
       });
       audio.addEventListener('pause', () => {
         if (audioRef.current !== audio) return;
+        // En iOS Safari, cuando el micrófono se activa con getUserMedia, el navegador
+        // interrumpe y pausa forzosamente los elementos <audio>. Si el usuario NO pausó
+        // la música deliberadamente, restauramos la reproducción al instante.
+        if (!isUserPausedRef.current && !isFinishedRef.current) {
+          const ctx = audioContextRef.current || audioService.getPlaybackContext();
+          if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') {
+            ctx.resume().catch(() => {});
+          }
+          audio.play().then(() => {
+            setIsPlaying(true);
+          }).catch(() => {
+            setIsPlaying(false);
+          });
+          return;
+        }
         setIsPlaying(false);
       });
       audio.addEventListener('ended', () => { 
         if (audioRef.current !== audio) return;
+        isFinishedRef.current = true;
+        isUserPausedRef.current = true;
         setIsPlaying(false); 
         setIsFinished(true); 
       });
@@ -586,6 +609,8 @@ export function useVocalRemover(initialVideoId?: string) {
   const play = useCallback(async (): Promise<boolean> => {
     if (!audioRef.current || !audioContextRef.current) return false;
     try {
+      isUserPausedRef.current = false;
+      isFinishedRef.current = false;
       if (audioContextRef.current.state !== 'running' && audioContextRef.current.state !== 'closed') {
         await audioContextRef.current.resume();
       }
@@ -600,6 +625,7 @@ export function useVocalRemover(initialVideoId?: string) {
   }, []);
 
   const pause = useCallback(() => {
+    isUserPausedRef.current = true;
     if (audioRef.current) {
       audioRef.current.pause();
     }
@@ -629,9 +655,16 @@ export function useVocalRemover(initialVideoId?: string) {
   }, []);
 
   const ensureContextActive = useCallback(async () => {
-    if (audioContextRef.current && audioContextRef.current.state !== 'running' && audioContextRef.current.state !== 'closed') {
+    const ctx = audioContextRef.current || audioService.getPlaybackContext();
+    if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') {
       try {
-        await audioContextRef.current.resume();
+        await ctx.resume();
+      } catch {}
+    }
+    if (audioRef.current && !isUserPausedRef.current && audioRef.current.paused) {
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
       } catch {}
     }
   }, []);
@@ -664,13 +697,23 @@ export function useVocalRemover(initialVideoId?: string) {
   useEffect(() => {
     const handleMicState = (active: boolean) => {
       const ctx = audioContextRef.current || audioService.getPlaybackContext();
-      if (ctx && masterGainRef.current) {
-        const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const isHeadphones = audioService.isUsingHeadphones();
-        const base = isIos ? 1.15 : 1.0;
-        const boostMultiplier = isIos ? 1.35 : 1.2;
-        const target = isHeadphones ? 1.0 : (active ? base * boostMultiplier : base);
-        masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
+      if (ctx) {
+        if (ctx.state !== 'running' && ctx.state !== 'closed') {
+          ctx.resume().catch(() => {});
+        }
+        if (masterGainRef.current) {
+          const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          const isHeadphones = audioService.isUsingHeadphones();
+          const base = isIos ? 1.15 : 1.0;
+          const boostMultiplier = isIos ? 1.35 : 1.2;
+          const target = isHeadphones ? 1.0 : (active ? base * boostMultiplier : base);
+          masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
+        }
+      }
+      if (active && audioRef.current && !isUserPausedRef.current && audioRef.current.paused) {
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(() => {});
       }
     };
 

@@ -417,12 +417,14 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.0, false);
       engine.vocalRemover.setMasterVolume(engine.volume);
 
-      // 2. Iniciar detección de tono DESPUÉS de initAudio para que backingAnalyser exista y Bleed Gate lea el RMS real
+      // 2. Iniciar detección de tono ANTES de play si el micrófono está activado
+      // para que la adquisición de hardware en iOS no interrumpa el audio que acaba de iniciar
       if (engine.isMicEnabled && !engine.isPlaybackMode && !engine.isDetecting) {
-        engine.startPitchDetection().catch(() => {});
+        await engine.startPitchDetection().catch(() => {});
       }
 
-      // 3. Reproducción única y controlada
+      // 3. Reproducción única y controlada (tras tener el stream de micrófono establecido)
+      await engine.vocalRemover.ensureContextActive?.();
       const started = await engine.vocalRemover.play();
       if (started) {
         engine.setIsPlaying(true);

@@ -523,7 +523,7 @@ export function useKaraokeEngine({
         pausePlayback();
       } else {
         if (isMicEnabled && !isDetecting && !isPlaybackMode) {
-          startPitchDetection(
+          await startPitchDetection(
             null,
             vocalRemover.getTrackOutputGain?.(),
             audioService.isUsingHeadphones(),
@@ -531,6 +531,7 @@ export function useKaraokeEngine({
             vocalRemover.getBackingRms
           ).catch(() => {});
         }
+        await vocalRemover.ensureContextActive?.();
         const started = await vocalRemover.play();
         if (started) {
           setIsPlaying(true);
@@ -580,6 +581,7 @@ export function useKaraokeEngine({
         localStorage.setItem('laclave_karaoke_mic_enabled', 'false');
       }
     } else {
+      const wasPlayingBeforeMic = vocalRemover.isPlaying || isPlaying;
       setIsMicEnabled(true);
       if (typeof window !== 'undefined') {
         localStorage.setItem('laclave_karaoke_mic_enabled', 'true');
@@ -596,8 +598,15 @@ export function useKaraokeEngine({
         setIsMicEnabled(false);
       }
       vocalRemover.setMasterVolume(volume);
+
+      // Si la música estaba sonando antes de activar el micrófono,
+      // reanudar inmediatamente el reproductor para contrarrestar la pausa que iOS WebKit aplica al ejecutar getUserMedia()
+      if (wasPlayingBeforeMic) {
+        await vocalRemover.ensureContextActive?.();
+        await vocalRemover.play();
+      }
     }
-  }, [isDetecting, isMicEnabled, startPitchDetection, stopPitchDetection, vocalRemover, volume]);
+  }, [isDetecting, isMicEnabled, isPlaying, startPitchDetection, stopPitchDetection, vocalRemover, volume]);
 
   const handlePlayRecording = useCallback(() => {
     audioService.playClickSound();
@@ -621,7 +630,7 @@ export function useKaraokeEngine({
     }
   }, [ensureRecordingBoost, requestWakeLock, useYtFallback, vocalRemover]);
 
-  const handleReplaySong = useCallback(() => {
+  const handleReplaySong = useCallback(async () => {
     setIsPlaybackMode(false);
     if (audioPlaybackRef.current) {
       try {
@@ -633,18 +642,9 @@ export function useKaraokeEngine({
     setIsFinished(false);
     scoring.resetScoring();
     setCurrentTime(0);
-    if (!useYtFallback && vocalRemover.isReady) {
-      vocalRemover.setTime(0);
-      vocalRemover.play();
-    } else if (playerRef.current) {
-      try {
-        playerRef.current.seekTo(0);
-        playerRef.current.playVideo();
-      } catch {}
-    }
-    setIsPlaying(true);
+
     if (isMicEnabled && !isDetecting) {
-      startPitchDetection(
+      await startPitchDetection(
         null,
         vocalRemover.getTrackOutputGain?.(),
         audioService.isUsingHeadphones(),
@@ -652,6 +652,18 @@ export function useKaraokeEngine({
         vocalRemover.getBackingRms
       ).catch(() => {});
     }
+
+    if (!useYtFallback && vocalRemover.isReady) {
+      vocalRemover.setTime(0);
+      await vocalRemover.ensureContextActive?.();
+      await vocalRemover.play();
+    } else if (playerRef.current) {
+      try {
+        playerRef.current.seekTo(0);
+        playerRef.current.playVideo();
+      } catch {}
+    }
+    setIsPlaying(true);
   }, [isDetecting, isMicEnabled, scoring, startPitchDetection, useYtFallback, vocalRemover]);
 
   const resetKaraokeSession = useCallback(() => {

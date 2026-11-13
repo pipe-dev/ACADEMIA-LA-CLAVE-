@@ -285,7 +285,7 @@ export const usePitchDetection = () => {
           // Rama de la pista (si hay audífonos conectados):
           // En arquitectura de AudioContext único compartido (v1.0.52+), trackOutputGain pertenece al mismo contexto.
           const headphonesActive = effectiveHeadphones;
-          if (headphonesActive && trackOutputGain) {
+          if (headphonesActive && trackOutputGain && trackOutputGain.context === context) {
             try {
               // DelayNode de 35 ms para compensar la latencia de entrada de iOS/Android
               const latencyDelay = context.createDelay(0.2);

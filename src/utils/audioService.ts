@@ -82,11 +82,15 @@ class AudioService {
   public syncAudioSessionMode(micActive: boolean): void {
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
       try {
-        const targetType = micActive ? 'auto' : 'playback';
+        const targetType = micActive ? 'play-and-record' : 'playback';
         const currentType = (navigator as any).audioSession.type;
         if (currentType !== targetType) {
-          (navigator as any).audioSession.type = targetType;
-          logger.info('Audio', `audioSession.type sincronizado a: ${targetType}`);
+          try {
+            (navigator as any).audioSession.type = targetType;
+          } catch {
+            (navigator as any).audioSession.type = micActive ? 'auto' : 'playback';
+          }
+          logger.info('Audio', `audioSession.type sincronizado a: ${(navigator as any).audioSession.type}`);
         }
       } catch {}
     }
@@ -487,7 +491,11 @@ class AudioService {
 
         this.syncAudioSessionMode(true);
 
-        // Fin de adquisición: no alterar el contexto de reproducción para evitar cortes o degradación
+        // Inmediatamente después de adquirir el micrófono en iOS Safari,
+        // reactivar el AudioContext de reproducción para asegurar que no quede suspendido por el OS
+        if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
+          this.ctx.resume().catch(() => {});
+        }
 
         return stream;
       } finally {

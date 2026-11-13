@@ -48,8 +48,8 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.62)\n\n`;
-out += `> **Versión**: v1.0.62  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.63)\n\n`;
+out += `> **Versión**: v1.0.63  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
 out += `> **Arquitectura de Audio**: Motor DSP de Cancelación Vocal exacto de v1.0.53 y Erradicación Total del Respaldo: Preservación al 100% del procesamiento Web Audio con eliminación del YouTube fallback y de la etiqueta '(Respaldo)'. Matriz Mid/Side quirúrgica (crossover 200 Hz, notch dinámico 1.800 Hz a -2.5 dB, Side L=+Side / R=-Side), compresor máster en -3.0 dB (ratio 3.5), brickwallLimiter en -0.5 dB (ratio 12), retransmisión automática y modo directo 1.0x con audífonos Bluetooth.\n\n`;
