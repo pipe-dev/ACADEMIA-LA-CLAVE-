@@ -413,13 +413,19 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
       engine.setActiveVideoId(videoId);
       engine.setUseYtFallback(false);
 
+      // Re-armar el micrófono siempre activo al arrancar una nueva canción
+      engine.setIsMicEnabled(true);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('laclave_karaoke_mic_enabled', 'true');
+      }
+
       // 1. Inicializar la pista y crear el grafo DSP (autoPlay = false para evitar doble llamada a audio.play)
       await engine.vocalRemover.initAudio(videoId, engine.vocalLevel, 1.0, false);
       engine.vocalRemover.setMasterVolume(engine.volume);
 
-      // 2. Iniciar detección de tono ANTES de play si el micrófono está activado
+      // 2. Iniciar detección de tono ANTES de play con el micrófono activado
       // para que la adquisición de hardware en iOS no interrumpa el audio que acaba de iniciar
-      if (engine.isMicEnabled && !engine.isPlaybackMode && !engine.isDetecting) {
+      if (!engine.isPlaybackMode && !engine.isDetecting) {
         await engine.startPitchDetection().catch(() => {});
       }
 
@@ -449,7 +455,8 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     const cacheKey = videoOptionsCacheKey;
     if (!video?.id || !cacheKey) return;
     // Pre-activación inmediata de micrófono en el gesto de selección
-    if (engine.isMicEnabled && !engine.isPlaybackMode) {
+    engine.setIsMicEnabled(true);
+    if (!engine.isPlaybackMode) {
       audioService.acquireMicrophoneStream('karaoke').catch(() => {});
     }
     try {
@@ -490,7 +497,8 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     engine.resetKaraokeSession();
 
     // 2. Pre-activar el hardware de micrófono directamente en el gesto táctil del usuario
-    if (engine.isMicEnabled && !engine.isPlaybackMode) {
+    engine.setIsMicEnabled(true);
+    if (!engine.isPlaybackMode) {
       audioService.acquireMicrophoneStream('karaoke').catch(() => {});
     }
 

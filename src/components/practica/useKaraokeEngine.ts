@@ -72,15 +72,7 @@ export function useKaraokeEngine({
   const [useYtFallback, setUseYtFallback] = useState<boolean>(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState<boolean>(false);
   const [isFinished, setIsFinished] = useState<boolean>(false);
-  const [isMicEnabled, setIsMicEnabled] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('laclave_karaoke_mic_enabled');
-      if (saved !== null) {
-        return saved === 'true';
-      }
-    }
-    return true;
-  });
+  const [isMicEnabled, setIsMicEnabled] = useState<boolean>(true);
   const [isPlaybackMode, setIsPlaybackMode] = useState<boolean>(false);
 
   const vocalRemover = useVocalRemover();
@@ -643,7 +635,13 @@ export function useKaraokeEngine({
     scoring.resetScoring();
     setCurrentTime(0);
 
-    if (isMicEnabled && !isDetecting) {
+    // Al pulsar Replay siempre se entra con el micrófono activo
+    setIsMicEnabled(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('laclave_karaoke_mic_enabled', 'true');
+    }
+
+    if (!isDetecting) {
       await startPitchDetection(
         null,
         vocalRemover.getTrackOutputGain?.(),
@@ -729,6 +727,7 @@ export function useKaraokeEngine({
     isFinished,
     setIsFinished,
     isMicEnabled,
+    setIsMicEnabled,
     isPlaybackMode,
     setIsPlaybackMode,
     frequency,

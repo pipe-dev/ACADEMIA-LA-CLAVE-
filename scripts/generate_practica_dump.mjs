@@ -6,11 +6,11 @@ const FILES = [
   { path: 'src/components/practica/PracticaCatalogView.tsx', cat: '1. UI y Escenario', desc: 'Catálogo de canciones con pestañas, carruseles de Apple Music y buscador' },
   { path: 'src/components/practica/KaraokeStageHero.tsx', cat: '1. UI y Escenario', desc: 'Escenario inmersivo con carátula flotante y letras karaoke de 3 líneas sincronizadas' },
   { path: 'src/components/practica/KaraokeControlsPanel.tsx', cat: '1. UI y Escenario', desc: 'Panel de controles flotante con sliders de volumen, voz original y micrófono' },
-  { path: 'src/components/practica/polygraph-canvas.tsx', cat: '1. UI y Escenario', desc: 'Lienzo gráfico a 60 FPS con filtro anti-puntaje fantasma (dispersión < 0.85 semitonos)' },
-  { path: 'src/components/practica/useKaraokeEngine.ts', cat: '2. Motores de Estado y Puntos', desc: 'Máquina de estados orquestadora con auto-recuperación de fallback cuando Web Audio está listo' },
+  { path: 'src/components/practica/polygraph-canvas.tsx', cat: '1. UI y Escenario', desc: 'Lienzo gráfico a 60 FPS con tolerancia de afinación ampliada (pitchDiff 1.30 semitonos y detección de canto sostenido)' },
+  { path: 'src/components/practica/useKaraokeEngine.ts', cat: '2. Motores de Estado y Puntos', desc: 'Máquina de estados orquestadora con activación automática obligatoria de micrófono en Replay y nuevas canciones' },
   { path: 'src/components/practica/useKaraokeScoring.ts', cat: '2. Motores de Estado y Puntos', desc: 'Motor de evaluación de entonación, combos x1 a x4, racha y cálculo de 1 a 5 estrellas' },
-  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley de v1.0.53 con cancelación vocal exacta, cero respaldo y modo directo 1.0x con audífonos' },
-  { path: 'src/hooks/use-pitch-detection.ts', cat: '3. Motor DSP y Afinación', desc: 'Detector de afinación con auto-detección de audífonos Bluetooth, punto dulce de Bleed Gate (preamp 2.6x altavoces / 6.0x audífonos) y apagado físico de hardware' },
+  { path: 'src/hooks/use-vocal-remover.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor DSP Linkwitz-Riley con cancelación vocal exacta, refuerzo anti-ducking 2.5x en altavoces y modo directo 1.0x con audífonos' },
+  { path: 'src/hooks/use-pitch-detection.ts', cat: '3. Motor DSP y Afinación', desc: 'Detector de afinación con filtro pasa-banda vocal (110Hz HPF + 1000Hz Peaking EQ + 1800Hz LPF) exclusivo para puntuación sin alterar la grabación limpia' },
   { path: 'src/utils/audioService.ts', cat: '3. Motor DSP y Afinación', desc: 'Arquitectura Web Audio con enrutamiento inteligente anti-HFP: selección de micrófono interno físico con audífonos Bluetooth (preservando A2DP estéreo 44.1/48 kHz) y modo directo 1.0x' },
   { path: 'src/utils/voicePlaybackService.ts', cat: '3. Motor DSP y Afinación', desc: 'Motor de reproducción de notas vocales reales con modo directo 1.0x con audífonos y compensación dinámica 0.75x/1.85x en altavoces' },
   { path: 'src/components/practica/KaraokeResultsModal.tsx', cat: '4. Modales de Usuario', desc: 'Modal de resultados finales, estrellas, XP ganado y audio playback de la grabación' },
@@ -48,11 +48,11 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.63)\n\n`;
-out += `> **Versión**: v1.0.63  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.64)\n\n`;
+out += `> **Versión**: v1.0.64  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
-out += `> **Arquitectura de Audio**: Motor DSP de Cancelación Vocal exacto de v1.0.53 y Erradicación Total del Respaldo: Preservación al 100% del procesamiento Web Audio con eliminación del YouTube fallback y de la etiqueta '(Respaldo)'. Matriz Mid/Side quirúrgica (crossover 200 Hz, notch dinámico 1.800 Hz a -2.5 dB, Side L=+Side / R=-Side), compresor máster en -3.0 dB (ratio 3.5), brickwallLimiter en -0.5 dB (ratio 12), retransmisión automática y modo directo 1.0x con audífonos Bluetooth.\n\n`;
+out += `> **Arquitectura de Audio**: Refuerzo anti-ducking máster de 2.5x en altavoces (iOS/Android), activación automática y obligatoria de micrófono al reproducir canciones nuevas o pulsar Replay, filtro pasa-banda vocal con realce de formantes medios (110Hz HPF + 1000Hz Peaking EQ + 1800Hz LPF) exclusivo para afinación y puntuación sin alterar la grabación limpia de estudio, y tolerancia ampliada en lienzo poligráfico.\n\n`;
 out += `---\n\n`;
 out += `## Índice General de Archivos\n\n`;
 out += `| N° | Categoría | Archivo | Líneas | Descripción |\n`;

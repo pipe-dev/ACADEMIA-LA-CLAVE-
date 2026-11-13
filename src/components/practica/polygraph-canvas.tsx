@@ -140,7 +140,7 @@ export function PolygraphCanvas({
         }
         const pitchSpread = maxM - minM;
         // Canto sostenido: el pitch no salta bruscamente como en el habla (dispersión < 1.8 semitonos, permite vibrato natural)
-        const isSingingSustained = pitchBufferRef.current.length >= 6 && pitchSpread < 0.85;
+        const isSingingSustained = pitchBufferRef.current.length >= 3 && pitchSpread < 1.6;
 
         // Verificar si hay una nota objetivo en la melodía en el segundo actual
         const activeNote = melody.find(
@@ -151,10 +151,10 @@ export function PolygraphCanvas({
           let pitchDiff = Math.abs((rawMidi % 12) - (activeNote.midi % 12));
           if (pitchDiff > 6) pitchDiff = 12 - pitchDiff;
 
-          if (pitchDiff <= 1.05 && isSingingSustained) {
+          if (pitchDiff <= 1.30 && isSingingSustained) {
             isHit = true;
             activeColor = "#10b981"; // Verde esmeralda (acierto afinado)
-          } else if (pitchDiff <= 2.2) {
+          } else if (pitchDiff <= 2.5) {
             activeColor = "#f59e0b"; // Ámbar (cerca pero no afinado)
             isHit = false;
           } else {

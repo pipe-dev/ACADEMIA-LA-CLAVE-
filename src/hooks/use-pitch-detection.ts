@@ -146,6 +146,7 @@ export const usePitchDetection = () => {
   const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const highpassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const vocalMidPeakingRef = useRef<BiquadFilterNode | null>(null);
   const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
   const recordDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const vocalRecordNodesRef = useRef<{ pop?: BiquadFilterNode; comp?: DynamicsCompressorNode; gain?: GainNode } | null>(null);
@@ -218,31 +219,43 @@ export const usePitchDetection = () => {
         analyserRef.current = context.createAnalyser();
         analyserRef.current.fftSize = 2048;
 
-        // Fase 2: Filtro pasa-banda vocal antes del AnalyserNode
-        // 1. High-pass a 90 Hz (Q = 0.707) para cortar el subgrave y el bombo del altavoz
+        // Fase 2: Filtro especializado en frecuencias medias vocales para análisis y puntuación
+        // (Actúa EXCLUSIVAMENTE sobre la rama de afinación/analyserRef; la rama de grabación permanece
+        // 100% limpia, amplia y natural para que la voz no se oiga nasal ni telefónica en la grabación).
+        
+        // 1. High-pass a 110 Hz (Q = 0.707) para cortar el subgrave, golpes de aire y el bombo del altavoz
         const highpassFilter = context.createBiquadFilter();
         highpassFilter.type = 'highpass';
-        highpassFilter.frequency.setValueAtTime(90, context.currentTime);
+        highpassFilter.frequency.setValueAtTime(110, context.currentTime);
         highpassFilter.Q.setValueAtTime(0.707, context.currentTime);
         highpassFilterRef.current = highpassFilter;
 
-        // 2. Low-pass a 1100 Hz (Q = 0.707) para cortar platillos y armónicos agudos
+        // 2. Peaking EQ en 1000 Hz (+5.0 dB, Q = 1.0) para realzar los formantes F1/F2 y la presencia vocal
+        const vocalMidPeaking = context.createBiquadFilter();
+        vocalMidPeaking.type = 'peaking';
+        vocalMidPeaking.frequency.setValueAtTime(1000, context.currentTime);
+        vocalMidPeaking.Q.setValueAtTime(1.0, context.currentTime);
+        vocalMidPeaking.gain.setValueAtTime(5.0, context.currentTime);
+        vocalMidPeakingRef.current = vocalMidPeaking;
+
+        // 3. Low-pass a 1800 Hz (Q = 0.707) para cortar platillos, charles y armónicos estridentes
+        // reteniendo todas las notas vocales cantables (hasta La6 = 1760 Hz)
         const lowpassFilter = context.createBiquadFilter();
         lowpassFilter.type = 'lowpass';
-        lowpassFilter.frequency.setValueAtTime(1100, context.currentTime);
+        lowpassFilter.frequency.setValueAtTime(1800, context.currentTime);
         lowpassFilter.Q.setValueAtTime(0.707, context.currentTime);
         lowpassFilterRef.current = lowpassFilter;
 
-        // Pre-amplificador diferenciado:
-        // En Karaoke SIN audífonos, 2.6x (punto dulce acústico: la música queda bajo 0.032 y la voz normal entra entre 0.045 y 0.150)
-        // CON audífonos, 6.0x para máxima sensibilidad vocal
+        // Pre-amplificador de análisis:
+        // En Karaoke SIN audífonos, 4.8x para captar claramente la voz cantada
+        // CON audífonos, 7.0x para máxima sensibilidad vocal
         const micBoostGain = context.createGain();
-        const boostVal = effectiveHeadphones ? 6.0 : 2.6;
+        const boostVal = effectiveHeadphones ? 7.0 : 4.8;
         micBoostGain.gain.setValueAtTime(boostVal, context.currentTime);
 
-        // Cadena de análisis: Mic -> HighPass (90Hz) -> LowPass (1100Hz) -> PreAmp (4x) -> Analyser
+        // Cadena de análisis: Mic -> HighPass (110Hz) -> Peaking EQ (1000Hz +5dB) -> LowPass (1800Hz) -> PreAmp -> Analyser
         // El micrófono NUNCA se conecta a context.destination para evitar que el OS active el modo llamada y ducking.
-        source.connect(highpassFilter).connect(lowpassFilter).connect(micBoostGain).connect(analyserRef.current);
+        source.connect(highpassFilter).connect(vocalMidPeaking).connect(lowpassFilter).connect(micBoostGain).connect(analyserRef.current);
 
         if (context.state !== 'running') {
           await context.resume().catch(() => {});
@@ -404,6 +417,10 @@ export const usePitchDetection = () => {
       try { highpassFilterRef.current.disconnect(); } catch {}
       highpassFilterRef.current = null;
     }
+    if (vocalMidPeakingRef.current) {
+      try { vocalMidPeakingRef.current.disconnect(); } catch {}
+      vocalMidPeakingRef.current = null;
+    }
     if (lowpassFilterRef.current) {
       try { lowpassFilterRef.current.disconnect(); } catch {}
       lowpassFilterRef.current = null;
@@ -504,10 +521,11 @@ export const usePitchDetection = () => {
       const backingRms = getBackingRmsRef.current ? getBackingRmsRef.current() : 0;
 
       // ─── Compuerta Dinámica Anti-Acople Calibrada a Escala Acústica Real ───
-      // Con 2.6x de ganancia, la canción en altavoces se mantiene < 0.032, mientras la voz cantada entra en 0.045 - 0.150
+      // Con 4.8x de ganancia y ecualización de medios vocales, la voz cantada entra fuerte (>0.060),
+      // mientras la compuerta se adapta suavemente al volumen de la música para no tragar la voz.
       const dynamicThreshold = isHeadphones
         ? 0.0025
-        : Math.max(0.036, Math.min(0.080, backingRms * 0.26));
+        : Math.max(0.016, Math.min(0.055, backingRms * 0.18));
 
       if (rmsVal < dynamicThreshold) {
         // La señal es mero sangrado del altavoz o silencio: no premiar ni computar
@@ -529,8 +547,8 @@ export const usePitchDetection = () => {
       const { pitch, clarity } = autoCorrelate(dataArray, audioContextRef.current.sampleRate);
 
       // ─── Filtro de Pureza Monofónica Calibrado ───
-      // 0.74 con audífonos, 0.85 sin audífonos para voz natural cantada y bloqueo de música ambiental
-      const minClarity = isHeadphones ? 0.74 : 0.85;
+      // 0.65 con audífonos, 0.72 sin audífonos para voz natural cantada (permite resonancia y vibrato)
+      const minClarity = isHeadphones ? 0.65 : 0.72;
 
       if (pitch === -1 || pitch >= 2000 || clarity < minClarity) {
         stableFramesCountRef.current = 0;
@@ -547,7 +565,7 @@ export const usePitchDetection = () => {
         return;
       }
 
-      // ─── Filtro de Estabilidad Temporal (1 frame en audífonos, 3 frames en altavoz ~75ms) ───
+      // ─── Filtro de Estabilidad Temporal (1 frame en audífonos, 2 frames en altavoz ~50ms) ───
       const detectedNote = noteFromPitch(pitch);
       const noteKey = `${detectedNote.name}${detectedNote.octave}`;
 
@@ -558,7 +576,7 @@ export const usePitchDetection = () => {
         stableFramesCountRef.current = 1;
       }
 
-      const requiredFrames = isHeadphones ? 1 : 3;
+      const requiredFrames = isHeadphones ? 1 : 2;
       if (stableFramesCountRef.current < requiredFrames) {
         // Aún en ventana de confirmación de estabilidad: no proyectar ni sumar puntos espurios
         animationFrameId.current = requestAnimationFrame((ts) => updatePitchRef.current(ts));

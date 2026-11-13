@@ -213,7 +213,7 @@ export function useVocalRemover(initialVideoId?: string) {
       const isHeadphones = audioService.isUsingHeadphones();
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
       const baseScale = isIos ? 1.15 : 1.0;
-      const boostMultiplier = isIos ? 1.35 : 1.2;
+      const boostMultiplier = 2.5;
       const micCompensation = isMicActiveNow ? boostMultiplier : 1.0;
       const targetGain = isHeadphones ? 1.0 : (baseScale * micCompensation);
       masterGainRef.current.gain.value = Math.max(0, Math.min(1, vol / 100)) * targetGain;
@@ -464,16 +464,16 @@ export function useVocalRemover(initialVideoId?: string) {
       const isHeadphones = audioService.isUsingHeadphones();
       const isMicActiveNow = audioService.isMicActive() || audioService.isMicListening() || isMicActiveGlobal();
       const baseMaster = isIosDevice ? 1.15 : 1.0;
-      const boostMultiplier = isIosDevice ? 1.35 : 1.2;
+      const boostMultiplier = 2.5;
       const targetGain = isHeadphones ? 1.0 : (isMicActiveNow ? baseMaster * boostMultiplier : baseMaster);
 
       const masterGain = ctx.createGain();
       masterGain.gain.value = targetGain;
       masterGainRef.current = masterGain;
 
-      // Limitador de estudio tipo Brickwall en -0.5 dB con ratio 12 fiel a v1.0.53
+      // Limitador de estudio tipo Brickwall en -0.2 dB con ratio 12 fiel a v1.0.53 con refuerzo anti-ducking 2.5x
       const brickwallLimiter = ctx.createDynamicsCompressor();
-      brickwallLimiter.threshold.setValueAtTime(-0.5, ctx.currentTime);
+      brickwallLimiter.threshold.setValueAtTime(-0.2, ctx.currentTime);
       brickwallLimiter.knee.setValueAtTime(4, ctx.currentTime);
       brickwallLimiter.ratio.setValueAtTime(12.0, ctx.currentTime);
       brickwallLimiter.attack.setValueAtTime(0.001, ctx.currentTime);
@@ -705,7 +705,7 @@ export function useVocalRemover(initialVideoId?: string) {
           const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
           const isHeadphones = audioService.isUsingHeadphones();
           const base = isIos ? 1.15 : 1.0;
-          const boostMultiplier = isIos ? 1.35 : 1.2;
+          const boostMultiplier = 2.5;
           const target = isHeadphones ? 1.0 : (active ? base * boostMultiplier : base);
           masterGainRef.current.gain.setTargetAtTime(target, ctx.currentTime, 0.03);
         }
