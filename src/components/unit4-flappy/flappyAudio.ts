@@ -17,6 +17,21 @@ let master: GainNode | null = null;
 let comp: DynamicsCompressorNode | null = null;
 let outGain: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
+let soundActiveUntil = 0;
+
+/**
+ * Notifica que un sonido de gamificación se está reproduciendo en los altavoces,
+ * estableciendo una ventana de tiempo en la que el micrófono ignorará la captura
+ * para evitar que los sonidos del juego muevan o hagan aletear al pato solo.
+ */
+export const notifyFlappySound = (durationMs: number) => {
+  soundActiveUntil = Math.max(soundActiveUntil, performance.now() + durationMs);
+};
+
+export const isFlappySoundPlaying = (): boolean => {
+  return performance.now() < soundActiveUntil;
+};
+
 let ambient: {
   src: AudioBufferSourceNode;
   src2: AudioBufferSourceNode;
@@ -83,6 +98,7 @@ const noiseLayer = (
   }
 ) => {
   if (!g) return;
+  notifyFlappySound(Math.round((opts.dur + 0.08) * 1000));
   const { ctx, out } = g;
   const src = ctx.createBufferSource();
   src.buffer = getNoise(ctx);
@@ -129,6 +145,8 @@ const toneLayer = (
   }
 ) => {
   if (!g) return;
+  const totalDurMs = Math.round(((opts.delay ?? 0) + opts.dur + 0.08) * 1000);
+  notifyFlappySound(totalDurMs);
   const { ctx, out } = g;
   const t0 = ctx.currentTime + (opts.delay ?? 0);
   const osc = ctx.createOscillator();
@@ -166,6 +184,7 @@ const jitter = (amt: number) => 1 + (Math.random() - 0.5) * 2 * amt;
 
 export const setFlappyAudioMuted = (v: boolean) => {
   muted = v;
+  if (v) soundActiveUntil = 0;
   const g = graph();
   if (g && master) {
     master.gain.cancelScheduledValues(g.ctx.currentTime);

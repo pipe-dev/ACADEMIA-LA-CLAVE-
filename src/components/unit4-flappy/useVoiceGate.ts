@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { audioService } from '../../utils/audioService';
+import { isFlappySoundPlaying } from './flappyAudio';
 import { Phase } from './unit4Types';
 
 interface UseVoiceGateOptions {
@@ -42,6 +43,18 @@ export const useVoiceGate = ({
       callbacksRef.current;
     const currentPhase = phaseGetter();
 
+    // Silenciar la detección si hay sonidos de gamificación activos del juego
+    // o si el micrófono fue pausado temporalmente, evitando que los efectos de audio
+    // de los altavoces interfieran con el micrófono y hagan aletear al pato.
+    if (
+      isFlappySoundPlaying() ||
+      audioService.isMicTemporarilyMuted() ||
+      audioService.isMicPausedForPlayback()
+    ) {
+      pitchStreakRef.current = 0;
+      return;
+    }
+
     // Calibración: mide el piso de ruido del ambiente y ajusta el gate
     if (calibratingRef.current) {
       noiseSamplesRef.current.push(volume);
@@ -61,10 +74,12 @@ export const useVoiceGate = ({
       return;
     }
 
-    if (
-      volume > voiceGateValueRef.current ||
-      (pitchHz >= VOICE_MIN && pitchHz <= VOICE_MAX)
-    ) {
+    const hasPitch = pitchHz >= VOICE_MIN && pitchHz <= VOICE_MAX;
+    const hasStrongVolume = volume > voiceGateValueRef.current * 2.2;
+    const isVocalDetected =
+      volume > voiceGateValueRef.current && (hasPitch || hasStrongVolume);
+
+    if (isVocalDetected) {
       pitchStreakRef.current += 1;
       if (currentPhase === 'ready' && micActiveRef.current) {
         if (pitchStreakRef.current >= 2) {
