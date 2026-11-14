@@ -232,6 +232,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
 
   const handlePlayReferenceNote = useCallback(() => {
     pitchHook.registerPlayedNote(activeTargetNote.fullName || (activeTargetNote.name + activeTargetNote.octave));
+    audioService.pauseMicrophoneForPlayback(2000);
     voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
   }, [activeTargetNote, gender, pitchHook]);
 
@@ -243,6 +244,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
       setSelectedNote(matching);
       pitchHook.registerPlayedNote(matching.fullName || (matching.name + matching.octave));
       if (tunerMode === 'libre') {
+        audioService.pauseMicrophoneForPlayback(2000);
         voicePlayback.playVoiceNote(
           { name: matching.displayName || matching.name, midi: matching.midi, frequency: matching.frequency, octave: matching.octave },
           gender,
@@ -257,6 +259,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
       const isTarget = activeTargetNote.midi != null && note.midi != null ? activeTargetNote.midi === note.midi : activeTargetNote.name.toUpperCase() === note.name.toUpperCase();
       if (!isTarget) return;
       pitchHook.registerPlayedNote(activeTargetNote.fullName || (activeTargetNote.name + activeTargetNote.octave));
+      audioService.pauseMicrophoneForPlayback(2000);
       voicePlayback.playVoiceNote(activeTargetNote, gender, 2.0);
       return;
     }
@@ -266,6 +269,7 @@ export const AfinadorView: React.FC<AfinadorViewProps> = ({
     pitchHook.setIsPitchMatched(false);
     pitchHook.setDetectedPitch(null);
     pitchHook.registerPlayedNote(note.fullName || (note.name + note.octave));
+    audioService.pauseMicrophoneForPlayback(2000);
     voicePlayback.playVoiceNote(
       { name: note.displayName || note.name, midi: note.midi, frequency: note.frequency, octave: note.octave },
       gender,

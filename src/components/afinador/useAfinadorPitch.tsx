@@ -9,7 +9,7 @@ import {
 import { Difficulty } from '../../data/tunerLevelsData';
 import { ChromaticNoteButtonInfo, NoteInfo, SolfegeButtonInfo } from '../../utils/voicePlaybackService';
 import { TunedHistoryItem } from './afinadorTypes';
-import { Zap, CheckCircle2, Target } from 'lucide-react';
+import { Zap, CheckCircle2, Target, Volume2 } from 'lucide-react';
 import { checkAndExpandVocalRange } from '../../utils/vocalRangeHelper';
 
 interface UseAfinadorPitchParams {
@@ -154,6 +154,10 @@ export function useAfinadorPitch({
         setIsPitchMatched(false);
         setTuningStatusMsg('Escuchando nota de referencia...');
         inTuneSinceRef.current = null;
+        inTuneNoteStartTimeRef.current = null;
+        setVolume(0);
+        setOctaveDisplacement(0);
+        noteTransitionUntilRef.current = Math.max(noteTransitionUntilRef.current, Date.now() + 2000);
       } else {
         setTuningStatusMsg('Escuchando voz...');
       }
@@ -200,7 +204,11 @@ export function useAfinadorPitch({
   let statusTextColor = zenMode ? 'text-[#f0ebe1]' : 'text-slate-800 dark:text-slate-200';
   let statusIcon: React.ReactNode = null;
 
-  if (isPitchMatched) {
+  if (tuningStatusMsg.includes('referencia')) {
+    statusIcon = <Volume2 className={`w-3.5 h-3.5 ${zenMode ? 'text-[#e5b83b]' : 'text-indigo-500 dark:text-indigo-400'} animate-pulse`} />;
+    statusTextColor = zenMode ? 'text-[#e5b83b]' : 'text-indigo-600 dark:text-indigo-300';
+    badgeBorderColor = zenMode ? 'border-[#e5b83b]/40 bg-[#e5b83b]/10' : 'border-indigo-300 dark:border-indigo-700 bg-indigo-50/80 dark:bg-indigo-950/80';
+  } else if (isPitchMatched) {
     if (octaveDisplacement === 0) {
       sphereStyle = zenMode
         ? 'bg-[#e5b83b] text-[#161719] shadow-[0_0_40px_rgba(229,184,59,0.9)] scale-110 ring-4 ring-[#f5d56b] animate-pulse'
@@ -250,11 +258,13 @@ export function useAfinadorPitch({
     if (isTuningActive) return true;
 
     const success = await audioService.startMicrophone((pitchHz, vol) => {
-      if (audioService.isMicTemporarilyMuted()) {
+      if (audioService.isMicTemporarilyMuted() || audioService.isMicPausedForPlayback()) {
         setDetectedPitch(null);
         setIsPitchMatched(false);
         setTuningStatusMsg('Escuchando nota de referencia...');
         inTuneSinceRef.current = null;
+        inTuneNoteStartTimeRef.current = null;
+        setVolume(0);
         return;
       }
 

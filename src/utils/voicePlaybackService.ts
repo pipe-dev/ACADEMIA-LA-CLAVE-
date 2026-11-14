@@ -152,6 +152,10 @@ export class VoicePlaybackService {
   ): Promise<void> {
     if (typeof window === 'undefined') return;
 
+    // Pausar de inmediato la escucha del micrófono por 2 segundos para evitar que
+    // el micrófono capture la nota de prueba desde los altavoces del celular y la califique como cantada
+    audioService.pauseMicrophoneForPlayback(2000);
+
     // 1. Token de cancelación único por pulsación
     const requestId = ++this.currentPlayRequestId;
 
@@ -188,6 +192,7 @@ export class VoicePlaybackService {
     const limits = VOCAL_AUDIO_LIMITS[activeGender];
     if (midi < limits.minMidi || midi > limits.maxMidi) {
       if (requestId !== this.currentPlayRequestId) return;
+      audioService.pauseMicrophoneForPlayback(2000);
       audioService.playFrequency(note.frequency, duration);
       return;
     }
@@ -268,6 +273,7 @@ export class VoicePlaybackService {
           }
         };
 
+        audioService.pauseMicrophoneForPlayback(2000);
         source.start(0);
         source.stop(ctx.currentTime + playDur);
         return;
@@ -277,6 +283,7 @@ export class VoicePlaybackService {
     }
 
     // 4. Clean synthesizer fallback for extreme ranges (never distorts, pristine pitch reference)
+    audioService.pauseMicrophoneForPlayback(2000);
     audioService.playFrequency(note.frequency, duration);
   }
 

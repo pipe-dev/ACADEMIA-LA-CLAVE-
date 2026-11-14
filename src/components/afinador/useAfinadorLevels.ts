@@ -157,6 +157,7 @@ export function useAfinadorLevels({
     if (nextIdx < challengeNotesRef.current.length) {
       setChallengeIndex(nextIdx);
       challengeIndexRef.current = nextIdx;
+      audioService.pauseMicrophoneForPlayback(2600);
       setTimeout(() => {
         const nextNote = challengeNotesRef.current[nextIdx];
         if (nextNote) {
@@ -235,6 +236,7 @@ export function useAfinadorLevels({
       setChallengeNotes(notes);
       challengeNotesRef.current = notes;
       onTuningStart();
+      audioService.pauseMicrophoneForPlayback(2400);
 
       if (diff === 'Difícil' && lvl % 3 === 0 && notes.length > 0) {
         notes.forEach((n, idx) => {

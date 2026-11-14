@@ -1766,20 +1766,40 @@ class AudioService {
    * When the note finishes, the microphone automatically resumes listening seamlessly.
    */
   /**
-   * NO-OP intencional: El micrófono NUNCA debe pausarse, desconectarse ni alterar
-   * la sesión de hardware al reproducir notas de referencia o ejercicios.
-   * La desconexión y reconexión provocaba que el celular entrara y saliera continuamente
-   * del modo llamada, generando ducking severo y cortes de volumen.
+   * Pausa por software el bucle de detección de tono del micrófono durante la reproducción
+   * de notas de referencia o prueba (2 segundos por defecto).
+   * 
+   * AISLAMIENTO TOTAL: NO altera el hardware, NO desconecta el MediaStreamTrack,
+   * NO modifica audioSession y NO cambia de modo. El hardware permanece 100% activo sin ducking,
+   * mientras el algoritmo descarta temporalmente la captura para que el micrófono no escuche
+   * los altavoces del celular y no marque las notas de prueba como cantadas.
    */
-  public pauseMicrophoneForPlayback(_durationMs: number = 2300): void {
-    // No-op absoluto para garantizar cero ducking y cero interrupciones de hardware.
+  public pauseMicrophoneForPlayback(durationMs: number = 2000): void {
+    this.isPausedForPlayback = true;
+
+    if (this.micPauseResumeTimeoutId) {
+      clearTimeout(this.micPauseResumeTimeoutId);
+      this.micPauseResumeTimeoutId = null;
+    }
+
+    if (this.onMicPauseChange) {
+      try { this.onMicPauseChange(true); } catch {}
+    }
+
+    this.micPauseResumeTimeoutId = setTimeout(() => {
+      this.isPausedForPlayback = false;
+      this.micPauseResumeTimeoutId = null;
+      if (this.onMicPauseChange) {
+        try { this.onMicPauseChange(false); } catch {}
+      }
+    }, durationMs);
   }
 
   /**
    * Alias de compatibilidad hacia atrás
    */
-  public muteMicTemporarily(_durationMs: number = 2200): void {
-    // No-op intencional
+  public muteMicTemporarily(durationMs: number = 2000): void {
+    this.pauseMicrophoneForPlayback(durationMs);
   }
 
   public stopMicrophone(forceHardwareRelease: boolean = true) {
