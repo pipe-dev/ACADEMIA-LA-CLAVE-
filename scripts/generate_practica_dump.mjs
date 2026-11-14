@@ -48,11 +48,11 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.65)\n\n`;
-out += `> **Versión**: v1.0.65  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.66)\n\n`;
+out += `> **Versión**: v1.0.66  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
-out += `> **Arquitectura de Audio**: Desbloqueo síncrono de audio en el primer toque (anti-bloqueo Autoplay en iOS/Android), refuerzo anti-ducking máster de 2.5x en altavoces, activación automática obligatoria de micrófono en Replay y nueva pista, filtro de medios vocales (110Hz HPF + 1000Hz Peaking EQ + 1800Hz LPF) exclusivo para puntuación sin alterar la grabación limpia, y tolerancia ampliada en lienzo poligráfico.\n\n`;
+out += `> **Arquitectura de Audio**: Sincronización de buffer canplay/loadeddata en initAudio para retención adecuada del modal de carga hasta que el audio esté listo, limpieza CORS en Web Audio, refuerzo anti-ducking máster de 2.5x en altavoces, activación automática obligatoria de micrófono en Replay y nueva pista, filtro de medios vocales (110Hz HPF + 1000Hz Peaking EQ + 1800Hz LPF) exclusivo para puntuación sin alterar la grabación limpia, y tolerancia ampliada en lienzo poligráfico.\n\n`;
 out += `---\n\n`;
 out += `## Índice General de Archivos\n\n`;
 out += `| N° | Categoría | Archivo | Líneas | Descripción |\n`;

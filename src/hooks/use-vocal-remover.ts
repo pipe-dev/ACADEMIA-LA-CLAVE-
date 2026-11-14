@@ -32,7 +32,6 @@ export function useVocalRemover(initialVideoId?: string) {
   const [isFinished, setIsFinished] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const primedAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaElementSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const isUserPausedRef = useRef<boolean>(true);
@@ -232,19 +231,6 @@ export function useVocalRemover(initialVideoId?: string) {
     if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') {
       ctx.resume().catch(() => {});
     }
-
-    // Instanciar y desbloquear un elemento HTMLAudioElement dentro de la activación del gesto táctil
-    try {
-      const primed = new Audio();
-      primed.crossOrigin = "anonymous";
-      primed.preload = "auto";
-      primed.setAttribute('playsinline', 'true');
-      primed.setAttribute('webkit-playsinline', 'true');
-      primed.volume = 1.0;
-      primed.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-      primed.play().catch(() => {});
-      primedAudioRef.current = primed;
-    } catch {}
   }, []);
 
   const initAudio = useCallback(async (
@@ -263,20 +249,13 @@ export function useVocalRemover(initialVideoId?: string) {
     try {
       const audioUrl = `/api/yt-audio?videoId=${vid}`;
 
-      let audio: HTMLAudioElement;
-      if (primedAudioRef.current) {
-        audio = primedAudioRef.current;
-        primedAudioRef.current = null;
-        try { audio.pause(); } catch {}
-      } else {
-        audio = new Audio();
-        audio.crossOrigin = "anonymous";
-        audio.preload = "auto";
-        audio.setAttribute('playsinline', 'true');
-        audio.setAttribute('webkit-playsinline', 'true');
-        audio.volume = 1.0;
-      }
+      const audio = new Audio();
+      audio.crossOrigin = "anonymous";
+      audio.preload = "auto";
+      audio.setAttribute('playsinline', 'true');
+      audio.setAttribute('webkit-playsinline', 'true');
       audio.src = audioUrl;
+      audio.volume = 1.0;
       audioRef.current = audio;
 
       // Sincronizar audioSession en 'playback' (o 'auto' si el mic está activo)
@@ -624,6 +603,43 @@ export function useVocalRemover(initialVideoId?: string) {
       });
       
       audio.load();
+
+      // Esperar a que el audio tenga datos suficientes (canplay / loadeddata) antes de resolver initAudio
+      // Esto evita que el modal de carga salte prematuramente y asegura que al entrar al escenario
+      // el elemento ya esté cargado con su duración real y listo para sonar de inmediato.
+      await new Promise<void>((resolve) => {
+        let resolved = false;
+        const onReady = () => {
+          if (!resolved) {
+            resolved = true;
+            if (audio.duration && !isNaN(audio.duration)) {
+              setDuration(audio.duration);
+            }
+            setIsReady(true);
+            cleanup();
+            resolve();
+          }
+        };
+        const cleanup = () => {
+          audio.removeEventListener('canplay', onReady);
+          audio.removeEventListener('loadeddata', onReady);
+          audio.removeEventListener('loadedmetadata', onReady);
+          audio.removeEventListener('error', onReady);
+        };
+
+        audio.addEventListener('canplay', onReady);
+        audio.addEventListener('loadeddata', onReady);
+        audio.addEventListener('loadedmetadata', onReady);
+        audio.addEventListener('error', onReady);
+
+        if (audio.readyState >= 2) {
+          onReady();
+          return;
+        }
+
+        // Timeout de seguridad de 5s para no bloquear si la conexión es lenta
+        setTimeout(onReady, 5000);
+      });
 
       if (autoPlay) {
         if (ctx.state !== 'running' && ctx.state !== 'closed') {
