@@ -459,6 +459,8 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     if (!engine.isPlaybackMode) {
       audioService.acquireMicrophoneStream('karaoke').catch(() => {});
     }
+    // Pre-desbloqueo inmediato de audio en el primer toque del usuario (anti-bloqueo autoplay iOS/Android)
+    engine.vocalRemover.primeAudio?.();
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem(cacheKey, video.id);
@@ -501,6 +503,9 @@ export const PracticaView: React.FC<PracticaViewProps> = ({
     if (!engine.isPlaybackMode) {
       audioService.acquireMicrophoneStream('karaoke').catch(() => {});
     }
+
+    // 3. Pre-desbloqueo inmediato de audio en el primer toque del usuario (anti-bloqueo autoplay iOS/Android)
+    engine.vocalRemover.primeAudio?.();
 
     // Tarjetas de YouTube: la etapa, el cache y las letras se muestran con
     // el título/artista LIMPIOS de la canción real (sin "|| arisa (letra)"

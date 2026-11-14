@@ -8,7 +8,7 @@ try {
 
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_APP_VERSION: 'v1.0.64',
+    NEXT_PUBLIC_APP_VERSION: 'v1.0.65',
     NEXT_PUBLIC_GIT_COMMIT: gitCommit,
   },
   generateBuildId: async () => {

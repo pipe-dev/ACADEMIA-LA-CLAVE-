@@ -635,7 +635,8 @@ export function useKaraokeEngine({
     scoring.resetScoring();
     setCurrentTime(0);
 
-    // Al pulsar Replay siempre se entra con el micrófono activo
+    // Al pulsar Replay siempre se entra con el micrófono activo y audio pre-desbloqueado
+    vocalRemover.primeAudio?.();
     setIsMicEnabled(true);
     if (typeof window !== 'undefined') {
       localStorage.setItem('laclave_karaoke_mic_enabled', 'true');

@@ -32,6 +32,7 @@ export function useVocalRemover(initialVideoId?: string) {
   const [isFinished, setIsFinished] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const primedAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaElementSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const isUserPausedRef = useRef<boolean>(true);
@@ -220,6 +221,32 @@ export function useVocalRemover(initialVideoId?: string) {
     }
   }, []);
 
+  // Pre-desbloqueo inmediato de audio en el primer toque del usuario (anti-bloqueo Autoplay en iOS/Android)
+  const primeAudio = useCallback(() => {
+    isUserPausedRef.current = false;
+    isFinishedRef.current = false;
+
+    // Desbloquear AudioContext y silent mode del sistema operativo
+    audioService.unlockForMobileSilentMode();
+    const ctx = audioService.getPlaybackContext();
+    if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') {
+      ctx.resume().catch(() => {});
+    }
+
+    // Instanciar y desbloquear un elemento HTMLAudioElement dentro de la activación del gesto táctil
+    try {
+      const primed = new Audio();
+      primed.crossOrigin = "anonymous";
+      primed.preload = "auto";
+      primed.setAttribute('playsinline', 'true');
+      primed.setAttribute('webkit-playsinline', 'true');
+      primed.volume = 1.0;
+      primed.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      primed.play().catch(() => {});
+      primedAudioRef.current = primed;
+    } catch {}
+  }, []);
+
   const initAudio = useCallback(async (
     videoIdToUse?: string, 
     initialVocalLevel: number = 0, 
@@ -230,19 +257,26 @@ export function useVocalRemover(initialVideoId?: string) {
     if (!vid) return;
 
     destroy();
-    isUserPausedRef.current = !autoPlay;
+    isUserPausedRef.current = false;
     isFinishedRef.current = false;
 
     try {
       const audioUrl = `/api/yt-audio?videoId=${vid}`;
 
-      const audio = new Audio();
-      audio.crossOrigin = "anonymous";
-      audio.preload = "auto";
-      audio.setAttribute('playsinline', 'true');
-      audio.setAttribute('webkit-playsinline', 'true');
+      let audio: HTMLAudioElement;
+      if (primedAudioRef.current) {
+        audio = primedAudioRef.current;
+        primedAudioRef.current = null;
+        try { audio.pause(); } catch {}
+      } else {
+        audio = new Audio();
+        audio.crossOrigin = "anonymous";
+        audio.preload = "auto";
+        audio.setAttribute('playsinline', 'true');
+        audio.setAttribute('webkit-playsinline', 'true');
+        audio.volume = 1.0;
+      }
       audio.src = audioUrl;
-      audio.volume = 1.0;
       audioRef.current = audio;
 
       // Sincronizar audioSession en 'playback' (o 'auto' si el mic está activo)
@@ -537,6 +571,12 @@ export function useVocalRemover(initialVideoId?: string) {
         setIsPlaying(true);
         setIsFinished(false);
       });
+      audio.addEventListener('playing', () => {
+        if (audioRef.current !== audio) return;
+        isUserPausedRef.current = false;
+        setIsPlaying(true);
+        setIsFinished(false);
+      });
       audio.addEventListener('pause', () => {
         if (audioRef.current !== audio) return;
         // En iOS Safari, cuando el micrófono se activa con getUserMedia, el navegador
@@ -749,6 +789,7 @@ export function useVocalRemover(initialVideoId?: string) {
     getAudioContext,
     getTrackOutputGain,
     getBackingRms,
+    primeAudio,
     ensureContextActive,
     destroy, 
     isPlaying, 
