@@ -48,11 +48,11 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.68)\n\n`;
-out += `> **Versión**: v1.0.68  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.69)\n\n`;
+out += `> **Versión**: v1.0.69  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
-out += `> **Arquitectura de Audio**: Supresión acústica de sonidos de gamificación en el Flappy pato de Unit 4 para evitar falsos aleteos en el micrófono, silenciamiento por software del micrófono durante 2 segundos en notas de prueba del afinador, sincronización de buffer canplay/loadeddata en initAudio, limpieza CORS en Web Audio, refuerzo anti-ducking máster de 2.5x en altavoces, activación automática obligatoria de micrófono en Replay y nueva pista, filtro de medios vocales (110Hz HPF + 1000Hz Peaking EQ + 1800Hz LPF) exclusivo para puntuación sin alterar la grabación limpia, y tolerancia ampliada en lienzo poligráfico.\n\n`;
+out += `> **Arquitectura de Audio**: Auto-recuperación de AudioContext tras interrupción de WebKit/iOS ('interrupted' state), re-desbloqueo de interruptor de silencio físico en celular (mute switch) al volver de bloqueo de pantalla, preservación de tracks de micrófono en segundo plano sin destrucción prematura en pagehide, re-activación transparente de contexto de análisis (micCtx) y reproducción (playbackCtx).\n\n`;
 out += `---\n\n`;
 out += `## Índice General de Archivos\n\n`;
 out += `| N° | Categoría | Archivo | Líneas | Descripción |\n`;

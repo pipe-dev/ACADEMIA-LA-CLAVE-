@@ -786,6 +786,22 @@ export function useVocalRemover(initialVideoId?: string) {
     };
   }, []);
 
+  // Reanudar AudioContext y estado de audio al volver de pantalla bloqueada o segundo plano
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        const ctx = audioContextRef.current || audioService.getPlaybackContext();
+        if (ctx && (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted')) {
+          ctx.resume().catch(() => {});
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       destroy();

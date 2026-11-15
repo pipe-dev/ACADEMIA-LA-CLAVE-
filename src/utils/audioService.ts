@@ -34,6 +34,7 @@ class AudioService {
   private analyser: AnalyserNode | null = null;
   private isListening: boolean = false;
   private isPausedForPlayback: boolean = false;
+  private wasListeningBeforeSuspend: boolean = false;
   private lastPitchCallback: ((pitchHz: number, volume: number) => void) | null = null;
   private micSessionId: number = 0;
   private micPauseResumeTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -107,8 +108,18 @@ class AudioService {
         } catch {}
       }
 
+      // Al bloquear el teléfono o cambiar de app, no destruir el micrófono permanentemente;
+      // solo desactivar transmisión para ahorrar batería y re-desbloquear silencioso al volver
       window.addEventListener('pagehide', () => {
-        this.stopMicrophone(true);
+        this.isSilentUnlocked = false;
+        if (this.isListening) {
+          this.wasListeningBeforeSuspend = true;
+          if (this.micStream) {
+            this.micStream.getAudioTracks().forEach(t => {
+              try { t.enabled = false; } catch {}
+            });
+          }
+        }
       });
 
       // Mantener SIEMPRE activo un listener global de gestos de usuario (touchstart, click, pointerdown)
@@ -118,11 +129,29 @@ class AudioService {
         if (!this.isSilentUnlocked) {
           this.unlockForMobileSilentMode();
         }
-        if (!this.ctx || this.ctx.state === 'closed') {
-          this.initCtx();
+
+        const isPlaybackInterrupted = !!(this.ctx && (this.ctx.state as string) === 'interrupted');
+        if (!this.ctx || this.ctx.state === 'closed' || isPlaybackInterrupted) {
+          this.initCtx(isPlaybackInterrupted);
         } else if (this.ctx.state !== 'running') {
-          this.ctx.resume().catch(() => {});
+          this.ctx.resume().then(() => {
+            if (this.ctx && this.ctx.state !== 'running') {
+              this.initCtx(true);
+            }
+          }).catch(() => {
+            this.initCtx(true);
+          });
         }
+
+        if (this.micCtx && this.micCtx.state !== 'closed') {
+          const isMicInterrupted = (this.micCtx.state as string) === 'interrupted';
+          if (isMicInterrupted) {
+            this.getMicAnalysisContext();
+          } else if (this.micCtx.state !== 'running') {
+            this.micCtx.resume().catch(() => {});
+          }
+        }
+
         this.syncAudioSessionMode(this.isMicActive());
       };
 
@@ -132,19 +161,66 @@ class AudioService {
 
       const handleAppForeground = () => {
         this.syncAudioSessionMode(this.isMicActive());
-        if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
-          this.ctx.resume().catch(() => {});
+        if (this.ctx) {
+          const isInterrupted = (this.ctx.state as string) === 'interrupted';
+          if (isInterrupted) {
+            this.initCtx(true);
+          } else if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
+            this.ctx.resume().catch(() => {});
+          }
+        }
+        if (this.micCtx) {
+          const isMicInterrupted = (this.micCtx.state as string) === 'interrupted';
+          if (isMicInterrupted) {
+            this.getMicAnalysisContext();
+          } else if (this.micCtx.state !== 'running' && this.micCtx.state !== 'closed') {
+            this.micCtx.resume().catch(() => {});
+          }
         }
       };
 
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+        if (document.visibilityState === 'hidden') {
+          // El usuario apagó la pantalla, bloqueó el teléfono o minimizó la app
+          this.isSilentUnlocked = false; // Permite re-desbloquear la ruta multimedia al despertar
+          if (this.isListening) {
+            this.wasListeningBeforeSuspend = true;
+            if (this.micStream) {
+              this.micStream.getAudioTracks().forEach(t => {
+                try { t.enabled = false; } catch {}
+              });
+            }
+          }
+        } else if (document.visibilityState === 'visible') {
           handleAppForeground();
+          if (this.wasListeningBeforeSuspend && this.micStream) {
+            let hasLiveTracks = false;
+            this.micStream.getAudioTracks().forEach(t => {
+              if (t.readyState === 'live') {
+                try { t.enabled = true; } catch {}
+                hasLiveTracks = true;
+              }
+            });
+            if (!hasLiveTracks && this.lastPitchCallback) {
+              this.startMicrophone(this.lastPitchCallback).catch(() => {});
+            } else if (this.lastPitchCallback && !this.isPitchLoopRunning && this.isListening) {
+              this.detectPitchLoop(this.lastPitchCallback);
+            }
+          }
         }
       });
+
       window.addEventListener('pageshow', () => {
         handleAppForeground();
+        if (this.wasListeningBeforeSuspend && this.micStream) {
+          this.micStream.getAudioTracks().forEach(t => {
+            if (t.readyState === 'live') {
+              try { t.enabled = true; } catch {}
+            }
+          });
+        }
       });
+
       window.addEventListener('focus', () => {
         handleAppForeground();
       });
@@ -166,8 +242,9 @@ class AudioService {
     if (typeof window === 'undefined') return;
 
     if (this.isSilentUnlocked) {
-      if (!this.ctx || this.ctx.state === 'closed') {
-        this.initCtx();
+      const isInterrupted = !!(this.ctx && (this.ctx.state as string) === 'interrupted');
+      if (!this.ctx || this.ctx.state === 'closed' || isInterrupted) {
+        this.initCtx(isInterrupted);
       } else if (this.ctx && this.ctx.state !== 'running') {
         this.ctx.resume().catch(() => {});
       }
@@ -202,6 +279,7 @@ class AudioService {
         document.body.appendChild(el);
         this.unlockAudioEl = el;
       }
+      this.unlockAudioEl.currentTime = 0;
       this.unlockAudioEl.play().then(() => {
         if (this.unlockAudioEl) {
           this.unlockAudioEl.pause();
@@ -210,7 +288,11 @@ class AudioService {
     } catch {}
 
     // 4. Inicializar y desbloquear Web Audio Context mediante un buffer nativo inaudible de 1 muestra (CERO etiquetas <audio>)
-    if (!this.ctx || this.ctx.state === 'closed') {
+    const isInterrupted = this.ctx && (this.ctx.state as string) === 'interrupted';
+    if (!this.ctx || this.ctx.state === 'closed' || isInterrupted) {
+      if (this.ctx) {
+        try { this.ctx.close(); } catch {}
+      }
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         try {
@@ -238,11 +320,15 @@ class AudioService {
     }
   }
 
-  private initCtx() {
+  private initCtx(forceRecreate: boolean = false) {
     if (!this.isSilentUnlocked) {
       this.unlockForMobileSilentMode();
     }
-    if (!this.ctx || this.ctx.state === 'closed') {
+    const isInterrupted = this.ctx && (this.ctx.state as string) === 'interrupted';
+    if (forceRecreate || !this.ctx || this.ctx.state === 'closed' || isInterrupted) {
+      if (this.ctx) {
+        try { this.ctx.close(); } catch {}
+      }
       try {
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         try {
@@ -268,25 +354,22 @@ class AudioService {
   }
 
   public getPlaybackContext(): AudioContext {
-    this.initCtx();
-    if (!this.ctx || this.ctx.state === 'closed') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      try {
-        this.ctx = new AudioCtx({ latencyHint: 'playback' });
-      } catch {
-        this.ctx = new AudioCtx();
-      }
-      this.synthCompressor = null;
-      this.activeFrequencyNodes = null;
+    const isInterrupted = !!(this.ctx && (this.ctx.state as string) === 'interrupted');
+    if (!this.ctx || this.ctx.state === 'closed' || isInterrupted) {
+      this.initCtx(isInterrupted);
     }
     if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
       this.ctx.resume().catch(() => {});
     }
-    return this.ctx;
+    return this.ctx!;
   }
 
   public getMicAnalysisContext(): AudioContext {
-    if (!this.micCtx || this.micCtx.state === 'closed') {
+    const isInterrupted = this.micCtx && (this.micCtx.state as string) === 'interrupted';
+    if (!this.micCtx || this.micCtx.state === 'closed' || isInterrupted) {
+      if (this.micCtx) {
+        try { this.micCtx.close(); } catch {}
+      }
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       try {
         this.micCtx = new AudioCtx({ latencyHint: 'interactive' });
@@ -298,7 +381,7 @@ class AudioService {
     if (this.micCtx && this.micCtx.state !== 'running' && this.micCtx.state !== 'closed') {
       this.micCtx.resume().catch(() => {});
     }
-    return this.micCtx;
+    return this.micCtx!;
   }
 
   public getSharedContext(): AudioContext {
@@ -639,10 +722,18 @@ class AudioService {
         scheduleTone();
       } else {
         this.ctx.resume().then(() => {
+          if (this.ctx && this.ctx.state !== 'running') {
+            this.initCtx(true);
+          }
           if (requestId === this.currentPlayRequestId) {
             scheduleTone();
           }
-        }).catch(() => {});
+        }).catch(() => {
+          this.initCtx(true);
+          if (requestId === this.currentPlayRequestId) {
+            scheduleTone();
+          }
+        });
       }
     } catch (e) {
       console.warn('Audio playback not allowed yet or failed', e);
@@ -1806,6 +1897,7 @@ class AudioService {
     this.micSessionId++;
     this.isListening = false;
     this.isPausedForPlayback = false;
+    this.wasListeningBeforeSuspend = false;
 
     if (this.micPauseResumeTimeoutId) {
       clearTimeout(this.micPauseResumeTimeoutId);

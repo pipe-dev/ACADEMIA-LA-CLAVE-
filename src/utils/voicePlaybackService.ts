@@ -162,7 +162,7 @@ export class VoicePlaybackService {
     // Detener de inmediato cualquier nota anterior
     this.stopActiveSound();
 
-    const ctx = this.getAudioContext();
+    let ctx = this.getAudioContext();
     if (!ctx) return;
 
     // 2. Si el contexto no está corriendo (suspended o interrupted), esperar al resume sin bloquear notas posteriores
@@ -170,6 +170,14 @@ export class VoicePlaybackService {
       try {
         await ctx.resume();
       } catch {}
+      // Si el contexto sigue sin estar 'running' (ej. 'interrupted' en iOS Safari tras apagar pantalla),
+      // forzar recreación de un AudioContext nuevo y activo a través de audioService
+      if ((ctx.state as string) !== 'running') {
+        const freshCtx = audioService.getPlaybackContext();
+        if (freshCtx) {
+          ctx = freshCtx;
+        }
+      }
       // Descartar si el usuario pulsó otra tecla mientras el hardware despertaba
       if (requestId !== this.currentPlayRequestId) return;
     }

@@ -199,7 +199,7 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
     }
 
     if (isAsmrSilentUnlocked) {
-      if (ctx && ctx.state === 'suspended') {
+      if (ctx && (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted')) {
         ctx.resume().catch(() => {});
       }
       return;
@@ -207,7 +207,7 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
     isAsmrSilentUnlocked = true;
 
     if (ctx) {
-      if (ctx.state === 'suspended') {
+      if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') {
         ctx.resume().catch(() => {});
       }
       unlockWebAudio(ctx);
@@ -219,7 +219,7 @@ function activatePlaybackCategory(ctx?: AudioContext | null) {
 export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   const ctx = audioService.getSharedContext();
-  if (ctx && ctx.state === 'suspended') {
+  if (ctx && (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted')) {
     ctx.resume().catch(() => {});
   }
   activatePlaybackCategory(ctx);
@@ -248,7 +248,7 @@ export function runWithAudioContext(callback: (ctx: AudioContext) => void) {
 if (typeof window !== 'undefined') {
   const forceAudioActive = () => {
     const ctx = getSharedAudioContext();
-    if (ctx && ctx.state === 'suspended') {
+    if (ctx && (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted')) {
       ctx.resume().catch(() => {});
     }
     activatePlaybackCategory(ctx);
@@ -261,6 +261,8 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       forceAudioActive();
+    } else if (document.visibilityState === 'hidden') {
+      isAsmrSilentUnlocked = false;
     }
   });
 }

@@ -50,7 +50,7 @@ let ambient: {
 const graph = () => {
   const ctx = audioService.getAudioContext();
   if (!ctx) return null;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') ctx.resume().catch(() => {});
   if (!master || master.context !== ctx) {
     noiseBuf = null;
     outGain = ctx.createGain();
