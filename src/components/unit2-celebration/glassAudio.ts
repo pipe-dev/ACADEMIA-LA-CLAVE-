@@ -7,7 +7,7 @@ export const playGlassShatterSound = () => {
   try {
     const ctx = audioService.getAudioContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') {
+    if (ctx.state !== 'running' && ctx.state !== 'closed') {
       ctx.resume().catch(() => {});
     }
     const now = ctx.currentTime;
@@ -70,7 +70,7 @@ export const playCrystalChime = () => {
   try {
     const ctx = audioService.getAudioContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') {
+    if (ctx.state !== 'running' && ctx.state !== 'closed') {
       ctx.resume().catch(() => {});
     }
     const now = ctx.currentTime;
@@ -123,7 +123,7 @@ export const playGlassLandingSound = () => {
   try {
     const ctx = audioService.getAudioContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') {
+    if (ctx.state !== 'running' && ctx.state !== 'closed') {
       ctx.resume().catch(() => {});
     }
     const now = ctx.currentTime;

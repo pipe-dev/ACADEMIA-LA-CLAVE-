@@ -33,6 +33,7 @@ export * from './vocalNotePool';
 export class VoicePlaybackService {
   private static instance: VoicePlaybackService;
   private bufferCache: Map<string, AudioBuffer> = new Map();
+  private lastAudioContext: AudioContext | null = null;
   private currentBufferSource: AudioBufferSourceNode | null = null;
   private currentGainNode: GainNode | null = null;
   private currentPresencePeaking: BiquadFilterNode | null = null;
@@ -74,6 +75,10 @@ export class VoicePlaybackService {
     return audioService.getAudioContext();
   }
 
+  public clearCache(): void {
+    this.bufferCache.clear();
+  }
+
   public stopActiveSound(): void {
     const ctx = this.getAudioContext();
     if (this.currentGainNode && ctx) {
@@ -107,6 +112,11 @@ export class VoicePlaybackService {
     if (typeof window === 'undefined') return;
     const ctx = this.getAudioContext();
     if (!ctx) return;
+
+    if (this.lastAudioContext && this.lastAudioContext !== ctx) {
+      this.bufferCache.clear();
+    }
+    this.lastAudioContext = ctx;
 
     const keysToPreload = gender === 'masculino'
       ? [
@@ -165,19 +175,16 @@ export class VoicePlaybackService {
     let ctx = this.getAudioContext();
     if (!ctx) return;
 
+    if (this.lastAudioContext && this.lastAudioContext !== ctx) {
+      this.bufferCache.clear();
+    }
+    this.lastAudioContext = ctx;
+
     // 2. Si el contexto no está corriendo (suspended o interrupted), esperar al resume sin bloquear notas posteriores
     if (ctx.state !== 'running' && ctx.state !== 'closed') {
       try {
         await ctx.resume();
       } catch {}
-      // Si el contexto sigue sin estar 'running' (ej. 'interrupted' en iOS Safari tras apagar pantalla),
-      // forzar recreación de un AudioContext nuevo y activo a través de audioService
-      if ((ctx.state as string) !== 'running') {
-        const freshCtx = audioService.getPlaybackContext();
-        if (freshCtx) {
-          ctx = freshCtx;
-        }
-      }
       // Descartar si el usuario pulsó otra tecla mientras el hardware despertaba
       if (requestId !== this.currentPlayRequestId) return;
     }
@@ -287,6 +294,8 @@ export class VoicePlaybackService {
         return;
       } catch (err) {
         console.warn('[VoicePlayback] Error starting audio buffer playback:', err);
+        // Si el buffer quedó corrupto o atado a un contexto antiguo, descartarlo de la caché
+        this.bufferCache.delete(audioKey);
       }
     }
 
@@ -301,7 +310,7 @@ export class VoicePlaybackService {
   public playKick(time?: number): void {
     const ctx = this.getAudioContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {});
     const t = time ?? ctx.currentTime;
 
     const osc = ctx.createOscillator();
@@ -328,7 +337,7 @@ export class VoicePlaybackService {
   public playClap(time?: number): void {
     const ctx = this.getAudioContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {});
     const t = time ?? ctx.currentTime;
 
     const bufferSize = ctx.sampleRate * 0.15;
@@ -366,7 +375,7 @@ export class VoicePlaybackService {
   public playMetronomeTick(time?: number): void {
     const ctx = this.getAudioContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {});
     const t = time ?? ctx.currentTime;
 
     const osc = ctx.createOscillator();
@@ -388,7 +397,7 @@ export class VoicePlaybackService {
   public playCompletionChime(): void {
     const ctx = this.getAudioContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {});
     const t = ctx.currentTime;
 
     const notes = [1046.5, 1318.51]; // C6, E6

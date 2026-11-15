@@ -123,33 +123,21 @@ class AudioService {
       });
 
       // Mantener SIEMPRE activo un listener global de gestos de usuario (touchstart, click, pointerdown)
-      // para reanimar el AudioContext o recrearlo si el sistema operativo lo suspendió/interrumpió al salir y volver a la app.
+      // para reanimar el AudioContext si el sistema operativo lo suspendió/interrumpió al salir y volver a la app.
       const USER_EVENTS = ['touchstart', 'touchend', 'click', 'mousedown', 'keydown', 'pointerdown'];
       const resumeAudioOnGesture = () => {
-        if (!this.isSilentUnlocked) {
+        if (!this.isSilentUnlocked || (this.unlockAudioEl && this.unlockAudioEl.paused)) {
           this.unlockForMobileSilentMode();
         }
 
-        const isPlaybackInterrupted = !!(this.ctx && (this.ctx.state as string) === 'interrupted');
-        if (!this.ctx || this.ctx.state === 'closed' || isPlaybackInterrupted) {
-          this.initCtx(isPlaybackInterrupted);
+        if (!this.ctx || this.ctx.state === 'closed') {
+          this.initCtx();
         } else if (this.ctx.state !== 'running') {
-          this.ctx.resume().then(() => {
-            if (this.ctx && this.ctx.state !== 'running') {
-              this.initCtx(true);
-            }
-          }).catch(() => {
-            this.initCtx(true);
-          });
+          this.ctx.resume().catch(() => {});
         }
 
-        if (this.micCtx && this.micCtx.state !== 'closed') {
-          const isMicInterrupted = (this.micCtx.state as string) === 'interrupted';
-          if (isMicInterrupted) {
-            this.getMicAnalysisContext();
-          } else if (this.micCtx.state !== 'running') {
-            this.micCtx.resume().catch(() => {});
-          }
+        if (this.micCtx && this.micCtx.state !== 'closed' && this.micCtx.state !== 'running') {
+          this.micCtx.resume().catch(() => {});
         }
 
         this.syncAudioSessionMode(this.isMicActive());
@@ -161,21 +149,11 @@ class AudioService {
 
       const handleAppForeground = () => {
         this.syncAudioSessionMode(this.isMicActive());
-        if (this.ctx) {
-          const isInterrupted = (this.ctx.state as string) === 'interrupted';
-          if (isInterrupted) {
-            this.initCtx(true);
-          } else if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
-            this.ctx.resume().catch(() => {});
-          }
+        if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
+          this.ctx.resume().catch(() => {});
         }
-        if (this.micCtx) {
-          const isMicInterrupted = (this.micCtx.state as string) === 'interrupted';
-          if (isMicInterrupted) {
-            this.getMicAnalysisContext();
-          } else if (this.micCtx.state !== 'running' && this.micCtx.state !== 'closed') {
-            this.micCtx.resume().catch(() => {});
-          }
+        if (this.micCtx && this.micCtx.state !== 'running' && this.micCtx.state !== 'closed') {
+          this.micCtx.resume().catch(() => {});
         }
       };
 
@@ -241,17 +219,6 @@ class AudioService {
   public unlockForMobileSilentMode() {
     if (typeof window === 'undefined') return;
 
-    if (this.isSilentUnlocked) {
-      const isInterrupted = !!(this.ctx && (this.ctx.state as string) === 'interrupted');
-      if (!this.ctx || this.ctx.state === 'closed' || isInterrupted) {
-        this.initCtx(isInterrupted);
-      } else if (this.ctx && this.ctx.state !== 'running') {
-        this.ctx.resume().catch(() => {});
-      }
-      return;
-    }
-    this.isSilentUnlocked = true;
-
     // 1. Audio Session: 'playback' para ignorar el botón físico de silencio y sonar al 100% de calidad
     this.syncAudioSessionMode(this.isMicActive());
 
@@ -265,34 +232,33 @@ class AudioService {
       } catch {}
     }
 
-    // 3. Reproducir pulso inaudible createSilentWav() en <audio playsinline> para forzar la ruta multimedia
-    // en iOS Safari incluso cuando el interruptor físico de silencio (mute switch) esté activado.
+    // 3. Reproducir pulso inaudible createSilentWav() en <audio playsinline loop> para forzar la ruta multimedia
+    // en iOS Safari permanentemente incluso cuando el interruptor físico de silencio (mute switch) esté activado.
     try {
       if (!this.unlockAudioEl) {
         const el = document.createElement('audio');
         el.setAttribute('playsinline', 'true');
         el.setAttribute('webkit-playsinline', 'true');
+        el.setAttribute('x-webkit-airplay', 'deny');
         el.preload = 'auto';
+        el.loop = true;
         el.src = createSilentWav(44100);
         el.volume = 0.001;
         el.style.display = 'none';
         document.body.appendChild(el);
         this.unlockAudioEl = el;
       }
-      this.unlockAudioEl.currentTime = 0;
-      this.unlockAudioEl.play().then(() => {
-        if (this.unlockAudioEl) {
-          this.unlockAudioEl.pause();
-        }
-      }).catch(() => {});
+      if (this.unlockAudioEl.paused) {
+        this.unlockAudioEl.play().then(() => {
+          this.isSilentUnlocked = true;
+        }).catch(() => {
+          this.isSilentUnlocked = false;
+        });
+      }
     } catch {}
 
-    // 4. Inicializar y desbloquear Web Audio Context mediante un buffer nativo inaudible de 1 muestra (CERO etiquetas <audio>)
-    const isInterrupted = this.ctx && (this.ctx.state as string) === 'interrupted';
-    if (!this.ctx || this.ctx.state === 'closed' || isInterrupted) {
-      if (this.ctx) {
-        try { this.ctx.close(); } catch {}
-      }
+    // 4. Inicializar y reactivar Web Audio Context mediante un buffer nativo inaudible de 1 muestra (CERO etiquetas <audio>)
+    if (!this.ctx || this.ctx.state === 'closed') {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         try {
@@ -324,8 +290,7 @@ class AudioService {
     if (!this.isSilentUnlocked) {
       this.unlockForMobileSilentMode();
     }
-    const isInterrupted = this.ctx && (this.ctx.state as string) === 'interrupted';
-    if (forceRecreate || !this.ctx || this.ctx.state === 'closed' || isInterrupted) {
+    if (forceRecreate || !this.ctx || this.ctx.state === 'closed') {
       if (this.ctx) {
         try { this.ctx.close(); } catch {}
       }
@@ -354,9 +319,8 @@ class AudioService {
   }
 
   public getPlaybackContext(): AudioContext {
-    const isInterrupted = !!(this.ctx && (this.ctx.state as string) === 'interrupted');
-    if (!this.ctx || this.ctx.state === 'closed' || isInterrupted) {
-      this.initCtx(isInterrupted);
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.initCtx();
     }
     if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
       this.ctx.resume().catch(() => {});
@@ -365,11 +329,7 @@ class AudioService {
   }
 
   public getMicAnalysisContext(): AudioContext {
-    const isInterrupted = this.micCtx && (this.micCtx.state as string) === 'interrupted';
-    if (!this.micCtx || this.micCtx.state === 'closed' || isInterrupted) {
-      if (this.micCtx) {
-        try { this.micCtx.close(); } catch {}
-      }
+    if (!this.micCtx || this.micCtx.state === 'closed') {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       try {
         this.micCtx = new AudioCtx({ latencyHint: 'interactive' });
@@ -722,14 +682,10 @@ class AudioService {
         scheduleTone();
       } else {
         this.ctx.resume().then(() => {
-          if (this.ctx && this.ctx.state !== 'running') {
-            this.initCtx(true);
-          }
           if (requestId === this.currentPlayRequestId) {
             scheduleTone();
           }
         }).catch(() => {
-          this.initCtx(true);
           if (requestId === this.currentPlayRequestId) {
             scheduleTone();
           }

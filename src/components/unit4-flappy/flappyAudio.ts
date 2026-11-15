@@ -67,7 +67,7 @@ const graph = () => {
 /** Desbloqueo directo en primer gesto táctil para Safari iOS y Chrome Android */
 export const unlockFlappyAudio = () => {
   const ctx = audioService.getAudioContext();
-  if (ctx && ctx.state === 'suspended') {
+  if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') {
     ctx.resume().catch(() => {});
   }
 };

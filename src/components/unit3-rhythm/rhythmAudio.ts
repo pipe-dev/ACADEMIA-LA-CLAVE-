@@ -16,7 +16,7 @@ function getContext(): AudioContext | null {
       audioCtx = new AudioContextClass();
     }
   }
-  if (audioCtx && audioCtx.state === 'suspended') {
+  if (audioCtx && audioCtx.state !== 'running' && audioCtx.state !== 'closed') {
     audioCtx.resume().catch(() => {});
   }
   return audioCtx;
