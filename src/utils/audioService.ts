@@ -628,7 +628,7 @@ class AudioService {
 
         const isHeadphones = this.isUsingHeadphones();
         const isMicActiveNow = this.isMicActive() || this.isListening;
-        const micBoost = isHeadphones ? 1.0 : (isMicActiveNow ? 1.85 : 0.75);
+        const micBoost = isHeadphones ? 1.0 : (isMicActiveNow ? 3.0 : 2.0);
 
         // 2. Compresor/Limitador del sintetizador transparente en -0.5 dB (audífonos/modo directo) o -0.1 dB (altavoces)
         if (!this.synthCompressor) {

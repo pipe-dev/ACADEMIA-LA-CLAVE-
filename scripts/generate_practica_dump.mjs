@@ -48,8 +48,8 @@ const processedFiles = FILES.map((f, idx) => {
   };
 });
 
-let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.70)\n\n`;
-out += `> **Versión**: v1.0.70  \n`;
+let out = `# Código Fuente Completo: Módulo de Práctica y Karaoke (AfinApp v1.0.71)\n\n`;
+out += `> **Versión**: v1.0.71  \n`;
 out += `> **Fecha de Exportación**: Noviembre 2026  \n`;
 out += `> **Entorno**: Google Antigravity & Next.js 16 (Turbopack) / Cloudflare Workers  \n`;
 out += `> **Arquitectura de Audio**: Auto-recuperación de AudioContext tras interrupción de WebKit/iOS ('interrupted' state), re-desbloqueo de interruptor de silencio físico en celular (mute switch) al volver de bloqueo de pantalla, preservación de tracks de micrófono en segundo plano sin destrucción prematura en pagehide, re-activación transparente de contexto de análisis (micCtx) y reproducción (playbackCtx).\n\n`;
